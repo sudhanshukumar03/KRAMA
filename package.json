@@ -1,0 +1,13 @@
+{
+  "name": "krama",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev:client": "npm run dev -w client",
+    "dev:server": "npm run dev -w server",
+    "dev": "npm run dev:client & npm run dev:server"
+  }
+}
