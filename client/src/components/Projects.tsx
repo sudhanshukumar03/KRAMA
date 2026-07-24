@@ -10,8 +10,9 @@ export function Projects() {
   const { data: projects = [], isLoading: pLoading } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
   const { data: issues = [], isLoading: iLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
   const { data: pages = [], isLoading: docLoading } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
+  const { data: sprints = [], isLoading: sLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
 
-  if (pLoading || iLoading || docLoading) return <div className="p-8 text-[#6B7280]">Loading projects...</div>;
+  if (pLoading || iLoading || docLoading || sLoading) return <div className="p-8 text-[#6B7280]">Loading projects...</div>;
 
   const statuses = ['active', 'idea', 'paused', 'shipped'];
 
@@ -48,32 +49,57 @@ export function Projects() {
               
               <div className="flex flex-col gap-3">
                 {statusProjects.map(project => {
-                  const projectIssues = issues.filter(i => i.projectId === project.id && i.status !== 'done');
+                  const projectIssues = issues.filter(i => i.projectId === project.id);
                   const projectDocs = pages.filter(p => p.linkedProjectId === project.id);
+                  const projectSprints = sprints.filter(s => s.projectId === project.id);
+                  
+                  const completedIssues = projectIssues.filter(i => i.status === 'done' || i.status === 'released').length;
+                  const totalIssues = projectIssues.length;
+                  const progressPct = totalIssues > 0 ? (completedIssues / totalIssues) * 100 : 0;
+
                   return (
                     <div 
                       key={project.id} 
                       onClick={() => navigate(`/app/projects/${project.id}`)}
-                      className="bg-white border border-[#E5E7EB] rounded-xl p-5 hover:bg-[#F3F4F6] transition-colors cursor-pointer group"
+                      className="bg-white border border-[#E5E7EB] rounded-xl p-5 hover:bg-[#F3F4F6] transition-colors cursor-pointer group flex flex-col h-[280px]"
                     >
                       <div className="flex items-start justify-between mb-3">
-                        <h3 className="font-bold text-[#0A0A0A]">
+                        <h3 className="font-bold text-[#0A0A0A] line-clamp-1">
                           {project.name}
                         </h3>
-                        <FolderKanban className="w-4 h-4 text-[#9CA3AF]" />
+                        <FolderKanban className="w-4 h-4 text-[#9CA3AF] shrink-0" />
                       </div>
                       
                       {project.problemStatement && (
-                        <p className="text-sm text-[#6B7280] mb-4 line-clamp-2 leading-relaxed">
+                        <p className="text-sm text-[#6B7280] mb-3 line-clamp-2 leading-relaxed">
                           {project.problemStatement}
                         </p>
                       )}
                       
-                      <div className="text-xs font-bold text-[#6B7280] mb-4">
-                        {projectIssues.length} open issues · {projectDocs.length} docs
+                      {/* Compact Stat Row */}
+                      <div className="text-xs font-bold text-[#6B7280] mb-auto flex items-center gap-2">
+                        <span>{projectIssues.length} Issues</span>
+                        <span className="text-[#E5E7EB] font-light">|</span>
+                        <span>{projectDocs.length} Docs</span>
+                        <span className="text-[#E5E7EB] font-light">|</span>
+                        <span>{projectSprints.length} Sprint{projectSprints.length !== 1 && 's'}</span>
                       </div>
 
-                      <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] mt-auto">
+                      {/* Health / Progress Bar */}
+                      <div className="mt-4 mb-4">
+                        <div className="flex justify-between items-center mb-1.5 text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">
+                          <span>Health</span>
+                          <span>{Math.round(progressPct)}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-[#E5E7EB] rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-[#0A0A0A] transition-all duration-300"
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] pt-2 border-t border-[#E5E7EB] border-dashed">
                         {project.goalId && (
                           <div 
                             onClick={(e) => { e.stopPropagation(); navigate('/app/goals'); }}

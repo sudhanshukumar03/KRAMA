@@ -6,7 +6,7 @@ import { EmptyState } from './ui/EmptyState';
 import { cn } from '../lib/utils';
 import type { GoalWithRelations } from '../types/schema';
 
-type GoalPace = {
+export type GoalPace = {
   status: 'completed' | 'unknown' | 'on_track' | 'behind' | 'stalled' | 'ahead' | 'past_due';
   requiredPace: number;
   actualPace: number;
@@ -16,7 +16,7 @@ type GoalPace = {
 };
 
 // Helper to compute pace
-function computeGoalPace(goal: GoalWithRelations): GoalPace {
+export function computeGoalPace(goal: GoalWithRelations): GoalPace {
   if (goal.progress >= 100) {
     return { status: 'completed', requiredPace: 0, actualPace: 0, badge: 'Completed', projectedDate: null, daysRemaining: 0 };
   }

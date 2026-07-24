@@ -10,6 +10,7 @@ import { SprintView } from './SprintView';
 import { DailyReview } from './DailyReview';
 import { ProjectDetail } from './ProjectDetail';
 import { WeeklyPlanner } from './WeeklyPlanner';
+import { TimelineView } from './TimelineView';
 
 export function AppShell() {
   return (
@@ -26,6 +27,7 @@ export function AppShell() {
           <Route path="/board/*" element={<KanbanBoard />} />
           <Route path="/sprint/*" element={<SprintView />} />
           <Route path="/planner/*" element={<WeeklyPlanner />} />
+          <Route path="/timeline/*" element={<TimelineView />} />
           <Route path="/review/*" element={<DailyReview />} />
         </Routes>
       </main>

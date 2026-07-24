@@ -5,10 +5,11 @@ import {
   Target, 
   FolderKanban,
   KanbanSquare,
-  Clock,
   CalendarCheck,
   Search,
-  Calendar
+  Calendar,
+  Clock,
+  Clock4
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -21,6 +22,7 @@ const navItems = [
 
 const executionItems = [
   { name: 'Weekly Planner', path: '/app/planner', icon: Calendar },
+  { name: 'Timeline', path: '/app/timeline', icon: Clock4 },
   { name: 'Kanban Board', path: '/app/board', icon: KanbanSquare },
   { name: 'Sprint View', path: '/app/sprint', icon: Clock },
   { name: 'Daily Review', path: '/app/review', icon: CalendarCheck },
