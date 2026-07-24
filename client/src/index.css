@@ -2,5 +2,23 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --color-accent: #3b82f6; /* A nice blue for our accent color */
+  --font-sans: "Cabinet Grotesk", "General Sans", ui-sans-serif, system-ui, sans-serif;
+  
+  /* Required custom transition durations */
+  --default-transition-duration: 150ms;
+  --transition-duration-100: 100ms;
+  --transition-duration-120: 120ms;
+  --transition-duration-150: 150ms;
+  --transition-duration-180: 180ms;
+  --transition-duration-400: 400ms;
+  
+  --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-timing-function-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --transition-timing-function-ease-out: cubic-bezier(0, 0, 0.2, 1);
+}
+
+@layer base {
+  body {
+    @apply bg-white text-[#0A0A0A] font-sans antialiased selection:bg-black/10 selection:text-black;
+  }
 }
