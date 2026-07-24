@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { ChevronLeft, ChevronRight, CheckSquare, Target, Activity } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckSquare, Target } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { cn } from '../lib/utils';
 
@@ -53,14 +53,14 @@ export function WeeklyPlanner() {
     <div className="flex flex-col h-full bg-white animate-in fade-in duration-150">
       
       {/* Header & Weekly Rollup */}
-      <div className="px-8 pt-8 pb-6 border-b border-[#E5E7EB] bg-[#FAFAFA]">
+      <div className="px-8 pt-8 pb-6 bg-[#FAFAFA]">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-bold tracking-tight text-[#0A0A0A]">Weekly Planner</h1>
             <div className="flex items-center gap-1 bg-white border border-[#E5E7EB] rounded-lg p-1">
-              <button onClick={() => navigateWeek(-1)} className="p-1 hover:bg-[#F3F4F6] rounded"><ChevronLeft className="w-4 h-4" /></button>
+              <button onClick={() => navigateWeek(-1)} className="p-1 hover:bg-[#F3F4F6] transition-colors rounded"><ChevronLeft className="w-4 h-4" /></button>
               <span className="text-sm font-bold px-2">{weekDays[0].toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - {weekDays[6].toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-              <button onClick={() => navigateWeek(1)} className="p-1 hover:bg-[#F3F4F6] rounded"><ChevronRight className="w-4 h-4" /></button>
+              <button onClick={() => navigateWeek(1)} className="p-1 hover:bg-[#F3F4F6] transition-colors rounded"><ChevronRight className="w-4 h-4" /></button>
             </div>
           </div>
           <BaseButton>Plan Week</BaseButton>
@@ -85,90 +85,106 @@ export function WeeklyPlanner() {
         </div>
       </div>
 
-      {/* 7-Column Grid */}
-      <div className="flex-1 overflow-x-auto p-6">
-        <div className="flex gap-4 min-w-max h-full">
-          {weekDays.map(day => {
-            const isToday = isSameDay(day, new Date());
-            
-            // Data for this day
-            const dayIssues = issues.filter(i => i.dueDate && isSameDay(new Date(i.dueDate), day));
-            const dayLog = logs.find(l => isSameDay(new Date(l.date), day));
-            
-            return (
-              <div key={day.toISOString()} className={cn(
-                "w-[300px] flex-shrink-0 flex flex-col rounded-xl border h-full bg-[#FAFAFA]",
-                isToday ? "border-[#0A0A0A] ring-1 ring-[#0A0A0A]" : "border-[#E5E7EB]"
-              )}>
-                {/* Day Header */}
-                <div className="px-4 py-3 border-b border-[#E5E7EB] bg-white rounded-t-xl flex justify-between items-center">
-                  <div>
-                    <div className={cn("text-xs font-bold uppercase tracking-wider", isToday ? "text-[#0A0A0A]" : "text-[#6B7280]")}>
-                      {day.toLocaleDateString('en-US', { weekday: 'long' })}
-                    </div>
-                    <div className="text-lg font-bold text-[#0A0A0A] leading-none mt-1">
-                      {day.getDate()}
-                    </div>
+      {/* 7-Column Grid (One continuous surface) */}
+      <div className="flex-1 overflow-x-auto p-6 bg-white">
+        <div className="min-w-max h-full border border-[#E5E7EB] rounded-xl bg-white shadow-sm flex flex-col overflow-hidden">
+          
+          {/* Continuous Header Band */}
+          <div className="flex bg-[#FAFAFA] border-b border-[#E5E7EB]">
+            {weekDays.map((day, index) => {
+              const isToday = isSameDay(day, new Date());
+              return (
+                <div 
+                  key={`header-${index}`} 
+                  className={cn(
+                    "w-[260px] flex-shrink-0 px-3 py-2",
+                    index !== 6 && "border-r border-[#E5E7EB]",
+                    isToday ? "border-t-2 border-t-[#0A0A0A]" : "border-t-2 border-t-transparent"
+                  )}
+                >
+                  <div className={cn("text-[10px] font-bold uppercase tracking-wider", isToday ? "text-[#0A0A0A]" : "text-[#6B7280]")}>
+                    {day.toLocaleDateString('en-US', { weekday: 'long' })}
                   </div>
-                  {isToday && <span className="bg-[#0A0A0A] text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">Today</span>}
+                  <div className={cn("text-sm font-bold mt-0.5", isToday ? "text-[#0A0A0A]" : "text-[#0A0A0A]")}>
+                    {day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </div>
                 </div>
+              );
+            })}
+          </div>
 
-                <div className="flex-1 p-3 space-y-4 overflow-y-auto">
-                  
+          {/* Grid Body */}
+          <div className="flex flex-1">
+            {weekDays.map((day, index) => {
+              const isToday = isSameDay(day, new Date());
+              
+              // Data for this day
+              const dayIssues = issues.filter(i => i.dueDate && isSameDay(new Date(i.dueDate), day));
+              const dayLog = logs.find(l => isSameDay(new Date(l.date), day));
+              
+              const isEmpty = !isToday && dayIssues.length === 0 && (!dayLog || dayLog.deepWorkMinutes === 0);
+
+              return (
+                <div 
+                  key={`body-${index}`} 
+                  className={cn(
+                    "w-[260px] flex-shrink-0 p-2 flex flex-col gap-2",
+                    index !== 6 && "border-r border-[#E5E7EB]",
+                  )}
+                >
+                  {isEmpty && (
+                    <div className="mt-4 text-center">
+                      <div className="h-px bg-[#E5E7EB] w-8 mx-auto mb-2"></div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF]">Nothing scheduled</span>
+                    </div>
+                  )}
+
                   {/* Habits */}
                   {isToday && habits.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">Habits</div>
+                    <div className="space-y-1 mb-2">
                       {habits.map(h => (
-                        <div key={h.id} className="flex items-center gap-2 p-2 rounded-lg bg-white border border-[#E5E7EB]">
-                          <input type="checkbox" className="rounded text-[#0A0A0A] focus:ring-[#0A0A0A]" />
-                          <span className="text-sm font-medium text-[#0A0A0A]">{h.name}</span>
+                        <div key={h.id} className="flex items-center gap-2 py-1 px-1">
+                          <input type="checkbox" className="rounded text-[#0A0A0A] focus:ring-[#0A0A0A] w-3 h-3" />
+                          <span className="text-xs font-medium text-[#0A0A0A]">{h.name}</span>
                         </div>
                       ))}
                     </div>
                   )}
 
                   {/* Issues */}
-                  <div className="space-y-2">
-                    <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider flex justify-between">
-                      <span>Scheduled Work</span>
-                      <span>{dayIssues.length}</span>
+                  {dayIssues.length > 0 && (
+                    <div className="space-y-1.5">
+                      {dayIssues.map(issue => {
+                        const proj = projects.find(p => p.id === issue.projectId);
+                        return (
+                          <div key={issue.id} className="p-2 rounded bg-white border border-[#E5E7EB] shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-200">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#0A0A0A]"></span>
+                                {proj?.name.substring(0, 12) || 'No Project'}
+                              </div>
+                              {issue.priority === 'urgent' && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626]"></span>
+                              )}
+                            </div>
+                            <div className="font-bold text-[#0A0A0A] text-xs leading-tight line-clamp-2">{issue.title}</div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    {dayIssues.map(issue => {
-                      const proj = projects.find(p => p.id === issue.projectId);
-                      return (
-                        <div key={issue.id} className="p-3 rounded-lg bg-white border border-[#E5E7EB] shadow-sm">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] mb-1 flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-[#0A0A0A]"></span>
-                            {proj?.name || 'No Project'}
-                          </div>
-                          <div className="font-bold text-[#0A0A0A] text-sm leading-tight mb-2">{issue.title}</div>
-                          <div className="flex items-center justify-between">
-                            <span className={cn(
-                              "text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border",
-                              issue.status === 'done' ? "bg-[#F3F4F6] text-[#6B7280] border-[#E5E7EB]" : "bg-white text-[#0A0A0A] border-[#0A0A0A]"
-                            )}>
-                              {issue.status.replace('_', ' ')}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  )}
 
                   {/* Deep Work Log */}
                   {dayLog && dayLog.deepWorkMinutes > 0 && (
-                    <div className="mt-auto pt-4">
-                      <div className="flex items-center gap-2 p-2 rounded-lg bg-[#F3F4F6] text-[#6B7280] border border-[#E5E7EB] text-xs font-bold uppercase tracking-wider">
-                        <Activity className="w-3.5 h-3.5 text-[#0A0A0A]" />
-                        {Math.floor(dayLog.deepWorkMinutes / 60)}h {dayLog.deepWorkMinutes % 60}m deep work
-                      </div>
+                    <div className="mt-1 text-[10px] font-bold text-[#6B7280] uppercase tracking-wider flex items-center gap-1">
+                      🧠 {Math.floor(dayLog.deepWorkMinutes / 60)}h {dayLog.deepWorkMinutes % 60}m logged
                     </div>
                   )}
+
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

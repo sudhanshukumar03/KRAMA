@@ -2,6 +2,32 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { CalendarCheck, Save, Brain, Zap, Smile } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
+import { cn } from '../lib/utils';
+
+function getEnergyIndicator(energy?: string | null) {
+  if (!energy) return null;
+  const level = energy.toLowerCase();
+  const segments = level === 'high' ? 3 : level === 'medium' ? 2 : level === 'low' ? 1 : 0;
+  if (!segments) return null;
+  return (
+    <div className="flex gap-1 mt-2">
+      {[1, 2, 3].map(i => (
+        <div key={i} className={cn("h-1.5 w-6 rounded-full transition-colors", i <= segments ? "bg-[#0A0A0A]" : "bg-[#E5E7EB]")} />
+      ))}
+    </div>
+  );
+}
+
+function getMoodEmoji(mood?: string | null) {
+  if (!mood) return null;
+  const m = mood.toLowerCase();
+  if (m.includes('great') || m.includes('awesome')) return '🤩';
+  if (m.includes('good') || m.includes('happy')) return '🙂';
+  if (m.includes('ok') || m.includes('neutral')) return '😐';
+  if (m.includes('bad') || m.includes('sad')) return '😕';
+  if (m.includes('terrible') || m.includes('awful')) return '😫';
+  return '💭';
+}
 
 export function DailyReview() {
   const { data: logs = [], isLoading } = useQuery({ queryKey: ['dailyLogs'], queryFn: api.dailyLogs.list });
@@ -77,14 +103,16 @@ export function DailyReview() {
           <div className="text-2xl font-bold text-[#0A0A0A] capitalize">
             {todayLog?.energy || "Not set"}
           </div>
+          {getEnergyIndicator(todayLog?.energy)}
         </div>
 
         <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-xl p-5 hover:bg-white hover:shadow-sm transition-all duration-150">
           <div className="flex items-center gap-2 mb-3 text-[#6B7280] font-bold text-[10px] uppercase tracking-wider">
             <Smile className="w-4 h-4 text-[#6B7280]" /> Mood
           </div>
-          <div className="text-2xl font-bold text-[#0A0A0A] capitalize">
+          <div className="text-2xl font-bold text-[#0A0A0A] capitalize flex items-center gap-2">
             {todayLog?.mood || "Not set"}
+            <span>{getMoodEmoji(todayLog?.mood)}</span>
           </div>
         </div>
       </div>

@@ -77,7 +77,8 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
       <div 
         className={cn(
           "bg-[#FAFAFA] border border-[#E5E7EB] rounded-xl p-5 transition-colors duration-150 hover:bg-white hover:shadow-sm",
-          depth > 0 && "border-l-4 border-l-[#E5E7EB] rounded-l-none"
+          depth > 0 && "border-l-4 border-l-[#E5E7EB] rounded-l-none",
+          depth === 0 && "border-l-2 border-l-[#0A0A0A]"
         )}
       >
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
@@ -203,26 +204,26 @@ export function Goals() {
               <TrendingUp className="w-5 h-5 text-[#0A0A0A]" />
               Habit Tracker
             </h2>
-            <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden flex flex-col">
-              <div className="divide-y divide-[#E5E7EB] flex-1">
+            <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden">
+              <div className="divide-y divide-[#E5E7EB]">
                 {habits.map(habit => (
-                  <div key={habit.id} className="p-4 flex items-center justify-between hover:bg-[#F3F4F6] transition-colors duration-100 cursor-pointer">
+                  <div key={habit.id} className="py-3 px-4 flex items-center justify-between hover:bg-[#F3F4F6] transition-colors duration-100 cursor-pointer">
                     <div>
-                      <div className="font-bold text-[#0A0A0A]">{habit.name}</div>
+                      <div className="font-bold text-[#0A0A0A] text-sm leading-tight">{habit.name}</div>
                       <div className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mt-0.5">{habit.cadence}</div>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-sm font-bold flex items-center gap-1 text-[#0A0A0A]">
                         🔥 {habit.streak}
                       </div>
-                      <button className="w-8 h-8 rounded-full border border-[#E5E7EB] bg-white flex items-center justify-center hover:bg-[#0A0A0A] hover:text-white hover:border-[#0A0A0A] transition-colors focus:outline-none">
+                      <button className="w-6 h-6 rounded border border-[#E5E7EB] bg-white flex items-center justify-center hover:bg-[#0A0A0A] hover:text-white hover:border-[#0A0A0A] transition-colors focus:outline-none">
                         <CheckCircle2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
                 ))}
                 {habits.length === 0 && (
-                  <div className="h-48">
+                  <div className="py-8">
                     <EmptyState 
                       icon={TrendingUp}
                       description="No active habits."

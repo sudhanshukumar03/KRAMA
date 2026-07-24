@@ -3,11 +3,15 @@ import { api } from '../api/client';
 import { FolderKanban, Plus, Clock, Target } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { cn } from '../lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 export function Projects() {
-  const { data: projects = [], isLoading } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+  const navigate = useNavigate();
+  const { data: projects = [], isLoading: pLoading } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+  const { data: issues = [], isLoading: iLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+  const { data: pages = [], isLoading: docLoading } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
 
-  if (isLoading) return <div className="p-8 text-[#6B7280]">Loading projects...</div>;
+  if (pLoading || iLoading || docLoading) return <div className="p-8 text-[#6B7280]">Loading projects...</div>;
 
   const statuses = ['active', 'idea', 'paused', 'shipped'];
 
@@ -43,37 +47,49 @@ export function Projects() {
               </div>
               
               <div className="flex flex-col gap-3">
-                {statusProjects.map(project => (
-                  <div 
-                    key={project.id} 
-                    className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-xl p-5 hover:border-[#D1D5DB] hover:bg-white transition-all cursor-pointer group shadow-sm hover:shadow"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <h3 className="font-bold text-[#0A0A0A] group-hover:text-black transition-colors">
-                        {project.name}
-                      </h3>
-                      <FolderKanban className="w-4 h-4 text-[#9CA3AF]" />
-                    </div>
-                    
-                    {project.problemStatement && (
-                      <p className="text-sm text-[#6B7280] mb-4 line-clamp-2 leading-relaxed">
-                        {project.problemStatement}
-                      </p>
-                    )}
-                    
-                    <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] mt-auto">
-                      {project.goalId && (
-                        <div className="flex items-center gap-1 bg-[#F3F4F6] px-2 py-1 rounded-md text-[#6B7280]">
-                          <Target className="w-3 h-3" /> Goal Link
-                        </div>
+                {statusProjects.map(project => {
+                  const projectIssues = issues.filter(i => i.projectId === project.id && i.status !== 'done');
+                  const projectDocs = pages.filter(p => p.linkedProjectId === project.id);
+                  return (
+                    <div 
+                      key={project.id} 
+                      onClick={() => navigate(`/app/projects/${project.id}`)}
+                      className="bg-white border border-[#E5E7EB] rounded-xl p-5 hover:bg-[#F3F4F6] transition-colors cursor-pointer group"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <h3 className="font-bold text-[#0A0A0A]">
+                          {project.name}
+                        </h3>
+                        <FolderKanban className="w-4 h-4 text-[#9CA3AF]" />
+                      </div>
+                      
+                      {project.problemStatement && (
+                        <p className="text-sm text-[#6B7280] mb-4 line-clamp-2 leading-relaxed">
+                          {project.problemStatement}
+                        </p>
                       )}
-                      <div className="flex items-center gap-1.5 ml-auto text-[#6B7280]">
-                        <Clock className="w-3 h-3" /> 
-                        {new Date(project.updatedAt).toLocaleDateString()}
+                      
+                      <div className="text-xs font-bold text-[#6B7280] mb-4">
+                        {projectIssues.length} open issues · {projectDocs.length} docs
+                      </div>
+
+                      <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] mt-auto">
+                        {project.goalId && (
+                          <div 
+                            onClick={(e) => { e.stopPropagation(); navigate('/app/goals'); }}
+                            className="flex items-center gap-1 bg-[#F3F4F6] hover:bg-[#E5E7EB] transition-colors px-2 py-1 rounded text-[#0A0A0A] cursor-pointer"
+                          >
+                            <Target className="w-3 h-3" /> Goal Link
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5 ml-auto text-[#6B7280]">
+                          <Clock className="w-3 h-3" /> 
+                          {new Date(project.updatedAt).toLocaleDateString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {statusProjects.length === 0 && (
                   <div className="border border-[#E5E7EB] border-dashed rounded-xl bg-[#FAFAFA] h-32 flex items-center justify-center p-4 text-center">

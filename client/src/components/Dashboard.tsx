@@ -4,10 +4,28 @@ import { Target, CheckCircle2, ListTodo, AlertCircle, FolderKanban, Activity, Hi
 import { EmptyState } from './ui/EmptyState';
 import { cn } from '../lib/utils';
 
+// Helper for relative time
+function getTimeAgo(date: Date) {
+  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + " years ago";
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + " months ago";
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + " days ago";
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + " hours ago";
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + " mins ago";
+  return Math.floor(seconds) + " secs ago";
+}
+
 export function Dashboard() {
   const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
   const { data: projects = [], isLoading: projectsLoading } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
   const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
+  const { data: pages = [] } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
+  const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
 
   if (issuesLoading || projectsLoading) return <div className="p-8 text-[#6B7280]">Loading dashboard...</div>;
 
@@ -20,14 +38,18 @@ export function Dashboard() {
   // Compute Upcoming Deadlines (Due in next 7 days or overdue)
   const today = new Date();
   const nextWeek = new Date(today.getTime() + 7 * 86400000);
+  const next48Hours = new Date(today.getTime() + 2 * 86400000);
   const upcomingDeadlines = issues.filter(i => 
     i.dueDate && new Date(i.dueDate) <= nextWeek && !['done', 'released'].includes(i.status)
   ).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
 
-  // Mock Recent Activity (Sort projects/issues by updatedAt)
+  // Mock Recent Activity (Sort across all models by updatedAt)
   const recentActivity = [
-    ...projects.map(p => ({ id: p.id, title: p.name, type: 'Project', date: new Date(p.updatedAt) })),
-    ...issues.map(i => ({ id: i.id, title: i.title, type: 'Issue', date: new Date(i.updatedAt) }))
+    ...projects.map(p => ({ id: p.id, action: `Project updated`, title: p.name, type: 'Project', date: new Date(p.updatedAt) })),
+    ...issues.map(i => ({ id: i.id, action: `Issue moved to ${i.status.replace('_', ' ')}`, title: i.title, type: 'Issue', date: new Date(i.updatedAt) })),
+    ...pages.map(p => ({ id: p.id, action: `Page edited`, title: p.title, type: 'Page', date: new Date(p.updatedAt) })),
+    ...goals.map(g => ({ id: g.id, action: `Goal updated`, title: g.title, type: 'Goal', date: new Date(g.updatedAt) })),
+    ...habits.map(h => ({ id: h.id, action: `Habit completed`, title: h.name, type: 'Habit', date: new Date(h.updatedAt) }))
   ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 5);
 
   const formattedDate = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -40,8 +62,8 @@ export function Dashboard() {
         <p className="text-[#6B7280] mt-1 font-medium">{formattedDate} — <span className="text-[#0A0A0A]">{summaryLine}</span></p>
       </div>
       
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Stat Cards (Heaviest Visual Weight) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-xl p-6 transition-colors duration-150 hover:bg-[#F3F4F6]">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
@@ -103,19 +125,17 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
         
-        {/* Left Column: Core Work */}
-        <div className="lg:col-span-2 flex flex-col gap-8">
+        {/* Left Column: Core Work (Medium Visual Weight) */}
+        <div className="lg:col-span-3 flex flex-col gap-10">
           
           {/* Current Work */}
-          <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden flex flex-col">
-            <div className="px-5 py-3 border-b border-[#E5E7EB] bg-[#FAFAFA]">
-              <h2 className="font-bold text-[#0A0A0A] text-sm">Current Work (In Progress)</h2>
-            </div>
-            <div className="divide-y divide-[#E5E7EB] flex-1">
+          <div className="flex flex-col">
+            <h2 className="font-bold text-[#0A0A0A] text-sm pt-4 pb-2 border-b border-[#E5E7EB]">Current Work (In Progress)</h2>
+            <div className="divide-y divide-[#E5E7EB]">
               {inProgressIssues.map(issue => (
-                <div key={issue.id} className="p-5 hover:bg-[#F3F4F6] transition-colors duration-100 cursor-pointer">
+                <div key={issue.id} className="py-4 px-2 hover:bg-[#F3F4F6] transition-colors duration-100 cursor-pointer rounded -mx-2">
                   <div className="flex justify-between items-start mb-2">
                     <div className="font-bold text-[#0A0A0A]">{issue.title}</div>
                     <span className={cn(
@@ -142,13 +162,11 @@ export function Dashboard() {
           </div>
 
           {/* Active Projects */}
-          <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden flex flex-col">
-            <div className="px-5 py-3 border-b border-[#E5E7EB] bg-[#FAFAFA]">
-              <h2 className="font-bold text-[#0A0A0A] text-sm">Active Projects</h2>
-            </div>
-            <div className="divide-y divide-[#E5E7EB] flex-1">
+          <div className="flex flex-col">
+            <h2 className="font-bold text-[#0A0A0A] text-sm pt-4 pb-2 border-b border-[#E5E7EB]">Active Projects</h2>
+            <div className="divide-y divide-[#E5E7EB]">
               {activeProjects.map(project => (
-                <div key={project.id} className="p-5 hover:bg-[#F3F4F6] transition-colors duration-100 cursor-pointer">
+                <div key={project.id} className="py-4 px-2 hover:bg-[#F3F4F6] transition-colors duration-100 cursor-pointer rounded -mx-2">
                   <div className="font-bold text-[#0A0A0A] mb-1">{project.name}</div>
                   <div className="text-sm text-[#6B7280] leading-relaxed">{project.problemStatement}</div>
                 </div>
@@ -163,24 +181,22 @@ export function Dashboard() {
 
         </div>
 
-        {/* Right Column: Context & Planning */}
-        <div className="flex flex-col gap-6">
+        {/* Right Column: Context & Planning (Lightest Visual Weight) */}
+        <div className="lg:col-span-2 flex flex-col gap-10">
           
           {/* Today's Habits */}
-          <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-[#E5E7EB] bg-[#FAFAFA] flex items-center justify-between">
-              <h2 className="font-bold text-[#0A0A0A] text-sm flex items-center gap-2">
-                <CheckSquare className="w-4 h-4" /> Today's Habits
-              </h2>
-            </div>
+          <div className="flex flex-col">
+            <h2 className="font-bold text-[#0A0A0A] text-sm pb-2 border-b border-[#E5E7EB] flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-[#0A0A0A]" /> Today's Habits
+            </h2>
             <div className="divide-y divide-[#E5E7EB]">
               {habits.map(habit => (
-                <div key={habit.id} className="p-4 flex items-center justify-between hover:bg-[#F3F4F6] transition-colors cursor-pointer group">
+                <div key={habit.id} className="py-3 px-2 flex items-center justify-between hover:bg-[#F3F4F6] transition-colors cursor-pointer group rounded -mx-2">
                   <div className="flex flex-col">
                     <span className="font-bold text-[#0A0A0A] text-sm">{habit.name}</span>
                     <span className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">🔥 {habit.streak} streak</span>
                   </div>
-                  <button className="w-6 h-6 rounded-md border border-[#E5E7EB] bg-white flex items-center justify-center hover:bg-[#0A0A0A] hover:text-white hover:border-[#0A0A0A] transition-colors">
+                  <button className="w-5 h-5 rounded border border-[#E5E7EB] bg-white flex items-center justify-center hover:bg-[#0A0A0A] hover:text-white hover:border-[#0A0A0A] transition-colors">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -189,41 +205,44 @@ export function Dashboard() {
           </div>
 
           {/* Upcoming Deadlines */}
-          <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-[#E5E7EB] bg-[#FAFAFA] flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-[#0A0A0A]" />
-              <h2 className="font-bold text-[#0A0A0A] text-sm">Upcoming Deadlines</h2>
-            </div>
-            <div className="divide-y divide-[#E5E7EB] p-2">
-              {upcomingDeadlines.map(issue => (
-                <div key={issue.id} className="p-2 rounded-lg hover:bg-[#F3F4F6] transition-colors">
-                  <div className="font-bold text-[#0A0A0A] text-sm truncate">{issue.title}</div>
-                  <div className="text-[10px] font-bold text-red-600 uppercase tracking-wider mt-1">
-                    Due: {new Date(issue.dueDate!).toLocaleDateString()}
+          <div className="flex flex-col">
+            <h2 className="font-bold text-[#0A0A0A] text-sm pb-2 border-b border-[#E5E7EB] flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-[#0A0A0A]" /> Upcoming Deadlines
+            </h2>
+            <div className="divide-y divide-[#E5E7EB]">
+              {upcomingDeadlines.map(issue => {
+                const isUrgentDate = new Date(issue.dueDate!) <= next48Hours;
+                return (
+                  <div key={issue.id} className="py-3 px-2 hover:bg-[#F3F4F6] transition-colors rounded -mx-2">
+                    <div className="font-bold text-[#0A0A0A] text-sm truncate">{issue.title}</div>
+                    <div className={cn(
+                      "text-[10px] font-bold uppercase tracking-wider mt-1",
+                      isUrgentDate ? "text-[#DC2626]" : "text-[#6B7280]"
+                    )}>
+                      Due: {new Date(issue.dueDate!).toLocaleDateString()}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {upcomingDeadlines.length === 0 && (
-                <div className="p-4 text-center text-sm text-[#9CA3AF] font-medium">No deadlines in next 7 days</div>
+                <div className="py-4 text-sm text-[#9CA3AF] font-medium">No deadlines in next 7 days</div>
               )}
             </div>
           </div>
 
           {/* Recent Activity */}
-          <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-[#E5E7EB] bg-[#FAFAFA] flex items-center gap-2">
-              <History className="w-4 h-4 text-[#0A0A0A]" />
-              <h2 className="font-bold text-[#0A0A0A] text-sm">Recent Activity</h2>
-            </div>
+          <div className="flex flex-col">
+            <h2 className="font-bold text-[#0A0A0A] text-sm pb-2 border-b border-[#E5E7EB] flex items-center gap-2">
+              <History className="w-4 h-4 text-[#0A0A0A]" /> Recent Activity
+            </h2>
             <div className="divide-y divide-[#E5E7EB]">
               {recentActivity.map((activity, idx) => (
-                <div key={idx} className="p-4 flex flex-col gap-1">
-                  <div className="text-sm text-[#0A0A0A]">
-                    <span className="font-bold text-[#6B7280]">{activity.type}</span> updated
+                <div key={idx} className="py-3 px-2 flex flex-col gap-1 hover:bg-[#F3F4F6] transition-colors rounded -mx-2">
+                  <div className="text-xs text-[#0A0A0A] font-medium leading-tight">
+                    {activity.action} — <span className="font-bold">{activity.title}</span>
                   </div>
-                  <div className="font-bold text-[#0A0A0A] truncate">{activity.title}</div>
                   <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">
-                    {activity.date.toLocaleString()}
+                    {getTimeAgo(activity.date)}
                   </div>
                 </div>
               ))}

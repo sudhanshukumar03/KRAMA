@@ -23,11 +23,23 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { IssueWithRelations } from '../types/schema';
 import { BaseButton } from './ui/BaseButton';
-import { EmptyState } from './ui/EmptyState';
-import { ListChecks } from 'lucide-react';
+import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 const STATUSES = ['backlog', 'todo', 'in_progress', 'review', 'testing', 'done', 'released'];
+
+function getStatusIcon(status: string) {
+  switch (status) {
+    case 'backlog': return <Circle className="w-4 h-4 text-[#9CA3AF]" />;
+    case 'todo': return <CircleDot className="w-4 h-4 text-[#6B7280]" />;
+    case 'in_progress': return <CircleDashed className="w-4 h-4 text-amber-500" />;
+    case 'review': return <CheckCircle className="w-4 h-4 text-blue-500" />;
+    case 'testing': return <CheckCircle className="w-4 h-4 text-purple-500" />;
+    case 'done': return <CheckCircle2 className="w-4 h-4 fill-current text-[#0A0A0A]" />;
+    case 'released': return <CheckCircle2 className="w-4 h-4 fill-current text-[#0A0A0A]" />;
+    default: return <Circle className="w-4 h-4" />;
+  }
+}
 
 function IssueCard({ issue, isDragging }: { issue: IssueWithRelations, isDragging?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: issue.id });
@@ -44,19 +56,19 @@ function IssueCard({ issue, isDragging }: { issue: IssueWithRelations, isDraggin
       {...attributes} 
       {...listeners}
       className={cn(
-        "p-3 rounded-md border border-[#E5E7EB] bg-white shadow-sm text-sm cursor-grab active:cursor-grabbing hover:border-[#D1D5DB] transition-all duration-100",
+        "px-2.5 py-2 rounded border border-[#E5E7EB] bg-white shadow-sm text-sm cursor-grab active:cursor-grabbing hover:border-[#D1D5DB] transition-all duration-100",
         isDragging && "scale-[1.03] shadow-md opacity-90 border-[#9CA3AF] ring-2 ring-[#0A0A0A] ring-offset-1 z-50 cursor-grabbing"
       )}
     >
       <div className="font-bold text-[#0A0A0A] mb-1">{issue.title}</div>
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between text-xs text-[#6B7280]">
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between text-[11px] text-[#6B7280]">
           <span className="font-medium">{issue.id}</span>
-          <span className="px-1.5 py-0.5 rounded bg-[#F3F4F6] text-[10px] font-bold uppercase tracking-widest">{issue.priority}</span>
+          <span className="px-1.5 py-0.5 rounded bg-[#F3F4F6] text-[9px] font-bold uppercase tracking-widest">{issue.priority}</span>
         </div>
         {issue.childIssues && issue.childIssues.length > 0 && (
           <div className="flex items-center gap-1.5 pt-1 border-t border-[#E5E7EB]">
-            <span className="text-[10px] font-bold text-[#6B7280] bg-[#F3F4F6] px-1.5 py-0.5 rounded">
+            <span className="text-[9px] font-bold text-[#6B7280] bg-[#F3F4F6] px-1.5 py-0.5 rounded">
               {issue.childIssues.filter(c => c.status === 'done').length}/{issue.childIssues.length} sub-tasks
             </span>
           </div>
@@ -66,20 +78,24 @@ function IssueCard({ issue, isDragging }: { issue: IssueWithRelations, isDraggin
   );
 }
 
-function Column({ title, issues }: { id: string, title: string, issues: IssueWithRelations[] }) {
+function Column({ title, issues, isLast }: { id: string, title: string, issues: IssueWithRelations[], isLast: boolean }) {
   return (
-    <div className="flex flex-col flex-1 min-w-[280px] bg-[#FAFAFA] p-2 rounded-lg border border-[#E5E7EB] h-full overflow-hidden transition-colors duration-150">
-      <div className="px-3 py-2 font-bold text-sm text-[#0A0A0A] mb-2 flex justify-between items-center">
-        <span className="capitalize">{title.replace('_', ' ')}</span>
+    <div className={cn(
+      "flex flex-col w-[300px] flex-shrink-0 bg-[#FAFAFA] h-full transition-colors duration-150",
+      !isLast && "border-r border-[#E5E7EB]"
+    )}>
+      <div className="px-4 py-3 font-bold text-sm text-[#0A0A0A] flex justify-between items-center bg-[#FAFAFA] border-b border-[#E5E7EB]">
+        <div className="flex items-center gap-2">
+          {getStatusIcon(title)}
+          <span className="capitalize">{title.replace('_', ' ')}</span>
+        </div>
         <span className="bg-[#E5E7EB] px-2 py-0.5 rounded text-xs text-[#6B7280]">{issues.length}</span>
       </div>
-      <div className="flex-1 overflow-y-auto px-1 space-y-2">
+      <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {issues.length === 0 ? (
-          <div className="h-24">
-            <EmptyState 
-              icon={ListChecks}
-              description="No issues"
-            />
+          <div className="mt-8 text-center flex flex-col items-center">
+            <ListChecks className="w-5 h-5 text-[#D1D5DB] mb-2" />
+            <span className="text-xs font-bold uppercase tracking-widest text-[#9CA3AF]">No issues</span>
           </div>
         ) : (
           <SortableContext items={issues.map(i => i.id)} strategy={verticalListSortingStrategy}>
@@ -165,29 +181,29 @@ export function KanbanBoard() {
         <BaseButton>New Issue</BaseButton>
       </div>
 
-      <div className="flex-1 flex flex-col md:flex-row gap-4 overflow-x-auto pb-4 snap-x snap-mandatory">
-        <DndContext 
-          sensors={sensors} 
-          collisionDetection={closestCorners} 
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          {STATUSES.map(status => {
-            const columnIssues = issues.filter(i => i.status === status);
-            return (
-              <div key={status} className="snap-center h-full min-w-[280px]">
-                <Column id={status} title={status} issues={columnIssues} />
-              </div>
-            );
-          })}
-          
-          <DragOverlay dropAnimation={{
-            duration: 150,
-            easing: 'ease-out'
-          }}>
-            {activeIssue ? <IssueCard issue={activeIssue} isDragging /> : null}
-          </DragOverlay>
-        </DndContext>
+      <div className="flex-1 overflow-x-auto pb-4">
+        <div className="min-w-max h-full border border-[#E5E7EB] rounded-xl bg-white shadow-sm flex overflow-hidden">
+          <DndContext 
+            sensors={sensors} 
+            collisionDetection={closestCorners} 
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            {STATUSES.map((status, index) => {
+              const columnIssues = issues.filter(i => i.status === status);
+              return (
+                <Column key={status} id={status} title={status} issues={columnIssues} isLast={index === STATUSES.length - 1} />
+              );
+            })}
+            
+            <DragOverlay dropAnimation={{
+              duration: 150,
+              easing: 'ease-out'
+            }}>
+              {activeIssue ? <IssueCard issue={activeIssue} isDragging /> : null}
+            </DragOverlay>
+          </DndContext>
+        </div>
       </div>
     </div>
   );

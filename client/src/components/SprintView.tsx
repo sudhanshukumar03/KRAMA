@@ -83,6 +83,14 @@ export function SprintView() {
                     <span className="text-[#6B7280]">{issue.status.replace('_', ' ')}</span>
                     <span>•</span>
                     <span className="bg-[#F3F4F6] px-1.5 py-0.5 rounded text-[#6B7280] border border-[#E5E7EB]">{issue.priority}</span>
+                    {issue.childIssues && issue.childIssues.length > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="text-[#6B7280]">
+                          {issue.childIssues.filter((c: any) => c.status === 'done' || c.status === 'released').length}/{issue.childIssues.length} sub-tasks
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

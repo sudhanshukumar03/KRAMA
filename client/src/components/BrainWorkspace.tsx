@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { ChevronRight, FileText, Plus, FileSignature } from 'lucide-react';
+import { ChevronRight, FileText, Plus, FileSignature, Landmark, Laptop } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Content } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -10,6 +10,13 @@ import type { PageWithRelations } from '../types/schema';
 import { cn } from '../lib/utils';
 import { EmptyState } from './ui/EmptyState';
 
+
+function getIconComponent(iconName: string | null, className?: string) {
+  if (iconName === 'landmark') return <Landmark className={className || "w-4 h-4 text-[#6B7280]"} />;
+  if (iconName === 'laptop') return <Laptop className={className || "w-4 h-4 text-[#6B7280]"} />;
+  if (iconName) return <span className="text-base leading-none">{iconName}</span>;
+  return <FileText className={className || "w-4 h-4 text-[#9CA3AF]"} />;
+}
 
 function PageTreeNode({ 
   page, 
@@ -33,7 +40,7 @@ function PageTreeNode({
     <div>
       <div 
         className={cn(
-          "flex items-center gap-1.5 py-1 px-2 hover:bg-[#F3F4F6] rounded-md cursor-pointer text-sm transition-colors duration-100",
+          "group relative flex items-center gap-1.5 py-1 px-2 hover:bg-[#F3F4F6] rounded-md cursor-pointer text-sm transition-colors duration-100",
           isSelected ? "bg-[#F3F4F6] text-[#0A0A0A] font-medium" : "text-[#6B7280]"
         )}
         style={{ paddingLeft: `${(level * 12) + 8}px` }}
@@ -41,7 +48,11 @@ function PageTreeNode({
       >
         <button 
           onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-          className="w-4 h-4 flex items-center justify-center text-[#9CA3AF] hover:text-[#0A0A0A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0A0A0A] rounded-sm"
+          className={cn(
+            "w-4 h-4 flex items-center justify-center text-[#9CA3AF] hover:text-[#0A0A0A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0A0A0A] rounded-sm",
+            !hasChildren && "opacity-0 cursor-default"
+          )}
+          disabled={!hasChildren}
         >
           {hasChildren && (
             <ChevronRight className={cn(
@@ -50,8 +61,27 @@ function PageTreeNode({
             )} />
           )}
         </button>
-        <span className="text-base leading-none">{page.icon || <FileText className="w-4 h-4 text-[#9CA3AF]" />}</span>
-        <span className="truncate">{page.title}</span>
+        {level > 0 && (
+          <div 
+            className="absolute border-l border-b border-[#D1D5DB] rounded-bl-sm pointer-events-none"
+            style={{
+              left: `${((level - 1) * 12) + 26}px`,
+              top: '-12px',
+              height: '26px',
+              width: '12px'
+            }}
+          />
+        )}
+        <span className="flex items-center justify-center flex-shrink-0 z-10">
+          {getIconComponent(page.icon, isSelected ? "w-4 h-4 text-[#0A0A0A]" : "w-4 h-4 text-[#6B7280]")}
+        </span>
+        <span className="truncate flex-1 z-10">{page.title}</span>
+        <button 
+          onClick={(e) => { e.stopPropagation(); alert('Create child page'); }}
+          className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center text-[#9CA3AF] hover:text-[#0A0A0A] transition-all hover:bg-white border border-transparent hover:border-[#E5E7EB] rounded-md focus:outline-none"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
       </div>
       
       {/* Children Container with height/opacity animation via Tailwind */}
@@ -98,7 +128,7 @@ function Breadcrumbs({ page, pages }: { page: PageWithRelations, pages: PageWith
               "flex items-center gap-1.5",
               isLast ? "text-[#0A0A0A]" : "text-[#6B7280]"
             )}>
-              {crumb.icon && <span>{crumb.icon}</span>}
+              {getIconComponent(crumb.icon, isLast ? "w-4 h-4 text-[#0A0A0A]" : "w-4 h-4 text-[#6B7280]")}
               {crumb.title}
             </span>
             {!isLast && <span className="text-[#D1D5DB] mx-2">/</span>}
@@ -129,9 +159,11 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
     <div className="max-w-3xl mx-auto py-12 px-8 h-full overflow-y-auto animate-in fade-in duration-150">
       <Breadcrumbs page={page} pages={pages} />
       
-      <div className="text-6xl mb-6 leading-none select-none">{page.icon || '📄'}</div>
+      <div className="flex items-center gap-4 mb-6 select-none">
+        {getIconComponent(page.icon, "w-10 h-10 text-[#0A0A0A]")}
+      </div>
       <input 
-        type="text" 
+        type="text"  
         defaultValue={page.title} 
         className="text-4xl font-bold bg-transparent border-none outline-none text-[#0A0A0A] placeholder:text-[#9CA3AF] w-full mb-8"
         placeholder="Page title"

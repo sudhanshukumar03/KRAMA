@@ -158,7 +158,7 @@ export const mockPages: PageWithRelations[] = [
   {
     id: 'page-1',
     title: 'Architecture Overview',
-    icon: '🏛️',
+    icon: 'landmark',
     blocks: null,
     parentPageId: null,
     spaceId: 'space-1',
@@ -170,7 +170,7 @@ export const mockPages: PageWithRelations[] = [
   {
     id: 'page-2',
     title: 'Tech Stack',
-    icon: '💻',
+    icon: 'laptop',
     blocks: null,
     parentPageId: 'page-1',
     spaceId: 'space-1',
