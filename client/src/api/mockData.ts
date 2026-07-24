@@ -1,5 +1,5 @@
 import type { 
-  Workspace, Space, ProjectWithRelations, IssueWithRelations, PageWithRelations, GoalWithRelations, Habit, Sprint, DailyLog
+  Workspace, Space, ProjectWithRelations, IssueWithRelations, PageWithRelations, GoalWithRelations, Habit, Sprint, DailyLog, RoadmapItem
 } from '../types/schema';
 
 export const mockWorkspace: Workspace = {
@@ -21,7 +21,7 @@ export const mockProjects: ProjectWithRelations[] = [
     problemStatement: 'Need a unified system for productivity.',
     status: 'active',
     spaceId: 'space-2',
-    goalId: null,
+    goalId: 'goal-1',
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -31,11 +31,19 @@ export const mockProjects: ProjectWithRelations[] = [
     problemStatement: 'Need to get better at agentic systems.',
     status: 'idea',
     spaceId: 'space-2',
-    goalId: null,
+    goalId: 'goal-2',
     createdAt: new Date(),
     updatedAt: new Date(),
   }
 ];
+
+// Calculate dates relative to today for accurate pacing math
+const today = new Date();
+const nextWeek = new Date(today);
+nextWeek.setDate(today.getDate() + 7);
+
+const pastDate = new Date(today);
+pastDate.setDate(today.getDate() - 14);
 
 export const mockIssues: IssueWithRelations[] = [
   {
@@ -49,6 +57,7 @@ export const mockIssues: IssueWithRelations[] = [
     projectId: 'proj-1',
     sprintId: null,
     parentIssueId: null,
+    childIssues: [],
     labels: ['task'],
     dueDate: null,
     completedAt: new Date(),
@@ -66,8 +75,61 @@ export const mockIssues: IssueWithRelations[] = [
     projectId: 'proj-1',
     sprintId: null,
     parentIssueId: null,
+    childIssues: [
+      {
+        id: 'sub-1',
+        title: 'Install dnd-kit',
+        description: null,
+        status: 'done',
+        priority: 'medium',
+        estimate: null,
+        assignee: null,
+        projectId: 'proj-1',
+        sprintId: null,
+        parentIssueId: 'issue-2',
+        labels: [],
+        dueDate: null,
+        completedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'sub-2',
+        title: 'Setup dropping',
+        description: null,
+        status: 'todo',
+        priority: 'medium',
+        estimate: null,
+        assignee: null,
+        projectId: 'proj-1',
+        sprintId: null,
+        parentIssueId: 'issue-2',
+        labels: [],
+        dueDate: null,
+        completedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'sub-3',
+        title: 'Animation physics',
+        description: null,
+        status: 'todo',
+        priority: 'medium',
+        estimate: null,
+        assignee: null,
+        projectId: 'proj-1',
+        sprintId: null,
+        parentIssueId: 'issue-2',
+        labels: [],
+        dueDate: null,
+        completedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ],
     labels: ['feature'],
-    dueDate: null,
+    dueDate: nextWeek,
     completedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -83,6 +145,7 @@ export const mockIssues: IssueWithRelations[] = [
     projectId: 'proj-1',
     sprintId: null,
     parentIssueId: null,
+    childIssues: [],
     labels: ['feature'],
     dueDate: null,
     completedAt: null,
@@ -120,12 +183,48 @@ export const mockPages: PageWithRelations[] = [
 
 export const mockGoals: GoalWithRelations[] = [
   {
+    id: "goal-root",
+    title: "2026 Yearly OKRs",
+    type: "yearly",
+    targetDate: new Date("2026-12-31"),
+    parentGoalId: null,
+    progress: 25, // Will be computed in UI as rollup
+    childGoals: [
+      { id: "goal-1", title: "Launch KRAMA OS MVP", type: "quarterly", targetDate: new Date("2026-10-01"), progress: 35 } as GoalWithRelations,
+      { id: "goal-2", title: "Master AI Agents", type: "quarterly", targetDate: pastDate, progress: 10 } as GoalWithRelations
+    ],
+    snapshots: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
     id: "goal-1",
     title: "Launch KRAMA OS MVP",
     type: "quarterly",
     targetDate: new Date("2026-10-01"),
-    parentGoalId: null,
+    parentGoalId: "goal-root",
     progress: 35,
+    snapshots: [
+      { id: "snap-1", goalId: "goal-1", date: new Date(today.getTime() - 4 * 86400000), progress: 30, createdAt: new Date() },
+      { id: "snap-2", goalId: "goal-1", date: new Date(today.getTime() - 2 * 86400000), progress: 32, createdAt: new Date() },
+      { id: "snap-3", goalId: "goal-1", date: today, progress: 35, createdAt: new Date() }
+    ],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "goal-2",
+    title: "Master AI Agents",
+    type: "quarterly",
+    targetDate: pastDate, // Past date to test "Stalled/Past Due" logic
+    parentGoalId: "goal-root",
+    progress: 10,
+    snapshots: [
+      // Zero recent progress
+      { id: "snap-4", goalId: "goal-2", date: new Date(today.getTime() - 7 * 86400000), progress: 10, createdAt: new Date() },
+      { id: "snap-5", goalId: "goal-2", date: new Date(today.getTime() - 3 * 86400000), progress: 10, createdAt: new Date() },
+      { id: "snap-6", goalId: "goal-2", date: today, progress: 10, createdAt: new Date() }
+    ],
     createdAt: new Date(),
     updatedAt: new Date(),
   }
@@ -137,7 +236,7 @@ export const mockHabits: Habit[] = [
     name: "Code for 1 hour",
     cadence: "daily",
     streak: 5,
-    lastCompletedAt: new Date(),
+    lastCompletedAt: new Date(today.getTime() - 86400000), // yesterday
     linkedGoalId: "goal-1",
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -159,13 +258,58 @@ export const mockSprints: Sprint[] = [
 export const mockDailyLogs: DailyLog[] = [
   {
     id: "log-1",
-    date: new Date(),
+    date: today,
     wins: ["Finished Phase 2 UI", "Setup Tailwind v4", "Got Dnd-kit working"],
     blockers: ["Waiting for backend endpoints"],
     mood: "Great",
     energy: "High",
     deepWorkMinutes: 180,
     notes: "Today was highly productive. The AI coding assistant nailed the boilerplate.",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: "log-2",
+    date: new Date(today.getTime() - 86400000), // yesterday
+    wins: ["Planned the architecture"],
+    blockers: [],
+    mood: "Good",
+    energy: "Medium",
+    deepWorkMinutes: 120,
+    notes: "",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
+];
+
+export const mockRoadmapItems: RoadmapItem[] = [
+  {
+    id: "rm-1",
+    title: "Phase 1: Foundation",
+    version: "v0.1",
+    order: 0,
+    status: "completed",
+    projectId: "proj-1",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: "rm-2",
+    title: "Phase 2: Master UI",
+    version: "v0.2",
+    order: 1,
+    status: "in_progress",
+    projectId: "proj-1",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: "rm-3",
+    title: "Phase 3: Backend Integration",
+    version: "v1.0",
+    order: 2,
+    status: "planned",
+    projectId: "proj-1",
     createdAt: new Date(),
     updatedAt: new Date()
   }

@@ -7,10 +7,11 @@ import {
   mockGoals,
   mockHabits,
   mockSprints,
-  mockDailyLogs
+  mockDailyLogs,
+  mockRoadmapItems
 } from './mockData';
 import type { 
-  Space, ProjectWithRelations, IssueWithRelations, PageWithRelations, GoalWithRelations, Habit, Sprint, DailyLog
+  Space, ProjectWithRelations, IssueWithRelations, PageWithRelations, GoalWithRelations, Habit, Sprint, DailyLog, RoadmapItem
 } from '../types/schema';
 
 // Simulate network delay
@@ -27,6 +28,7 @@ let db = {
   habits: [...mockHabits],
   sprints: [...mockSprints],
   dailyLogs: [...mockDailyLogs],
+  roadmapItems: [...mockRoadmapItems],
 };
 
 export const api = {
@@ -94,6 +96,12 @@ export const api = {
     list: async (): Promise<DailyLog[]> => {
       await delay(200);
       return [...db.dailyLogs];
+    }
+  },
+  roadmapItems: {
+    list: async (): Promise<RoadmapItem[]> => {
+      await delay(200);
+      return [...db.roadmapItems];
     }
   }
 };

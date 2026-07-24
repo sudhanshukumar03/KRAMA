@@ -54,10 +54,20 @@ model Goal {
   parentGoal     Goal?     @relation("GoalHierarchy", fields: [parentGoalId], references: [id])
   childGoals     Goal[]    @relation("GoalHierarchy")
   progress       Float     @default(0) // progress percentage
+  snapshots      GoalProgressSnapshot[]
   linkedProjects Project[] @relation("GoalProjects")
   habits         Habit[]
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+}
+
+model GoalProgressSnapshot {
+  id        String   @id @default(uuid())
+  goalId    String
+  goal      Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  date      DateTime
+  progress  Float    // progress % at this point in time
+  createdAt DateTime @default(now())
 }
 
 model Project {
@@ -96,6 +106,7 @@ model Issue {
   childIssues   Issue[]   @relation("IssueHierarchy")
   labels        String[]  // bug, feature, task, chore
   dueDate       DateTime?
+  scheduledDate DateTime?
   completedAt   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

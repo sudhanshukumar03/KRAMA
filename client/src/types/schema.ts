@@ -13,7 +13,8 @@ import type {
   Resource,
   LearningTopic,
   ApplicationEntry,
-  AutomationRule
+  AutomationRule,
+  GoalProgressSnapshot
 } from "@prisma/client";
 
 export type {
@@ -31,7 +32,8 @@ export type {
   Resource,
   LearningTopic,
   ApplicationEntry,
-  AutomationRule
+  AutomationRule,
+  GoalProgressSnapshot
 };
 
 // Extended types for relations (how they will look when populated from backend or in our mock data)
@@ -58,6 +60,7 @@ export type GoalWithRelations = Goal & {
   childGoals?: Goal[];
   linkedProjects?: Project[];
   habits?: Habit[];
+  snapshots?: GoalProgressSnapshot[];
 };
 
 export type SpaceWithRelations = Space & {

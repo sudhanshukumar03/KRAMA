@@ -7,7 +7,8 @@ import {
   KanbanSquare,
   Clock,
   CalendarCheck,
-  Search
+  Search,
+  Calendar
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -19,6 +20,7 @@ const navItems = [
 ];
 
 const executionItems = [
+  { name: 'Weekly Planner', path: '/app/planner', icon: Calendar },
   { name: 'Kanban Board', path: '/app/board', icon: KanbanSquare },
   { name: 'Sprint View', path: '/app/sprint', icon: Clock },
   { name: 'Daily Review', path: '/app/review', icon: CalendarCheck },

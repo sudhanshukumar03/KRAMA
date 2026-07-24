@@ -49,9 +49,18 @@ function IssueCard({ issue, isDragging }: { issue: IssueWithRelations, isDraggin
       )}
     >
       <div className="font-bold text-[#0A0A0A] mb-1">{issue.title}</div>
-      <div className="flex items-center justify-between text-xs text-[#6B7280]">
-        <span className="font-medium">{issue.id}</span>
-        <span className="px-1.5 py-0.5 rounded bg-[#F3F4F6] text-[10px] font-bold uppercase tracking-widest">{issue.priority}</span>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between text-xs text-[#6B7280]">
+          <span className="font-medium">{issue.id}</span>
+          <span className="px-1.5 py-0.5 rounded bg-[#F3F4F6] text-[10px] font-bold uppercase tracking-widest">{issue.priority}</span>
+        </div>
+        {issue.childIssues && issue.childIssues.length > 0 && (
+          <div className="flex items-center gap-1.5 pt-1 border-t border-[#E5E7EB]">
+            <span className="text-[10px] font-bold text-[#6B7280] bg-[#F3F4F6] px-1.5 py-0.5 rounded">
+              {issue.childIssues.filter(c => c.status === 'done').length}/{issue.childIssues.length} sub-tasks
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

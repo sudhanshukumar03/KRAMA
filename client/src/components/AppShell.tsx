@@ -8,6 +8,8 @@ import { Goals } from './Goals';
 import { Projects } from './Projects';
 import { SprintView } from './SprintView';
 import { DailyReview } from './DailyReview';
+import { ProjectDetail } from './ProjectDetail';
+import { WeeklyPlanner } from './WeeklyPlanner';
 
 export function AppShell() {
   return (
@@ -19,9 +21,11 @@ export function AppShell() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/brain/*" element={<BrainWorkspace />} />
           <Route path="/goals/*" element={<Goals />} />
-          <Route path="/projects/*" element={<Projects />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/board/*" element={<KanbanBoard />} />
           <Route path="/sprint/*" element={<SprintView />} />
+          <Route path="/planner/*" element={<WeeklyPlanner />} />
           <Route path="/review/*" element={<DailyReview />} />
         </Routes>
       </main>
