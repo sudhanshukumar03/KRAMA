@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { CheckCircle2, Circle, Clock, Target } from 'lucide-react';
+import { CheckCircle2, Circle, Clock } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { cn } from '../lib/utils';
+import { getIconForString } from '../lib/iconMap';
 
 export function HabitTracker() {
   const { data: habits = [], isLoading } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
@@ -72,35 +73,38 @@ export function HabitTracker() {
 
         {/* Habit Cards Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-12">
-          {filteredHabits.map(habit => (
-            <div key={habit.id} className="bg-white border border-[#E5E7EB] rounded-2xl p-5 hover:border-[#0A0A0A] transition-colors cursor-pointer group flex items-start gap-4 shadow-sm hover:shadow-md">
-              <div className="w-12 h-12 bg-[#FAFAFA] rounded-full border border-[#E5E7EB] flex items-center justify-center flex-shrink-0 group-hover:bg-[#0A0A0A] group-hover:border-[#0A0A0A] transition-colors">
-                <Target className="w-5 h-5 text-[#0A0A0A] group-hover:text-white transition-colors" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-lg text-[#0A0A0A] mb-1">{habit.name}</h3>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs font-medium text-[#6B7280]">{habit.category || 'Uncategorized'}</span>
-                  <span className="text-[#E5E7EB] font-light">•</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] border border-[#E5E7EB] bg-[#FAFAFA] px-1.5 py-0.5 rounded">
-                    {habit.difficulty || 'Medium'}
-                  </span>
+          {filteredHabits.map(habit => {
+            const Icon = getIconForString(habit.name);
+            return (
+              <div key={habit.id} className="bg-white border border-[#E5E7EB] rounded-2xl p-5 hover:border-[#0A0A0A] transition-colors cursor-pointer group flex items-start gap-4 shadow-sm hover:shadow-md">
+                <div className="w-12 h-12 bg-[#FAFAFA] rounded-full border border-[#E5E7EB] flex items-center justify-center flex-shrink-0 group-hover:bg-[#0A0A0A] group-hover:border-[#0A0A0A] transition-colors">
+                  <Icon className="w-5 h-5 text-[#0A0A0A] group-hover:text-white transition-colors" />
                 </div>
-                <div className="flex items-center justify-between text-xs font-bold text-[#9CA3AF] uppercase tracking-wider">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" />
-                    {habit.duration || 15} min
+                <div className="flex-1">
+                  <h3 className="font-bold text-lg text-[#0A0A0A] mb-1">{habit.name}</h3>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-medium text-[#6B7280]">{habit.category || 'Uncategorized'}</span>
+                    <span className="text-[#E5E7EB] font-light">•</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] border border-[#E5E7EB] bg-[#FAFAFA] px-1.5 py-0.5 rounded">
+                      {habit.difficulty || 'Medium'}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    🔥 {habit.streak}
+                  <div className="flex items-center justify-between text-xs font-bold text-[#9CA3AF] uppercase tracking-wider">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      {habit.duration || 15} min
+                    </div>
+                    <div className="flex items-center gap-1">
+                      🔥 {habit.streak}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {filteredHabits.length === 0 && (
             <div className="col-span-full py-12">
-              <EmptyState icon={Target} description="No habits found in this category" />
+              <EmptyState icon={CheckCircle2} description="No habits found in this category" />
             </div>
           )}
         </div>

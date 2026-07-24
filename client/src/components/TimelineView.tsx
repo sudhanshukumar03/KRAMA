@@ -5,6 +5,7 @@ import { cn } from '../lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useNavigate } from 'react-router-dom';
+import { getIconForString } from '../lib/iconMap';
 
 export function TimelineView() {
   const navigate = useNavigate();
@@ -71,6 +72,7 @@ export function TimelineView() {
           <div className="space-y-6 relative">
             {todayIssues.map((issue) => {
               const isDone = issue.status === 'done' || issue.status === 'released';
+              const Icon = getIconForString(issue.title);
               return (
                 <div key={issue.id} className="relative group">
                   <div className={cn(
@@ -78,8 +80,11 @@ export function TimelineView() {
                     isDone ? "bg-[#D1D5DB]" : "bg-[#0A0A0A]"
                   )} />
                   <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 flex gap-4 items-center">
-                    <div className="w-8 h-8 rounded bg-[#FAFAFA] border border-[#E5E7EB] flex items-center justify-center text-lg">
-                      {isDone ? '✅' : '🎯'}
+                    <div className={cn(
+                      "w-8 h-8 rounded border flex items-center justify-center text-lg transition-colors",
+                      isDone ? "bg-white border-[#E5E7EB] text-[#D1D5DB]" : "bg-[#FAFAFA] border-[#E5E7EB] text-[#0A0A0A]"
+                    )}>
+                      {isDone ? '✅' : <Icon className="w-4 h-4" />}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
