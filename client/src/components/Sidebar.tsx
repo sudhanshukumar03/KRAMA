@@ -9,7 +9,8 @@ import {
   Search,
   Calendar,
   Clock,
-  Clock4
+  Clock4,
+  TrendingUp
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -26,6 +27,7 @@ const executionItems = [
   { name: 'Kanban Board', path: '/app/board', icon: KanbanSquare },
   { name: 'Sprint View', path: '/app/sprint', icon: Clock },
   { name: 'Daily Review', path: '/app/review', icon: CalendarCheck },
+  { name: 'Habit Tracker', path: '/app/habits', icon: TrendingUp },
 ];
 
 export function Sidebar() {

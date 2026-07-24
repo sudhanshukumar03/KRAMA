@@ -144,6 +144,10 @@ model Habit {
   lastCompletedAt DateTime?
   linkedGoalId   String?
   linkedGoal     Goal?     @relation(fields: [linkedGoalId], references: [id], onDelete: SetNull)
+  category       String?
+  timeOfDay      String?   // morning, evening, anytime
+  difficulty     String?   // Easy, Medium, Hard
+  duration       Int?      // minutes
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 }

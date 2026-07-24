@@ -11,6 +11,7 @@ import { DailyReview } from './DailyReview';
 import { ProjectDetail } from './ProjectDetail';
 import { WeeklyPlanner } from './WeeklyPlanner';
 import { TimelineView } from './TimelineView';
+import { HabitTracker } from './HabitTracker';
 
 export function AppShell() {
   return (
@@ -29,6 +30,7 @@ export function AppShell() {
           <Route path="/planner/*" element={<WeeklyPlanner />} />
           <Route path="/timeline/*" element={<TimelineView />} />
           <Route path="/review/*" element={<DailyReview />} />
+          <Route path="/habits/*" element={<HabitTracker />} />
         </Routes>
       </main>
     </div>
