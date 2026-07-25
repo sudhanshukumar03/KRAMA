@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { CalendarCheck, Save, Brain, Zap, Smile, Play, Pause, RotateCcw, Plus, Sparkles, Check, Clock } from 'lucide-react';
+import { CalendarCheck, Save, Brain, Zap, Smile, Play, Pause, RotateCcw, Plus, Sparkles, Check, Clock, Trophy, AlertTriangle, FileText, Activity, AlertCircle } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { cn } from '../lib/utils';
 
 const MOOD_OPTIONS = [
-  { label: 'Great', emoji: '🤩', desc: 'Peak flow & output' },
-  { label: 'Good', emoji: '🙂', desc: 'Steady & productive' },
-  { label: 'Neutral', emoji: '😐', desc: 'Average execution' },
-  { label: 'Tired', emoji: '😕', desc: 'Low momentum' },
-  { label: 'Burned Out', emoji: '😫', desc: 'Need recovery' }
+  { label: 'Great', icon: Sparkles, desc: 'Peak flow & output', color: 'text-[#0D9488]' },
+  { label: 'Good', icon: Zap, desc: 'Steady & productive', color: 'text-[#2563EB]' },
+  { label: 'Neutral', icon: Activity, desc: 'Average execution', color: 'text-[#6B7280]' },
+  { label: 'Tired', icon: Clock, desc: 'Low momentum', color: 'text-[#D97706]' },
+  { label: 'Burned Out', icon: AlertCircle, desc: 'Need recovery', color: 'text-[#DC2626]' }
 ];
 
 const ENERGY_OPTIONS = [
@@ -180,6 +180,7 @@ export function DailyReview() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {MOOD_OPTIONS.map((opt) => {
               const isSelected = selectedMood.toLowerCase() === opt.label.toLowerCase();
+              const Icon = opt.icon;
               return (
                 <div
                   key={opt.label}
@@ -191,7 +192,7 @@ export function DailyReview() {
                       : "bg-white border-[#E5E8EC] hover:border-[#D1D5DB] text-[#111827]"
                   )}
                 >
-                  <span className="text-2xl shrink-0 group-hover:scale-110 transition-transform">{opt.emoji}</span>
+                  <Icon className={cn("w-5 h-5 shrink-0 group-hover:scale-110 transition-transform stroke-[1.75]", isSelected ? "text-white" : opt.color)} />
                   <div className="min-w-0">
                     <div className={cn("font-medium text-sm leading-tight", isSelected ? "text-white" : "text-[#111827]")}>
                       {opt.label}
@@ -271,7 +272,7 @@ export function DailyReview() {
         {/* Wins */}
         <div className="space-y-3">
           <label className="text-xs font-mono font-medium text-[#111827] uppercase tracking-[0.02em] flex items-center justify-between">
-            <span>🏆 Today's Wins</span>
+            <span className="flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5 text-[#0D9488]" /> Today's Wins</span>
             <span className="text-[#0D9488] font-bold">{wins.length} recorded</span>
           </label>
           <div className="bg-white border border-[#E5E8EC] rounded-xl p-4 min-h-[160px] shadow-sm flex flex-col justify-between">
@@ -311,7 +312,7 @@ export function DailyReview() {
         {/* Blockers */}
         <div className="space-y-3">
           <label className="text-xs font-mono font-medium text-[#111827] uppercase tracking-[0.02em] flex items-center justify-between">
-            <span>🚧 Blockers & Issues</span>
+            <span className="flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-[#DC2626]" /> Blockers & Issues</span>
             <span className="text-[#DC2626] font-bold">{blockers.length} logged</span>
           </label>
           <div className="bg-white border border-[#E5E8EC] rounded-xl p-4 min-h-[160px] shadow-sm flex flex-col justify-between">
@@ -352,7 +353,7 @@ export function DailyReview() {
       {/* Notes */}
       <div className="space-y-3 mb-8">
         <label className="text-xs font-mono font-medium text-[#111827] uppercase tracking-[0.02em] flex items-center justify-between">
-          <span>📝 Brain Dump / Architecture Notes</span>
+          <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-[#7C3AED]" /> Brain Dump / Architecture Notes</span>
           <span className="text-[#6B7280] text-[11px] font-normal font-sans">Supports markdown & reflections</span>
         </label>
         <textarea 

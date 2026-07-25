@@ -44,16 +44,36 @@ export const api = {
       db.issues[index] = { ...db.issues[index], ...data, updatedAt: new Date() };
       return { ...db.issues[index] };
     },
-    create: async (data: Omit<IssueWithRelations, 'id' | 'createdAt' | 'updatedAt'>): Promise<IssueWithRelations> => {
+    create: async (data: Partial<IssueWithRelations> & { title: string }): Promise<IssueWithRelations> => {
       await delay(300);
       const newIssue: IssueWithRelations = {
-        ...data,
         id: `issue-${Date.now()}`,
+        title: data.title,
+        description: data.description || null,
+        status: data.status || 'todo',
+        priority: data.priority || 'medium',
+        estimate: data.estimate || null,
+        assignee: data.assignee || null,
+        projectId: data.projectId || 'proj-1',
+        sprintId: data.sprintId || null,
+        parentIssueId: data.parentIssueId || null,
+        childIssues: data.childIssues || [],
+        labels: data.labels || [],
+        dueDate: data.dueDate || null,
+        scheduledDate: data.scheduledDate || null,
+        completedAt: data.completedAt || null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      } as IssueWithRelations;
       db.issues.push(newIssue);
       return { ...newIssue };
+    },
+    delete: async (id: string): Promise<void> => {
+      await delay(200);
+      const index = db.issues.findIndex(i => i.id === id);
+      if (index !== -1) {
+        db.issues.splice(index, 1);
+      }
     }
   },
   projects: {
@@ -66,6 +86,30 @@ export const api = {
     list: async (): Promise<PageWithRelations[]> => {
       await delay(200);
       return [...db.pages];
+    },
+    update: async (id: string, data: Partial<PageWithRelations>): Promise<PageWithRelations> => {
+      await delay(300);
+      const index = db.pages.findIndex(p => p.id === id);
+      if (index === -1) throw new Error('Page not found');
+      db.pages[index] = { ...db.pages[index], ...data, updatedAt: new Date() };
+      return { ...db.pages[index] };
+    },
+    create: async (data: Partial<PageWithRelations>): Promise<PageWithRelations> => {
+      await delay(300);
+      const newPage: PageWithRelations = {
+        id: `page-${Date.now()}`,
+        title: data.title || 'Untitled Doc',
+        icon: data.icon || null,
+        blocks: data.blocks || null,
+        parentPageId: data.parentPageId || null,
+        spaceId: data.spaceId || 'space-1',
+        linkedProjectId: data.linkedProjectId || null,
+        tags: data.tags || [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as PageWithRelations;
+      db.pages.push(newPage);
+      return { ...newPage };
     }
   },
   spaces: {

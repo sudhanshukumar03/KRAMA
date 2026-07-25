@@ -22,7 +22,6 @@ export function LandingPage() {
             </div>
             <div>
               <span className="font-bold tracking-tight text-[#111827] text-base leading-none block">KRAMA OS</span>
-              <span className="text-[10px] font-mono text-[#9CA3AF] tracking-widest uppercase">v2.4 Enterprise</span>
             </div>
           </div>
           
@@ -245,7 +244,7 @@ export function LandingPage() {
                           <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#0D9488] bg-[#0D9488]/10 px-2 py-0.5 rounded border border-[#0D9488]/20">
                             QUARTERLY OKR
                           </span>
-                          <h3 className="text-lg font-semibold text-[#111827]">Ship Krama OS v2.4 Enterprise Release</h3>
+                          <h3 className="text-lg font-semibold text-[#111827]">Ship Krama OS Release</h3>
                         </div>
                         <div className="flex items-center gap-1.5 text-xs font-mono text-[#6B7280]">
                           <Clock className="w-3.5 h-3.5 text-[#0D9488]" /> Target Date: Sept 30, 2026 (66d remaining)

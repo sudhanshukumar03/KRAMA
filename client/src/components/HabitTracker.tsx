@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { CheckCircle2, Circle, Clock, TrendingUp, Flame, Sparkles, Plus, Sun, Moon } from 'lucide-react';
+import { toast } from 'sonner';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { cn } from '../lib/utils';
@@ -46,8 +47,16 @@ export function HabitTracker() {
 
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  const toggleTodayCompletion = (id: string) => {
-    setCompletedHabitIds(prev => ({ ...prev, [id]: !prev[id] }));
+  const toggleTodayCompletion = (id: string, name?: string) => {
+    setCompletedHabitIds(prev => {
+      const nextState = !prev[id];
+      if (nextState) {
+        toast.success(`Habit Completed!`, {
+          description: `You checked off "${name || 'Routine'}". Keep the streak going!`
+        });
+      }
+      return { ...prev, [id]: nextState };
+    });
   };
 
   const completedCount = habits.filter((h, idx) => completedHabitIds[h.id] !== undefined ? completedHabitIds[h.id] : idx % 2 === 0).length;
@@ -245,7 +254,7 @@ export function HabitTracker() {
               return (
                 <div 
                   key={habit.id} 
-                  onClick={() => toggleTodayCompletion(habit.id)}
+                  onClick={() => toggleTodayCompletion(habit.id, habit.name)}
                   className={cn(
                     "flex items-center gap-3 group cursor-pointer p-2 rounded-lg transition-all border",
                     isCompleted ? "bg-[#F8F9FB] border-transparent" : "bg-white border-[#E5E8EC] hover:border-[#EA580C] shadow-2xs"

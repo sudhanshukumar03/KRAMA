@@ -156,6 +156,10 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
       Placeholder.configure({ placeholder: 'Start typing strategic engineering documentation...' })
     ],
     content: (page.blocks ? page.blocks as Content : ''),
+    onUpdate: ({ editor }) => {
+      const json = editor.getJSON();
+      api.pages.update(page.id, { blocks: json as any });
+    },
     editorProps: {
       attributes: {
         class: 'prose prose-zinc max-w-none focus:outline-none min-h-[450px] text-[#111827] leading-relaxed font-sans',

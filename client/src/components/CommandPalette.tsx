@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Command } from 'cmdk';
 import { useNavigate } from 'react-router-dom';
-import { FileText, KanbanSquare, Target, Search, Brain, Calendar, Clock, Plus, ArrowRight, Zap, Rocket, ListChecks } from 'lucide-react';
+import { FileText, KanbanSquare, Target, Search, Brain, Calendar, Clock, Plus, ArrowRight, Zap, Rocket, ListChecks, FolderKanban } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { cn } from '../lib/utils';
@@ -13,6 +13,8 @@ export function CommandPalette() {
 
   const { data: pages = [] } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
   const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+  const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
+  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -218,6 +220,50 @@ export function CommandPalette() {
                 </div>
                 <span className="text-[10px] font-mono capitalize text-[#6B7280] bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">
                   {issue.status.replace('_', ' ')}
+                </span>
+              </Command.Item>
+            ))}
+          </Command.Group>
+
+          {/* Goals Group */}
+          <Command.Group 
+            heading={<div className="flex items-center gap-1.5 text-[#0D9488]"><Target className="w-3.5 h-3.5 text-[#0D9488]" /><span>Goals & Strategic OKRs</span></div>} 
+            className="pt-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
+          >
+            {goals.map((goal) => (
+              <Command.Item 
+                key={goal.id}
+                onSelect={() => runCommand(() => navigate(`/app/goals`))}
+                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#F8F9FB] aria-selected:text-[#0D9488] transition-colors duration-100"
+              >
+                <div className="flex items-center gap-2.5 truncate">
+                  <Target className="w-4 h-4 text-[#0D9488] shrink-0" />
+                  <span className="truncate">{goal.title}</span>
+                </div>
+                <span className="text-[10px] font-mono text-[#0D9488] bg-[#0D9488]/10 px-1.5 py-0.5 rounded font-medium">
+                  {goal.progress || 0}%
+                </span>
+              </Command.Item>
+            ))}
+          </Command.Group>
+
+          {/* Projects Group */}
+          <Command.Group 
+            heading={<div className="flex items-center gap-1.5 text-[#4F46E5]"><FolderKanban className="w-3.5 h-3.5 text-[#4F46E5]" /><span>Engineering Projects</span></div>} 
+            className="pt-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
+          >
+            {projects.map((proj) => (
+              <Command.Item 
+                key={proj.id}
+                onSelect={() => runCommand(() => navigate(`/app/projects/${proj.id}`))}
+                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#F8F9FB] aria-selected:text-[#4F46E5] transition-colors duration-100"
+              >
+                <div className="flex items-center gap-2.5 truncate">
+                  <FolderKanban className="w-4 h-4 text-[#4F46E5] shrink-0" />
+                  <span className="truncate">{proj.name}</span>
+                </div>
+                <span className="text-[10px] font-mono text-[#6B7280] bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">
+                  Project
                 </span>
               </Command.Item>
             ))}

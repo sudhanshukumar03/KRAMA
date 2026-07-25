@@ -109,7 +109,6 @@ export function Sidebar() {
           </div>
           <div>
             <span className="font-bold tracking-tight text-[#111827] text-sm leading-none block">KRAMA OS</span>
-            <span className="text-[10px] font-mono text-[#9CA3AF] tracking-widest uppercase">v2.4 Enterprise</span>
           </div>
         </div>
         <div className="w-2 h-2 rounded-full bg-[#0D9488] animate-pulse" title="Live Sync Active" />

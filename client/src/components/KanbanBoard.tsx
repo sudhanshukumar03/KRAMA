@@ -23,7 +23,8 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { IssueWithRelations } from '../types/schema';
 import { BaseButton } from './ui/BaseButton';
-import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks, Search, Filter, Plus, User } from 'lucide-react';
+import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks, Search, Filter, Plus, User, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
 const STATUSES = ['backlog', 'todo', 'in_progress', 'review', 'testing', 'done', 'released'];
@@ -41,7 +42,7 @@ function getStatusIcon(status: string) {
   }
 }
 
-function IssueCard({ issue, isDragging }: { issue: IssueWithRelations, isDragging?: boolean }) {
+function IssueCard({ issue, isDragging, onDelete }: { issue: IssueWithRelations, isDragging?: boolean, onDelete?: (issue: IssueWithRelations) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: issue.id });
 
   const style = {
@@ -69,14 +70,28 @@ function IssueCard({ issue, isDragging }: { issue: IssueWithRelations, isDraggin
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <span className="font-mono text-[10px] text-[#9CA3AF] font-medium">{issue.id}</span>
-        <span className={cn(
-          "px-1.5 py-0.2 rounded font-mono text-[9px] font-bold uppercase tracking-widest border",
-          isUrgent ? "bg-red-50 text-[#DC2626] border-[#DC2626]/20" 
-          : isHigh ? "bg-amber-50 text-amber-700 border-amber-200" 
-          : "bg-[#F8F9FB] text-[#6B7280] border-[#E5E8EC]"
-        )}>
-          {issue.priority}
-        </span>
+        <div className="flex items-center gap-1">
+          <span className={cn(
+            "px-1.5 py-0.2 rounded font-mono text-[9px] font-bold uppercase tracking-widest border",
+            isUrgent ? "bg-red-50 text-[#DC2626] border-[#DC2626]/20" 
+            : isHigh ? "bg-amber-50 text-amber-700 border-amber-200" 
+            : "bg-[#F8F9FB] text-[#6B7280] border-[#E5E8EC]"
+          )}>
+            {issue.priority}
+          </span>
+          {onDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(issue);
+              }}
+              title="Delete Issue"
+              className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-50 rounded text-[#9CA3AF] hover:text-[#DC2626] transition-all"
+            >
+              <Trash2 className="w-3 h-3 stroke-[1.75]" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="font-medium text-[#111827] mb-2.5 line-clamp-2 group-hover:text-[#2563EB] transition-colors">
@@ -112,7 +127,7 @@ function IssueCard({ issue, isDragging }: { issue: IssueWithRelations, isDraggin
   );
 }
 
-function Column({ title, issues, isLast }: { id: string, title: string, issues: IssueWithRelations[], isLast: boolean }) {
+function Column({ title, issues, isLast, onDelete, onCreate }: { id: string, title: string, issues: IssueWithRelations[], isLast: boolean, onDelete?: (issue: IssueWithRelations) => void, onCreate?: (status: string) => void }) {
   return (
     <div className={cn(
       "flex flex-col w-[300px] flex-shrink-0 bg-white h-full",
@@ -135,7 +150,7 @@ function Column({ title, issues, isLast }: { id: string, title: string, issues: 
           ) : (
             <SortableContext items={issues.map(i => i.id)} strategy={verticalListSortingStrategy}>
               {issues.map(issue => (
-                <IssueCard key={issue.id} issue={issue} />
+                <IssueCard key={issue.id} issue={issue} onDelete={onDelete} />
               ))}
             </SortableContext>
           )}
@@ -143,7 +158,7 @@ function Column({ title, issues, isLast }: { id: string, title: string, issues: 
 
         {/* Inline + Quick Add Button */}
         <button 
-          onClick={() => alert(`Quick add task to ${title.replace('_', ' ')}`)}
+          onClick={() => onCreate ? onCreate(title) : alert(`Quick add task to ${title.replace('_', ' ')}`)}
           className="w-full mt-2 py-2 border border-dashed border-[#E5E8EC] hover:border-[#2563EB] hover:bg-[#EFF4FE]/20 rounded-lg text-xs font-medium text-[#9CA3AF] hover:text-[#2563EB] transition-all flex items-center justify-center gap-1.5 opacity-80 hover:opacity-100"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2]" /> Quick Add
@@ -160,6 +175,43 @@ export function KanbanBoard() {
   const [activeIssue, setActiveIssue] = useState<IssueWithRelations | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'urgent' | 'high' | 'medium' | 'low'>('all');
+
+  const handleCreateIssue = async (status: string = 'todo') => {
+    const title = prompt('Enter issue title:', `New task in ${status.replace('_', ' ')}`);
+    if (!title) return;
+    const newIssue = await api.issues.create({
+      title,
+      status: status as any,
+      priority: 'medium',
+      assignee: 'me',
+      projectId: 'proj-1',
+      estimate: 2,
+      labels: []
+    });
+    queryClient.invalidateQueries({ queryKey: ['issues'] });
+    toast.success(`Created issue #${newIssue.id.slice(-4)}`, {
+      description: `"${title}" added to ${status.replace('_', ' ')}`
+    });
+  };
+
+  const handleDeleteIssue = async (issue: IssueWithRelations) => {
+    if (!confirm(`Are you sure you want to delete "${issue.title}"?`)) return;
+    const deletedIssue = { ...issue };
+    await api.issues.delete(issue.id);
+    queryClient.setQueryData<IssueWithRelations[]>(['issues'], old => old?.filter(i => i.id !== issue.id));
+    toast.success(`Deleted "${issue.title}"`, {
+      description: `Issue #${issue.id} removed from sprint board.`,
+      action: {
+        label: 'Undo',
+        onClick: async () => {
+          await api.issues.create(deletedIssue);
+          queryClient.invalidateQueries({ queryKey: ['issues'] });
+          toast.success(`Restored "${issue.title}"`);
+        }
+      },
+      duration: 5000,
+    });
+  };
 
   const updateIssueMutation = useMutation({
     mutationFn: ({ id, data }: { id: string, data: Partial<IssueWithRelations> }) => api.issues.update(id, data),
@@ -235,7 +287,7 @@ export function KanbanBoard() {
           <h1 className="text-[28px] font-medium tracking-tight text-[#111827]">Execution Board</h1>
           <p className="text-[13px] text-[#6B7280]">Drag and drop issues across sprint statuses. Single bounded board view.</p>
         </div>
-        <BaseButton onClick={() => alert('New Issue')}>
+        <BaseButton onClick={() => handleCreateIssue('todo')}>
           <Plus className="w-4 h-4 mr-1.5 stroke-[2]" /> New Issue
         </BaseButton>
       </div>
@@ -290,7 +342,7 @@ export function KanbanBoard() {
             {STATUSES.map((status, index) => {
               const columnIssues = filteredIssues.filter(i => i.status === status);
               return (
-                <Column key={status} id={status} title={status} issues={columnIssues} isLast={index === STATUSES.length - 1} />
+                <Column key={status} id={status} title={status} issues={columnIssues} isLast={index === STATUSES.length - 1} onDelete={handleDeleteIssue} onCreate={handleCreateIssue} />
               );
             })}
             
@@ -298,7 +350,7 @@ export function KanbanBoard() {
               duration: 150,
               easing: 'ease-out'
             }}>
-              {activeIssue ? <IssueCard issue={activeIssue} isDragging /> : null}
+              {activeIssue ? <IssueCard issue={activeIssue} isDragging onDelete={handleDeleteIssue} /> : null}
             </DragOverlay>
           </DndContext>
         </div>
