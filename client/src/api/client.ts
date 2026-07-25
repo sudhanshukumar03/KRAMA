@@ -78,6 +78,13 @@ export const api = {
     list: async (): Promise<GoalWithRelations[]> => {
       await delay(200);
       return [...db.goals];
+    },
+    update: async (id: string, data: Partial<GoalWithRelations>): Promise<GoalWithRelations> => {
+      await delay(300);
+      const index = db.goals.findIndex(g => g.id === id);
+      if (index === -1) throw new Error('Goal not found');
+      db.goals[index] = { ...db.goals[index], ...data, updatedAt: new Date() };
+      return { ...db.goals[index] };
     }
   },
   habits: {
@@ -96,6 +103,31 @@ export const api = {
     list: async (): Promise<DailyLog[]> => {
       await delay(200);
       return [...db.dailyLogs];
+    },
+    update: async (id: string, data: Partial<DailyLog>): Promise<DailyLog> => {
+      await delay(300);
+      const index = db.dailyLogs.findIndex(l => l.id === id);
+      if (index === -1) throw new Error('Log not found');
+      db.dailyLogs[index] = { ...db.dailyLogs[index], ...data, updatedAt: new Date() };
+      return { ...db.dailyLogs[index] };
+    },
+    create: async (data: Partial<DailyLog>): Promise<DailyLog> => {
+      await delay(300);
+      const newLog: DailyLog = {
+        id: `log-${Date.now()}`,
+        date: new Date(),
+        wins: data.wins || [],
+        blockers: data.blockers || [],
+        mood: data.mood || null,
+        energy: data.energy || null,
+        deepWorkMinutes: data.deepWorkMinutes || 0,
+        notes: data.notes || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...data
+      } as DailyLog;
+      db.dailyLogs.push(newLog);
+      return { ...newLog };
     }
   },
   roadmapItems: {

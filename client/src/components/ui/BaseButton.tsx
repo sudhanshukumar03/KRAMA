@@ -1,28 +1,29 @@
-import {  forwardRef } from 'react';
-import type  { ButtonHTMLAttributes } from 'react';
+import { forwardRef } from 'react';
+import type { ButtonHTMLAttributes } from 'react';
 import { cn } from '../../lib/utils';
 import { Loader2 } from 'lucide-react';
 
 export interface BaseButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   isLoading?: boolean;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
 }
 
 export const BaseButton = forwardRef<HTMLButtonElement, BaseButtonProps>(
   ({ className, variant = 'primary', size = 'md', isLoading, disabled, children, ...props }, ref) => {
-    const baseStyles = "inline-flex items-center justify-center font-bold tracking-wide transition-all focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none rounded-full";
+    const baseStyles = "inline-flex items-center justify-center font-semibold tracking-tight transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] cursor-pointer select-none";
     
     const variants = {
-      primary: "bg-[#0A0A0A] text-white hover:bg-black/80",
-      secondary: "bg-[#F3F4F6] text-[#0A0A0A] hover:bg-[#E5E7EB]",
-      ghost: "bg-transparent text-[#6B7280] hover:text-[#0A0A0A] hover:bg-[#F3F4F6]"
+      primary: "bg-[#2563EB] text-white hover:bg-[#1D4ED8] shadow-sm hover:shadow-md border border-transparent",
+      secondary: "bg-[#F8F9FB] text-[#111827] hover:bg-[#E5E8EC]/80 hover:text-[#000000] border border-[#E5E8EC] shadow-2xs",
+      ghost: "bg-transparent text-[#6B7280] hover:text-[#111827] hover:bg-[#F8F9FB]",
+      danger: "bg-red-50 text-[#DC2626] hover:bg-red-100 border border-[#DC2626]/20 shadow-2xs"
     };
 
     const sizes = {
-      sm: "h-8 px-4 text-xs",
-      md: "h-10 px-6 text-sm",
-      lg: "h-12 px-8 text-base"
+      sm: "h-8 px-3 text-xs rounded-md",
+      md: "h-10 px-4 text-sm rounded-lg",
+      lg: "h-12 px-6 text-base rounded-xl"
     };
 
     return (
@@ -32,7 +33,7 @@ export const BaseButton = forwardRef<HTMLButtonElement, BaseButtonProps>(
         disabled={disabled || isLoading}
         {...props}
       >
-        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin shrink-0" />}
         {children}
       </button>
     );

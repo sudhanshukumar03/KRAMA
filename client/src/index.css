@@ -4,12 +4,35 @@
 @theme {
   --font-sans: "Cabinet Grotesk", "General Sans", ui-sans-serif, system-ui, sans-serif;
   
+  /* Definitive Master Tokens */
+  --color-canvas: #FFFFFF;
+  --color-surface: #F8F9FB;
+  --color-surface-hover: #EFF4FE;
+  --color-border: #E5E8EC;
+  --color-border-muted: #D1D5DB;
+  --color-primary: #111827;
+  --color-primary-fill: #111827;
+  --color-secondary: #6B7280;
+  --color-muted: #9CA3AF;
+  
+  /* Brand Accent & Categories */
+  --color-accent: #2563EB;
+  --color-accent-hover: #1D4ED8;
+  --color-accent-tint: #EFF4FE;
+  --color-urgency: #DC2626;
+  --color-brain: #7C3AED;
+  --color-execution: #2563EB;
+  --color-goals: #0D9488;
+  --color-habits: #EA580C;
+  --color-projects: #4F46E5;
+  
   /* Required custom transition durations */
   --default-transition-duration: 150ms;
   --transition-duration-100: 100ms;
   --transition-duration-120: 120ms;
   --transition-duration-150: 150ms;
   --transition-duration-180: 180ms;
+  --transition-duration-300: 300ms;
   --transition-duration-400: 400ms;
   
   --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
@@ -19,6 +42,34 @@
 
 @layer base {
   body {
-    @apply bg-white text-[#0A0A0A] font-sans antialiased selection:bg-black/10 selection:text-black;
+    @apply bg-canvas text-primary font-sans antialiased selection:bg-accent/10 selection:text-accent relative;
+  }
+}
+
+@layer utilities {
+  /* Automated reconciliation of legacy arbitrary values to definitive master tokens */
+  [class*="bg-[#FFFFFF]"] { background-color: var(--color-canvas) !important; }
+  [class*="bg-[#FAFAFA]"], [class*="hover:bg-[#FAFAFA]"]:hover, [class*="group-hover:bg-[#FAFAFA]"]:hover { background-color: var(--color-surface) !important; }
+  [class*="border-[#E5E7EB]"], [class*="hover:border-[#E5E7EB]"]:hover { border-color: var(--color-border) !important; }
+  [class*="divide-[#E5E7EB]"] { border-color: var(--color-border) !important; }
+  
+  [class*="text-[#0A0A0A]"], [class*="hover:text-[#0A0A0A]"]:hover, [class*="group-hover:text-[#0A0A0A]"]:hover { color: var(--color-primary) !important; }
+  [class*="border-[#0A0A0A]"], [class*="hover:border-[#0A0A0A]"]:hover, [class*="group-hover:border-[#0A0A0A]"]:hover { border-color: var(--color-primary) !important; }
+  [class*="ring-[#0A0A0A]"], [class*="focus:ring-[#0A0A0A]"]:focus, [class*="focus-visible:ring-[#0A0A0A]"]:focus-visible { --tw-ring-color: var(--color-primary) !important; }
+  [class*="bg-[#0A0A0A]"], [class*="hover:bg-[#0A0A0A]"]:hover, [class*="group-hover:bg-[#0A0A0A]"]:hover { background-color: var(--color-primary-fill) !important; }
+  [class*="fill-[#0A0A0A]"] { fill: var(--color-primary-fill) !important; }
+  
+  [class*="text-[#6B7280]"] { color: var(--color-secondary) !important; }
+  [class*="text-[#9CA3AF]"], [class*="placeholder:text-[#9CA3AF]"]::placeholder { color: var(--color-muted) !important; }
+  
+  [class*="text-[#DC2626]"] { color: var(--color-urgency) !important; }
+  [class*="bg-[#DC2626]"] { background-color: var(--color-urgency) !important; }
+  [class*="border-[#DC2626]"] { border-color: var(--color-urgency) !important; }
+  
+  [class*="bg-[#F3F4F6]"], [class*="hover:bg-[#F3F4F6]"]:hover { background-color: var(--color-surface-hover) !important; }
+  [class*="bg-[#D1D5DB]"], [class*="border-[#D1D5DB]"], [class*="text-[#D1D5DB]"], [class*="hover:border-[#D1D5DB]"]:hover { 
+    border-color: var(--color-border-muted) !important; 
+    color: var(--color-border-muted) !important;
+    background-color: var(--color-border-muted) !important;
   }
 }

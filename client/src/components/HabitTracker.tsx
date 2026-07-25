@@ -1,19 +1,35 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { CheckCircle2, Circle, Clock } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, TrendingUp, Flame, Sparkles, Plus } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { cn } from '../lib/utils';
 import { getIconForString } from '../lib/iconMap';
 
+// Helper to generate a 30-day contribution heatmap pattern for a habit
+function generate30DayPattern(habitId: string, streak: number) {
+  const days = [];
+  // Use simple deterministic pseudo-random based on id character codes and streak
+  let seed = habitId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + streak;
+  for (let i = 0; i < 30; i++) {
+    seed = (seed * 9301 + 49297) % 233280;
+    const rand = seed / 233280;
+    // Recent days (last `streak` days) are guaranteed active
+    const isRecentStreak = (30 - i) <= streak;
+    const level = isRecentStreak ? 3 : rand > 0.6 ? 2 : rand > 0.3 ? 1 : 0;
+    days.push(level);
+  }
+  return days;
+}
+
 export function HabitTracker() {
   const { data: habits = [], isLoading } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [completedHabitIds, setCompletedHabitIds] = useState<Record<string, boolean>>({});
 
   if (isLoading) return <div className="p-8 text-[#6B7280]">Loading habits...</div>;
 
-  // Compute categories
   const categoriesMap = new Map<string, number>();
   habits.forEach(h => {
     const cat = h.category || 'Uncategorized';
@@ -25,34 +41,53 @@ export function HabitTracker() {
     ? habits.filter(h => (h.category || 'Uncategorized') === activeCategory)
     : habits;
 
-  // Compute morning / evening routines
   const morningHabits = habits.filter(h => h.timeOfDay === 'morning');
   const eveningHabits = habits.filter(h => h.timeOfDay === 'evening');
 
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
+  const toggleTodayCompletion = (id: string) => {
+    setCompletedHabitIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const completedCount = habits.filter((h, idx) => completedHabitIds[h.id] !== undefined ? completedHabitIds[h.id] : idx % 2 === 0).length;
+  const totalHabits = habits.length || 1;
+  const progressPct = Math.round((completedCount / totalHabits) * 100);
+
   return (
-    <div className="flex h-full w-full bg-white animate-in fade-in duration-150">
+    <div className="flex h-full w-full bg-canvas animate-in fade-in duration-150">
       
       {/* LEFT COLUMN: Main Content */}
-      <div className="flex-1 h-full overflow-y-auto p-8 lg:p-12 relative border-r border-[#E5E7EB]">
+      <div className="flex-1 h-full overflow-y-auto p-8 lg:p-12 relative border-r border-[#E5E8EC]">
         
-        {/* Header */}
-        <div className="flex justify-between items-end mb-8">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-[#0A0A0A] mb-2">Habits</h1>
-            <p className="text-[#6B7280]">Manage and track your routines.</p>
+        {/* Header with Category Tile (#EA580C Orange) */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-[12px] bg-[#EA580C] text-white flex items-center justify-center shrink-0 shadow-sm">
+              <TrendingUp className="w-5 h-5 stroke-[1.75]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <h1 className="text-[28px] font-medium tracking-tight text-[#111827]">Habits</h1>
+                <span className="bg-[#EA580C]/10 text-[#EA580C] border border-[#EA580C]/20 px-2 py-0.2 rounded text-[10px] font-medium uppercase tracking-[0.02em] flex items-center gap-1 font-mono">
+                  <Flame className="w-3 h-3 fill-[#EA580C]" /> {habits.length} routines
+                </span>
+              </div>
+              <p className="text-[13px] text-[#6B7280]">Manage, track, and maintain consistency across your daily routines.</p>
+            </div>
           </div>
-          <BaseButton>New Habit</BaseButton>
+          <BaseButton onClick={() => alert('Create New Habit')}>
+            <Plus className="w-4 h-4 mr-1.5 stroke-[2]" /> New Habit
+          </BaseButton>
         </div>
 
         {/* Category Filters */}
-        <div className="flex flex-wrap gap-2 mb-10">
+        <div className="flex flex-wrap gap-2 mb-8">
           <button
             onClick={() => setActiveCategory(null)}
             className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-bold tracking-wide transition-colors border",
-              activeCategory === null ? "bg-[#0A0A0A] text-white border-[#0A0A0A]" : "bg-[#FAFAFA] text-[#6B7280] border-[#E5E7EB] hover:border-[#D1D5DB]"
+              "px-3.5 py-1.5 rounded-full text-xs font-medium tracking-[0.02em] transition-all border shadow-2xs cursor-pointer",
+              activeCategory === null ? "bg-[#111827] text-white border-[#111827]" : "bg-white text-[#6B7280] border-[#E5E8EC] hover:border-[#111827] hover:text-[#111827]"
             )}
           >
             All ({habits.length})
@@ -62,43 +97,71 @@ export function HabitTracker() {
               key={cat}
               onClick={() => setActiveCategory(cat)}
               className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-bold tracking-wide transition-colors border flex items-center gap-1.5",
-                activeCategory === cat ? "bg-[#0A0A0A] text-white border-[#0A0A0A]" : "bg-[#FAFAFA] text-[#6B7280] border-[#E5E7EB] hover:border-[#D1D5DB]"
+                "px-3.5 py-1.5 rounded-full text-xs font-medium tracking-[0.02em] transition-all border flex items-center gap-1.5 shadow-2xs cursor-pointer",
+                activeCategory === cat ? "bg-[#111827] text-white border-[#111827]" : "bg-white text-[#6B7280] border-[#E5E8EC] hover:border-[#111827] hover:text-[#111827]"
               )}
             >
-              {cat} <span className={cn("px-1.5 py-0.5 rounded-full text-[9px]", activeCategory === cat ? "bg-white/20" : "bg-[#E5E7EB] text-[#6B7280]")}>{count}</span>
+              {cat} <span className={cn("px-1.5 py-0.2 rounded-full text-[10px] font-mono", activeCategory === cat ? "bg-white/20" : "bg-[#F8F9FB] text-[#6B7280] border border-[#E5E8EC]")}>{count}</span>
             </button>
           ))}
         </div>
 
-        {/* Habit Cards Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-12">
+        {/* Habit Cards Grid with NEW 30-Day Activity Heatmap */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-10">
           {filteredHabits.map(habit => {
             const Icon = getIconForString(habit.name);
+            const heatmap = generate30DayPattern(habit.id, habit.streak);
+
             return (
-              <div key={habit.id} className="bg-white border border-[#E5E7EB] rounded-2xl p-5 hover:border-[#0A0A0A] transition-colors cursor-pointer group flex items-start gap-4 shadow-sm hover:shadow-md">
-                <div className="w-12 h-12 bg-[#FAFAFA] rounded-full border border-[#E5E7EB] flex items-center justify-center flex-shrink-0 group-hover:bg-[#0A0A0A] group-hover:border-[#0A0A0A] transition-colors">
-                  <Icon className="w-5 h-5 text-[#0A0A0A] group-hover:text-white transition-colors" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-bold text-lg text-[#0A0A0A] mb-1">{habit.name}</h3>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-medium text-[#6B7280]">{habit.category || 'Uncategorized'}</span>
-                    <span className="text-[#E5E7EB] font-light">•</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF] border border-[#E5E7EB] bg-[#FAFAFA] px-1.5 py-0.5 rounded">
-                      {habit.difficulty || 'Medium'}
-                    </span>
+              <div key={habit.id} className="bg-white border border-[#E5E8EC] rounded-xl p-5 hover:border-[#EA580C] transition-all cursor-pointer group flex flex-col justify-between shadow-sm gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-11 h-11 bg-[#EA580C]/10 rounded-xl border border-[#EA580C]/20 flex items-center justify-center shrink-0 group-hover:bg-[#EA580C] transition-colors">
+                    <Icon className="w-5 h-5 text-[#EA580C] group-hover:text-white transition-colors stroke-[1.75]" />
                   </div>
-                  <div className="flex items-center justify-between text-xs font-bold text-[#9CA3AF] uppercase tracking-wider">
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5" />
-                      {habit.duration || 15} min
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <h3 className="font-medium text-[16px] text-[#111827] truncate group-hover:text-[#EA580C] transition-colors">{habit.name}</h3>
+                      <span className="text-xs font-mono font-bold text-[#EA580C] bg-[#EA580C]/10 px-2 py-0.5 rounded border border-[#EA580C]/20 shrink-0">
+                        🔥 {habit.streak}d
+                      </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      🔥 {habit.streak}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-[#6B7280] font-medium">{habit.category || 'Uncategorized'}</span>
+                      <span className="text-[#E5E8EC] font-light">•</span>
+                      <span className="text-[10px] font-mono uppercase tracking-[0.02em] text-[#6B7280] border border-[#E5E8EC] bg-[#F8F9FB] px-1.5 py-0.2 rounded">
+                        {habit.difficulty || 'Medium'}
+                      </span>
+                      <span className="text-[#E5E8EC] font-light">•</span>
+                      <span className="text-[11px] text-[#6B7280] font-mono flex items-center gap-1">
+                        <Clock className="w-3 h-3 stroke-[1.5]" /> {habit.duration || 15}m
+                      </span>
                     </div>
                   </div>
                 </div>
+
+                {/* NEW: 30-Day Activity Heatmap Grid */}
+                <div className="pt-3 border-t border-[#E5E8EC]/60">
+                  <div className="flex items-center justify-between text-[10px] text-[#9CA3AF] uppercase font-mono mb-1.5">
+                    <span>30-Day Activity Horizon</span>
+                    <span>Last 30d</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-1">
+                    {heatmap.map((level, i) => (
+                      <div 
+                        key={i} 
+                        title={`Day ${30 - i} ago: ${level === 0 ? 'No activity' : 'Completed'}`}
+                        className={cn(
+                          "w-2 h-4 rounded-xs transition-colors",
+                          level === 3 ? "bg-[#EA580C]" 
+                          : level === 2 ? "bg-[#EA580C]/75" 
+                          : level === 1 ? "bg-[#EA580C]/40" 
+                          : "bg-[#F8F9FB] border border-[#E5E8EC]/60"
+                        )} 
+                      />
+                    ))}
+                  </div>
+                </div>
+
               </div>
             );
           })}
@@ -110,20 +173,24 @@ export function HabitTracker() {
         </div>
 
         {/* Routine Section */}
-        <div className="mb-8">
-          <h2 className="text-xl font-bold tracking-tight text-[#0A0A0A] mb-6">Daily Routines</h2>
+        <div>
+          <h2 className="text-[18px] font-medium tracking-tight text-[#111827] mb-4">Daily Routines Breakdown</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* Morning */}
-            <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-2xl p-6">
-              <h3 className="text-xs font-bold text-[#0A0A0A] uppercase tracking-wider mb-4 flex items-center gap-2">
-                🌅 Morning Routine
+            <div className="bg-white border border-[#E5E8EC] rounded-xl p-5 shadow-sm">
+              <h3 className="text-xs font-medium text-[#6B7280] uppercase tracking-[0.02em] mb-3 flex items-center justify-between">
+                <span>🌅 Morning Routine</span>
+                <span className="font-mono text-[10px] text-[#9CA3AF]">{morningHabits.length} habits</span>
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {morningHabits.map(habit => (
-                  <div key={habit.id} className="flex justify-between items-center bg-white border border-[#E5E7EB] p-3 rounded-xl">
-                    <span className="text-sm font-bold text-[#0A0A0A]">{habit.name}</span>
-                    <span className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">{habit.duration || 15}m</span>
+                  <div key={habit.id} className="flex justify-between items-center bg-[#F8F9FB] border border-[#E5E8EC] p-3 rounded-lg hover:border-[#EA580C] transition-colors group">
+                    <span className="text-sm font-medium text-[#111827] group-hover:text-[#EA580C] transition-colors">{habit.name}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] text-[#6B7280] font-mono">{habit.duration || 15}m</span>
+                      <span className="text-xs font-mono font-bold text-[#EA580C]">🔥 {habit.streak}</span>
+                    </div>
                   </div>
                 ))}
                 {morningHabits.length === 0 && <span className="text-xs text-[#9CA3AF]">No morning habits configured.</span>}
@@ -131,15 +198,19 @@ export function HabitTracker() {
             </div>
 
             {/* Evening */}
-            <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-2xl p-6">
-              <h3 className="text-xs font-bold text-[#0A0A0A] uppercase tracking-wider mb-4 flex items-center gap-2">
-                🌙 Evening Routine
+            <div className="bg-white border border-[#E5E8EC] rounded-xl p-5 shadow-sm">
+              <h3 className="text-xs font-medium text-[#6B7280] uppercase tracking-[0.02em] mb-3 flex items-center justify-between">
+                <span>🌙 Evening Routine</span>
+                <span className="font-mono text-[10px] text-[#9CA3AF]">{eveningHabits.length} habits</span>
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {eveningHabits.map(habit => (
-                  <div key={habit.id} className="flex justify-between items-center bg-white border border-[#E5E7EB] p-3 rounded-xl">
-                    <span className="text-sm font-bold text-[#0A0A0A]">{habit.name}</span>
-                    <span className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">{habit.duration || 15}m</span>
+                  <div key={habit.id} className="flex justify-between items-center bg-[#F8F9FB] border border-[#E5E8EC] p-3 rounded-lg hover:border-[#EA580C] transition-colors group">
+                    <span className="text-sm font-medium text-[#111827] group-hover:text-[#EA580C] transition-colors">{habit.name}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] text-[#6B7280] font-mono">{habit.duration || 15}m</span>
+                      <span className="text-xs font-mono font-bold text-[#EA580C]">🔥 {habit.streak}</span>
+                    </div>
                   </div>
                 ))}
                 {eveningHabits.length === 0 && <span className="text-xs text-[#9CA3AF]">No evening habits configured.</span>}
@@ -152,45 +223,66 @@ export function HabitTracker() {
       </div>
 
       {/* RIGHT COLUMN: Daily Checklist Widget (30%) */}
-      <div className="w-[30%] bg-[#FAFAFA] h-full overflow-y-auto p-8 border-l border-[#E5E7EB] hidden lg:block">
-        <div className="bg-white border border-[#0A0A0A] shadow-md rounded-2xl p-6 relative overflow-hidden">
+      <div className="w-[30%] bg-[#F8F9FB] h-full overflow-y-auto p-8 border-l border-[#E5E8EC] hidden lg:block">
+        <div className="bg-white border border-[#E5E8EC] shadow-sm rounded-xl p-6 relative overflow-hidden">
           
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#0A0A0A]" />
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-[#EA580C]" />
           
-          <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest mb-1 mt-2">Today's Tracker</div>
-          <h2 className="text-xl font-bold text-[#0A0A0A] mb-6">{today}</h2>
+          <div className="flex items-center justify-between mt-1 mb-1">
+            <span className="text-[11px] font-medium text-[#EA580C] uppercase tracking-[0.02em] flex items-center gap-1 font-mono">
+              <Sparkles className="w-3 h-3 fill-[#EA580C]" /> Today's Tracker
+            </span>
+            <span className="text-xs font-mono font-bold text-[#111827] bg-[#F8F9FB] px-2 py-0.5 rounded border border-[#E5E8EC]">
+              {completedCount}/{totalHabits} Done
+            </span>
+          </div>
+          <h2 className="text-[18px] font-medium text-[#111827] mb-6">{today}</h2>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {habits.map((habit, index) => {
-              // Mock completed state: randomly true for some, purely visual
-              const isCompleted = index % 2 === 0;
+              const isCompleted = completedHabitIds[habit.id] !== undefined ? completedHabitIds[habit.id] : index % 2 === 0;
 
               return (
-                <div key={habit.id} className="flex items-center gap-3 group cursor-pointer">
-                  <div className="w-5 text-right text-[10px] font-bold text-[#D1D5DB] group-hover:text-[#9CA3AF] transition-colors">
+                <div 
+                  key={habit.id} 
+                  onClick={() => toggleTodayCompletion(habit.id)}
+                  className={cn(
+                    "flex items-center gap-3 group cursor-pointer p-2 rounded-lg transition-all border",
+                    isCompleted ? "bg-[#F8F9FB] border-transparent" : "bg-white border-[#E5E8EC] hover:border-[#EA580C] shadow-2xs"
+                  )}
+                >
+                  <div className="w-5 text-right text-[11px] font-mono text-[#9CA3AF]">
                     {(index + 1).toString().padStart(2, '0')}
                   </div>
                   <button className="focus:outline-none">
                     {isCompleted ? (
-                      <CheckCircle2 className="w-5 h-5 text-[#0A0A0A]" />
+                      <CheckCircle2 className="w-4 h-4 text-[#EA580C] stroke-[2]" />
                     ) : (
-                      <Circle className="w-5 h-5 text-[#D1D5DB] group-hover:text-[#0A0A0A] transition-colors" />
+                      <Circle className="w-4 h-4 text-[#D1D5DB] group-hover:text-[#EA580C] transition-colors stroke-[1.5]" />
                     )}
                   </button>
-                  <span className={cn(
-                    "text-sm font-medium transition-colors",
-                    isCompleted ? "text-[#9CA3AF] line-through decoration-[#E5E7EB]" : "text-[#0A0A0A]"
-                  )}>
-                    {habit.name}
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className={cn(
+                      "text-sm transition-colors min-w-0 truncate block",
+                      isCompleted ? "text-[#9CA3AF] line-through decoration-[#D1D5DB]" : "text-[#111827] font-medium group-hover:text-[#EA580C]"
+                    )}>
+                      {habit.name}
+                    </span>
+                    <span className="text-[10px] text-[#6B7280] font-mono">{habit.timeOfDay} • {habit.duration || 15}m</span>
+                  </div>
                 </div>
               );
             })}
           </div>
 
-          <div className="mt-8 pt-6 border-t border-[#E5E7EB] border-dashed flex justify-between items-center">
-            <span className="text-xs font-bold text-[#6B7280]">Progress</span>
-            <span className="text-sm font-bold text-[#0A0A0A]">{Math.round((habits.length / 2) / habits.length * 100)}%</span>
+          <div className="mt-8 pt-4 border-t border-[#E5E8EC] space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-[#6B7280] font-medium">Daily Completion Rate</span>
+              <span className="text-sm font-medium text-[#111827] font-mono">{progressPct}%</span>
+            </div>
+            <div className="h-2 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/40">
+              <div className="h-full bg-[#EA580C] transition-all duration-300" style={{ width: `${progressPct}%` }} />
+            </div>
           </div>
 
         </div>

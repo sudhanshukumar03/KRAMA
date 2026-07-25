@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Clock, Play, ListTodo } from 'lucide-react';
+import { Clock, Play, ListTodo, Flame, CheckCircle2, TrendingDown, Activity } from 'lucide-react';
 import { EmptyState } from './ui/EmptyState';
+import { cn } from '../lib/utils';
 
 export function SprintView() {
   const { data: sprints = [], isLoading: sprintsLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
@@ -9,11 +10,11 @@ export function SprintView() {
 
   if (sprintsLoading || issuesLoading) return <div className="p-8 text-[#6B7280]">Loading sprint view...</div>;
 
-  const activeSprint = sprints[0]; // mock: just grab the first one
+  const activeSprint = sprints[0];
 
   if (!activeSprint) {
     return (
-      <div className="p-8 max-w-5xl mx-auto w-full h-full flex items-center justify-center bg-white animate-in fade-in duration-150">
+      <div className="p-8 max-w-5xl mx-auto w-full h-full flex items-center justify-center bg-canvas animate-in fade-in duration-150">
         <EmptyState 
           icon={Clock}
           title="No Active Sprint"
@@ -28,65 +29,127 @@ export function SprintView() {
   // Calculate days remaining
   const end = new Date(activeSprint.endDate);
   const now = new Date();
-  const daysRemaining = Math.ceil((end.getTime() - now.getTime()) / (1000 * 3600 * 24));
+  const daysRemaining = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 3600 * 24)));
+  const totalDays = 14;
+  const dayOfSprint = Math.max(1, totalDays - daysRemaining);
 
-  // In a real app we'd filter by `issue.sprintId === activeSprint.id`.
-  // For the mock, we'll just treat 'todo', 'in_progress', 'review' as sprint backlog.
   const sprintIssues = issues.filter(i => ['todo', 'in_progress', 'review'].includes(i.status));
   const doneIssues = issues.filter(i => ['done', 'testing', 'released'].includes(i.status));
   
   const totalIssues = sprintIssues.length + doneIssues.length;
   const progress = totalIssues === 0 ? 0 : Math.round((doneIssues.length / totalIssues) * 100);
 
-  return (
-    <div className="p-8 max-w-5xl mx-auto w-full bg-white min-h-full animate-in fade-in duration-150">
-      <div className="mb-8 bg-[#FAFAFA] border border-[#E5E7EB] rounded-2xl p-8 relative overflow-hidden">
-        {/* Progress Background */}
-        <div className="absolute top-0 left-0 h-1 bg-[#E5E7EB] w-full" />
-        <div className="absolute top-0 left-0 h-1 bg-[#0A0A0A] transition-all duration-1000 ease-out" style={{ width: `${progress}%` }} />
+  // Compute story points from estimates (default 3h if missing)
+  const completedPoints = doneIssues.reduce((acc, i) => acc + (i.estimate || 3), 0);
+  const remainingPoints = sprintIssues.reduce((acc, i) => acc + (i.estimate || 3), 0);
+  const totalPoints = completedPoints + remainingPoints;
+  const velocityPacing = (completedPoints / Math.max(1, dayOfSprint)) * 7;
 
-        <div className="flex justify-between items-start">
+  return (
+    <div className="p-8 max-w-6xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 pb-20">
+      
+      {/* Main Sprint Banner */}
+      <div className="mb-6 bg-white border border-[#E5E8EC] rounded-xl p-8 relative overflow-hidden shadow-sm">
+        {/* Progress Background */}
+        <div className="absolute top-0 left-0 h-1.5 bg-[#E5E8EC] w-full" />
+        <div className="absolute top-0 left-0 h-1.5 bg-[#2563EB] transition-all duration-1000 ease-out" style={{ width: `${progress}%` }} />
+
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="bg-[#0A0A0A] text-white px-2.5 py-1 rounded-md text-[10px] font-bold tracking-widest uppercase">
+            <div className="flex items-center gap-2.5 mb-3">
+              <span className="bg-[#111827] text-white px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-[0.02em] uppercase">
                 Active Sprint
               </span>
-              <span className="text-[#6B7280] text-sm font-bold flex items-center gap-1.5">
-                <Clock className="w-4 h-4" /> {daysRemaining} days remaining
+              <span className="bg-[#EFF4FE] text-[#2563EB] border border-[#2563EB]/20 px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-[0.02em] uppercase">
+                {totalIssues} issues
+              </span>
+              <span className="text-[#6B7280] text-xs font-medium flex items-center gap-1.5 ml-1">
+                <Clock className="w-3.5 h-3.5 stroke-[1.75]" /> Day {dayOfSprint} of {totalDays} ({daysRemaining} days remaining)
               </span>
             </div>
-            <h1 className="text-4xl font-bold tracking-tight text-[#0A0A0A]">{activeSprint.name}</h1>
+            <h1 className="text-[32px] font-medium tracking-tight text-[#111827] mb-1">{activeSprint.name}</h1>
+            <p className="text-sm text-[#6B7280]">Focused execution cycle for strategic engineering milestones.</p>
           </div>
-          <div className="text-right">
-            <div className="text-5xl font-bold text-[#0A0A0A] mb-1">{progress}%</div>
-            <div className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-wider">completed</div>
+          <div className="sm:text-right bg-[#F8F9FB] p-3 rounded-xl border border-[#E5E8EC] shrink-0">
+            <div className="text-4xl font-medium text-[#2563EB] mb-0.5 font-mono">{progress}%</div>
+            <div className="text-[11px] font-mono font-medium text-[#6B7280] uppercase tracking-[0.02em]">Sprint Burndown</div>
           </div>
         </div>
+
+        {/* NEW: Burndown & Velocity Summary Header Scorecard */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 border-t border-[#E5E8EC]">
+          <div className="bg-[#F8F9FB] p-3.5 rounded-lg border border-[#E5E8EC]/60">
+            <div className="text-[11px] font-mono text-[#6B7280] uppercase tracking-[0.02em] mb-1 flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5 text-[#2563EB]" /> Total Story Points
+            </div>
+            <div className="text-xl font-mono font-bold text-[#111827]">{totalPoints} pts</div>
+            <div className="text-[10px] text-[#6B7280] mt-0.5">Across {totalIssues} tickets</div>
+          </div>
+
+          <div className="bg-[#F8F9FB] p-3.5 rounded-lg border border-[#E5E8EC]/60">
+            <div className="text-[11px] font-mono text-[#6B7280] uppercase tracking-[0.02em] mb-1 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#0D9488]" /> Burned Down
+            </div>
+            <div className="text-xl font-mono font-bold text-[#0D9488]">{completedPoints} pts</div>
+            <div className="text-[10px] text-[#6B7280] mt-0.5">{remainingPoints} pts remaining</div>
+          </div>
+
+          <div className="bg-[#F8F9FB] p-3.5 rounded-lg border border-[#E5E8EC]/60">
+            <div className="text-[11px] font-mono text-[#6B7280] uppercase tracking-[0.02em] mb-1 flex items-center gap-1.5">
+              <Flame className="w-3.5 h-3.5 text-[#EA580C]" /> Velocity Pacing
+            </div>
+            <div className="text-xl font-mono font-bold text-[#111827]">{Math.round(velocityPacing)} pts/wk</div>
+            <div className="text-[10px] text-[#6B7280] mt-0.5">Projected weekly output</div>
+          </div>
+
+          <div className="bg-[#F8F9FB] p-3.5 rounded-lg border border-[#E5E8EC]/60">
+            <div className="text-[11px] font-mono text-[#6B7280] uppercase tracking-[0.02em] mb-1 flex items-center gap-1.5">
+              <TrendingDown className="w-3.5 h-3.5 text-[#2563EB]" /> Trajectory
+            </div>
+            <div className="text-xl font-mono font-bold text-[#2563EB]">On Track</div>
+            <div className="text-[10px] text-[#6B7280] mt-0.5">Est. finish 1d before close</div>
+          </div>
+        </div>
+
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         
-        {/* To Do / In Progress */}
+        {/* Current Focus (Backlog & In Progress) */}
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-[#0A0A0A] flex items-center gap-2">
-            <Play className="w-5 h-5 text-[#0A0A0A]" /> Current Focus
-          </h2>
-          <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden divide-y divide-[#E5E7EB]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-[#2563EB]/10 flex items-center justify-center text-[#2563EB]">
+                <Play className="w-4 h-4 stroke-[1.75] fill-[#2563EB]" />
+              </div>
+              <h2 className="text-[18px] font-medium text-[#111827]">Current Focus</h2>
+            </div>
+            <span className="text-xs font-mono text-[#6B7280] bg-[#F8F9FB] px-2 py-0.5 rounded border border-[#E5E8EC]">
+              {sprintIssues.length} open
+            </span>
+          </div>
+
+          <div className="bg-white border border-[#E5E8EC] rounded-xl overflow-hidden divide-y divide-[#E5E8EC] shadow-sm">
             {sprintIssues.map(issue => (
-              <div key={issue.id} className="p-4 hover:bg-[#F3F4F6] transition-colors duration-100 flex gap-4 items-start cursor-pointer group">
-                <div className="mt-0.5">
-                  <div className="w-4 h-4 rounded border-2 border-[#D1D5DB] group-hover:border-[#0A0A0A] transition-colors" />
+              <div key={issue.id} className="p-4 hover:bg-[#F8F9FB] transition-colors duration-100 flex gap-3.5 items-start cursor-pointer group">
+                <div className="mt-1">
+                  <div className="w-4 h-4 rounded border-2 border-[#D1D5DB] group-hover:border-[#2563EB] transition-colors" />
                 </div>
-                <div>
-                  <div className="font-bold text-[#0A0A0A] mb-1 leading-none">{issue.title}</div>
-                  <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF]">
-                    <span className="text-[#6B7280]">{issue.status.replace('_', ' ')}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm text-[#111827] mb-1.5 leading-tight group-hover:text-[#2563EB] transition-colors truncate">{issue.title}</div>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#6B7280] font-mono">
+                    <span className="capitalize bg-[#F8F9FB] px-1.5 py-0.2 rounded border border-[#E5E8EC]">{issue.status.replace('_', ' ')}</span>
                     <span>•</span>
-                    <span className="bg-[#F3F4F6] px-1.5 py-0.5 rounded text-[#6B7280] border border-[#E5E7EB]">{issue.priority}</span>
+                    <span className={cn(
+                      "px-1.5 py-0.2 rounded uppercase font-bold text-[9px] border",
+                      issue.priority === 'urgent' ? "bg-red-50 text-[#DC2626] border-[#DC2626]/20" : "bg-[#F8F9FB] text-[#6B7280] border-[#E5E8EC]"
+                    )}>{issue.priority}</span>
+                    <span>•</span>
+                    <span className="text-[#111827] font-medium">{issue.estimate || 3}h pt</span>
                     {issue.childIssues && issue.childIssues.length > 0 && (
                       <>
                         <span>•</span>
-                        <span className="text-[#6B7280]">
+                        <span className="text-[#2563EB]">
                           {issue.childIssues.filter((c: any) => c.status === 'done' || c.status === 'released').length}/{issue.childIssues.length} sub-tasks
                         </span>
                       </>
@@ -96,7 +159,7 @@ export function SprintView() {
               </div>
             ))}
             {sprintIssues.length === 0 && (
-              <div className="h-48">
+              <div className="h-48 flex items-center justify-center">
                 <EmptyState 
                   icon={Play}
                   description="No active issues in this sprint."
@@ -108,23 +171,38 @@ export function SprintView() {
 
         {/* Done */}
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-[#0A0A0A] flex items-center gap-2">
-            <ListTodo className="w-5 h-5 text-[#0A0A0A]" /> Completed
-          </h2>
-          <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-xl overflow-hidden divide-y divide-[#E5E7EB] opacity-70">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-[#0D9488]/10 flex items-center justify-center text-[#0D9488]">
+                <ListTodo className="w-4 h-4 stroke-[1.75]" />
+              </div>
+              <h2 className="text-[18px] font-medium text-[#111827]">Completed</h2>
+            </div>
+            <span className="text-xs font-mono text-[#0D9488] bg-[#0D9488]/10 px-2 py-0.5 rounded font-medium">
+              {doneIssues.length} done
+            </span>
+          </div>
+
+          <div className="bg-[#F8F9FB] border border-[#E5E8EC] rounded-xl overflow-hidden divide-y divide-[#E5E8EC] opacity-90 shadow-2xs">
             {doneIssues.map(issue => (
-              <div key={issue.id} className="p-4 flex gap-4 items-start line-through text-[#9CA3AF]">
-                <div className="mt-0.5">
-                  <div className="w-4 h-4 rounded border-2 border-[#0A0A0A] bg-[#0A0A0A]" />
+              <div key={issue.id} className="p-4 flex gap-3.5 items-start text-[#9CA3AF] group hover:bg-white transition-colors">
+                <div className="mt-1">
+                  <div className="w-4 h-4 rounded border-2 border-[#0D9488] bg-[#0D9488] flex items-center justify-center">
+                    <CheckCircle2 className="w-3 h-3 text-white stroke-[2.5]" />
+                  </div>
                 </div>
-                <div>
-                  <div className="font-bold mb-1 leading-none">{issue.title}</div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider">Done</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm mb-1 leading-tight line-through text-[#6B7280] group-hover:text-[#111827] transition-colors truncate">{issue.title}</div>
+                  <div className="text-[11px] font-mono text-[#9CA3AF] flex items-center gap-2">
+                    <span>Released & Done</span>
+                    <span>•</span>
+                    <span>{issue.estimate || 3}h pt logged</span>
+                  </div>
                 </div>
               </div>
             ))}
             {doneIssues.length === 0 && (
-              <div className="h-48">
+              <div className="h-48 flex items-center justify-center">
                 <EmptyState 
                   icon={ListTodo}
                   description="No completed issues yet."

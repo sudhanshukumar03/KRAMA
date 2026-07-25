@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { ChevronRight, FileText, Plus, FileSignature, Landmark, Laptop } from 'lucide-react';
+import { ChevronRight, FileText, Plus, FileSignature, Building2, Laptop, Brain, Clock, AlignLeft, Sparkles, BookOpen } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Content } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -9,13 +9,13 @@ import Placeholder from '@tiptap/extension-placeholder';
 import type { PageWithRelations } from '../types/schema';
 import { cn } from '../lib/utils';
 import { EmptyState } from './ui/EmptyState';
-
+import { BaseButton } from './ui/BaseButton';
 
 function getIconComponent(iconName: string | null, className?: string) {
-  if (iconName === 'landmark') return <Landmark className={className || "w-4 h-4 text-[#6B7280]"} />;
-  if (iconName === 'laptop') return <Laptop className={className || "w-4 h-4 text-[#6B7280]"} />;
+  if (iconName === 'landmark') return <Building2 className={cn(className || "w-4 h-4 text-[#6B7280]", "stroke-[1.75]")} />;
+  if (iconName === 'laptop') return <Laptop className={cn(className || "w-4 h-4 text-[#6B7280]", "stroke-[1.75]")} />;
   if (iconName) return <span className="text-base leading-none">{iconName}</span>;
-  return <FileText className={className || "w-4 h-4 text-[#9CA3AF]"} />;
+  return <FileText className={cn(className || "w-4 h-4 text-[#9CA3AF]", "stroke-[1.75]")} />;
 }
 
 function PageTreeNode({ 
@@ -40,16 +40,17 @@ function PageTreeNode({
     <div>
       <div 
         className={cn(
-          "group relative flex items-center gap-1.5 py-1 px-2 hover:bg-[#F3F4F6] rounded-md cursor-pointer text-sm transition-colors duration-100",
-          isSelected ? "bg-[#F3F4F6] text-[#0A0A0A] font-medium" : "text-[#6B7280]"
+          "group relative flex items-center gap-2 py-1.5 px-2.5 hover:bg-[#F8F9FB] rounded-lg cursor-pointer text-xs transition-all duration-100 select-none",
+          isSelected ? "bg-[#111827] text-white font-medium shadow-2xs" : "text-[#6B7280] hover:text-[#111827]"
         )}
-        style={{ paddingLeft: `${(level * 12) + 8}px` }}
+        style={{ paddingLeft: `${(level * 14) + 10}px` }}
         onClick={() => onSelect(page.id)}
       >
         <button 
           onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
           className={cn(
-            "w-4 h-4 flex items-center justify-center text-[#9CA3AF] hover:text-[#0A0A0A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0A0A0A] rounded-sm",
+            "w-4 h-4 flex items-center justify-center transition-colors focus:outline-none rounded-sm",
+            isSelected ? "text-white/70 hover:text-white" : "text-[#9CA3AF] hover:text-[#111827]",
             !hasChildren && "opacity-0 cursor-default"
           )}
           disabled={!hasChildren}
@@ -63,9 +64,12 @@ function PageTreeNode({
         </button>
         {level > 0 && (
           <div 
-            className="absolute border-l border-b border-[#D1D5DB] rounded-bl-sm pointer-events-none"
+            className={cn(
+              "absolute border-l border-b rounded-bl-sm pointer-events-none",
+              isSelected ? "border-white/20" : "border-[#E5E8EC]"
+            )}
             style={{
-              left: `${((level - 1) * 12) + 26}px`,
+              left: `${((level - 1) * 14) + 26}px`,
               top: '-12px',
               height: '26px',
               width: '12px'
@@ -73,18 +77,24 @@ function PageTreeNode({
           />
         )}
         <span className="flex items-center justify-center flex-shrink-0 z-10">
-          {getIconComponent(page.icon, isSelected ? "w-4 h-4 text-[#0A0A0A]" : "w-4 h-4 text-[#6B7280]")}
+          {getIconComponent(page.icon, isSelected ? "w-4 h-4 text-white" : "w-4 h-4 text-[#6B7280]")}
         </span>
         <span className="truncate flex-1 z-10">{page.title}</span>
         <button 
           onClick={(e) => { e.stopPropagation(); alert('Create child page'); }}
-          className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center text-[#9CA3AF] hover:text-[#0A0A0A] transition-all hover:bg-white border border-transparent hover:border-[#E5E7EB] rounded-md focus:outline-none"
+          className={cn(
+            "opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center transition-all rounded-md focus:outline-none",
+            isSelected 
+              ? "text-white hover:bg-white/20" 
+              : "text-[#9CA3AF] hover:text-[#111827] hover:bg-white border border-transparent hover:border-[#E5E8EC]"
+          )}
+          title="Add Sub-page"
         >
           <Plus className="w-3.5 h-3.5" />
         </button>
       </div>
       
-      {/* Children Container with height/opacity animation via Tailwind */}
+      {/* Children Container */}
       <div 
         className={cn(
           "overflow-hidden transition-all duration-150 ease-in-out origin-top",
@@ -111,14 +121,14 @@ function Breadcrumbs({ page, pages }: { page: PageWithRelations, pages: PageWith
   }, [page, pages]);
 
   return (
-    <div className="flex items-center gap-1 text-sm font-medium mb-8">
-      <span className="text-[#6B7280] flex items-center gap-1">
-        <div className="w-5 h-5 rounded flex items-center justify-center bg-[#F3F4F6]">
-          <span className="text-xs">S</span>
+    <div className="flex items-center gap-1.5 text-xs font-mono font-medium mb-6 bg-[#F8F9FB] px-3.5 py-2 rounded-xl border border-[#E5E8EC] w-fit">
+      <span className="text-[#6B7280] flex items-center gap-1.5">
+        <div className="w-5 h-5 rounded flex items-center justify-center bg-[#7C3AED]/10 text-[#7C3AED]">
+          <BookOpen className="w-3 h-3 stroke-[2]" />
         </div>
-        Knowledge Base
+        Brain Knowledge Base
       </span>
-      <span className="text-[#D1D5DB] mx-1">/</span>
+      <span className="text-[#9CA3AF] mx-1">/</span>
       
       {breadcrumbs.map((crumb, idx) => {
         const isLast = idx === breadcrumbs.length - 1;
@@ -126,12 +136,12 @@ function Breadcrumbs({ page, pages }: { page: PageWithRelations, pages: PageWith
           <div key={crumb.id} className="flex items-center">
             <span className={cn(
               "flex items-center gap-1.5",
-              isLast ? "text-[#0A0A0A]" : "text-[#6B7280]"
+              isLast ? "text-[#111827] font-bold" : "text-[#6B7280]"
             )}>
-              {getIconComponent(crumb.icon, isLast ? "w-4 h-4 text-[#0A0A0A]" : "w-4 h-4 text-[#6B7280]")}
+              {getIconComponent(crumb.icon, isLast ? "w-3.5 h-3.5 text-[#111827]" : "w-3.5 h-3.5 text-[#6B7280]")}
               {crumb.title}
             </span>
-            {!isLast && <span className="text-[#D1D5DB] mx-2">/</span>}
+            {!isLast && <span className="text-[#9CA3AF] mx-2">/</span>}
           </div>
         );
       })}
@@ -143,82 +153,151 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Placeholder.configure({ placeholder: 'Start typing...' })
+      Placeholder.configure({ placeholder: 'Start typing strategic engineering documentation...' })
     ],
     content: (page.blocks ? page.blocks as Content : ''),
     editorProps: {
       attributes: {
-        class: 'prose prose-zinc max-w-none focus:outline-none min-h-[500px]',
+        class: 'prose prose-zinc max-w-none focus:outline-none min-h-[450px] text-[#111827] leading-relaxed font-sans',
       },
     },
   });
 
+  // Calculate word count & reading time
+  const textContent = editor ? editor.getText() : (page.title || '');
+  const words = textContent.trim().split(/\s+/).filter(w => w.length > 0);
+  const wordCount = words.length;
+  const charCount = textContent.length;
+  const readTimeMins = Math.max(1, Math.ceil(wordCount / 200));
+
   if (!editor) return null;
 
   return (
-    <div className="max-w-3xl mx-auto py-12 px-8 h-full overflow-y-auto animate-in fade-in duration-150">
+    <div className="max-w-4xl mx-auto py-8 px-8 h-full overflow-y-auto animate-in fade-in duration-150 flex flex-col">
       <Breadcrumbs page={page} pages={pages} />
       
-      <div className="flex items-center gap-4 mb-6 select-none">
-        {getIconComponent(page.icon, "w-10 h-10 text-[#0A0A0A]")}
+      {/* NEW: Document Intelligence Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-[#E5E8EC]">
+        <div className="flex items-center gap-3">
+          {getIconComponent(page.icon, "w-8 h-8 text-[#111827]")}
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-[#7C3AED] font-bold block mb-0.5">
+              Live Document
+            </span>
+            <div className="text-xs font-mono text-[#6B7280] flex items-center gap-3">
+              <span className="flex items-center gap-1">
+                <AlignLeft className="w-3.5 h-3.5 text-[#9CA3AF]" /> {wordCount} words ({charCount} chars)
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1 text-[#0D9488] font-medium">
+                <Clock className="w-3.5 h-3.5" /> ~{readTimeMins} min read
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-[#6B7280] bg-[#F8F9FB] px-2.5 py-1 rounded-lg border border-[#E5E8EC]">
+            Auto-saved
+          </span>
+          <BaseButton onClick={() => alert('Document exported to PDF/Markdown')}>
+            Export Doc
+          </BaseButton>
+        </div>
       </div>
+
       <input 
         type="text"  
         defaultValue={page.title} 
-        className="text-4xl font-bold bg-transparent border-none outline-none text-[#0A0A0A] placeholder:text-[#9CA3AF] w-full mb-8"
-        placeholder="Page title"
+        className="text-4xl font-bold bg-transparent border-none outline-none text-[#111827] placeholder:text-[#9CA3AF] w-full mb-6 font-sans tracking-tight focus:ring-0"
+        placeholder="Document Title..."
       />
-      <EditorContent editor={editor} />
+
+      <div className="flex-1 bg-white rounded-xl p-6 border border-[#E5E8EC]/60 shadow-2xs min-h-[500px]">
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }
 
 export function BrainWorkspace() {
   const { data: pages = [], isLoading } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
-  const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
+  const [selectedPageId, setSelectedPageId] = useState<string | null>(pages[0]?.id || null);
 
-  if (isLoading) return <div className="p-8 text-[#6B7280]">Loading brain...</div>;
+  if (isLoading) return <div className="p-8 text-[#6B7280]">Loading brain workspace...</div>;
 
   const rootPages = pages.filter(p => !p.parentPageId);
   const selectedPage = pages.find(p => p.id === selectedPageId);
 
   return (
-    <div className="flex h-full w-full bg-white">
-      {/* Page Tree Column */}
-      <div className="w-64 border-r border-[#E5E7EB] bg-[#FAFAFA] flex flex-col h-full flex-shrink-0">
-        <div className="p-3 border-b border-[#E5E7EB] flex justify-between items-center h-14">
-          <span className="text-xs font-bold text-[#6B7280] uppercase tracking-wider">Pages</span>
-          <button className="text-[#6B7280] hover:text-[#0A0A0A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0A0A0A] rounded-sm p-0.5">
-            <Plus className="w-4 h-4" />
-          </button>
+    <div className="flex flex-col h-full w-full bg-canvas">
+      
+      {/* NEW: Top Header with 40x40px Purple Brain Category Tile (#7C3AED) */}
+      <div className="h-20 border-b border-[#E5E8EC] bg-white px-8 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-[12px] bg-[#7C3AED] text-white flex items-center justify-center shrink-0 shadow-sm">
+            <Brain className="w-5 h-5 stroke-[1.75]" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <h1 className="text-xl font-medium tracking-tight text-[#111827]">Brain Workspace</h1>
+              <span className="bg-[#7C3AED]/10 text-[#7C3AED] border border-[#7C3AED]/20 px-2 py-0.2 rounded text-[10px] font-mono font-medium uppercase tracking-[0.02em] flex items-center gap-1">
+                <Sparkles className="w-3 h-3 fill-[#7C3AED]" /> {pages.length} docs
+              </span>
+            </div>
+            <p className="text-xs text-[#6B7280]">Strategic engineering documentation, specs, and knowledge base tree.</p>
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto py-2">
-          {rootPages.map(page => (
-            <PageTreeNode 
-              key={page.id} 
-              page={page} 
-              pages={pages} 
-              onSelect={setSelectedPageId} 
-              selectedId={selectedPageId} 
-            />
-          ))}
+        
+        <BaseButton onClick={() => alert('New Document')}>
+          <Plus className="w-4 h-4 mr-1.5 stroke-[2]" />
+          New Document
+        </BaseButton>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden bg-white">
+        {/* Page Tree Column */}
+        <div className="w-72 border-r border-[#E5E8EC] bg-[#F8F9FB] flex flex-col h-full shrink-0 select-none">
+          <div className="p-3.5 border-b border-[#E5E8EC] flex justify-between items-center h-12 bg-white/50">
+            <span className="text-[11px] font-mono font-bold text-[#6B7280] uppercase tracking-wider">Page Tree</span>
+            <button 
+              onClick={() => alert('Create root document')}
+              className="text-[#6B7280] hover:text-[#111827] hover:bg-white border border-transparent hover:border-[#E5E8EC] transition-all rounded-md p-1"
+              title="Add Root Page"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+            {rootPages.map(page => (
+              <PageTreeNode 
+                key={page.id} 
+                page={page} 
+                pages={pages} 
+                onSelect={setSelectedPageId} 
+                selectedId={selectedPageId} 
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Editor Main Area Column */}
+        <div className="flex-1 h-full bg-white relative overflow-hidden">
+          {selectedPage ? (
+            <Editor key={selectedPage.id} page={selectedPage} pages={pages} />
+          ) : (
+            <div className="h-full flex items-center justify-center p-8">
+              <EmptyState 
+                icon={FileSignature}
+                title="No Document Selected"
+                description="Select a document from the page tree on the left or create a new one to start writing."
+                actionLabel="Create New Page"
+                onAction={() => alert('Create page action')}
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Editor Main Area Column */}
-      <div className="flex-1 h-full bg-white relative">
-        {selectedPage ? (
-          <Editor key={selectedPage.id} page={selectedPage} pages={pages} />
-        ) : (
-          <EmptyState 
-            icon={FileSignature}
-            title="No Document Selected"
-            description="Select a document from the page tree or create a new one to start writing."
-            actionLabel="Create New Page"
-            onAction={() => alert('Create page action')}
-          />
-        )}
-      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { BaseButton } from './BaseButton';
+import { cn } from '../../lib/utils';
 
 interface EmptyStateProps {
   icon: LucideIcon;
@@ -7,19 +8,20 @@ interface EmptyStateProps {
   description: string;
   actionLabel?: string;
   onAction?: () => void;
+  className?: string;
 }
 
-export function EmptyState({ icon: Icon, title, description, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({ icon: Icon, title, description, actionLabel, onAction, className }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center p-12 text-center h-full w-full animate-in fade-in duration-300">
-      <div className="w-24 h-24 rounded-full bg-[#F3F4F6] flex items-center justify-center mb-6">
-        <Icon className="w-10 h-10 text-[#6B7280] stroke-[1.5]" />
+    <div className={cn("flex flex-col items-center justify-center p-8 text-center h-full w-full animate-in fade-in duration-300 group select-none", className)}>
+      <div className="w-16 h-16 rounded-2xl bg-[#F8F9FB] border border-[#E5E8EC] shadow-2xs flex items-center justify-center mb-4 group-hover:scale-105 group-hover:border-[#2563EB]/40 transition-all duration-200">
+        <Icon className="w-7 h-7 text-[#6B7280] group-hover:text-[#2563EB] transition-colors stroke-[1.75]" />
       </div>
-      {title && <h3 className="text-xl font-bold text-[#0A0A0A] mb-2">{title}</h3>}
-      <p className="text-[#6B7280] max-w-sm mb-6">{description}</p>
+      {title && <h3 className="text-base font-semibold text-[#111827] mb-1 tracking-tight">{title}</h3>}
+      <p className="text-xs text-[#6B7280] max-w-sm mb-5 leading-relaxed font-normal">{description}</p>
       
       {actionLabel && onAction && (
-        <BaseButton onClick={onAction}>
+        <BaseButton onClick={onAction} size="sm" className="shadow-2xs">
           {actionLabel}
         </BaseButton>
       )}
