@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { Plus, Settings, Check, ChevronLeft, ChevronRight, Play, Search, Clock, CalendarPlus, Flame, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -14,26 +15,45 @@ export function TimelineView() {
   const { data: dailyLogs = [] } = useQuery({ queryKey: ['dailyLogs'], queryFn: api.dailyLogs.list });
 
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const paramDate = searchParams.get('date');
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
+  const targetDate = useMemo(() => {
+    if (paramDate) {
+      const parts = paramDate.split('-').map(Number);
+      if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+        return new Date(parts[0], parts[1] - 1, parts[2]);
+      }
+    }
+    return new Date();
+  }, [paramDate]);
+
+  const navigateDay = (offsetDays: number) => {
+    const nextDate = new Date(targetDate);
+    nextDate.setDate(targetDate.getDate() + offsetDays);
+    const dateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+    setSearchParams({ date: dateStr });
+  };
+
   if (isLoading) return <div className="p-8 text-[#6B7280]">Loading daily schedule...</div>;
 
-  const today = new Date();
-  const todayStart = new Date(today.setHours(0, 0, 0, 0));
-  const todayEnd = new Date(today.setHours(23, 59, 59, 999));
+  const targetStart = new Date(new Date(targetDate).setHours(0, 0, 0, 0));
+  const targetEnd = new Date(new Date(targetDate).setHours(23, 59, 59, 999));
+  const isViewingToday = targetDate.toDateString() === new Date().toDateString();
 
   const todayIssues = issues.filter(i => {
     const date = i.scheduledDate ? new Date(i.scheduledDate) : i.dueDate ? new Date(i.dueDate) : null;
-    return date && date >= todayStart && date <= todayEnd;
+    return date && date >= targetStart && date <= targetEnd;
   });
 
   const pinnedTasks = issues.filter(i => i.priority === 'urgent' || i.priority === 'high').slice(0, 3);
 
-  const todayLog = dailyLogs.find(l => new Date(l.date).toLocaleDateString() === today.toLocaleDateString());
+  const todayLog = dailyLogs.find(l => new Date(l.date).toLocaleDateString() === targetDate.toLocaleDateString());
   const deepWorkMins = todayLog?.deepWorkMinutes || 180;
   const hours = Math.floor(deepWorkMins / 60);
   const mins = deepWorkMins % 60;
@@ -112,11 +132,11 @@ export function TimelineView() {
         <div className="bg-white border border-[#E5E8EC] rounded-xl p-4.5 shadow-sm mt-auto">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-medium text-sm text-[#111827] flex items-center gap-1.5">
-              <span>{currentTime.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+              <span>{targetDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
             </h3>
             <div className="flex gap-1">
-              <button className="p-1 rounded hover:bg-[#F8F9FB] transition-colors"><ChevronLeft className="w-4 h-4 text-[#6B7280] stroke-[1.75]" /></button>
-              <button className="p-1 rounded hover:bg-[#F8F9FB] transition-colors"><ChevronRight className="w-4 h-4 text-[#6B7280] stroke-[1.75]" /></button>
+              <button onClick={() => navigateDay(-30)} className="p-1 rounded hover:bg-[#F8F9FB] transition-colors"><ChevronLeft className="w-4 h-4 text-[#6B7280] stroke-[1.75]" /></button>
+              <button onClick={() => navigateDay(30)} className="p-1 rounded hover:bg-[#F8F9FB] transition-colors"><ChevronRight className="w-4 h-4 text-[#6B7280] stroke-[1.75]" /></button>
             </div>
           </div>
           <div className="grid grid-cols-7 gap-1 mb-2">
@@ -127,13 +147,21 @@ export function TimelineView() {
           <div className="grid grid-cols-7 gap-y-1.5 gap-x-1">
             <div className="col-span-2"></div>
             {calendarDays.map(d => {
-              const isToday = d === currentTime.getDate();
+              const isSelectedDay = d === targetDate.getDate();
+              const isRealToday = d === new Date().getDate() && targetDate.getMonth() === new Date().getMonth();
               return (
                 <div key={d} className="flex items-center justify-center">
-                  <div className={cn(
-                    "w-6 h-6 rounded-full flex items-center justify-center font-mono text-xs font-medium transition-colors cursor-pointer",
-                    isToday ? "bg-[#2563EB] text-white shadow-sm font-bold" : "text-[#111827] hover:bg-[#F8F9FB]"
-                  )}>
+                  <div 
+                    onClick={() => {
+                      const newDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), d);
+                      const dateStr = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(newDate.getDate()).padStart(2, '0')}`;
+                      setSearchParams({ date: dateStr });
+                    }}
+                    className={cn(
+                      "w-6 h-6 rounded-full flex items-center justify-center font-mono text-xs font-medium transition-colors cursor-pointer",
+                      isSelectedDay ? "bg-[#2563EB] text-white shadow-sm font-bold" : isRealToday ? "border border-[#2563EB] text-[#2563EB] font-bold" : "text-[#111827] hover:bg-[#F8F9FB]"
+                    )}
+                  >
                     {d}
                   </div>
                 </div>
@@ -151,12 +179,20 @@ export function TimelineView() {
         <div className="flex items-start justify-between mb-6">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <button className="p-1 rounded-full hover:bg-[#F8F9FB] transition-colors -ml-1"><ChevronLeft className="w-5 h-5 text-[#6B7280] stroke-[1.75]" /></button>
+              <button onClick={() => navigateDay(-1)} title="Previous Day" className="p-1 rounded-full hover:bg-[#F8F9FB] transition-colors -ml-1"><ChevronLeft className="w-5 h-5 text-[#6B7280] stroke-[1.75]" /></button>
               <h1 className="text-[28px] font-medium tracking-tight text-[#111827]">Daily Schedule</h1>
-              <button className="p-1 rounded-full hover:bg-[#F8F9FB] transition-colors"><ChevronRight className="w-5 h-5 text-[#6B7280] stroke-[1.75]" /></button>
+              <button onClick={() => navigateDay(1)} title="Next Day" className="p-1 rounded-full hover:bg-[#F8F9FB] transition-colors"><ChevronRight className="w-5 h-5 text-[#6B7280] stroke-[1.75]" /></button>
+              {!isViewingToday && (
+                <button 
+                  onClick={() => setSearchParams({})} 
+                  className="text-xs font-medium text-[#2563EB] bg-[#EFF4FE] px-2.5 py-1 rounded-full hover:bg-[#2563EB] hover:text-white transition-colors ml-2 shadow-2xs"
+                >
+                  Back to Today
+                </button>
+              )}
             </div>
             <p className="text-[11px] font-medium text-[#6B7280] uppercase tracking-[0.02em] pl-7 flex items-center gap-2">
-              <span>{currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+              <span>{targetDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
               <span className="w-1 h-1 rounded-full bg-[#9CA3AF]" />
               <span className="text-[#2563EB] font-mono">{todayIssues.length} blocks planned</span>
             </p>
