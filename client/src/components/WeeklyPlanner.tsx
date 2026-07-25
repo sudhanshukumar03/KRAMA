@@ -297,7 +297,7 @@ export function WeeklyPlanner() {
                     <div className="text-[11px] text-[#6B7280] ml-3.5">{habit.timeOfDay} • {habit.duration || 15}m</div>
                   </td>
                   <td className="py-3.5 px-3 font-mono text-xs font-medium text-[#111827]">
-                    🔥 {habit.streak + (habitChecks[`${habit.id}-0`] ? 1 : 0)}
+                    <span className="flex items-center gap-1 text-[#EA580C]"><Flame className="w-3.5 h-3.5 text-[#EA580C] fill-[#EA580C]" />{habit.streak + (habitChecks[`${habit.id}-0`] ? 1 : 0)}</span>
                   </td>
                   {weekDays.map((day, dayIdx) => {
                     // Mock check state: either locally checked, or default checked for past days if index % 2 === 0

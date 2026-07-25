@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, Sparkles, ArrowRight } from 'lucide-react';
+import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, Sparkles, ArrowRight, Flame } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { cn } from '../lib/utils';
@@ -324,7 +324,7 @@ export function Goals() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <div className="text-xs font-mono font-bold flex items-center gap-1 text-[#EA580C] bg-[#EA580C]/10 px-2 py-0.5 rounded border border-[#EA580C]/20">
-                      🔥 {habit.streak}d
+                      <Flame className="w-3.5 h-3.5 text-[#EA580C] fill-[#EA580C]" /> {habit.streak}d
                     </div>
                     <ArrowRight className="w-3.5 h-3.5 text-[#9CA3AF] opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>

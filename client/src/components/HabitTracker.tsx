@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { CheckCircle2, Circle, Clock, TrendingUp, Flame, Sparkles, Plus } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, TrendingUp, Flame, Sparkles, Plus, Sun, Moon } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { cn } from '../lib/utils';
@@ -121,8 +121,8 @@ export function HabitTracker() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <h3 className="font-medium text-[16px] text-[#111827] truncate group-hover:text-[#EA580C] transition-colors">{habit.name}</h3>
-                      <span className="text-xs font-mono font-bold text-[#EA580C] bg-[#EA580C]/10 px-2 py-0.5 rounded border border-[#EA580C]/20 shrink-0">
-                        🔥 {habit.streak}d
+                      <span className="text-xs font-mono font-bold text-[#EA580C] bg-[#EA580C]/10 px-2 py-0.5 rounded border border-[#EA580C]/20 shrink-0 flex items-center gap-1">
+                        <Flame className="w-3.5 h-3.5 text-[#EA580C] fill-[#EA580C]" /> {habit.streak}d
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -180,7 +180,7 @@ export function HabitTracker() {
             {/* Morning */}
             <div className="bg-white border border-[#E5E8EC] rounded-xl p-5 shadow-sm">
               <h3 className="text-xs font-medium text-[#6B7280] uppercase tracking-[0.02em] mb-3 flex items-center justify-between">
-                <span>🌅 Morning Routine</span>
+                <span className="flex items-center gap-1.5 text-[#111827] font-semibold"><Sun className="w-3.5 h-3.5 text-[#EA580C]" />Morning Routine</span>
                 <span className="font-mono text-[10px] text-[#9CA3AF]">{morningHabits.length} habits</span>
               </h3>
               <div className="space-y-2">
@@ -189,7 +189,7 @@ export function HabitTracker() {
                     <span className="text-sm font-medium text-[#111827] group-hover:text-[#EA580C] transition-colors">{habit.name}</span>
                     <div className="flex items-center gap-3">
                       <span className="text-[11px] text-[#6B7280] font-mono">{habit.duration || 15}m</span>
-                      <span className="text-xs font-mono font-bold text-[#EA580C]">🔥 {habit.streak}</span>
+                      <span className="text-xs font-mono font-bold text-[#EA580C] flex items-center gap-1"><Flame className="w-3.5 h-3.5 text-[#EA580C] fill-[#EA580C]" /> {habit.streak}</span>
                     </div>
                   </div>
                 ))}
@@ -200,7 +200,7 @@ export function HabitTracker() {
             {/* Evening */}
             <div className="bg-white border border-[#E5E8EC] rounded-xl p-5 shadow-sm">
               <h3 className="text-xs font-medium text-[#6B7280] uppercase tracking-[0.02em] mb-3 flex items-center justify-between">
-                <span>🌙 Evening Routine</span>
+                <span className="flex items-center gap-1.5 text-[#111827] font-semibold"><Moon className="w-3.5 h-3.5 text-[#7C3AED]" />Evening Routine</span>
                 <span className="font-mono text-[10px] text-[#9CA3AF]">{eveningHabits.length} habits</span>
               </h3>
               <div className="space-y-2">
@@ -209,7 +209,7 @@ export function HabitTracker() {
                     <span className="text-sm font-medium text-[#111827] group-hover:text-[#EA580C] transition-colors">{habit.name}</span>
                     <div className="flex items-center gap-3">
                       <span className="text-[11px] text-[#6B7280] font-mono">{habit.duration || 15}m</span>
-                      <span className="text-xs font-mono font-bold text-[#EA580C]">🔥 {habit.streak}</span>
+                      <span className="text-xs font-mono font-bold text-[#EA580C] flex items-center gap-1"><Flame className="w-3.5 h-3.5 text-[#EA580C] fill-[#EA580C]" /> {habit.streak}</span>
                     </div>
                   </div>
                 ))}
