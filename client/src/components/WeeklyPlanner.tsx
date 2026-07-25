@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Plus, ChevronLeft, ChevronRight, CheckCircle2, Circle, Clock, Flame } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import type { IssueWithRelations } from '../types/schema';
 import { BaseButton } from './ui/BaseButton';
@@ -44,22 +45,34 @@ function DayColumn({
   isLast: boolean; 
   onAddTask: (dayName: string) => void;
 }) {
+  const navigate = useNavigate();
+  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+  const handleColumnClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.group\\/card') && !target.closest('button') && !target.closest('tr')) {
+      navigate(`/app/timeline?date=${dateStr}`);
+    }
+  };
+
   return (
     <div 
       id={isToday ? "today-column" : undefined}
+      onClick={handleColumnClick}
+      title={`Click to open Daily Schedule for ${dayName}, ${date.toLocaleDateString()}`}
       className={cn(
-        "flex flex-col min-w-[230px] flex-1 bg-white relative group/col",
+        "flex flex-col min-w-[230px] flex-1 bg-white relative group/col cursor-pointer hover:bg-[#EFF4FE]/10 transition-colors",
         !isLast && "border-r border-[#E5E8EC]",
         isToday && "border-t-2 border-t-[#2563EB] bg-[#EFF4FE]/5"
       )}
     >
       {/* Day Header */}
       <div className={cn(
-        "px-4 py-3 flex items-center justify-between border-b border-[#E5E8EC]",
+        "px-4 py-3 flex items-center justify-between border-b border-[#E5E8EC] group-hover/col:bg-[#EFF4FE]/30 transition-colors",
         isToday ? "bg-[#EFF4FE]/30" : "bg-[#F8F9FB]"
       )}>
         <div className="flex items-center gap-2">
-          <span className={cn("text-xs font-medium uppercase tracking-[0.02em]", isToday ? "text-[#2563EB] font-bold" : "text-[#6B7280]")}>
+          <span className={cn("text-xs font-medium uppercase tracking-[0.02em] group-hover/col:text-[#2563EB] transition-colors", isToday ? "text-[#2563EB] font-bold" : "text-[#6B7280]")}>
             {dayName}
           </span>
           <span className={cn(
