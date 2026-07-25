@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Command } from 'cmdk';
 import { useNavigate } from 'react-router-dom';
-import { FileText, KanbanSquare, Target, Search, Brain, Calendar, Clock, Plus, ArrowRight } from 'lucide-react';
+import { FileText, KanbanSquare, Target, Search, Brain, Calendar, Clock, Plus, ArrowRight, Zap, Rocket, ListChecks } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { cn } from '../lib/utils';
@@ -84,8 +84,8 @@ export function CommandPalette() {
 
           {/* NEW: High-Velocity Quick Actions Group */}
           <Command.Group 
-            heading="⚡ Instant Quick Actions" 
-            className="pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[#2563EB]"
+            heading={<div className="flex items-center gap-1.5 text-[#2563EB]"><Zap className="w-3.5 h-3.5 text-[#2563EB]" /><span>Instant Quick Actions</span></div>} 
+            className="pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
           >
             <Command.Item 
               onSelect={() => runCommand(() => navigate('/app/review'))}
@@ -144,8 +144,8 @@ export function CommandPalette() {
 
           {/* Navigation Group */}
           <Command.Group 
-            heading="🚀 Jump to Screen" 
-            className="pt-2 pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[#6B7280]"
+            heading={<div className="flex items-center gap-1.5 text-[#4F46E5]"><Rocket className="w-3.5 h-3.5 text-[#4F46E5]" /><span>Jump to Screen</span></div>} 
+            className="pt-2 pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
           >
             <Command.Item 
               onSelect={() => runCommand(() => navigate('/app/'))}
@@ -175,8 +175,8 @@ export function CommandPalette() {
 
           {/* Brain Pages Group */}
           <Command.Group 
-            heading="🧠 Knowledge Base Documents" 
-            className="pt-2 pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[#6B7280]"
+            heading={<div className="flex items-center gap-1.5 text-[#7C3AED]"><Brain className="w-3.5 h-3.5 text-[#7C3AED]" /><span>Knowledge Base Documents</span></div>} 
+            className="pt-2 pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
           >
             {pages.map((page) => (
               <Command.Item 
@@ -201,8 +201,8 @@ export function CommandPalette() {
 
           {/* Issues Group */}
           <Command.Group 
-            heading="🎯 Active Issues & Tickets" 
-            className="pt-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[#6B7280]"
+            heading={<div className="flex items-center gap-1.5 text-[#2563EB]"><ListChecks className="w-3.5 h-3.5 text-[#2563EB]" /><span>Active Issues & Tickets</span></div>} 
+            className="pt-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
           >
             {issues.map((issue) => (
               <Command.Item 
