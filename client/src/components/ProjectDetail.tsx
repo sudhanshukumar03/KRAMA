@@ -2,12 +2,18 @@ import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { FolderKanban, ArrowLeft, Plus, CheckCircle2, Clock, Target, AlertCircle, XCircle, ArrowUpCircle, FileText, Sparkles, CheckSquare } from 'lucide-react';
+import { FolderKanban, ArrowLeft, Plus, CheckCircle2, Clock, Target, AlertCircle, XCircle, ArrowUpCircle, FileText, Sparkles, CheckSquare, Building2, Laptop } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { cn } from '../lib/utils';
 import { computeGoalPace } from './Goals';
 import type { GoalWithRelations } from '../types/schema';
+
+function getDocIcon(iconName: string | null, className?: string) {
+  if (iconName === 'landmark') return <Building2 className={cn(className || "w-4 h-4 text-[#7C3AED]", "stroke-[1.75]")} />;
+  if (iconName === 'laptop') return <Laptop className={cn(className || "w-4 h-4 text-[#7C3AED]", "stroke-[1.75]")} />;
+  return <FileText className={cn(className || "w-4 h-4 text-[#7C3AED]", "stroke-[1.75]")} />;
+}
 
 export function ProjectDetail() {
   const { id } = useParams();
@@ -165,7 +171,7 @@ export function ProjectDetail() {
                 <div className="divide-y divide-[#E5E8EC] border border-[#E5E8EC] rounded-xl bg-white shadow-2xs overflow-hidden">
                   {projectDocs.slice(0, 3).map(doc => (
                     <div key={doc.id} onClick={() => navigate(`/app/brain`)} className="p-3.5 hover:bg-[#F8F9FB] transition-colors flex items-center gap-3 cursor-pointer group">
-                      <span className="text-xl shrink-0 group-hover:scale-110 transition-transform">{doc.icon || '📄'}</span>
+                      {getDocIcon(doc.icon, "w-5 h-5 text-[#7C3AED] shrink-0 group-hover:scale-110 transition-transform")}
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium text-sm text-[#111827] truncate group-hover:text-[#2563EB] transition-colors">{doc.title}</span>
                         <span className="text-[10px] font-mono text-[#9CA3AF] mt-0.5">Updated {new Date(doc.updatedAt).toLocaleDateString()}</span>
@@ -360,7 +366,7 @@ export function ProjectDetail() {
                 className="bg-white border border-[#E5E8EC] p-5 rounded-xl hover:border-[#2563EB] transition-all cursor-pointer group flex flex-col justify-between shadow-sm hover:shadow-md min-h-[160px] gap-4"
               >
                 <div>
-                  <div className="text-3xl mb-3 group-hover:scale-110 transition-transform w-fit">{doc.icon || '📄'}</div>
+                  <div className="mb-3 group-hover:scale-110 transition-transform w-fit">{getDocIcon(doc.icon, "w-7 h-7 text-[#7C3AED]")}</div>
                   <div className="font-medium text-base text-[#111827] leading-snug group-hover:text-[#2563EB] transition-colors">{doc.title}</div>
                 </div>
                 <div className="pt-3 border-t border-[#E5E8EC]/60 flex items-center justify-between text-xs font-mono text-[#6B7280]">
