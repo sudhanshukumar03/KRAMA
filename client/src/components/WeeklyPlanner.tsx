@@ -311,7 +311,7 @@ export function WeeklyPlanner() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E8EC]">
-              {habits.map((habit, index) => (
+              {habits.map((habit) => (
                 <tr key={habit.id} className="hover:bg-[#F8F9FB] transition-colors">
                   <td className="py-3.5 px-5 font-medium text-sm text-[#111827]">
                     <div className="flex items-center gap-2">
@@ -325,7 +325,7 @@ export function WeeklyPlanner() {
                   </td>
                   {weekDays.map((day, dayIdx) => {
                     const dStr = day.date.toISOString().split('T')[0] || '';
-                    const isChecked = habit.completions?.some(c => c.date.toString().startsWith(dStr) && c.completed) ||
+                    const isChecked = habit.completions?.some((c: any) => c.date.toString().startsWith(dStr) && c.completed) ||
                       (day.isToday && habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
 
                     return (

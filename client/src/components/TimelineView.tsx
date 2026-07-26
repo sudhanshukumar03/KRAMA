@@ -425,7 +425,7 @@ export function TimelineView() {
           <div className="space-y-3 flex-1">
             {habits.slice(0, 4).map((habit) => {
               const todayStr = new Date().toISOString().split('T')[0] || '';
-              const isHabitDone = habit.completions?.some(c => c.date.toString().startsWith(todayStr) && c.completed) ||
+              const isHabitDone = habit.completions?.some((c: any) => c.date.toString().startsWith(todayStr) && c.completed) ||
                 (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
               const Icon = getIconForString(habit.name);
               return (

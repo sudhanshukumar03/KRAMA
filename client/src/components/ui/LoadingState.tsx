@@ -1,4 +1,3 @@
-import React from 'react';
 import { Loader2 } from 'lucide-react';
 
 export type LoadingVariant = 'dashboard' | 'kanban' | 'brain' | 'goals' | 'project-detail' | 'habit-tracker' | 'default';

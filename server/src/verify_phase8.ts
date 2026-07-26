@@ -179,6 +179,7 @@ async function main() {
     console.log('\n══════════════════════════════════════════════════════════');
     console.log('✅ ALL PHASE 8 PRODUCTION READINESS CHECKPOINTS PASSED');
     console.log('══════════════════════════════════════════════════════════\n');
+    process.exit(0);
   } finally {
     await stopServer();
     await prisma.$disconnect();
