@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { ChevronRight, FileText, Plus, FileSignature, Building2, Laptop, Brain, Clock, AlignLeft, BookOpen, Heading1, Heading2, List, ListOrdered, Quote, Code, Minus, Command } from 'lucide-react';
+import { ChevronRight, FileText, Plus, FileSignature, Building2, Laptop, Brain, Clock, AlignLeft, BookOpen, Heading1, Heading2, List, ListOrdered, Quote, Code, Minus, Command, FolderKanban, Target, CheckCircle2, Link2 } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Content } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -297,8 +297,67 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
       </div>
 
       {/* Editor Content Box with #11 Block Hover and Spacing */}
-      <div className="flex-1 bg-white rounded-xl p-8 border border-[#E5E8EC] shadow-2xs min-h-[540px]">
+      <div className="flex-1 bg-white rounded-xl p-8 border border-[#E5E8EC] shadow-2xs min-h-[540px] flex flex-col justify-between">
         <EditorContent editor={editor} />
+
+        {/* Transitive References & Backlinks Panel */}
+        {page.linkedProject && (
+          <div className="mt-12 pt-6 border-t border-[#E5E8EC] font-mono text-xs">
+            <div className="flex items-center gap-1.5 font-bold uppercase tracking-widest text-[#6B7280] mb-3">
+              <Link2 className="w-4 h-4 text-[#7C3AED]" /> Transitive References & Backlinks
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div 
+                onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
+                className="p-3 bg-[#F8F9FB] rounded-lg border border-[#E5E8EC] hover:border-[#4F46E5] transition-all cursor-pointer group"
+              >
+                <div className="flex items-center gap-2 text-[#4F46E5] font-medium mb-1">
+                  <FolderKanban className="w-3.5 h-3.5 shrink-0" /> Linked Initiative
+                </div>
+                <div className="font-sans text-sm font-semibold text-[#111827] group-hover:text-[#4F46E5] truncate">
+                  {page.linkedProject.name}
+                </div>
+                <div className="text-[10px] text-[#9CA3AF] mt-0.5 uppercase tracking-wider">
+                  Status: {page.linkedProject.status}
+                </div>
+              </div>
+
+              {page.linkedProject.goal && (
+                <div 
+                  onClick={() => window.location.href = '/app/goals'}
+                  className="p-3 bg-[#0D9488]/5 rounded-lg border border-[#0D9488]/20 hover:border-[#0D9488] transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-2 text-[#0D9488] font-medium mb-1">
+                    <Target className="w-3.5 h-3.5 shrink-0" /> Parent OKR Goal
+                  </div>
+                  <div className="font-sans text-sm font-semibold text-[#111827] group-hover:text-[#0D9488] truncate">
+                    {page.linkedProject.goal.title}
+                  </div>
+                  <div className="text-[10px] text-[#0D9488] mt-0.5 font-bold">
+                    {page.linkedProject.goal.progress}% Completed
+                  </div>
+                </div>
+              )}
+
+              {page.linkedProject.issues && (
+                <div 
+                  onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
+                  className="p-3 bg-[#F8F9FB] rounded-lg border border-[#E5E8EC] hover:border-[#2563EB] transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-2 text-[#2563EB] font-medium mb-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Execution Tickets
+                  </div>
+                  <div className="font-sans text-sm font-semibold text-[#111827] group-hover:text-[#2563EB]">
+                    {page.linkedProject.issues.filter((i: any) => i.status === 'done' || i.status === 'released').length} / {page.linkedProject.issues.length} Issues Done
+                  </div>
+                  <div className="text-[10px] text-[#6B7280] mt-0.5">
+                    {page.linkedProject.sprints?.length || 0} Linked Sprints
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

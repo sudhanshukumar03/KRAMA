@@ -22,7 +22,7 @@ const ENERGY_OPTIONS = [
 
 export function DailyReview() {
   const queryClient = useQueryClient();
-  const { data: logs = [], isLoading } = useQuery({ queryKey: ['dailyLogs'], queryFn: api.dailyLogs.list });
+  const { data: logs = [], isLoading } = useQuery({ queryKey: ['daily-logs'], queryFn: api.dailyLogs.list });
 
   const todayLog = logs.find(
     l => new Date(l.date).toLocaleDateString() === new Date().toLocaleDateString()
@@ -55,13 +55,42 @@ export function DailyReview() {
     let interval: any = null;
     if (timerRunning) {
       interval = setInterval(() => {
-        setSecondsElapsed(prev => prev + 1);
+        setSecondsElapsed(prev => {
+          const nextVal = prev + 1;
+          if (nextVal % 60 === 0) {
+            autoSaveTimerMutation.mutate(Math.floor(nextVal / 60));
+          }
+          return nextVal;
+        });
       }, 1000);
     } else {
       clearInterval(interval);
     }
     return () => clearInterval(interval);
   }, [timerRunning]);
+
+  const autoSaveTimerMutation = useMutation({
+    mutationFn: (mins: number) => {
+      const payload = {
+        date: new Date(),
+        mood: selectedMood,
+        energy: selectedEnergy,
+        deepWorkMinutes: mins,
+        wins,
+        blockers,
+        notes
+      };
+      if (todayLog) {
+        return api.dailyLogs.update(todayLog.id, { deepWorkMinutes: mins });
+      } else {
+        return api.dailyLogs.create(payload);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['dailyLogs'] });
+    }
+  });
 
   const saveLogMutation = useMutation({
     mutationFn: () => {
@@ -81,6 +110,7 @@ export function DailyReview() {
       }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
       queryClient.invalidateQueries({ queryKey: ['dailyLogs'] });
       alert('Daily review log saved successfully!');
     }
@@ -160,7 +190,14 @@ export function DailyReview() {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setTimerRunning(!timerRunning)}
+              onClick={() => {
+                const nextRunning = !timerRunning;
+                setTimerRunning(nextRunning);
+                if (!nextRunning && secondsElapsed > 0) {
+                  const mins = Math.max(1, Math.floor(secondsElapsed / 60));
+                  autoSaveTimerMutation.mutate(mins);
+                }
+              }}
               className={cn(
                 "w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-sm",
                 timerRunning ? "bg-amber-500 hover:bg-amber-600 text-white" : "bg-white hover:bg-[#F8F9FB] text-[#111827]"
@@ -171,7 +208,11 @@ export function DailyReview() {
             </button>
 
             <button
-              onClick={() => { setTimerRunning(false); setSecondsElapsed(0); }}
+              onClick={() => {
+                setTimerRunning(false);
+                setSecondsElapsed(0);
+                autoSaveTimerMutation.mutate(0);
+              }}
               className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
               title="Reset Timer"
             >

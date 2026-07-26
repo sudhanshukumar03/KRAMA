@@ -109,12 +109,12 @@ export function Projects() {
               
               <div className="flex flex-col gap-4">
                 {statusProjects.map(project => {
-                  const projectIssues = issues.filter(i => i.projectId === project.id);
-                  const projectDocs = pages.filter(p => p.linkedProjectId === project.id);
-                  const projectSprints = sprints.filter(s => s.projectId === project.id);
+                  const projectIssues = project.issues || issues.filter(i => i.projectId === project.id);
+                  const totalDocs = project._count?.docs ?? (project.docs?.length || pages.filter(p => p.linkedProjectId === project.id).length);
+                  const totalSprints = project._count?.sprints ?? (project.sprints?.length || sprints.filter(s => s.projectId === project.id).length);
                   
                   const completedIssues = projectIssues.filter(i => i.status === 'done' || i.status === 'released').length;
-                  const totalIssues = projectIssues.length;
+                  const totalIssues = project._count?.issues ?? projectIssues.length;
                   const progressPct = totalIssues > 0 ? (completedIssues / totalIssues) * 100 : 0;
 
                   // Milestone computation
@@ -146,8 +146,8 @@ export function Projects() {
                       {/* Compact Stat Row */}
                       <div className="text-xs font-mono text-[#6B7280] bg-[#F8F9FB] p-2.5 rounded-lg border border-[#E5E8EC]/60 flex items-center justify-between">
                         <span className="flex items-center gap-1 font-medium text-[#111827]"><CheckCircle2 className="w-3.5 h-3.5 text-[#0D9488] stroke-[2]" /> {completedIssues}/{totalIssues} Issues</span>
-                        <span>{projectDocs.length} Docs</span>
-                        <span>{projectSprints.length} Sprints</span>
+                        <span>{totalDocs} Docs</span>
+                        <span>{totalSprints} Sprints</span>
                       </div>
 
                       {/* Health / Milestone Progress Bar */}

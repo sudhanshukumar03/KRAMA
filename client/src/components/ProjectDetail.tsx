@@ -39,10 +39,10 @@ export function ProjectDetail() {
     </div>
   );
 
-  const projectIssues = issues.filter(i => i.projectId === project.id);
-  const projectDocs = pages.filter(p => p.linkedProjectId === project.id);
-  const projectRoadmap = roadmapItems.filter(r => r.projectId === project.id).sort((a, b) => a.order - b.order);
-  const projectGoal = project.goalId ? goals.find(g => g.id === project.goalId) : null;
+  const projectIssues = project.issues || issues.filter(i => i.projectId === project.id);
+  const projectDocs = project.docs || pages.filter(p => p.linkedProjectId === project.id);
+  const projectRoadmap = project.roadmapItems || roadmapItems.filter(r => r.projectId === project.id).sort((a, b) => a.order - b.order);
+  const projectGoal = project.goal || (project.goalId ? goals.find(g => g.id === project.goalId) : null);
 
   const completedIssues = projectIssues.filter(i => i.status === 'done' || i.status === 'released');
   const openIssues = projectIssues.filter(i => i.status !== 'done' && i.status !== 'released');

@@ -14,7 +14,7 @@ import sprintRoutes from './routes/sprints';
 import roadmapItemRoutes from './routes/roadmapItems';
 import habitRoutes from './routes/habits';
 import dailyLogRoutes from './routes/dailyLogs';
-import snapshotRoutes from './routes/snapshots';
+import snapshotRoutes, { startSnapshotScheduler } from './routes/snapshots';
 
 dotenv.config();
 
@@ -52,6 +52,7 @@ app.use('/api/v1/snapshots', snapshotRoutes);
 if (process.env.NODE_ENV !== 'test') {
   app.listen(port, () => {
     console.log(`Krama OS Server is running on port ${port}`);
+    startSnapshotScheduler();
   });
 }
 

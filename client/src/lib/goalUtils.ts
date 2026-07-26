@@ -9,7 +9,7 @@ export type GoalPace = {
   daysRemaining: number;
 };
 
-// Helper to compute pace
+// Helper to compute pace strictly from real snapshot deltas or creation timestamps
 export function computeGoalPace(goal: GoalWithRelations): GoalPace {
   if (goal.progress >= 100) {
     return { status: 'completed', requiredPace: 0, actualPace: 0, badge: 'Completed', projectedDate: null, daysRemaining: 0 };
@@ -33,9 +33,13 @@ export function computeGoalPace(goal: GoalWithRelations): GoalPace {
     const daysDiff = Math.max(1, Math.ceil((new Date(newest.date).getTime() - new Date(oldest.date).getTime()) / (1000 * 60 * 60 * 24)));
     const progressGained = newest.progress - oldest.progress;
     actualPace = Math.max(0, progressGained / daysDiff);
+  } else if (goal.progress > 0) {
+    // If fewer than 2 snapshots exist, compute genuine actual pace from creation timestamp to current date
+    const created = goal.createdAt ? new Date(goal.createdAt) : new Date();
+    const daysSinceCreation = Math.max(1, Math.ceil((today.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+    actualPace = Math.max(0, goal.progress / daysSinceCreation);
   } else {
-    // Default mock pace for rich presentation if only 1 snapshot
-    actualPace = Math.max(0.5, requiredPace * 1.05);
+    actualPace = 0;
   }
 
   let status: 'on_track' | 'behind' | 'stalled' | 'ahead' | 'past_due' = 'on_track';

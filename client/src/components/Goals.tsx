@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, Sparkles, ArrowRight, Flame } from 'lucide-react';
+import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, Sparkles, ArrowRight, Flame, Check } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { LoadingState } from './ui/LoadingState';
@@ -171,6 +171,16 @@ export function Goals() {
   const { data: goals = [], isLoading: goalsLoading } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
   const { data: habits = [], isLoading: habitsLoading } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
 
+  const queryClient = useQueryClient();
+  const toggleHabitMutation = useMutation({
+    mutationFn: (id: string) => api.habits.complete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+    }
+  });
+
   if (goalsLoading || habitsLoading) return <LoadingState title="Loading Goals & OKRs..." description="Calculating progress velocities and habit links..." />;
 
   const rootGoals = goals.filter(g => !g.parentGoalId);
@@ -249,20 +259,42 @@ export function Goals() {
           
           <div className="bg-white border border-[#E5E8EC] rounded-xl overflow-hidden shadow-sm pt-1">
             <div className="divide-y divide-[#E5E8EC]">
-              {habits.map(habit => (
-                <div key={habit.id} onClick={() => navigate('/app/habits')} className="py-3 px-4 flex items-center justify-between hover:bg-[#F8F9FB] transition-colors duration-100 cursor-pointer group">
-                  <div className="min-w-0 pr-2">
-                    <div className="font-medium text-[#111827] text-sm leading-tight truncate group-hover:text-[#EA580C] transition-colors">{habit.name}</div>
-                    <div className="text-[10px] text-[#6B7280] font-mono uppercase tracking-[0.02em] mt-0.5">{habit.timeOfDay || 'Daily'} • {habit.duration || 15}m</div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="text-xs font-mono font-bold flex items-center gap-1 text-[#C2410C] bg-[#FFF7ED] px-2 py-0.5 rounded border border-[#FFEDD5]">
-                      <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[2]" /> {habit.streak}d
+              {habits.map(habit => {
+                const todayStr = new Date().toISOString().split('T')[0] || '';
+                const isCompletedToday = habit.completions?.some(c => c.date.toString().startsWith(todayStr) && c.completed) || 
+                  (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
+                return (
+                  <div key={habit.id} className="py-3 px-4 flex items-center justify-between hover:bg-[#F8F9FB] transition-colors duration-100 group">
+                    <div className="flex items-center gap-3 min-w-0 pr-2">
+                      <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); toggleHabitMutation.mutate(habit.id); }}
+                        className={cn(
+                          "w-5 h-5 rounded flex items-center justify-center border transition-all duration-150 shrink-0 cursor-pointer",
+                          isCompletedToday 
+                            ? "bg-[#2563EB] border-[#2563EB] text-white" 
+                            : "border-[#D1D5DB] bg-white group-hover:border-[#9CA3AF]"
+                        )}
+                      >
+                        {isCompletedToday && <Check className="w-3 h-3 stroke-[2.5]" />}
+                      </button>
+                      <div className="min-w-0" onClick={() => navigate('/app/habits')} style={{ cursor: 'pointer' }}>
+                        <div className={cn(
+                          "font-medium text-sm leading-tight truncate transition-colors",
+                          isCompletedToday ? "line-through text-[#9CA3AF]" : "text-[#111827] group-hover:text-[#EA580C]"
+                        )}>{habit.name}</div>
+                        <div className="text-[10px] text-[#6B7280] font-mono uppercase tracking-[0.02em] mt-0.5">{habit.timeOfDay || 'Daily'} • {habit.duration || 15}m</div>
+                      </div>
                     </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#9CA3AF] opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex items-center gap-2 shrink-0 cursor-pointer" onClick={() => navigate('/app/habits')}>
+                      <div className="text-xs font-mono font-bold flex items-center gap-1 text-[#C2410C] bg-[#FFF7ED] px-2 py-0.5 rounded border border-[#FFEDD5]">
+                        <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[2]" /> {habit.streak}d
+                      </div>
+                      <ArrowRight className="w-3.5 h-3.5 text-[#9CA3AF] opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {habits.length === 0 && (
                 <div className="py-8">
                   <EmptyState 

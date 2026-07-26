@@ -7,7 +7,8 @@ import type {
   Issue,
   Sprint,
   RoadmapItem,
-  Habit,
+  Habit as PrismaHabit,
+  HabitCompletion,
   DailyLog,
   Decision,
   Resource,
@@ -16,6 +17,11 @@ import type {
   AutomationRule,
   GoalProgressSnapshot
 } from "@prisma/client";
+
+export type Habit = PrismaHabit & {
+  linkedGoal?: Goal | null;
+  completions?: HabitCompletion[];
+};
 
 export type {
   Workspace,
@@ -26,7 +32,7 @@ export type {
   Issue,
   Sprint,
   RoadmapItem,
-  Habit,
+  HabitCompletion,
   DailyLog,
   Decision,
   Resource,

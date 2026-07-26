@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Target, CheckCircle2, ListTodo, AlertCircle, Play, Plus, Download, Clock, ArrowUpRight, Flame, TrendingUp, Sparkles } from 'lucide-react';
+import { Target, CheckCircle2, ListTodo, AlertCircle, Play, Plus, Download, Clock, ArrowUpRight, Flame, TrendingUp, Sparkles, Check } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
@@ -44,7 +44,17 @@ export function Dashboard() {
   const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
   const { data: pages = [] } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
   const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
-  const { data: dailyLogs = [] } = useQuery({ queryKey: ['dailyLogs'], queryFn: api.dailyLogs.list });
+  const { data: dailyLogs = [] } = useQuery({ queryKey: ['daily-logs'], queryFn: api.dailyLogs.list });
+
+  const queryClient = useQueryClient();
+  const toggleHabitMutation = useMutation({
+    mutationFn: (id: string) => api.habits.complete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+    }
+  });
 
   if (issuesLoading || projectsLoading) return <LoadingState title="Loading dashboard..." description="Compiling metrics and workspace activity..." />;
 
@@ -88,7 +98,7 @@ export function Dashboard() {
 
   // Deep Work for today
   const todayLog = dailyLogs.find(l => new Date(l.date).toLocaleDateString() === today.toLocaleDateString());
-  const deepWorkMins = todayLog?.deepWorkMinutes || 180;
+  const deepWorkMins = todayLog?.deepWorkMinutes || 0;
   const hours = Math.floor(deepWorkMins / 60);
   const mins = deepWorkMins % 60;
 
@@ -158,15 +168,23 @@ export function Dashboard() {
               <span className="text-badge text-[#C2410C] bg-[#FFF7ED] border border-[#FFEDD5] px-1.5 py-0.5 rounded">{activeStreaksCount} active</span>
             </div>
             <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-medium font-mono text-[#111827]">{habits.length || 3} <span className="text-caption font-sans text-[#6B7280] font-normal">habits logged</span></span>
+              <span className="text-2xl font-medium font-mono text-[#111827]">{habits.length} <span className="text-caption font-sans text-[#6B7280] font-normal">habits logged</span></span>
             </div>
             <div className="mt-3 flex items-center gap-1.5">
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <div className={cn("w-2 h-2 rounded-full transition-all duration-400", i < 5 ? "bg-[#EA580C]" : "bg-[#E5E8EC]")} />
-                  <span className="text-[9px] font-mono text-[#9CA3AF]">{day}</span>
-                </div>
-              ))}
+              {[-6, -5, -4, -3, -2, -1, 0].map((offset, i) => {
+                const d = new Date(today.getTime() + offset * 86400000);
+                const dStr = d.toISOString().split('T')[0] || '';
+                const completedOnDay = habits.some(h => 
+                  h.completions?.some(c => c.date.toString().startsWith(dStr) && c.completed) ||
+                  (offset === 0 && h.lastCompletedAt && new Date(h.lastCompletedAt).toDateString() === d.toDateString())
+                );
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                    <div className={cn("w-2 h-2 rounded-full transition-all duration-400", completedOnDay ? "bg-[#EA580C]" : "bg-[#E5E8EC]")} />
+                    <span className="text-[9px] font-mono text-[#9CA3AF]">{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -395,8 +413,8 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* SECTION 4: UPCOMING & RECENT ACTIVITY (#8 Guide the Eye Order & #2 Chrome Reduction: Unboxed Sections with 1px Dividers) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start pt-4">
+      {/* SECTION 4: UPCOMING, HABITS & RECENT ACTIVITY (#8 Guide the Eye Order & #2 Chrome Reduction: Unboxed Sections with 1px Dividers) */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start pt-4">
         
         {/* Unboxed Upcoming Reminders (#2 Chrome Reduction) */}
         <div>
@@ -432,6 +450,61 @@ export function Dashboard() {
             })}
             {upcomingDeadlines.length === 0 && (
               <div className="py-6 text-body text-[#9CA3AF]">No deadlines in next 7 days</div>
+            )}
+          </div>
+        </div>
+
+        {/* Unboxed Daily Habits Checklist (#2 Chrome Reduction) */}
+        <div>
+          <div className="flex items-center justify-between border-b border-[#E5E8EC] pb-3 mb-4">
+            <h2 className="text-h2 tracking-tight text-[#111827]">Daily Habits</h2>
+            <span className="text-badge text-[#2563EB] cursor-pointer hover:underline lowercase font-normal" onClick={() => navigate('/app/goals')}>view all &rarr;</span>
+          </div>
+          <div className="divide-y divide-[#E5E8EC]/60">
+            {habits.map(habit => {
+              const todayStr = new Date().toISOString().split('T')[0] || '';
+              const isCompletedToday = habit.completions?.some(c => c.date.toString().startsWith(todayStr) && c.completed) || 
+                (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
+              return (
+                <div 
+                  key={habit.id} 
+                  onClick={() => toggleHabitMutation.mutate(habit.id)}
+                  className="py-3 flex items-center justify-between gap-3 group cursor-pointer hover:bg-[#F8F9FB] -mx-2 px-2 rounded-lg transition-all duration-150"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <button 
+                      type="button"
+                      className={cn(
+                        "w-5 h-5 rounded flex items-center justify-center border transition-all duration-150 shrink-0",
+                        isCompletedToday 
+                          ? "bg-[#2563EB] border-[#2563EB] text-white" 
+                          : "border-[#D1D5DB] bg-white group-hover:border-[#9CA3AF]"
+                      )}
+                    >
+                      {isCompletedToday && <Check className="w-3 h-3 stroke-[2.5]" />}
+                    </button>
+                    <div className="min-w-0">
+                      <div className={cn(
+                        "font-medium text-body truncate transition-colors duration-150",
+                        isCompletedToday ? "line-through text-[#9CA3AF]" : "text-[#111827] group-hover:text-[#2563EB]"
+                      )}>
+                        {habit.name}
+                      </div>
+                      <div className="text-badge text-[#6B7280] mt-0.5 flex items-center gap-1.5">
+                        <span>{habit.cadence}</span>
+                        <span>•</span>
+                        <span className="text-[#EA580C] font-mono flex items-center gap-0.5"><Flame className="w-2.5 h-2.5 inline" /> {habit.streak}d</span>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-caption text-[#2563EB] font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0">
+                    {isCompletedToday ? 'undo' : 'check'} &rarr;
+                  </span>
+                </div>
+              );
+            })}
+            {habits.length === 0 && (
+              <div className="py-6 text-body text-[#9CA3AF]">No habits configured yet</div>
             )}
           </div>
         </div>

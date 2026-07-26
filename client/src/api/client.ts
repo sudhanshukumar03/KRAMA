@@ -120,7 +120,7 @@ export const api = {
     create: (data: Record<string, any>) => fetchApi<Habit>('/habits', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<Habit>(`/habits/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<void>(`/habits/${id}`, { method: 'DELETE' }),
-    complete: (id: string) => fetchApi<Habit>(`/habits/${id}/complete`, { method: 'POST' }),
+    complete: (id: string, date?: string) => fetchApi<Habit>(`/habits/${id}/complete`, { method: 'POST', ...(date ? { body: JSON.stringify({ date }) } : {}) }),
   },
   dailyLogs: {
     list: () => fetchApi<DailyLog[]>('/daily-logs'),

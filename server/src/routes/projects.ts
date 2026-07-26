@@ -102,6 +102,14 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
 
 router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    const snapshot = await prisma.project.findUnique({
+      where: { id: req.params.id },
+      include: {
+        issues: true,
+        sprints: true,
+        roadmapItems: true,
+      },
+    });
     await prisma.page.updateMany({
       where: { linkedProjectId: req.params.id },
       data: { linkedProjectId: null },
@@ -109,7 +117,71 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<
     await prisma.project.delete({
       where: { id: req.params.id },
     });
-    res.status(204).send();
+    res.json({ message: 'Project deleted successfully', snapshot });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/restore', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { id, name, status, problemStatement, spaceId, goalId, issues = [], sprints = [], roadmapItems = [] } = req.body;
+    const project = await prisma.$transaction(async (tx) => {
+      const p = await tx.project.create({
+        data: {
+          ...(id && { id }),
+          name,
+          status: status || 'planned',
+          problemStatement: problemStatement || null,
+          spaceId: spaceId || null,
+          goalId: goalId || null,
+        },
+      });
+      for (const s of sprints) {
+        await tx.sprint.create({
+          data: {
+            ...(s.id && { id: s.id }),
+            name: s.name,
+            goal: s.goal || null,
+            startDate: new Date(s.startDate),
+            endDate: new Date(s.endDate),
+            status: s.status || 'planned',
+            projectId: p.id,
+          },
+        });
+      }
+      for (const r of roadmapItems) {
+        await tx.roadmapItem.create({
+          data: {
+            ...(r.id && { id: r.id }),
+            title: r.title,
+            quarter: r.quarter,
+            year: r.year,
+            status: r.status || 'planned',
+            projectId: p.id,
+          },
+        });
+      }
+      for (const i of issues) {
+        await tx.issue.create({
+          data: {
+            ...(i.id && { id: i.id }),
+            title: i.title,
+            description: i.description || null,
+            status: i.status || 'todo',
+            priority: i.priority || 'medium',
+            projectId: p.id,
+            sprintId: i.sprintId || null,
+            assigneeId: i.assigneeId || null,
+          },
+        });
+      }
+      return await tx.project.findUnique({
+        where: { id: p.id },
+        include: projectInclude,
+      });
+    });
+    res.status(201).json(project);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

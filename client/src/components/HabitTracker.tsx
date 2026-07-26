@@ -9,18 +9,24 @@ import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
 import { getIconForString } from '../lib/iconMap';
 
-// Helper to generate a 30-day contribution heatmap pattern for a habit
-function generate30DayPattern(habitId: string, streak: number) {
+// Helper to generate a 30-day contribution heatmap pattern for a habit from real completions
+function generate30DayPattern(habit: any) {
   const days = [];
-  // Use simple deterministic pseudo-random based on id character codes and streak
-  let seed = habitId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + streak;
-  for (let i = 0; i < 30; i++) {
-    seed = (seed * 9301 + 49297) % 233280;
-    const rand = seed / 233280;
-    // Recent days (last `streak` days) are guaranteed active
-    const isRecentStreak = (30 - i) <= streak;
-    const level = isRecentStreak ? 3 : rand > 0.6 ? 2 : rand > 0.3 ? 1 : 0;
-    days.push(level);
+  const today = new Date();
+  const createdAt = habit.createdAt ? new Date(habit.createdAt) : new Date(0);
+  const createdAtStart = new Date(createdAt.getFullYear(), createdAt.getMonth(), createdAt.getDate()).getTime();
+  
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+    if (d.getTime() < createdAtStart) {
+      days.push({ level: -1, offset: i, dateStr: d.toISOString().split('T')[0] });
+      continue;
+    }
+    const dStr = d.toISOString().split('T')[0] || '';
+    const completed = habit.completions?.some((c: any) => c.date.toString().startsWith(dStr) && c.completed) ||
+      (i === 0 && habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === today.toDateString());
+    
+    days.push({ level: completed ? 3 : 0, offset: i, dateStr: dStr });
   }
   return days;
 }
@@ -29,12 +35,13 @@ export function HabitTracker() {
   const queryClient = useQueryClient();
   const { data: habits = [], isLoading } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [completedHabitIds, setCompletedHabitIds] = useState<Record<string, boolean>>({});
 
   const completeMutation = useMutation({
     mutationFn: (id: string) => api.habits.complete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
     },
   });
 
@@ -56,25 +63,23 @@ export function HabitTracker() {
 
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  const toggleTodayCompletion = (id: string, name?: string) => {
-    setCompletedHabitIds(prev => {
-      const nextState = !prev[id];
-      if (nextState) {
-        toast.success(`Habit Completed!`, {
-          description: `You checked off "${name || 'Routine'}". Keep the streak going!`
-        });
-        completeMutation.mutate(id);
-      }
-      return { ...prev, [id]: nextState };
-    });
+  const isHabitCompleted = (habit: any) => {
+    const todayStr = new Date().toISOString().split('T')[0] || '';
+    return habit.completions?.some((c: any) => c.date.toString().startsWith(todayStr) && c.completed) ||
+      (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
   };
 
-  const isHabitCompleted = (habit: any) => {
-    if (completedHabitIds[habit.id] !== undefined) return completedHabitIds[habit.id];
-    if (habit.lastCompletedAt) {
-      return new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString();
+  const toggleTodayCompletion = (id: string, name?: string, currentlyCompleted?: boolean) => {
+    if (!currentlyCompleted) {
+      toast.success(`Habit Completed!`, {
+        description: `You checked off "${name || 'Routine'}". Keep the streak going!`
+      });
+    } else {
+      toast.info(`Habit unchecked`, {
+        description: `Removed today's completion for "${name || 'Routine'}".`
+      });
     }
-    return false;
+    completeMutation.mutate(id);
   };
 
   const completedCount = habits.filter(h => isHabitCompleted(h)).length;
@@ -137,7 +142,7 @@ export function HabitTracker() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-10">
           {filteredHabits.map(habit => {
             const Icon = getIconForString(habit.name);
-            const heatmap = generate30DayPattern(habit.id, habit.streak);
+            const heatmap = generate30DayPattern(habit);
 
             return (
               <div key={habit.id} className="bg-white border border-[#E5E8EC] rounded-xl p-5 hover:border-[#111827] transition-all cursor-pointer group flex flex-col justify-between shadow-sm gap-4">
@@ -173,15 +178,14 @@ export function HabitTracker() {
                     <span>Last 30d</span>
                   </div>
                   <div className="flex items-center justify-between gap-1">
-                    {heatmap.map((level, i) => (
+                    {heatmap.map((item, i) => (
                       <div 
                         key={i} 
-                        title={`Day ${30 - i} ago: ${level === 0 ? 'No activity' : 'Completed'}`}
+                        title={`Day ${item.dateStr}: ${item.level === -1 ? 'Not created yet' : item.level === 0 ? 'No activity' : 'Completed'}`}
                         className={cn(
                           "w-2 h-4 rounded-xs transition-colors",
-                          level === 3 ? "bg-[#EA580C]" 
-                          : level === 2 ? "bg-[#EA580C]/75" 
-                          : level === 1 ? "bg-[#EA580C]/40" 
+                          item.level === 3 ? "bg-[#EA580C]" 
+                          : item.level === -1 ? "bg-[#F3F4F6] border border-[#E5E8EC]/40 opacity-40" 
                           : "bg-[#F8F9FB] border border-[#E5E8EC]/60"
                         )} 
                       />
@@ -272,7 +276,7 @@ export function HabitTracker() {
               return (
                 <div 
                   key={habit.id} 
-                  onClick={() => toggleTodayCompletion(habit.id, habit.name)}
+                  onClick={() => toggleTodayCompletion(habit.id, habit.name, isCompleted)}
                   className={cn(
                     "flex items-center gap-3 group cursor-pointer p-2 rounded-lg transition-all border",
                     isCompleted ? "bg-[#F8F9FB] border-transparent" : "bg-white border-[#E5E8EC] hover:border-[#111827] shadow-2xs"

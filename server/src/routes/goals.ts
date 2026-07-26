@@ -6,10 +6,62 @@ const router = express.Router();
 
 router.use(requireAuth);
 
+const goalInclude = {
+  childGoals: true,
+  linkedProjects: {
+    include: {
+      issues: {
+        select: { id: true, status: true },
+      },
+      _count: {
+        select: { issues: true, sprints: true, roadmapItems: true, docs: true },
+      },
+    },
+  },
+  habits: true,
+  snapshots: {
+    orderBy: { date: 'desc' as const },
+    take: 20,
+  },
+};
+
+// Hierarchical server-side rollup calculation
+export async function recalculateGoalRollups(goalId: string | null): Promise<void> {
+  if (!goalId) return;
+  try {
+    const parent = await prisma.goal.findUnique({
+      where: { id: goalId },
+      include: { childGoals: true },
+    });
+    if (!parent) return;
+
+    // Zero-children division-by-zero protection: do not override progress if no children exist
+    if (!parent.childGoals || parent.childGoals.length === 0) {
+      return;
+    }
+
+    const totalProgress = parent.childGoals.reduce((sum, child) => sum + (child.progress || 0), 0);
+    const avgProgress = Math.round(totalProgress / parent.childGoals.length);
+
+    if (parent.progress !== avgProgress) {
+      const updatedParent = await prisma.goal.update({
+        where: { id: parent.id },
+        data: { progress: avgProgress },
+      });
+      // Recursively climb up hierarchical tree (e.g. Monthly ➔ Quarterly ➔ Yearly)
+      if (updatedParent.parentGoalId) {
+        await recalculateGoalRollups(updatedParent.parentGoalId);
+      }
+    }
+  } catch (err) {
+    console.error(`Failed to recalculate rollups for goal ${goalId}:`, err);
+  }
+}
+
 router.get('/', async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const goals = await prisma.goal.findMany({
-      include: { childGoals: true, linkedProjects: true, habits: true, snapshots: true },
+      include: goalInclude,
       orderBy: { createdAt: 'desc' },
     });
     res.json(goals);
@@ -22,7 +74,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
   try {
     const goal = await prisma.goal.findUnique({
       where: { id: req.params.id },
-      include: { childGoals: true, linkedProjects: true, habits: true, snapshots: true },
+      include: goalInclude,
     });
     if (!goal) {
       res.status(404).json({ error: 'Goal not found' });
@@ -49,8 +101,13 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
         parentGoalId: parentGoalId || null,
         progress: progress !== undefined ? Number(progress) : 0,
       },
-      include: { childGoals: true, linkedProjects: true, habits: true, snapshots: true },
+      include: goalInclude,
     });
+
+    if (goal.parentGoalId) {
+      await recalculateGoalRollups(goal.parentGoalId);
+    }
+
     res.status(201).json(goal);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -60,6 +117,8 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
 router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { title, type, targetDate, parentGoalId, progress } = req.body;
+    const oldGoal = await prisma.goal.findUnique({ where: { id: req.params.id }, select: { parentGoalId: true } });
+    
     const goal = await prisma.goal.update({
       where: { id: req.params.id },
       data: {
@@ -69,8 +128,16 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
         ...(parentGoalId !== undefined && { parentGoalId }),
         ...(progress !== undefined && { progress: Number(progress) }),
       },
-      include: { childGoals: true, linkedProjects: true, habits: true, snapshots: true },
+      include: goalInclude,
     });
+
+    if (goal.parentGoalId) {
+      await recalculateGoalRollups(goal.parentGoalId);
+    }
+    if (oldGoal?.parentGoalId && oldGoal.parentGoalId !== goal.parentGoalId) {
+      await recalculateGoalRollups(oldGoal.parentGoalId);
+    }
+
     res.json(goal);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -79,6 +146,8 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
 
 router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    const oldGoal = await prisma.goal.findUnique({ where: { id: req.params.id }, select: { parentGoalId: true } });
+
     await prisma.goal.updateMany({
       where: { parentGoalId: req.params.id },
       data: { parentGoalId: null },
@@ -90,6 +159,11 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<
     await prisma.goal.delete({
       where: { id: req.params.id },
     });
+
+    if (oldGoal?.parentGoalId) {
+      await recalculateGoalRollups(oldGoal.parentGoalId);
+    }
+
     res.status(204).send();
   } catch (err: any) {
     res.status(500).json({ error: err.message });

@@ -6,6 +6,40 @@ const router = express.Router();
 
 router.use(requireAuth);
 
+export function extractTextFromBlocks(blocks: any): string {
+  if (!blocks) return '';
+  if (typeof blocks === 'string') {
+    try {
+      blocks = JSON.parse(blocks);
+    } catch {
+      return blocks;
+    }
+  }
+  let text = '';
+  function traverse(node: any) {
+    if (!node) return;
+    if (typeof node === 'string') {
+      text += node + ' ';
+      return;
+    }
+    if (node.text && typeof node.text === 'string') {
+      text += node.text + ' ';
+    }
+    if (Array.isArray(node)) {
+      node.forEach(traverse);
+    } else if (typeof node === 'object') {
+      if (node.content && Array.isArray(node.content)) {
+        node.content.forEach(traverse);
+      }
+      if (node.children && Array.isArray(node.children)) {
+        node.children.forEach(traverse);
+      }
+    }
+  }
+  traverse(blocks);
+  return text.trim();
+}
+
 const pageInclude = {
   childPages: true,
   linkedProject: {
@@ -58,6 +92,30 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
         spaceId,
         icon: icon || null,
         blocks: blocks || null,
+        textContent: extractTextFromBlocks(blocks || null),
+        parentPageId: parentPageId || null,
+        tags: tags || [],
+        linkedProjectId: linkedProjectId || null,
+      },
+      include: pageInclude,
+    });
+    res.status(201).json(page);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/restore', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { id, title, spaceId, icon, blocks, textContent, parentPageId, tags, linkedProjectId } = req.body;
+    const page = await prisma.page.create({
+      data: {
+        ...(id && { id }),
+        title,
+        spaceId,
+        icon: icon || null,
+        blocks: blocks || null,
+        textContent: textContent || extractTextFromBlocks(blocks),
         parentPageId: parentPageId || null,
         tags: tags || [],
         linkedProjectId: linkedProjectId || null,
@@ -78,7 +136,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
       data: {
         ...(title !== undefined && { title }),
         ...(icon !== undefined && { icon }),
-        ...(blocks !== undefined && { blocks }),
+        ...(blocks !== undefined && { blocks, textContent: extractTextFromBlocks(blocks) }),
         ...(parentPageId !== undefined && { parentPageId }),
         ...(tags !== undefined && { tags }),
         ...(linkedProjectId !== undefined && { linkedProjectId }),
@@ -93,6 +151,10 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
 
 router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    const snapshot = await prisma.page.findUnique({
+      where: { id: req.params.id },
+      include: pageInclude,
+    });
     await prisma.page.updateMany({
       where: { parentPageId: req.params.id },
       data: { parentPageId: null },
@@ -100,7 +162,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<
     await prisma.page.delete({
       where: { id: req.params.id },
     });
-    res.status(204).send();
+    res.json({ message: 'Page deleted successfully', snapshot });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

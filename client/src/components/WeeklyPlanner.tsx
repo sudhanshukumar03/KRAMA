@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Plus, ChevronLeft, ChevronRight, Check, Clock, Flame } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -127,10 +127,19 @@ function DayColumn({
 
 export function WeeklyPlanner() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [habitChecks, setHabitChecks] = useState<Record<string, boolean>>({});
   
   const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
   const { data: habits = [], isLoading: habitsLoading } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
+
+  const queryClient = useQueryClient();
+  const toggleHabitMutation = useMutation({
+    mutationFn: ({ id, date }: { id: string; date: string }) => api.habits.complete(id, date),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+    }
+  });
 
   const weekDays = useMemo(() => getWeekDates(currentDate), [currentDate]);
 
@@ -156,9 +165,9 @@ export function WeeklyPlanner() {
     setCurrentDate(newDate);
   };
 
-  const toggleHabitDay = (habitId: string, dayIndex: number) => {
-    const key = `${habitId}-${dayIndex}`;
-    setHabitChecks(prev => ({ ...prev, [key]: !prev[key] }));
+  const toggleHabitDay = (habitId: string, dayDate: Date) => {
+    const dStr = dayDate.toISOString().split('T')[0] || '';
+    toggleHabitMutation.mutate({ id: habitId, date: dStr });
   };
 
   const weekRangeLabel = `${weekDays[0].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekDays[6].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
@@ -311,18 +320,18 @@ export function WeeklyPlanner() {
                     <div className="text-[11px] text-[#6B7280] ml-3.5">{habit.timeOfDay} • {habit.duration || 15}m</div>
                   </td>
                   <td className="py-3.5 px-3 font-mono text-xs font-medium text-[#111827]">
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[10px] font-bold"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" />{habit.streak + (habitChecks[`${habit.id}-0`] ? 1 : 0)}d</span>
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[10px] font-bold"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" />{habit.streak}d</span>
                   </td>
                   {weekDays.map((day, dayIdx) => {
-                    // Mock check state: either locally checked, or default checked for past days if index % 2 === 0
-                    const key = `${habit.id}-${dayIdx}`;
-                    const isChecked = habitChecks[key] !== undefined ? habitChecks[key] : (dayIdx < 3 && (index + dayIdx) % 2 === 0);
+                    const dStr = day.date.toISOString().split('T')[0] || '';
+                    const isChecked = habit.completions?.some(c => c.date.toString().startsWith(dStr) && c.completed) ||
+                      (day.isToday && habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
 
                     return (
                       <td key={dayIdx} className={cn("py-3.5 px-3 text-center", day.isToday ? "bg-[#EFF4FE]/10" : "")}>
                         <button 
-                          onClick={() => toggleHabitDay(habit.id, dayIdx)}
-                          className="p-1 focus:outline-none hover:scale-105 transition-transform block mx-auto"
+                          onClick={() => toggleHabitDay(habit.id, day.date)}
+                          className="p-1 focus:outline-none hover:scale-105 transition-transform block mx-auto cursor-pointer"
                         >
                           {isChecked ? (
                             <div className="w-5 h-5 mx-auto rounded-md bg-[#111827] text-white flex items-center justify-center shadow-2xs transition-all animate-in zoom-in-50 duration-150">

@@ -24,7 +24,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { IssueWithRelations } from '../types/schema';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
-import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks, Search, Filter, Plus, User, Trash2 } from 'lucide-react';
+import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks, Search, Filter, Plus, User, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
@@ -98,6 +98,30 @@ function IssueCard({ issue, isDragging, onDelete }: { issue: IssueWithRelations,
       <div className="font-medium text-[#111827] mb-2.5 line-clamp-2 group-hover:text-[#2563EB] transition-colors">
         {issue.title}
       </div>
+
+      {/* Real Dependency Badges */}
+      {((issue.blockedBy && issue.blockedBy.length > 0) || (issue.blocking && issue.blocking.length > 0)) && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {issue.blockedBy && issue.blockedBy.length > 0 && (
+            <span 
+              title={`Blocked by: ${issue.blockedBy.map((b: any) => b.title).join(', ')}`}
+              className="px-1.5 py-0.5 rounded bg-red-50 text-[#DC2626] border border-[#DC2626]/20 font-mono text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+            >
+              <AlertCircle className="w-3 h-3 shrink-0" />
+              Blocked by: {issue.blockedBy.map((b: any) => b.id.slice(0, 6).toUpperCase()).join(', ')}
+            </span>
+          )}
+          {issue.blocking && issue.blocking.length > 0 && (
+            <span 
+              title={`Blocking: ${issue.blocking.map((b: any) => b.title).join(', ')}`}
+              className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-mono text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+            >
+              <AlertCircle className="w-3 h-3 shrink-0" />
+              Blocking: {issue.blocking.length} {issue.blocking.length === 1 ? 'ticket' : 'tickets'}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col gap-2 pt-2 border-t border-[#E5E8EC]/60">
         {totalSubtasks > 0 && (

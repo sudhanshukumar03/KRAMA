@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { Plus, Settings, Check, ChevronLeft, ChevronRight, Play, Search, Clock, CalendarPlus, Flame, Sparkles } from 'lucide-react';
@@ -13,7 +13,17 @@ const weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 export function TimelineView() {
   const { data: issues = [], isLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
   const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
-  const { data: dailyLogs = [] } = useQuery({ queryKey: ['dailyLogs'], queryFn: api.dailyLogs.list });
+  const { data: dailyLogs = [] } = useQuery({ queryKey: ['daily-logs'], queryFn: api.dailyLogs.list });
+
+  const queryClient = useQueryClient();
+  const toggleHabitMutation = useMutation({
+    mutationFn: (id: string) => api.habits.complete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+    }
+  });
 
   const [currentTime, setCurrentTime] = useState(new Date());
   const [searchParams, setSearchParams] = useSearchParams();
@@ -363,11 +373,17 @@ export function TimelineView() {
             <button onClick={() => alert('Manage Habits')} className="text-[11px] font-medium text-[#2563EB] hover:text-[#1D4ED8]">Manage</button>
           </div>
           <div className="space-y-3 flex-1">
-            {habits.slice(0, 4).map((habit, idx) => {
-              const isHabitDone = idx % 2 !== 0;
+            {habits.slice(0, 4).map((habit) => {
+              const todayStr = new Date().toISOString().split('T')[0] || '';
+              const isHabitDone = habit.completions?.some(c => c.date.toString().startsWith(todayStr) && c.completed) ||
+                (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
               const Icon = getIconForString(habit.name);
               return (
-                <div key={habit.id} className="flex items-center justify-between py-2 border-b border-[#E5E8EC]/60 last:border-0 group">
+                <div 
+                  key={habit.id} 
+                  onClick={() => toggleHabitMutation.mutate(habit.id)}
+                  className="flex items-center justify-between py-2 border-b border-[#E5E8EC]/60 last:border-0 group cursor-pointer hover:bg-[#F8F9FB] -mx-2 px-2 rounded-lg transition-all duration-150"
+                >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={cn(
                       "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors",

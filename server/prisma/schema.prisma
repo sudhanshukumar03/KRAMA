@@ -31,6 +31,7 @@ model Page {
   title           String
   icon            String?
   blocks          Json?     // Tiptap rich content
+  textContent     String?   @default("") // Plain text extracted from Tiptap for full-text search
   parentPageId    String?
   parentPage      Page?     @relation("PageHierarchy", fields: [parentPageId], references: [id])
   childPages      Page[]    @relation("PageHierarchy")
@@ -150,8 +151,20 @@ model Habit {
   timeOfDay      String?   // morning, evening, anytime
   difficulty     String?   // Easy, Medium, Hard
   duration       Int?      // minutes
+  completions    HabitCompletion[]
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+}
+
+model HabitCompletion {
+  id        String   @id @default(uuid())
+  habitId   String
+  habit     Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  date      DateTime // Normalized to 00:00:00 UTC for the date string YYYY-MM-DD
+  completed Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([habitId, date])
 }
 
 model DailyLog {
