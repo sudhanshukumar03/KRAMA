@@ -15,6 +15,8 @@ import roadmapItemRoutes from './routes/roadmapItems';
 import habitRoutes from './routes/habits';
 import dailyLogRoutes from './routes/dailyLogs';
 import snapshotRoutes, { startSnapshotScheduler } from './routes/snapshots';
+import searchRoutes from './routes/search';
+import decisionRoutes from './routes/decisions';
 
 dotenv.config();
 
@@ -48,6 +50,8 @@ app.use('/api/v1/roadmap-items', roadmapItemRoutes);
 app.use('/api/v1/habits', habitRoutes);
 app.use('/api/v1/daily-logs', dailyLogRoutes);
 app.use('/api/v1/snapshots', snapshotRoutes);
+app.use('/api/v1/search', searchRoutes);
+app.use('/api/v1/decisions', decisionRoutes);
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(port, () => {

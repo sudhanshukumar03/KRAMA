@@ -13,7 +13,8 @@ import {
   Clock,
   Clock4,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  Scale
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -30,6 +31,7 @@ const executionItems = [
   { name: 'Kanban Board', path: '/app/board', icon: KanbanSquare, shortcut: 'E K', badgeKey: 'openIssues' },
   { name: 'Sprint View', path: '/app/sprint', icon: Clock, shortcut: 'E S', badgeKey: 'sprintIssues' },
   { name: 'Daily Review', path: '/app/review', icon: CalendarCheck, shortcut: 'E R', badgeKey: null },
+  { name: 'Decision Log', path: '/app/decisions', icon: Scale, shortcut: 'E D', badgeKey: null },
   { name: 'Habit Tracker', path: '/app/habits', icon: TrendingUp, shortcut: 'E H', badgeKey: 'habits' },
 ];
 

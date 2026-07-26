@@ -147,6 +147,12 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
 router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const oldGoal = await prisma.goal.findUnique({ where: { id: req.params.id }, select: { parentGoalId: true } });
+    const snapshot = await prisma.goal.findUnique({
+      where: { id: req.params.id },
+      include: {
+        snapshots: true,
+      },
+    });
 
     await prisma.goal.updateMany({
       where: { parentGoalId: req.params.id },
@@ -164,7 +170,43 @@ router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<
       await recalculateGoalRollups(oldGoal.parentGoalId);
     }
 
-    res.status(204).send();
+    res.json({ message: 'Goal deleted successfully', snapshot });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/restore', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { id, title, type, targetDate, parentGoalId, progress, snapshots = [] } = req.body;
+    const goal = await prisma.$transaction(async (tx) => {
+      const g = await tx.goal.create({
+        data: {
+          ...(id && { id }),
+          title,
+          type: type || 'quarterly',
+          targetDate: targetDate ? new Date(targetDate) : null,
+          parentGoalId: parentGoalId || null,
+          progress: progress || 0,
+        },
+      });
+      for (const s of snapshots) {
+        await tx.goalProgressSnapshot.create({
+          data: {
+            ...(s.id && { id: s.id }),
+            goalId: g.id,
+            progress: s.progress,
+            date: new Date(s.date),
+            note: s.note || null,
+          },
+        });
+      }
+      return await tx.goal.findUnique({
+        where: { id: g.id },
+        include: goalInclude,
+      });
+    });
+    res.status(201).json(goal);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

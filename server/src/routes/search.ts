@@ -62,7 +62,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
       where: {
         OR: [
           { name: { contains: q, mode: 'insensitive' } },
-          { description: { contains: q, mode: 'insensitive' } },
+          { problemStatement: { contains: q, mode: 'insensitive' } },
         ],
       },
       take: 10,
@@ -113,7 +113,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
         id: p.id,
         title: p.name,
         type: 'project' as const,
-        snippet: extractSnippet(p.description || '', q) || 'Engineering Project',
+        snippet: extractSnippet(p.problemStatement || '', q) || 'Engineering Project',
         url: `/app/projects/${p.id}`,
         badge: 'Project',
       })),

@@ -87,3 +87,20 @@ export type SpaceWithRelations = Space & {
   pages?: Page[];
   projects?: Project[];
 };
+
+export type DecisionWithRelations = Decision & {
+  linkedProject?: {
+    id: string;
+    name: string;
+  } | null;
+};
+
+export interface SearchResult {
+  id: string;
+  title: string;
+  type: 'page' | 'issue' | 'project' | 'goal' | 'decision';
+  snippet: string;
+  url: string;
+  badge?: string;
+}
+

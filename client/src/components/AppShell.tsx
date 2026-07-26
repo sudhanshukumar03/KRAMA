@@ -13,6 +13,7 @@ import { ProjectDetail } from './ProjectDetail';
 import { WeeklyPlanner } from './WeeklyPlanner';
 import { TimelineView } from './TimelineView';
 import { HabitTracker } from './HabitTracker';
+import { DecisionLog } from './DecisionLog';
 import { Terminal, ArrowRight } from 'lucide-react';
 
 export function AppShell() {
@@ -105,6 +106,7 @@ export function AppShell() {
           <Route path="/timeline/*" element={<TimelineView />} />
           <Route path="/review/*" element={<DailyReview />} />
           <Route path="/habits/*" element={<HabitTracker />} />
+          <Route path="/decisions" element={<DecisionLog />} />
         </Routes>
       </main>
 

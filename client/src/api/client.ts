@@ -1,5 +1,5 @@
 import type { 
-  Workspace, Space, ProjectWithRelations, IssueWithRelations, PageWithRelations, GoalWithRelations, Habit, Sprint, DailyLog, RoadmapItem, GoalProgressSnapshot
+  Workspace, Space, ProjectWithRelations, IssueWithRelations, PageWithRelations, GoalWithRelations, Habit, Sprint, DailyLog, RoadmapItem, GoalProgressSnapshot, DecisionWithRelations, SearchResult
 } from '../types/schema';
 
 let cachedToken: string | null = null;
@@ -81,21 +81,25 @@ export const api = {
   },
   pages: {
     list: () => fetchApi<PageWithRelations[]>('/pages'),
+    get: (id: string) => fetchApi<PageWithRelations>(`/pages/${id}`),
     create: (data: Record<string, any>) => fetchApi<PageWithRelations>('/pages', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<PageWithRelations>(`/pages/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<void>(`/pages/${id}`, { method: 'DELETE' }),
+    delete: (id: string) => fetchApi<{ message: string; snapshot: any }>(`/pages/${id}`, { method: 'DELETE' }),
+    restore: (snapshot: Record<string, any>) => fetchApi<PageWithRelations>('/pages/restore', { method: 'POST', body: JSON.stringify(snapshot) }),
   },
   goals: {
     list: () => fetchApi<GoalWithRelations[]>('/goals'),
     create: (data: Record<string, any>) => fetchApi<GoalWithRelations>('/goals', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<GoalWithRelations>(`/goals/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<void>(`/goals/${id}`, { method: 'DELETE' }),
+    delete: (id: string) => fetchApi<{ message: string; snapshot: any }>(`/goals/${id}`, { method: 'DELETE' }),
+    restore: (snapshot: Record<string, any>) => fetchApi<GoalWithRelations>('/goals/restore', { method: 'POST', body: JSON.stringify(snapshot) }),
   },
   projects: {
     list: () => fetchApi<ProjectWithRelations[]>('/projects'),
     create: (data: Record<string, any>) => fetchApi<ProjectWithRelations>('/projects', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<ProjectWithRelations>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<void>(`/projects/${id}`, { method: 'DELETE' }),
+    delete: (id: string) => fetchApi<{ message: string; snapshot: any }>(`/projects/${id}`, { method: 'DELETE' }),
+    restore: (snapshot: Record<string, any>) => fetchApi<ProjectWithRelations>('/projects/restore', { method: 'POST', body: JSON.stringify(snapshot) }),
   },
   issues: {
     list: () => fetchApi<IssueWithRelations[]>('/issues'),
@@ -131,5 +135,24 @@ export const api = {
   snapshots: {
     list: () => fetchApi<GoalProgressSnapshot[]>('/snapshots'),
     create: (data: Record<string, any>) => fetchApi<GoalProgressSnapshot>('/snapshots', { method: 'POST', body: JSON.stringify(data) }),
-  }
+  },
+  search: {
+    query: (q: string) => fetchApi<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}`),
+  },
+  decisions: {
+    list: (params?: { projectId?: string; q?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.projectId) searchParams.set('projectId', params.projectId);
+      if (params?.q) searchParams.set('q', params.q);
+      const qs = searchParams.toString();
+      return fetchApi<DecisionWithRelations[]>(`/decisions${qs ? `?${qs}` : ''}`);
+    },
+    get: (id: string) => fetchApi<DecisionWithRelations>(`/decisions/${id}`),
+    create: (data: Record<string, any>) => fetchApi<DecisionWithRelations>('/decisions', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, any>) => fetchApi<DecisionWithRelations>(`/decisions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => fetchApi<{ message: string; snapshot: any }>(`/decisions/${id}`, { method: 'DELETE' }),
+    restore: (snapshot: Record<string, any>) => fetchApi<DecisionWithRelations>('/decisions/restore', { method: 'POST', body: JSON.stringify(snapshot) }),
+  },
+
 };
+
