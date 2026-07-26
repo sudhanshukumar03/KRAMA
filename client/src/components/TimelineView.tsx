@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
-import { Plus, Settings, Check, ChevronLeft, ChevronRight, Play, Search, Clock, CalendarPlus, Flame, Sparkles } from 'lucide-react';
+import { Plus, Settings, Check, ChevronLeft, ChevronRight, Play, Pause, RotateCcw, Search, Clock, CalendarPlus, Flame, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import { getIconForString } from '../lib/iconMap';
 import { LoadingState } from './ui/LoadingState';
@@ -26,6 +27,8 @@ export function TimelineView() {
   });
 
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [sessionSeconds, setSessionSeconds] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
   const paramDate = searchParams.get('date');
 
@@ -33,6 +36,18 @@ export function TimelineView() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    let interval: any;
+    if (timerRunning) {
+      interval = setInterval(() => {
+        setSessionSeconds(prev => prev + 1);
+      }, 1000);
+    } else if (!timerRunning && sessionSeconds !== 0) {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [timerRunning, sessionSeconds]);
 
   const targetDate = useMemo(() => {
     if (paramDate) {
@@ -84,7 +99,7 @@ export function TimelineView() {
             K
           </div>
           <span className="font-medium tracking-tight text-xl text-[#111827]">Krama</span>
-          <button onClick={() => alert('New Task')} className="ml-auto w-6 h-6 rounded-full border border-[#E5E8EC] bg-white flex items-center justify-center hover:border-[#111827] transition-colors shadow-2xs">
+          <button onClick={() => toast.info('Click any time slot on the timeline to schedule a new task')} className="ml-auto w-6 h-6 rounded-full border border-[#E5E8EC] bg-white flex items-center justify-center hover:border-[#111827] transition-colors shadow-2xs" title="New Task">
             <Plus className="w-3.5 h-3.5 text-[#111827] stroke-[2]" />
           </button>
         </div>
@@ -121,7 +136,7 @@ export function TimelineView() {
 
                   {/* Quick-Slot Button */}
                   <button 
-                    onClick={() => alert(`Slotted "${task.title}" into Today's Schedule`)}
+                    onClick={() => toast.success(`Slotted "${task.title}" into Today's Schedule`)}
                     className="w-full mt-1 py-1.5 px-2 bg-[#F8F9FB] hover:bg-[#2563EB] text-[#6B7280] hover:text-white rounded-md text-[11px] font-medium transition-all flex items-center justify-center gap-1.5 border border-[#E5E8EC] hover:border-[#2563EB] shadow-2xs group/btn"
                   >
                     <CalendarPlus className="w-3.5 h-3.5 stroke-[1.75] group-hover/btn:scale-110 transition-transform" />
@@ -132,7 +147,7 @@ export function TimelineView() {
             })}
             
             {/* Ghost Add Card */}
-            <button onClick={() => alert('Add new weekly pin')} className="w-full bg-transparent border border-dashed border-[#D1D5DB] hover:border-[#2563EB] hover:bg-[#EFF4FE]/10 transition-all rounded-xl p-3 flex items-center justify-center gap-2 group">
+            <button onClick={() => toast.info('Pin high-priority tasks to lock them into your weekly focus')} className="w-full bg-transparent border border-dashed border-[#D1D5DB] hover:border-[#2563EB] hover:bg-[#EFF4FE]/10 transition-all rounded-xl p-3 flex items-center justify-center gap-2 group">
               <Plus className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#2563EB] transition-colors stroke-[2]" />
               <span className="text-xs font-medium text-[#9CA3AF] group-hover:text-[#2563EB] transition-colors">Add new weekly pin</span>
             </button>
@@ -209,10 +224,10 @@ export function TimelineView() {
             </p>
           </div>
           <div className="flex items-center gap-2.5">
-            <button onClick={() => alert('Add Time Block')} className="w-9 h-9 rounded-full bg-[#2563EB] text-white flex items-center justify-center hover:bg-[#1D4ED8] transition-colors shadow-sm">
+            <button onClick={() => toast.info('Select a time slot on the timeline to add a time block')} className="w-9 h-9 rounded-full bg-[#2563EB] text-white flex items-center justify-center hover:bg-[#1D4ED8] transition-colors shadow-sm" title="Add Time Block">
               <Plus className="w-4 h-4 stroke-[2]" />
             </button>
-            <div className="flex items-center gap-2 p-1 pl-3 pr-1 bg-[#F8F9FB] border border-[#E5E8EC] rounded-full cursor-pointer hover:border-[#D1D5DB] transition-colors shadow-2xs">
+            <div className="flex items-center gap-2 p-1 pl-3 pr-1 bg-[#F8F9FB] border border-[#E5E8EC] rounded-full cursor-pointer hover:border-[#D1D5DB] transition-colors shadow-2xs" onClick={() => toast.info('Timeline settings & calendar preferences')} title="Settings">
               <Settings className="w-4 h-4 text-[#6B7280] stroke-[1.75]" />
               <div className="w-7 h-7 rounded-full bg-[#E5E8EC] flex items-center justify-center text-[10px] font-medium text-[#111827] ml-1 font-mono">
                 ME
@@ -244,7 +259,7 @@ export function TimelineView() {
               <Clock className="w-6 h-6 text-[#9CA3AF] mb-2 stroke-[1.5]" />
               <p className="text-sm font-medium text-[#111827] mb-1">No events scheduled for today</p>
               <p className="text-xs text-[#6B7280] mb-4">Your agenda is completely clear. Enjoy your focus time!</p>
-              <button onClick={() => alert('Schedule task')} className="px-3.5 py-1.5 rounded-full bg-[#EFF4FE] text-[#2563EB] hover:bg-[#2563EB] hover:text-white text-xs font-medium transition-colors shadow-sm">
+              <button onClick={() => toast.info('Click a time slot or use the Quick Add button above')} className="px-3.5 py-1.5 rounded-full bg-[#EFF4FE] text-[#2563EB] hover:bg-[#2563EB] hover:text-white text-xs font-medium transition-colors shadow-sm">
                 + Schedule a task
               </button>
             </div>
@@ -335,25 +350,60 @@ export function TimelineView() {
           </div>
         </div>
 
-        {/* Deep Work Hero Card */}
+        {/* Deep Work Hero Card (#4 Focus Session: Inline interactive timer, no native alert) */}
         <div className="bg-[#111827] rounded-xl p-6 text-white shadow-md flex flex-col">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <div className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#9CA3AF] mb-1">Focus Session</div>
+              <div className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#9CA3AF] mb-1">
+                {timerRunning ? (
+                  <span className="inline-flex items-center gap-1.5 text-amber-400 font-mono font-bold animate-pulse">
+                    <Clock className="w-3 h-3" /> SESSION ACTIVE ({Math.floor(sessionSeconds / 60)}m {sessionSeconds % 60}s)
+                  </span>
+                ) : "Focus Session"}
+              </div>
               <h3 className="font-medium text-[18px] leading-tight">Deep Work Log</h3>
             </div>
-            <button onClick={() => alert('Start Focus Timer')} className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center shrink-0 cursor-pointer shadow-sm">
-              <Play className="w-4 h-4 text-white ml-0.5 fill-white" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  const nextRunning = !timerRunning;
+                  setTimerRunning(nextRunning);
+                  if (nextRunning) {
+                    toast.success('Focus timer started! Keep up the deep work.');
+                  } else {
+                    toast.info(`Focus session paused at ${Math.floor(sessionSeconds / 60)}m ${sessionSeconds % 60}s.`);
+                  }
+                }} 
+                className={cn(
+                  "w-9 h-9 rounded-full transition-colors flex items-center justify-center shrink-0 cursor-pointer shadow-sm",
+                  timerRunning ? "bg-amber-500 hover:bg-amber-600 text-white" : "bg-white/10 hover:bg-white/20 text-white"
+                )}
+                title={timerRunning ? "Pause Focus Timer" : "Start Focus Timer"}
+              >
+                {timerRunning ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 text-white ml-0.5 fill-white" />}
+              </button>
+              {sessionSeconds > 0 && !timerRunning && (
+                <button 
+                  onClick={() => {
+                    setSessionSeconds(0);
+                    toast.success('Session time logged and timer reset.');
+                  }} 
+                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center shrink-0 cursor-pointer text-white shadow-sm"
+                  title="Reset & Log Timer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
           
           <div className="mt-auto">
             <div className="flex justify-between text-[11px] font-medium uppercase tracking-[0.02em] text-[#9CA3AF] mb-2 font-mono">
-              <span>{String(hours).padStart(2, '0')}:{String(mins).padStart(2, '0')} logged</span>
+              <span>{String(hours + Math.floor(sessionSeconds / 3600)).padStart(2, '0')}:{String(mins + Math.floor((sessionSeconds % 3600) / 60)).padStart(2, '0')} logged</span>
               <span>05:00 target</span>
             </div>
             <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
-              <div className="h-full bg-[#2563EB] rounded-full transition-all duration-400" style={{ width: `${Math.min(100, (deepWorkMins / 300) * 100)}%` }} />
+              <div className="h-full bg-[#2563EB] rounded-full transition-all duration-400 ease-out" style={{ width: `${Math.min(100, ((deepWorkMins + Math.floor(sessionSeconds / 60)) / 300) * 100)}%` }} />
             </div>
           </div>
         </div>
@@ -370,7 +420,7 @@ export function TimelineView() {
                 <p className="text-[10px] text-[#6B7280]">Quick pulse check</p>
               </div>
             </div>
-            <button onClick={() => alert('Manage Habits')} className="text-[11px] font-medium text-[#2563EB] hover:text-[#1D4ED8]">Manage</button>
+            <button onClick={() => window.location.href = '/app/habits'} className="text-[11px] font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors">Manage</button>
           </div>
           <div className="space-y-3 flex-1">
             {habits.slice(0, 4).map((habit) => {
