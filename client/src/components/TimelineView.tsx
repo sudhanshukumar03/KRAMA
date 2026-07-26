@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
-import { Plus, Settings, Check, ChevronLeft, ChevronRight, Play, Pause, RotateCcw, Search, Clock, CalendarPlus, Flame, Sparkles } from 'lucide-react';
+import { Plus, Settings, Check, ChevronLeft, ChevronRight, Brain, Search, Clock, CalendarPlus, Flame, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import { getIconForString } from '../lib/iconMap';
@@ -27,8 +27,6 @@ export function TimelineView() {
   });
 
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [timerRunning, setTimerRunning] = useState(false);
-  const [sessionSeconds, setSessionSeconds] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
   const paramDate = searchParams.get('date');
 
@@ -36,18 +34,6 @@ export function TimelineView() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    let interval: any;
-    if (timerRunning) {
-      interval = setInterval(() => {
-        setSessionSeconds(prev => prev + 1);
-      }, 1000);
-    } else if (!timerRunning && sessionSeconds !== 0) {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [timerRunning, sessionSeconds]);
 
   const targetDate = useMemo(() => {
     if (paramDate) {
@@ -80,7 +66,7 @@ export function TimelineView() {
   const pinnedTasks = issues.filter(i => i.priority === 'urgent' || i.priority === 'high').slice(0, 3);
 
   const todayLog = dailyLogs.find(l => new Date(l.date).toLocaleDateString() === targetDate.toLocaleDateString());
-  const deepWorkMins = todayLog?.deepWorkMinutes || 180;
+  const deepWorkMins = todayLog?.deepWorkMinutes || 0;
   const hours = Math.floor(deepWorkMins / 60);
   const mins = deepWorkMins % 60;
 
@@ -350,60 +336,30 @@ export function TimelineView() {
           </div>
         </div>
 
-        {/* Deep Work Hero Card (#4 Focus Session: Inline interactive timer, no native alert) */}
+        {/* Read-Only Deep Work Log Display (Consolidated with Daily Review) */}
         <div className="bg-[#111827] rounded-xl p-6 text-white shadow-md flex flex-col">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <div className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#9CA3AF] mb-1">
-                {timerRunning ? (
-                  <span className="inline-flex items-center gap-1.5 text-amber-400 font-mono font-bold animate-pulse">
-                    <Clock className="w-3 h-3" /> SESSION ACTIVE ({Math.floor(sessionSeconds / 60)}m {sessionSeconds % 60}s)
-                  </span>
-                ) : "Focus Session"}
+              <div className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#9CA3AF] mb-1 flex items-center gap-1.5">
+                <Brain className="w-3.5 h-3.5 text-amber-400" /> Tracked on Daily Review
               </div>
               <h3 className="font-medium text-[18px] leading-tight">Deep Work Log</h3>
             </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => {
-                  const nextRunning = !timerRunning;
-                  setTimerRunning(nextRunning);
-                  if (nextRunning) {
-                    toast.success('Focus timer started! Keep up the deep work.');
-                  } else {
-                    toast.info(`Focus session paused at ${Math.floor(sessionSeconds / 60)}m ${sessionSeconds % 60}s.`);
-                  }
-                }} 
-                className={cn(
-                  "w-9 h-9 rounded-full transition-colors flex items-center justify-center shrink-0 cursor-pointer shadow-sm",
-                  timerRunning ? "bg-amber-500 hover:bg-amber-600 text-white" : "bg-white/10 hover:bg-white/20 text-white"
-                )}
-                title={timerRunning ? "Pause Focus Timer" : "Start Focus Timer"}
-              >
-                {timerRunning ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 text-white ml-0.5 fill-white" />}
-              </button>
-              {sessionSeconds > 0 && !timerRunning && (
-                <button 
-                  onClick={() => {
-                    setSessionSeconds(0);
-                    toast.success('Session time logged and timer reset.');
-                  }} 
-                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center shrink-0 cursor-pointer text-white shadow-sm"
-                  title="Reset & Log Timer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+            <a 
+              href="/app/review"
+              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-xs font-mono font-medium text-white flex items-center gap-1.5 shrink-0"
+            >
+              <Clock className="w-3.5 h-3.5" /> Open Timer
+            </a>
           </div>
           
           <div className="mt-auto">
             <div className="flex justify-between text-[11px] font-medium uppercase tracking-[0.02em] text-[#9CA3AF] mb-2 font-mono">
-              <span>{String(hours + Math.floor(sessionSeconds / 3600)).padStart(2, '0')}:{String(mins + Math.floor((sessionSeconds % 3600) / 60)).padStart(2, '0')} logged</span>
+              <span>{String(hours).padStart(2, '0')}h {String(mins).padStart(2, '0')}m logged</span>
               <span>05:00 target</span>
             </div>
             <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
-              <div className="h-full bg-[#2563EB] rounded-full transition-all duration-400 ease-out" style={{ width: `${Math.min(100, ((deepWorkMins + Math.floor(sessionSeconds / 60)) / 300) * 100)}%` }} />
+              <div className="h-full bg-[#2563EB] rounded-full transition-all duration-400 ease-out" style={{ width: `${Math.min(100, (deepWorkMins / 300) * 100)}%` }} />
             </div>
           </div>
         </div>

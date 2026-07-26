@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { CalendarCheck, Save, Brain, Zap, Smile, Play, Pause, RotateCcw, Plus, Sparkles, Check, Clock, Trophy, AlertTriangle, FileText, Activity, AlertCircle } from 'lucide-react';
+import { CalendarCheck, Save, Brain, Zap, Smile, Play, Pause, RotateCcw, Plus, Sparkles, Check, Clock, Trophy, AlertTriangle, FileText, Activity, AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 import { toast } from 'sonner';
@@ -40,6 +40,17 @@ export function DailyReview() {
   // Live Deep Work Timer State
   const [timerRunning, setTimerRunning] = useState(false);
   const [secondsElapsed, setSecondsElapsed] = useState<number>(todayLog ? todayLog.deepWorkMinutes * 60 : 0);
+  const [isFullScreenFocus, setIsFullScreenFocus] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullScreenFocus) {
+        setIsFullScreenFocus(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullScreenFocus]);
 
   useEffect(() => {
     if (todayLog) {
@@ -138,6 +149,77 @@ export function DailyReview() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 pb-24">
+      {/* Full-Screen Immersive Focus Mode overlay */}
+      {isFullScreenFocus && (
+        <div className="fixed inset-0 z-50 bg-[#111827] flex flex-col items-center justify-center text-white animate-in fade-in zoom-in-95 duration-200 p-6 select-none">
+          <button
+            onClick={() => setIsFullScreenFocus(false)}
+            className="absolute top-8 right-8 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-mono text-xs flex items-center gap-2 transition-colors cursor-pointer"
+            title="Exit Full-Screen Focus Mode (Esc)"
+          >
+            <Minimize2 className="w-4 h-4" /> Exit Focus Mode (Esc)
+          </button>
+
+          <div className="flex flex-col items-center max-w-lg w-full text-center">
+            <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center mb-6 shadow-lg">
+              <Brain className="w-8 h-8 text-amber-400 animate-pulse stroke-[1.5]" />
+            </div>
+            <div className="text-xs font-mono uppercase tracking-[0.2em] text-[#9CA3AF] mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block" /> DEEP WORK IN PROGRESS
+            </div>
+            <h1 className="text-6xl sm:text-8xl md:text-9xl font-mono font-bold tracking-tight text-white mb-12 drop-shadow-md">
+              {timeFormatted}
+            </h1>
+            <p className="text-sm text-[#9CA3AF] mb-12 max-w-md font-mono">
+              Uninterrupted execution. Press Esc at any time to return to your workspace while keeping the timer running.
+            </p>
+
+            <div className="flex items-center gap-6">
+              <button
+                onClick={() => {
+                  const nextRunning = !timerRunning;
+                  setTimerRunning(nextRunning);
+                  if (!nextRunning && secondsElapsed > 0) {
+                    const mins = Math.max(1, Math.floor(secondsElapsed / 60));
+                    autoSaveTimerMutation.mutate(mins);
+                    toast.info(`Paused session at ${timeFormatted}`);
+                  } else {
+                    toast.success('Resumed deep work focus!');
+                  }
+                }}
+                className={cn(
+                  "px-8 py-4 rounded-full font-mono text-base font-bold flex items-center gap-3 transition-all cursor-pointer shadow-lg hover:scale-105 active:scale-95",
+                  timerRunning ? "bg-amber-500 hover:bg-amber-600 text-white" : "bg-white hover:bg-gray-100 text-[#111827]"
+                )}
+              >
+                {timerRunning ? (
+                  <>
+                    <Pause className="w-5 h-5 fill-white" /> Pause Focus
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-5 h-5 fill-[#111827] ml-0.5" /> Resume Focus
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  setTimerRunning(false);
+                  setSecondsElapsed(0);
+                  autoSaveTimerMutation.mutate(0);
+                  setIsFullScreenFocus(false);
+                  toast.success('Session reset and logged.');
+                }}
+                className="w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+                title="Reset Timer and Exit"
+              >
+                <RotateCcw className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Header */}
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E5E8EC] pb-6">
@@ -173,8 +255,15 @@ export function DailyReview() {
             <Brain className="w-6 h-6 text-white stroke-[1.5]" />
           </div>
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-[0.02em] text-[#9CA3AF] mb-0.5 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" /> Deep Work Stopwatch
+            <div className="text-[11px] font-mono uppercase tracking-[0.02em] text-[#9CA3AF] mb-0.5 flex items-center gap-2.5">
+              <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Deep Work Stopwatch</span>
+              <button 
+                onClick={() => setIsFullScreenFocus(true)} 
+                className="text-amber-400 hover:text-amber-300 font-mono text-[10px] flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                title="Enter Full-Screen Focus Mode"
+              >
+                <Maximize2 className="w-3 h-3" /> Full Screen
+              </button>
             </div>
             <h2 className="text-xl font-medium">Focus Session Log</h2>
             <p className="text-xs text-[#9CA3AF]">Record uninterrupted engineering time directly to your daily score.</p>
@@ -194,7 +283,9 @@ export function DailyReview() {
               onClick={() => {
                 const nextRunning = !timerRunning;
                 setTimerRunning(nextRunning);
-                if (!nextRunning && secondsElapsed > 0) {
+                if (nextRunning) {
+                  setIsFullScreenFocus(true);
+                } else if (!nextRunning && secondsElapsed > 0) {
                   const mins = Math.max(1, Math.floor(secondsElapsed / 60));
                   autoSaveTimerMutation.mutate(mins);
                 }
