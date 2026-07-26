@@ -326,7 +326,7 @@ export function Goals() {
             <div className="divide-y divide-[#E5E8EC]">
               {habits.map(habit => {
                 const todayStr = new Date().toISOString().split('T')[0] || '';
-                const isCompletedToday = habit.completions?.some(c => c.date.toString().startsWith(todayStr) && c.completed) || 
+                const isCompletedToday = habit.completions?.some((c: any) => c.date.toString().startsWith(todayStr) && c.completed) || 
                   (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
                 return (
                   <div key={habit.id} className="py-3 px-4 flex items-center justify-between hover:bg-[#F8F9FB] transition-colors duration-100 group">

@@ -216,7 +216,7 @@ export function KanbanBoard() {
       return;
     }
     const title = `New Task (${status.replace('_', ' ')})`;
-    const newIssue = await api.issues.create({
+    await api.issues.create({
       title,
       status: status as any,
       priority: 'medium',
