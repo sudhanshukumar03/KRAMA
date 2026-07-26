@@ -97,19 +97,19 @@ export function Dashboard() {
   return (
     <div className="p-8 max-w-7xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 flex flex-col gap-8 pb-20">
       
-      {/* Header (H1: 28px/500 per typography rules) */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      {/* Header (#1 Typography: 32px/650 title, 15px/450 body) */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#E5E8EC] pb-6">
         <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <h1 className="text-[28px] font-medium tracking-tight text-[#111827]">Dashboard</h1>
-            <span className="bg-[#EFF4FE] text-[#2563EB] border border-[#2563EB]/20 px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-[0.02em] flex items-center gap-1">
-              <Sparkles className="w-3 h-3 fill-[#2563EB]" /> Live Pulse
+          <div className="flex items-center gap-3 mb-1">
+            <h1 className="text-title tracking-tight text-[#111827]">Dashboard</h1>
+            <span className="bg-[#EFF4FE] text-[#2563EB] border border-[#2563EB]/20 px-2.5 py-0.5 rounded text-badge flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-[#2563EB] stroke-[2]" /> Live Pulse
             </span>
           </div>
-          <p className="text-[13px] text-[#6B7280] font-normal">{formattedDate} — <span className="text-[#111827] font-medium">{summaryLine}</span></p>
+          <p className="text-body text-[#6B7280]">{formattedDate} — <span className="text-[#111827] font-medium">{summaryLine}</span></p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="h-9 px-4 rounded-md font-medium text-xs bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#F8F9FB] transition-colors flex items-center gap-2 cursor-pointer shadow-sm">
+          <button className="h-9 px-4 rounded-md font-medium text-xs bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#F8F9FB] transition-all duration-150 flex items-center gap-2 cursor-pointer shadow-sm">
             <Download className="w-3.5 h-3.5 stroke-[1.75]" /> Export
           </button>
           <BaseButton onClick={() => navigate('/app/projects')}>
@@ -118,233 +118,327 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* NEW: Execution Velocity Scorecard (4 Interactive Stat Tickers with Sparklines & Tints) */}
-      <div className="bg-white border border-[#E5E8EC] rounded-xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#E5E8EC] gap-4 sm:gap-0">
+      {/* SECTION 1: TODAY'S FOCUS (HERO SCORECARD & NAV CARDS) (#8 Guide the Eye Order) */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-h2 tracking-tight text-[#111827]">Today's Focus</h2>
+          <span className="text-caption font-mono text-[#6B7280]">Real-time execution velocity</span>
+        </div>
+
+        {/* Execution Velocity Scorecard (4 Interactive Stat Tickers) */}
+        <div className="bg-white border border-[#E5E8EC] rounded-xl p-6 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#E5E8EC] gap-6 sm:gap-0">
+          
+          {/* Metric 1: Weekly Velocity */}
+          <div className="sm:pr-6 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-caption font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-[#111827] stroke-[1.75]" /> Weekly Velocity
+              </span>
+              <span className="text-badge text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-1.5 py-0.5 rounded">+18 pts</span>
+            </div>
+            <div className="flex items-baseline justify-between mt-1">
+              <span className="text-2xl font-medium font-mono text-[#111827]">23 <span className="text-caption font-sans text-[#6B7280] font-normal">tasks/wk</span></span>
+            </div>
+            <div className="mt-3 flex items-center gap-1.5">
+              {[3, 5, 2, 8, 4, 1, 0].map((val, i) => (
+                <div key={i} className="flex-1 h-1.5 rounded-full bg-[#F8F9FB] overflow-hidden">
+                  <div className="h-full bg-[#111827] transition-all duration-400 ease-out" style={{ width: `${(val / 8) * 100}%` }} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Metric 2: Active Streaks */}
+          <div className="pt-6 sm:pt-0 sm:px-6 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-caption font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[1.75]" /> Active Streaks
+              </span>
+              <span className="text-badge text-[#C2410C] bg-[#FFF7ED] border border-[#FFEDD5] px-1.5 py-0.5 rounded">{activeStreaksCount} active</span>
+            </div>
+            <div className="flex items-baseline justify-between mt-1">
+              <span className="text-2xl font-medium font-mono text-[#111827]">{habits.length || 3} <span className="text-caption font-sans text-[#6B7280] font-normal">habits logged</span></span>
+            </div>
+            <div className="mt-3 flex items-center gap-1.5">
+              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div className={cn("w-2 h-2 rounded-full transition-all duration-400", i < 5 ? "bg-[#EA580C]" : "bg-[#E5E8EC]")} />
+                  <span className="text-[9px] font-mono text-[#9CA3AF]">{day}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Metric 3: Q3 OKR Pace */}
+          <div className="pt-6 lg:pt-0 sm:px-6 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-caption font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-[#0D9488] stroke-[1.75]" /> Q3 OKR Pace
+              </span>
+              <span className="text-badge text-[#0D9488] bg-[#0D9488]/10 border border-[#0D9488]/20 px-1.5 py-0.5 rounded">On Track</span>
+            </div>
+            <div className="flex items-baseline justify-between mt-1">
+              <span className="text-2xl font-medium font-mono text-[#111827]">35% <span className="text-caption font-sans text-[#6B7280] font-normal">avg progress</span></span>
+            </div>
+            <div className="mt-3 h-1.5 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/40">
+              <div className="h-full bg-[#0D9488] transition-all duration-400 ease-out" style={{ width: '35%' }} />
+            </div>
+          </div>
+
+          {/* Metric 4: Deep Work Ratio */}
+          <div className="pt-6 lg:pt-0 sm:pl-6 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-caption font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#111827] stroke-[1.75]" /> Deep Work Today
+              </span>
+              <span className="text-badge text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-1.5 py-0.5 rounded">70% target</span>
+            </div>
+            <div className="flex items-baseline justify-between mt-1">
+              <span className="text-2xl font-medium font-mono text-[#111827]">{hours}h {mins}m <span className="text-caption font-sans text-[#6B7280] font-normal">/ 5h goal</span></span>
+            </div>
+            <div className="mt-3 h-1.5 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/40">
+              <div className="h-full bg-[#111827] transition-all duration-400 ease-out" style={{ width: `${Math.min(100, (deepWorkMins / 300) * 100)}%` }} />
+            </div>
+          </div>
+
+        </div>
         
-        {/* Metric 1: Weekly Velocity */}
-        <div className="sm:pr-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
-              <TrendingUp className="w-3.5 h-3.5 text-[#111827] stroke-[1.75]" /> Weekly Velocity
-            </span>
-            <span className="text-[10px] font-mono text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-1.5 py-0.2 rounded font-medium">+18 pts</span>
-          </div>
-          <div className="flex items-baseline justify-between mt-1">
-            <span className="text-2xl font-medium font-mono text-[#111827]">23 <span className="text-xs font-sans text-[#6B7280] font-normal">tasks/wk</span></span>
-          </div>
-          <div className="mt-3 flex items-center gap-1">
-            {[3, 5, 2, 8, 4, 1, 0].map((val, i) => (
-              <div key={i} className="flex-1 h-1.5 rounded-full bg-[#F8F9FB] overflow-hidden">
-                <div className="h-full bg-[#111827]" style={{ width: `${(val / 8) * 100}%` }} />
+        {/* Row 1: Stat Cards with #6 Icon Sizing: 36x36px container (w-9 h-9), 16px icon (w-4 h-4), and #7 Card hover lift */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          
+          {/* Hero Card */}
+          <div onClick={() => navigate('/app/timeline')} className="bg-[#111827] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between cursor-pointer group">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-[10px] bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-150">
+                  <AlertCircle className="w-4 h-4 stroke-[2]" />
+                </div>
+                <div>
+                  <div className="text-2xl font-medium text-white leading-none mb-1 font-mono">{inProgressIssues.length}</div>
+                  <div className="text-caption text-[#9CA3AF] font-medium">In Progress</div>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Metric 2: Active Streaks */}
-        <div className="pt-4 sm:pt-0 sm:px-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
-              <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[1.75]" /> Active Streaks
-            </span>
-            <span className="text-[10px] font-mono text-[#C2410C] bg-[#FFF7ED] border border-[#FFEDD5] px-1.5 py-0.2 rounded font-medium">{activeStreaksCount} active</span>
-          </div>
-          <div className="flex items-baseline justify-between mt-1">
-            <span className="text-2xl font-medium font-mono text-[#111827]">{habits.length || 3} <span className="text-xs font-sans text-[#6B7280] font-normal">habits logged</span></span>
-          </div>
-          <div className="mt-3 flex items-center gap-1.5">
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div className={cn("w-2 h-2 rounded-full", i < 5 ? "bg-[#EA580C]" : "bg-[#E5E8EC]")} />
-                <span className="text-[8px] font-mono text-[#9CA3AF]">{day}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Metric 3: Q3 OKR Pace */}
-        <div className="pt-4 lg:pt-0 sm:px-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
-              <Target className="w-3.5 h-3.5 text-[#0D9488] stroke-[1.75]" /> Q3 OKR Pace
-            </span>
-            <span className="text-[10px] font-mono text-[#0D9488] bg-[#0D9488]/10 border border-[#0D9488]/20 px-1.5 py-0.2 rounded font-medium">On Track</span>
-          </div>
-          <div className="flex items-baseline justify-between mt-1">
-            <span className="text-2xl font-medium font-mono text-[#111827]">35% <span className="text-xs font-sans text-[#6B7280] font-normal">avg progress</span></span>
-          </div>
-          <div className="mt-3 h-1.5 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/40">
-            <div className="h-full bg-[#0D9488] transition-all duration-500" style={{ width: '35%' }} />
-          </div>
-        </div>
-
-        {/* Metric 4: Deep Work Ratio */}
-        <div className="pt-4 lg:pt-0 sm:pl-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-[#111827] stroke-[1.75]" /> Deep Work Today
-            </span>
-            <span className="text-[10px] font-mono text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-1.5 py-0.2 rounded font-medium">70% target</span>
-          </div>
-          <div className="flex items-baseline justify-between mt-1">
-            <span className="text-2xl font-medium font-mono text-[#111827]">{hours}h {mins}m <span className="text-xs font-sans text-[#6B7280] font-normal">/ 5h goal</span></span>
-          </div>
-          <div className="mt-3 h-1.5 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/40">
-            <div className="h-full bg-[#111827] transition-all duration-500" style={{ width: `${Math.min(100, (deepWorkMins / 300) * 100)}%` }} />
-          </div>
-        </div>
-
-      </div>
-      
-      {/* Row 1: Stat Cards with 40x40px, 12px-radius Category Tiles */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Hero Card (The single strongest treatment on Dashboard: Solid black fill) */}
-        <div onClick={() => navigate('/app/timeline')} className="bg-[#111827] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 shadow-md flex flex-col justify-between cursor-pointer group">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3.5">
-              {/* Category Tile: Execution (#2563EB) */}
-              <div className="w-10 h-10 rounded-[12px] bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-                <AlertCircle className="w-5 h-5 stroke-[1.75]" />
-              </div>
-              <div>
-                <div className="text-2xl font-medium text-white leading-none mb-1 font-mono">{inProgressIssues.length}</div>
-                <div className="text-xs text-[#9CA3AF] font-medium">In Progress</div>
-              </div>
+              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-white transition-colors duration-150" />
             </div>
-            <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-white transition-colors" />
-          </div>
-          <div className="mt-4 text-[11px] uppercase font-medium tracking-[0.02em] text-[#9CA3AF] flex items-center justify-between">
-            <span>Focus on these today</span>
-            <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px]">Open timeline &rarr;</span>
-          </div>
-        </div>
-
-        {/* Projects Card */}
-        <div onClick={() => navigate('/app/projects')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#111827] shadow-sm flex flex-col justify-between cursor-pointer group">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-[12px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 group-hover:bg-[#111827] group-hover:text-white transition-all shadow-2xs">
-                <Target className="w-5 h-5 stroke-[1.75]" />
-              </div>
-              <div>
-                <div className="text-2xl font-medium text-[#111827] leading-none mb-1 font-mono">{activeProjects.length}</div>
-                <div className="text-xs text-[#6B7280] font-medium">Active Projects</div>
-              </div>
+            <div className="mt-4 text-badge text-[#9CA3AF] flex items-center justify-between">
+              <span>Focus on these today</span>
+              <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">open timeline &rarr;</span>
             </div>
-            <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#111827] transition-colors" />
           </div>
-          <div className="mt-4 text-[11px] uppercase font-medium tracking-[0.02em] text-[#9CA3AF] flex items-center justify-between">
-            <span>+1 this week</span>
-            <span className="text-[#111827] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px]">View projects &rarr;</span>
-          </div>
-        </div>
 
-        {/* To Do Card */}
-        <div onClick={() => navigate('/app/timeline')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#111827] shadow-sm flex flex-col justify-between cursor-pointer group">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-[12px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 group-hover:bg-[#111827] group-hover:text-white transition-all shadow-2xs">
-                <ListTodo className="w-5 h-5 stroke-[1.75]" />
+          {/* Projects Card */}
+          <div onClick={() => navigate('/app/projects')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#111827] hover:shadow-md flex flex-col justify-between cursor-pointer group">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-[10px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 group-hover:bg-[#111827] group-hover:text-white transition-all duration-150 shadow-2xs">
+                  <Target className="w-4 h-4 stroke-[2]" />
+                </div>
+                <div>
+                  <div className="text-2xl font-medium text-[#111827] leading-none mb-1 font-mono">{activeProjects.length}</div>
+                  <div className="text-caption text-[#6B7280] font-medium">Active Projects</div>
+                </div>
               </div>
-              <div>
-                <div className="text-2xl font-medium text-[#111827] leading-none mb-1 font-mono">{todoIssues.length}</div>
-                <div className="text-xs text-[#6B7280] font-medium">To Do</div>
-              </div>
+              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#111827] transition-colors duration-150" />
             </div>
-            <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#111827] transition-colors" />
+            <div className="mt-4 text-badge text-[#9CA3AF] flex items-center justify-between">
+              <span>+1 this week</span>
+              <span className="text-[#111827] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">view projects &rarr;</span>
+            </div>
           </div>
-          <div className="mt-4 text-[11px] uppercase font-medium tracking-[0.02em] text-[#9CA3AF] flex items-center justify-between">
-            <span>-2 since yesterday</span>
-            <span className="text-[#111827] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px]">Open board &rarr;</span>
-          </div>
-        </div>
 
-        {/* Completed Card */}
-        <div onClick={() => navigate('/app/goals')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#111827] shadow-sm flex flex-col justify-between cursor-pointer group">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-[12px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 group-hover:bg-[#111827] group-hover:text-white transition-all shadow-2xs">
-                <CheckCircle2 className="w-5 h-5 stroke-[1.75]" />
+          {/* To Do Card */}
+          <div onClick={() => navigate('/app/timeline')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#111827] hover:shadow-md flex flex-col justify-between cursor-pointer group">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-[10px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 group-hover:bg-[#111827] group-hover:text-white transition-all duration-150 shadow-2xs">
+                  <ListTodo className="w-4 h-4 stroke-[2]" />
+                </div>
+                <div>
+                  <div className="text-2xl font-medium text-[#111827] leading-none mb-1 font-mono">{todoIssues.length}</div>
+                  <div className="text-caption text-[#6B7280] font-medium">To Do</div>
+                </div>
               </div>
-              <div>
-                <div className="text-2xl font-medium text-[#111827] leading-none mb-1 font-mono">{doneIssues.length}</div>
-                <div className="text-xs text-[#6B7280] font-medium">Completed</div>
-              </div>
+              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#111827] transition-colors duration-150" />
             </div>
-            <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#111827] transition-colors" />
+            <div className="mt-4 text-badge text-[#9CA3AF] flex items-center justify-between">
+              <span>-2 since yesterday</span>
+              <span className="text-[#111827] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">open board &rarr;</span>
+            </div>
           </div>
-          <div className="mt-4 text-[11px] uppercase font-medium tracking-[0.02em] text-[#9CA3AF] flex items-center justify-between">
-            <span>92% Sprint Pace</span>
-            <span className="text-[#111827] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px]">View goals &rarr;</span>
+
+          {/* Completed Card */}
+          <div onClick={() => navigate('/app/goals')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#111827] hover:shadow-md flex flex-col justify-between cursor-pointer group">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-[10px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 group-hover:bg-[#111827] group-hover:text-white transition-all duration-150 shadow-2xs">
+                  <CheckCircle2 className="w-4 h-4 stroke-[2]" />
+                </div>
+                <div>
+                  <div className="text-2xl font-medium text-[#111827] leading-none mb-1 font-mono">{doneIssues.length}</div>
+                  <div className="text-caption text-[#6B7280] font-medium">Completed</div>
+                </div>
+              </div>
+              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#111827] transition-colors duration-150" />
+            </div>
+            <div className="mt-4 text-badge text-[#9CA3AF] flex items-center justify-between">
+              <span>92% Sprint Pace</span>
+              <span className="text-[#111827] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">view goals &rarr;</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Row 2: Analytics & De-boxed Reminders with Hover Polish */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        <div className="lg:col-span-2 bg-white border border-[#E5E8EC] rounded-xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-medium text-[#111827] text-[18px]">Project Analytics (Issues Completed)</h2>
-            <span className="text-xs text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-2.5 py-1 rounded-md font-mono">Last 7 Days</span>
+      {/* SECTION 2: PROGRESS (#8 Guide the Eye Order & #2 Chrome Reduction: Unboxed Section with 1px Divider) */}
+      <div className="space-y-6 pt-4">
+        <div className="flex items-center justify-between border-b border-[#E5E8EC] pb-3">
+          <h2 className="text-h2 tracking-tight text-[#111827]">Progress & Velocity</h2>
+          <span className="text-caption font-mono text-[#6B7280]">Sprint completion ratio & live deep work</span>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+          {/* Issue Progress Donut (Unboxed content-forward treatment) */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-2">
+            <div className="relative w-36 h-36 min-h-[144px] shrink-0 flex items-center justify-center">
+              {totalIssues === 0 ? (
+                <div className="w-28 h-28 rounded-full border-8 border-[#F8F9FB] flex items-center justify-center">
+                  <span className="text-caption text-[#9CA3AF] font-medium">No issues</span>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%" minHeight={144}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={46}
+                      outerRadius={64}
+                      startAngle={90}
+                      endAngle={-270}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {pieData.map((_entry, index) => (
+                        <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-xl font-medium text-[#111827] leading-none font-mono">{totalIssues ? Math.round((doneCount / totalIssues) * 100) : 0}%</span>
+                <span className="text-badge text-[#6B7280] mt-1">Done</span>
+              </div>
+            </div>
+            
+            <div className="space-y-3 w-full">
+              <div className="text-card-title text-[#111827]">Sprint Issue Balance</div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-caption text-[#6B7280]">
+                  <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#2563EB]" /> Completed</span>
+                  <span className="font-mono font-medium text-[#111827]">{doneCount}</span>
+                </div>
+                <div className="flex items-center justify-between text-caption text-[#6B7280]">
+                  <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#E5E8EC]" /> Pending</span>
+                  <span className="font-mono font-medium text-[#111827]">{Math.max(0, totalIssues - doneCount)}</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="h-52 w-full">
+
+          {/* Inline Deep Work Tracker (Unboxed content-forward treatment) */}
+          <div className="lg:col-span-2 bg-[#F8F9FB] rounded-xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-9 h-9 rounded-[10px] bg-white border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 shadow-2xs">
+                <Clock className="w-4 h-4 stroke-[1.75]" />
+              </div>
+              <div>
+                <h3 className="text-badge text-[#9CA3AF]">Deep Work Focus Session</h3>
+                <div className="text-2xl font-medium text-[#111827] font-mono tracking-tight mt-0.5">
+                  {String(hours).padStart(2, '0')}:{String(mins).padStart(2, '0')}:<span className="text-[#6B7280]">00</span>
+                </div>
+              </div>
+            </div>
+            
+            <button onClick={() => navigate('/app/review')} className="h-9 px-4 rounded-md bg-white border border-[#E5E8EC] hover:border-[#111827] text-[#111827] text-xs font-medium transition-all duration-150 flex items-center gap-2 shadow-sm cursor-pointer shrink-0">
+              <Play className="w-3.5 h-3.5 text-[#111827] stroke-[2]" /> Launch Stopwatch &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 3: ANALYTICS (#8 Guide the Eye Order, #2 Chrome Reduction: Unboxed Section, #9 Chart Polish) */}
+      <div className="space-y-6 pt-4">
+        <div className="flex items-center justify-between border-b border-[#E5E8EC] pb-3">
+          <h2 className="text-h2 tracking-tight text-[#111827]">Analytics</h2>
+          <span className="text-caption font-mono text-[#6B7280]">7-day engineering output</span>
+        </div>
+
+        <div className="w-full">
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-card-title text-[#111827]">Issues Completed per Day</div>
+            <span className="text-badge text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-2.5 py-1 rounded">Last 7 Days</span>
+          </div>
+          <div className="h-56 w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                <Tooltip cursor={{ fill: '#F8F9FB' }} contentStyle={{ borderRadius: '8px', border: '1px solid #E5E8EC', boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)', fontSize: '12px' }} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6B7280', fontWeight: 500 }} dy={10} />
-                <Bar dataKey="completed" fill="#2563EB" radius={[4, 4, 0, 0]} barSize={32} />
+              <BarChart data={barData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <Tooltip 
+                  cursor={{ fill: '#F8F9FB', opacity: 0.8 }} 
+                  contentStyle={{ borderRadius: '12px', border: '1px solid #E5E8EC', backgroundColor: '#FFFFFF', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)', fontSize: '13px', padding: '8px 12px' }}
+                  formatter={(value: any) => [`${value} issues`, 'Completed']}
+                />
+                <XAxis dataKey="name" axisLine={{ stroke: '#E5E8EC', strokeWidth: 1 }} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 450 }} dy={10} />
+                <Bar dataKey="completed" fill="#2563EB" radius={[6, 6, 0, 0]} barSize={36} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
+      </div>
 
-        {/* De-boxed Reminders with Quick Action Hover Bars */}
-        <div className="px-1">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-medium text-[#111827] text-[18px]">Upcoming & Reminders</h2>
-            <span className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#2563EB] cursor-pointer hover:underline" onClick={() => navigate('/app/timeline')}>View calendar</span>
+      {/* SECTION 4: UPCOMING & RECENT ACTIVITY (#8 Guide the Eye Order & #2 Chrome Reduction: Unboxed Sections with 1px Dividers) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start pt-4">
+        
+        {/* Unboxed Upcoming Reminders (#2 Chrome Reduction) */}
+        <div>
+          <div className="flex items-center justify-between border-b border-[#E5E8EC] pb-3 mb-4">
+            <h2 className="text-h2 tracking-tight text-[#111827]">Upcoming</h2>
+            <span className="text-badge text-[#2563EB] cursor-pointer hover:underline lowercase font-normal" onClick={() => navigate('/app/timeline')}>view calendar &rarr;</span>
           </div>
-          <div className="divide-y divide-[#E5E8EC]">
+          <div className="divide-y divide-[#E5E8EC]/60">
             {upcomingDeadlines.map(issue => {
               const isUrgentDate = new Date(issue.dueDate!) <= next48Hours;
               return (
-                <div key={issue.id} onClick={() => navigate('/app/timeline')} className="py-3 flex items-center justify-between gap-3 group cursor-pointer hover:bg-[#F8F9FB] -mx-2 px-2 rounded-lg transition-colors">
+                <div key={issue.id} onClick={() => navigate('/app/timeline')} className="py-3 flex items-center justify-between gap-3 group cursor-pointer hover:bg-[#F8F9FB] -mx-2 px-2 rounded-lg transition-all duration-150">
                   <div className="flex items-start gap-3 min-w-0">
                     <div className={cn(
-                      "mt-1.5 w-2 h-2 rounded-full shrink-0",
+                      "mt-1.5 w-2 h-2 rounded-full shrink-0 transition-all duration-300",
                       isUrgentDate ? "bg-[#DC2626]" : "bg-[#2563EB]"
                     )} />
                     <div className="min-w-0">
-                      <div className="font-medium text-[#111827] text-sm truncate group-hover:text-[#2563EB] transition-colors">{issue.title}</div>
+                      <div className="font-medium text-[#111827] text-body truncate group-hover:text-[#2563EB] transition-colors duration-150">{issue.title}</div>
                       <div className={cn(
-                        "text-[11px] uppercase tracking-[0.02em] mt-0.5",
-                        isUrgentDate ? "text-[#DC2626] font-medium" : "text-[#6B7280]"
+                        "text-badge mt-0.5",
+                        isUrgentDate ? "text-[#DC2626]" : "text-[#6B7280]"
                       )}>
                         Due {new Date(issue.dueDate!).toLocaleDateString()}
                       </div>
                     </div>
                   </div>
-                  <span className="text-xs text-[#2563EB] font-medium opacity-0 group-hover:opacity-100 transition-opacity shrink-0 flex items-center gap-1">
-                    Open &rarr;
+                  <span className="text-caption text-[#2563EB] font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 flex items-center gap-1">
+                    open &rarr;
                   </span>
                 </div>
               );
             })}
             {upcomingDeadlines.length === 0 && (
-              <div className="py-6 text-sm text-[#9CA3AF] font-normal">No deadlines in next 7 days</div>
+              <div className="py-6 text-body text-[#9CA3AF]">No deadlines in next 7 days</div>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Row 3: De-boxed Recent Activity with Interactive Filter Tabs & Issue Progress */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        
-        {/* De-boxed Recent Activity with Filter Bar */}
-        <div className="lg:col-span-2 px-1">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <h2 className="font-medium text-[#111827] text-[18px]">Recent Activity</h2>
+        {/* Unboxed Recent Activity with Interactive Filter Tabs (#2 Chrome Reduction) */}
+        <div className="lg:col-span-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E8EC] pb-3 mb-4">
+            <h2 className="text-h2 tracking-tight text-[#111827]">Recent Activity</h2>
             
             {/* Interactive Filter Pills */}
             <div className="flex items-center gap-1 bg-[#F8F9FB] border border-[#E5E8EC] p-0.5 rounded-lg w-max">
@@ -353,8 +447,8 @@ export function Dashboard() {
                   key={tab}
                   onClick={() => setActivityFilter(tab)}
                   className={cn(
-                    "px-2.5 py-1 rounded-md text-xs font-medium transition-all",
-                    activityFilter === tab ? "bg-white text-[#111827] shadow-sm" : "text-[#6B7280] hover:text-[#111827]"
+                    "px-2.5 py-1 rounded-md text-caption font-medium transition-all duration-150 cursor-pointer",
+                    activityFilter === tab ? "bg-white text-[#111827] shadow-sm font-semibold" : "text-[#6B7280] hover:text-[#111827]"
                   )}
                 >
                   {tab === 'All' ? 'All' : `${tab}s`}
@@ -363,108 +457,41 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="divide-y divide-[#E5E8EC]">
+          <div className="divide-y divide-[#E5E8EC]/60">
             {filteredActivity.map((activity, idx) => {
               const isDone = activity.status === 'done' || activity.status === 'released' || activity.status === 'completed';
               const isInProgress = activity.status === 'in_progress' || activity.status === 'active';
               return (
-                <div key={idx} onClick={() => navigate(activity.link)} className="py-3.5 flex items-center justify-between gap-4 group cursor-pointer hover:bg-[#F8F9FB] -mx-2 px-2 rounded-lg transition-colors">
+                <div key={idx} onClick={() => navigate(activity.link)} className="py-3.5 flex items-center justify-between gap-4 group cursor-pointer hover:bg-[#F8F9FB] -mx-2 px-2 rounded-lg transition-all duration-150">
                   <div className="flex flex-col min-w-0">
-                    <div className="text-sm text-[#111827] font-medium truncate group-hover:text-[#2563EB] transition-colors flex items-center gap-2">
+                    <div className="text-body text-[#111827] font-medium truncate group-hover:text-[#2563EB] transition-colors duration-150 flex items-center gap-2">
                       {activity.title}
                     </div>
-                    <div className="text-[11px] text-[#6B7280] mt-0.5">
+                    <div className="text-caption text-[#6B7280] mt-0.5">
                       <span className="font-medium text-[#111827]">{activity.type}</span> • {activity.action} • {getTimeAgo(activity.date)}
                     </div>
                   </div>
                   
                   <div className="flex items-center gap-3 shrink-0">
                     <div className={cn(
-                      "px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-[0.02em]",
+                      "px-2 py-0.5 rounded text-badge",
                       isDone ? "bg-[#F8F9FB] text-[#6B7280] border border-[#E5E8EC]" 
                       : isInProgress ? "bg-[#EFF4FE] text-[#2563EB] border border-[#2563EB]/20" 
                       : "bg-[#F8F9FB] text-[#6B7280]"
                     )}>
                       {isDone ? 'Completed' : isInProgress ? 'In Progress' : 'Pending'}
                     </div>
-                    <ArrowUpRight className="w-3.5 h-3.5 text-[#9CA3AF] opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ArrowUpRight className="w-3.5 h-3.5 text-[#9CA3AF] opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
                   </div>
                 </div>
               );
             })}
             {filteredActivity.length === 0 && (
-              <div className="py-8 text-center text-sm text-[#9CA3AF]">No recent activity found for {activityFilter}s.</div>
+              <div className="py-8 text-center text-body text-[#9CA3AF]">No recent activity found for {activityFilter}s.</div>
             )}
           </div>
         </div>
 
-        {/* Issue Progress Donut */}
-        <div className="bg-white border border-[#E5E8EC] rounded-xl p-6 shadow-sm flex flex-col items-center justify-center">
-          <h2 className="font-medium text-[#111827] text-[18px] w-full mb-4">Issue Progress</h2>
-          <div className="relative w-44 h-44 min-h-[176px] flex items-center justify-center">
-            {totalIssues === 0 ? (
-              <div className="w-32 h-32 rounded-full border-8 border-[#F8F9FB] flex items-center justify-center">
-                <span className="text-sm text-[#9CA3AF] font-medium">No issues</span>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%" minHeight={176}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={54}
-                    outerRadius={74}
-                    startAngle={90}
-                    endAngle={-270}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {pieData.map((_entry, index) => (
-                      <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-2xl font-medium text-[#111827] leading-none font-mono">{totalIssues ? Math.round((doneCount / totalIssues) * 100) : 0}%</span>
-              <span className="text-[10px] text-[#6B7280] uppercase tracking-[0.02em] mt-1">Done</span>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-6 mt-6">
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#2563EB]" />
-              <span className="text-[11px] font-medium text-[#6B7280] uppercase tracking-[0.02em]">Completed ({doneCount})</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#E5E8EC]" />
-              <span className="text-[11px] font-medium text-[#6B7280] uppercase tracking-[0.02em]">Pending ({Math.max(0, totalIssues - doneCount)})</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Row 4: Quieter Inline Deep Work Tracker */}
-      <div className="bg-[#F8F9FB] border border-[#E5E8EC] rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-[12px] bg-white border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 shadow-2xs">
-            <Clock className="w-5 h-5 stroke-[1.75]" />
-          </div>
-          <div>
-            <h2 className="text-[11px] font-medium text-[#9CA3AF] uppercase tracking-[0.02em]">Deep Work Today</h2>
-            <div className="text-2xl font-medium text-[#111827] font-mono tracking-tight mt-0.5">
-              {String(hours).padStart(2, '0')}:{String(mins).padStart(2, '0')}:<span className="text-[#6B7280]">00</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-          <button onClick={() => navigate('/app/review')} className="h-9 px-4 rounded-md bg-white border border-[#E5E8EC] hover:border-[#111827] text-[#111827] text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm">
-            <Play className="w-3.5 h-3.5 text-[#111827] stroke-[2]" /> Open Focus Timer &rarr;
-          </button>
-        </div>
       </div>
 
     </div>

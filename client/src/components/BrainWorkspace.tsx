@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { ChevronRight, FileText, Plus, FileSignature, Building2, Laptop, Brain, Clock, AlignLeft, Sparkles, BookOpen } from 'lucide-react';
+import { ChevronRight, FileText, Plus, FileSignature, Building2, Laptop, Brain, Clock, AlignLeft, BookOpen, Heading1, Heading2, List, ListOrdered, Quote, Code, Minus, Command } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Content } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -40,7 +40,7 @@ function PageTreeNode({
     <div>
       <div 
         className={cn(
-          "group relative flex items-center gap-2 py-1.5 px-2.5 hover:bg-[#F8F9FB] rounded-lg cursor-pointer text-xs transition-all duration-100 select-none",
+          "group relative flex items-center gap-2 py-1.5 px-2.5 hover:bg-[#F8F9FB] rounded-lg cursor-pointer text-xs transition-all duration-150 select-none",
           isSelected ? "bg-[#111827] text-white font-medium shadow-2xs" : "text-[#6B7280] hover:text-[#111827]"
         )}
         style={{ paddingLeft: `${(level * 14) + 10}px` }}
@@ -49,7 +49,7 @@ function PageTreeNode({
         <button 
           onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
           className={cn(
-            "w-4 h-4 flex items-center justify-center transition-colors focus:outline-none rounded-sm",
+            "w-4 h-4 flex items-center justify-center transition-colors duration-150 focus:outline-none rounded-sm",
             isSelected ? "text-white/70 hover:text-white" : "text-[#9CA3AF] hover:text-[#111827]",
             !hasChildren && "opacity-0 cursor-default"
           )}
@@ -83,7 +83,7 @@ function PageTreeNode({
         <button 
           onClick={(e) => { e.stopPropagation(); alert('Create child page'); }}
           className={cn(
-            "opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center transition-all rounded-md focus:outline-none",
+            "opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center transition-all duration-150 rounded-md focus:outline-none",
             isSelected 
               ? "text-white hover:bg-white/20" 
               : "text-[#9CA3AF] hover:text-[#111827] hover:bg-white border border-transparent hover:border-[#E5E8EC]"
@@ -98,11 +98,18 @@ function PageTreeNode({
       <div 
         className={cn(
           "overflow-hidden transition-all duration-150 ease-in-out origin-top",
-          expanded && hasChildren ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+          expanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
         )}
       >
         {children.map(child => (
-          <PageTreeNode key={child.id} page={child} pages={pages} level={level + 1} onSelect={onSelect} selectedId={selectedId} />
+          <PageTreeNode 
+            key={child.id} 
+            page={child} 
+            pages={pages} 
+            level={level + 1} 
+            onSelect={onSelect} 
+            selectedId={selectedId} 
+          />
         ))}
       </div>
     </div>
@@ -110,41 +117,30 @@ function PageTreeNode({
 }
 
 function Breadcrumbs({ page, pages }: { page: PageWithRelations, pages: PageWithRelations[] }) {
-  const breadcrumbs = useMemo(() => {
-    const crumbs = [];
-    let current: PageWithRelations | undefined = page;
-    while (current) {
-      crumbs.unshift(current);
-      current = pages.find(p => p.id === current?.parentPageId);
-    }
-    return crumbs;
-  }, [page, pages]);
+  const trail: PageWithRelations[] = [];
+  let curr: PageWithRelations | undefined = page;
+  while (curr) {
+    trail.unshift(curr);
+    curr = pages.find(p => p.id === curr?.parentPageId);
+  }
 
   return (
-    <div className="flex items-center gap-1.5 text-xs font-mono font-medium mb-6 bg-[#F8F9FB] px-3.5 py-2 rounded-xl border border-[#E5E8EC] w-fit">
-      <span className="text-[#6B7280] flex items-center gap-1.5">
-        <div className="w-5 h-5 rounded flex items-center justify-center bg-[#7C3AED]/10 text-[#7C3AED]">
-          <BookOpen className="w-3 h-3 stroke-[2]" />
-        </div>
-        Brain Knowledge Base
+    <div className="flex items-center gap-1.5 text-caption text-[#6B7280] mb-6 font-mono select-none overflow-x-auto pb-1">
+      <span className="flex items-center gap-1.5 hover:text-[#111827] cursor-pointer transition-colors duration-150">
+        <BookOpen className="w-3.5 h-3.5 text-[#9CA3AF]" /> Knowledge Base
       </span>
-      <span className="text-[#9CA3AF] mx-1">/</span>
-      
-      {breadcrumbs.map((crumb, idx) => {
-        const isLast = idx === breadcrumbs.length - 1;
-        return (
-          <div key={crumb.id} className="flex items-center">
-            <span className={cn(
-              "flex items-center gap-1.5",
-              isLast ? "text-[#111827] font-bold" : "text-[#6B7280]"
-            )}>
-              {getIconComponent(crumb.icon, isLast ? "w-3.5 h-3.5 text-[#111827]" : "w-3.5 h-3.5 text-[#6B7280]")}
-              {crumb.title}
-            </span>
-            {!isLast && <span className="text-[#9CA3AF] mx-2">/</span>}
-          </div>
-        );
-      })}
+      {trail.map((p, idx) => (
+        <div key={p.id} className="flex items-center gap-1.5 flex-shrink-0">
+          <ChevronRight className="w-3.5 h-3.5 text-[#D1D5DB]" />
+          <span className={cn(
+            "flex items-center gap-1.5 px-1.5 py-0.5 rounded-md transition-colors duration-150", 
+            idx === trail.length - 1 ? "text-[#111827] font-medium bg-[#F8F9FB] border border-[#E5E8EC]" : "hover:text-[#111827] hover:bg-[#F8F9FB] cursor-pointer"
+          )}>
+            {getIconComponent(p.icon, "w-3.5 h-3.5 text-[#6B7280]")}
+            {p.title}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -153,7 +149,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Placeholder.configure({ placeholder: 'Start typing strategic engineering documentation...' })
+      Placeholder.configure({ placeholder: 'Type / for slash commands or start typing strategic engineering documentation...' })
     ],
     content: (page.blocks ? page.blocks as Content : ''),
     onUpdate: ({ editor }) => {
@@ -162,7 +158,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-zinc max-w-none focus:outline-none min-h-[450px] text-[#111827] leading-relaxed font-sans',
+        class: 'prose prose-zinc max-w-none focus:outline-none min-h-[480px] text-[#111827] leading-relaxed font-sans',
       },
     },
   });
@@ -177,18 +173,18 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
   if (!editor) return null;
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-8 h-full overflow-y-auto animate-in fade-in duration-150 flex flex-col">
+    <div className="max-w-3xl mx-auto py-10 px-8 h-full overflow-y-auto animate-in fade-in duration-150 flex flex-col">
       <Breadcrumbs page={page} pages={pages} />
       
-      {/* NEW: Document Intelligence Header Bar */}
+      {/* Document Intelligence Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-[#E5E8EC]">
         <div className="flex items-center gap-3">
           {getIconComponent(page.icon, "w-8 h-8 text-[#111827]")}
           <div>
-            <span className="text-[10px] font-mono uppercase tracking-widest text-[#7C3AED] font-bold block mb-0.5">
-              Live Document
+            <span className="text-badge text-[#111827] block mb-0.5">
+              Live Document • Notion Measure
             </span>
-            <div className="text-xs font-mono text-[#6B7280] flex items-center gap-3">
+            <div className="text-caption font-mono text-[#6B7280] flex items-center gap-3">
               <span className="flex items-center gap-1">
                 <AlignLeft className="w-3.5 h-3.5 text-[#9CA3AF]" /> {wordCount} words ({charCount} chars)
               </span>
@@ -199,8 +195,8 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono text-[#6B7280] bg-[#F8F9FB] px-2.5 py-1 rounded-lg border border-[#E5E8EC]">
+        <div className="flex items-center gap-2.5">
+          <span className="text-badge text-[#6B7280] bg-[#F8F9FB] px-2.5 py-1 rounded border border-[#E5E8EC]">
             Auto-saved
           </span>
           <BaseButton onClick={() => alert('Document exported to PDF/Markdown')}>
@@ -212,11 +208,91 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
       <input 
         type="text"  
         defaultValue={page.title} 
-        className="text-4xl font-bold bg-transparent border-none outline-none text-[#111827] placeholder:text-[#9CA3AF] w-full mb-6 font-sans tracking-tight focus:ring-0"
+        className="text-title font-bold bg-transparent border-none outline-none text-[#111827] placeholder:text-[#9CA3AF] w-full mb-6 font-sans tracking-tight focus:ring-0"
         placeholder="Document Title..."
       />
 
-      <div className="flex-1 bg-white rounded-xl p-6 border border-[#E5E8EC]/60 shadow-2xs min-h-[500px]">
+      {/* NEW: Polished Slash Command / Quick Insert Menu (#11) */}
+      <div className="bg-[#F8F9FB] border border-[#E5E8EC] rounded-xl p-2 mb-6 shadow-2xs flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-badge text-[#6B7280] flex items-center gap-1 mr-1 px-1.5 py-1 select-none">
+            <Command className="w-3.5 h-3.5 text-[#111827]" /> Slash Commands:
+          </span>
+          <button
+            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
+              editor.isActive('heading', { level: 1 }) ? "bg-[#111827] text-white shadow-2xs" : "bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+            )}
+            title="/h1 Heading 1"
+          >
+            <Heading1 className="w-3.5 h-3.5" /> H1 <span className="text-badge opacity-60">/h1</span>
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
+              editor.isActive('heading', { level: 2 }) ? "bg-[#111827] text-white shadow-2xs" : "bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+            )}
+            title="/h2 Heading 2"
+          >
+            <Heading2 className="w-3.5 h-3.5" /> H2 <span className="text-badge opacity-60">/h2</span>
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
+              editor.isActive('bulletList') ? "bg-[#111827] text-white shadow-2xs" : "bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+            )}
+            title="/bullet Bullet List"
+          >
+            <List className="w-3.5 h-3.5" /> Bullet <span className="text-badge opacity-60">/bullet</span>
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
+              editor.isActive('orderedList') ? "bg-[#111827] text-white shadow-2xs" : "bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+            )}
+            title="/number Ordered List"
+          >
+            <ListOrdered className="w-3.5 h-3.5" /> Number <span className="text-badge opacity-60">/number</span>
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
+              editor.isActive('codeBlock') ? "bg-[#111827] text-white shadow-2xs" : "bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+            )}
+            title="/code Code Block"
+          >
+            <Code className="w-3.5 h-3.5" /> Code <span className="text-badge opacity-60">/code</span>
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
+              editor.isActive('blockquote') ? "bg-[#111827] text-white shadow-2xs" : "bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+            )}
+            title="/quote Callout"
+          >
+            <Quote className="w-3.5 h-3.5" /> Quote <span className="text-badge opacity-60">/quote</span>
+          </button>
+          <button
+            onClick={() => editor.chain().focus().setHorizontalRule().run()}
+            className="px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+            title="/divider Horizontal Rule"
+          >
+            <Minus className="w-3.5 h-3.5" /> Divider <span className="text-badge opacity-60">/div</span>
+          </button>
+        </div>
+        <div className="text-caption text-[#9CA3AF] hidden sm:block pr-1 select-none font-mono">
+          Click or type /
+        </div>
+      </div>
+
+      {/* Editor Content Box with #11 Block Hover and Spacing */}
+      <div className="flex-1 bg-white rounded-xl p-8 border border-[#E5E8EC] shadow-2xs min-h-[540px]">
         <EditorContent editor={editor} />
       </div>
     </div>
@@ -235,20 +311,20 @@ export function BrainWorkspace() {
   return (
     <div className="flex flex-col h-full w-full bg-canvas">
       
-      {/* NEW: Top Header with 40x40px Purple Brain Category Tile (#7C3AED) */}
+      {/* Top Header with #6 Icon Sizing: 36x36px container (w-9 h-9) and monochrome badge */}
       <div className="h-20 border-b border-[#E5E8EC] bg-white px-8 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-[12px] bg-[#7C3AED] text-white flex items-center justify-center shrink-0 shadow-sm">
-            <Brain className="w-5 h-5 stroke-[1.75]" />
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-[10px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 shadow-2xs">
+            <Brain className="w-4 h-4 stroke-[2]" />
           </div>
           <div>
             <div className="flex items-center gap-2 mb-0.5">
-              <h1 className="text-xl font-medium tracking-tight text-[#111827]">Brain Workspace</h1>
-              <span className="bg-[#7C3AED]/10 text-[#7C3AED] border border-[#7C3AED]/20 px-2 py-0.2 rounded text-[10px] font-mono font-medium uppercase tracking-[0.02em] flex items-center gap-1">
-                <Sparkles className="w-3 h-3 fill-[#7C3AED]" /> {pages.length} docs
+              <h1 className="text-section-title tracking-tight text-[#111827]">Brain Workspace</h1>
+              <span className="bg-[#F8F9FB] text-[#6B7280] border border-[#E5E8EC] px-2 py-0.5 rounded text-badge flex items-center gap-1">
+                {pages.length} docs
               </span>
             </div>
-            <p className="text-xs text-[#6B7280]">Strategic engineering documentation, specs, and knowledge base tree.</p>
+            <p className="text-caption text-[#6B7280]">Strategic engineering documentation, specs, and knowledge base tree.</p>
           </div>
         </div>
         
