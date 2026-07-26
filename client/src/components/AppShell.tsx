@@ -85,7 +85,7 @@ export function AppShell() {
       window.removeEventListener('keydown', handleKeyDown);
       clearTimeout(timeoutId);
     };
-  }, [activePrefix, navigate]);
+  }, [activePrefix, navigate, showCheatsheet]);
 
   return (
     <div className="flex h-screen w-full bg-canvas text-primary overflow-hidden font-sans select-none">

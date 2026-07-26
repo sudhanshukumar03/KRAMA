@@ -53,7 +53,7 @@ function IssueCard({ issue, isDragging, onDelete }: { issue: IssueWithRelations,
   const isUrgent = issue.priority === 'urgent';
   const isHigh = issue.priority === 'high';
 
-  const completedSubtasks = issue.childIssues?.filter(c => c.status === 'done').length || 0;
+  const completedSubtasks = issue.childIssues?.filter((c: { status: string }) => c.status === 'done').length || 0;
   const totalSubtasks = issue.childIssues?.length || 0;
   const subtaskPct = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
 

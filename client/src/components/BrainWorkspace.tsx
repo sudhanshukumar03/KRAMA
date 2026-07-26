@@ -165,7 +165,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
 
   // Calculate word count & reading time
   const textContent = editor ? editor.getText() : (page.title || '');
-  const words = textContent.trim().split(/\s+/).filter(w => w.length > 0);
+  const words = textContent.trim().split(/\s+/).filter((w: string) => w.length > 0);
   const wordCount = words.length;
   const charCount = textContent.length;
   const readTimeMins = Math.max(1, Math.ceil(wordCount / 200));
