@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
-import { Plus, Settings, Check, ChevronLeft, ChevronRight, Brain, Search, Clock, CalendarPlus, Flame, Sparkles } from 'lucide-react';
+import { Plus, Settings, Check, ChevronLeft, ChevronRight, Search, Clock, CalendarPlus, Flame, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import { getIconForString } from '../lib/iconMap';
@@ -14,7 +14,6 @@ const weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 export function TimelineView() {
   const { data: issues = [], isLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
   const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
-  const { data: dailyLogs = [] } = useQuery({ queryKey: ['daily-logs'], queryFn: api.dailyLogs.list });
 
   const queryClient = useQueryClient();
   const toggleHabitMutation = useMutation({
@@ -64,11 +63,6 @@ export function TimelineView() {
   });
 
   const pinnedTasks = issues.filter(i => i.priority === 'urgent' || i.priority === 'high').slice(0, 3);
-
-  const todayLog = dailyLogs.find(l => new Date(l.date).toLocaleDateString() === targetDate.toLocaleDateString());
-  const deepWorkMins = todayLog?.deepWorkMinutes || 0;
-  const hours = Math.floor(deepWorkMins / 60);
-  const mins = deepWorkMins % 60;
 
   const timeString = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   const shortTimeString = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -333,34 +327,6 @@ export function TimelineView() {
           </div>
           <div className="text-2xl font-medium tracking-tight text-[#111827] font-mono">
             {shortTimeString}
-          </div>
-        </div>
-
-        {/* Read-Only Deep Work Log Display (Consolidated with Daily Review) */}
-        <div className="bg-[#111827] rounded-xl p-6 text-white shadow-md flex flex-col">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <div className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#9CA3AF] mb-1 flex items-center gap-1.5">
-                <Brain className="w-3.5 h-3.5 text-amber-400" /> Tracked on Daily Review
-              </div>
-              <h3 className="font-medium text-[18px] leading-tight">Deep Work Log</h3>
-            </div>
-            <a 
-              href="/app/review"
-              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-xs font-mono font-medium text-white flex items-center gap-1.5 shrink-0"
-            >
-              <Clock className="w-3.5 h-3.5" /> Open Timer
-            </a>
-          </div>
-          
-          <div className="mt-auto">
-            <div className="flex justify-between text-[11px] font-medium uppercase tracking-[0.02em] text-[#9CA3AF] mb-2 font-mono">
-              <span>{String(hours).padStart(2, '0')}h {String(mins).padStart(2, '0')}m logged</span>
-              <span>05:00 target</span>
-            </div>
-            <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
-              <div className="h-full bg-[#2563EB] rounded-full transition-all duration-400 ease-out" style={{ width: `${Math.min(100, (deepWorkMins / 300) * 100)}%` }} />
-            </div>
           </div>
         </div>
 
