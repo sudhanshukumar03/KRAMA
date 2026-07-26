@@ -66,6 +66,7 @@ function PageTreeNode({
     try {
       const newPage = await api.pages.create({
         title: 'Untitled Child Document',
+        spaceId: page.spaceId,
         parentPageId: page.id,
         blocks: []
       });
@@ -410,12 +411,19 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
 export function BrainWorkspace() {
   const queryClient = useQueryClient();
   const { data: pages = [], isLoading, isError } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
+  const { data: spaces = [] } = useQuery({ queryKey: ['spaces'], queryFn: api.spaces.list });
   const [selectedPageId, setSelectedPageId] = useState<string | null>(pages[0]?.id || null);
 
   const handleCreateRootPage = async () => {
     try {
+      const defaultSpaceId = pages[0]?.spaceId || spaces[0]?.id;
+      if (!defaultSpaceId) {
+        toast.error('No space found. Please create a space first!');
+        return;
+      }
       const newPage = await api.pages.create({
         title: 'Untitled Document',
+        spaceId: defaultSpaceId,
         parentPageId: null,
         blocks: []
       });

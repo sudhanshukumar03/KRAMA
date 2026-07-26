@@ -10,15 +10,21 @@ export function SprintView() {
   const queryClient = useQueryClient();
   const { data: sprints = [], isLoading: sprintsLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
   const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
 
   const handleStartSprint = async () => {
     try {
+      if (projects.length === 0) {
+        toast.error('No project found. Create a project first!');
+        return;
+      }
       const now = new Date();
       const end = new Date(now.getTime() + 14 * 86400000);
       await api.sprints.create({
         name: `Sprint ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
         startDate: now.toISOString().split('T')[0],
         endDate: end.toISOString().split('T')[0],
+        projectId: projects[0].id,
         goals: 'Execute high-priority sprint backlog items.'
       });
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
