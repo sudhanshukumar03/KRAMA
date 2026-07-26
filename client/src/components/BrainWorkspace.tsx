@@ -201,11 +201,25 @@ function Breadcrumbs({ page, pages }: { page: PageWithRelations, pages: PageWith
 }
 
 function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelations[] }) {
+  const queryClient = useQueryClient();
+  const [title, setTitle] = useState(page.title || '');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTitleChange = (newTitle: string) => {
+    setTitle(newTitle);
+    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+    titleDebounceRef.current = setTimeout(() => {
+      api.pages.update(page.id, { title: newTitle }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['pages'] });
+      });
+    }, 500);
+  };
+
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Placeholder.configure({ placeholder: 'Type / for slash commands or start typing strategic engineering documentation...' })
+      Placeholder.configure({ placeholder: 'Click or type / for commands, or start typing strategic engineering documentation...' })
     ],
     content: (page.blocks ? page.blocks as Content : ''),
     onUpdate: ({ editor }) => {
@@ -217,7 +231,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-zinc max-w-none focus:outline-none min-h-[480px] text-[#111827] leading-relaxed font-sans',
+        class: 'prose prose-zinc max-w-none focus:outline-none min-h-[400px] text-[#111827] leading-relaxed font-sans',
       },
     },
   });
@@ -264,18 +278,12 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
         </div>
       </div>
 
-      <input 
-        type="text"  
-        defaultValue={page.title} 
-        className="text-title font-bold bg-transparent border-none outline-none text-[#111827] placeholder:text-[#9CA3AF] w-full mb-6 font-sans tracking-tight focus:ring-0"
-        placeholder="Document Title..."
-      />
-
-      {/* NEW: Polished Slash Command / Quick Insert Menu (#11) */}
-      <div className="bg-[#F8F9FB] border border-[#E5E8EC] rounded-xl p-2 mb-6 shadow-2xs flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1 flex-wrap">
+      {/* Editor Card: Single cohesive Notion-style document container (#11) */}
+      <div className="flex-1 bg-white rounded-xl border border-[#E5E8EC] shadow-2xs flex flex-col max-w-3xl mx-auto w-full overflow-hidden min-h-[580px]">
+        {/* Toolbar / Slash Command Helper at the top of the container */}
+        <div className="bg-[#F8F9FB] px-4 py-2.5 flex flex-wrap items-center gap-1.5 shrink-0">
           <span className="text-badge text-[#6B7280] flex items-center gap-1 mr-1 px-1.5 py-1 select-none">
-            <Command className="w-3.5 h-3.5 text-[#111827]" /> Slash Commands:
+            <Command className="w-3.5 h-3.5 text-[#111827]" /> Quick Insert:
           </span>
           <button
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -285,7 +293,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
             )}
             title="/h1 Heading 1"
           >
-            <Heading1 className="w-3.5 h-3.5" /> H1 <span className="text-badge opacity-60">/h1</span>
+            <Heading1 className="w-3.5 h-3.5" /> H1
           </button>
           <button
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
@@ -295,7 +303,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
             )}
             title="/h2 Heading 2"
           >
-            <Heading2 className="w-3.5 h-3.5" /> H2 <span className="text-badge opacity-60">/h2</span>
+            <Heading2 className="w-3.5 h-3.5" /> H2
           </button>
           <button
             onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -305,7 +313,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
             )}
             title="/bullet Bullet List"
           >
-            <List className="w-3.5 h-3.5" /> Bullet <span className="text-badge opacity-60">/bullet</span>
+            <List className="w-3.5 h-3.5" /> Bullet
           </button>
           <button
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
@@ -315,7 +323,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
             )}
             title="/number Ordered List"
           >
-            <ListOrdered className="w-3.5 h-3.5" /> Number <span className="text-badge opacity-60">/number</span>
+            <ListOrdered className="w-3.5 h-3.5" /> Number
           </button>
           <button
             onClick={() => editor.chain().focus().toggleCodeBlock().run()}
@@ -325,7 +333,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
             )}
             title="/code Code Block"
           >
-            <Code className="w-3.5 h-3.5" /> Code <span className="text-badge opacity-60">/code</span>
+            <Code className="w-3.5 h-3.5" /> Code
           </button>
           <button
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
@@ -335,74 +343,83 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
             )}
             title="/quote Callout"
           >
-            <Quote className="w-3.5 h-3.5" /> Quote <span className="text-badge opacity-60">/quote</span>
+            <Quote className="w-3.5 h-3.5" /> Quote
           </button>
           <button
             onClick={() => editor.chain().focus().setHorizontalRule().run()}
             className="px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
             title="/divider Horizontal Rule"
           >
-            <Minus className="w-3.5 h-3.5" /> Divider <span className="text-badge opacity-60">/div</span>
+            <Minus className="w-3.5 h-3.5" /> Divider
           </button>
         </div>
-        <div className="text-caption text-[#9CA3AF] hidden sm:block pr-1 select-none font-mono">
-          Click or type /
-        </div>
-      </div>
 
-      {/* Editor Content Box with #11 Block Hover and Spacing */}
-      <div className="flex-1 bg-white rounded-xl p-8 border border-[#E5E8EC] shadow-2xs min-h-[540px] flex flex-col justify-between max-w-3xl mx-auto w-full">
-        <EditorContent editor={editor} />
+        {/* Subtle Divider separating toolbar from editable area */}
+        <div className="h-px bg-[#E5E8EC] w-full shrink-0" />
 
-        {/* Transitive References & Backlinks Panel (#2 Chrome Reduction: Hairline rows instead of boxed cards) */}
-        {page.linkedProject && (
-          <div className="mt-12 pt-6 border-t border-[#E5E8EC] font-mono text-xs">
-            <div className="flex items-center gap-1.5 font-bold uppercase tracking-widest text-[#6B7280] mb-3">
-              <Link2 className="w-4 h-4 text-[#7C3AED]" /> Transitive References & Backlinks
-            </div>
-            <div className="divide-y divide-[#E5E8EC]/60 -mx-2 px-2">
-              <div 
-                onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
-                className="py-3 flex items-center justify-between gap-3 hover:bg-[#F8F9FB] rounded-lg transition-colors cursor-pointer group"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <FolderKanban className="w-4 h-4 text-[#4F46E5] shrink-0" />
-                  <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#4F46E5] truncate">{page.linkedProject.name}</span>
-                  <span className="text-[10px] text-[#9CA3AF] uppercase font-mono tracking-wider">({page.linkedProject.status})</span>
-                </div>
-                <span className="text-[11px] text-[#4F46E5] font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">view initiative &rarr;</span>
+        {/* EditorContent (flex-grow) beginning immediately below the divider */}
+        <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between overflow-y-auto">
+          <div>
+            <input 
+              type="text"  
+              value={title}
+              onChange={(e) => handleTitleChange(e.target.value)}
+              className="text-[32px] sm:text-[40px] font-extrabold bg-transparent border-none outline-none text-[#111827] placeholder:text-[#9CA3AF] w-full mb-6 font-sans tracking-tight focus:ring-0 px-0 leading-tight"
+              placeholder="Untitled Document..."
+            />
+            <EditorContent editor={editor} className="flex-1" />
+          </div>
+
+          {/* Transitive References & Backlinks Panel (#2 Chrome Reduction: Hairline rows instead of boxed cards) */}
+          {page.linkedProject && (
+            <div className="mt-12 pt-6 border-t border-[#E5E8EC] font-mono text-xs">
+              <div className="flex items-center gap-1.5 font-bold uppercase tracking-widest text-[#6B7280] mb-3">
+                <Link2 className="w-4 h-4 text-[#7C3AED]" /> Transitive References & Backlinks
               </div>
-
-              {page.linkedProject.goal && (
-                <div 
-                  onClick={() => window.location.href = '/app/goals'}
-                  className="py-3 flex items-center justify-between gap-3 hover:bg-[#F8F9FB] rounded-lg transition-colors cursor-pointer group"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Target className="w-4 h-4 text-[#0D9488] shrink-0" />
-                    <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#0D9488] truncate">{page.linkedProject.goal.title}</span>
-                  </div>
-                  <span className="text-[11px] font-bold text-[#0D9488] shrink-0">{page.linkedProject.goal.progress}% Completed</span>
-                </div>
-              )}
-
-              {page.linkedProject.issues && (
+              <div className="divide-y divide-[#E5E8EC]/60 -mx-2 px-2">
                 <div 
                   onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
                   className="py-3 flex items-center justify-between gap-3 hover:bg-[#F8F9FB] rounded-lg transition-colors cursor-pointer group"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <CheckCircle2 className="w-4 h-4 text-[#2563EB] shrink-0" />
-                    <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#2563EB]">Execution Tickets & Sprints</span>
+                    <FolderKanban className="w-4 h-4 text-[#4F46E5] shrink-0" />
+                    <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#4F46E5] truncate">{page.linkedProject.name}</span>
+                    <span className="text-[10px] text-[#9CA3AF] uppercase font-mono tracking-wider">({page.linkedProject.status})</span>
                   </div>
-                  <span className="text-[11px] text-[#6B7280] font-mono shrink-0">
-                    {page.linkedProject.issues.filter((i: any) => i.status === 'done' || i.status === 'released').length} / {page.linkedProject.issues.length} Done • {page.linkedProject.sprints?.length || 0} Sprints
-                  </span>
+                  <span className="text-[11px] text-[#4F46E5] font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">view initiative &rarr;</span>
                 </div>
-              )}
+
+                {page.linkedProject.goal && (
+                  <div 
+                    onClick={() => window.location.href = '/app/goals'}
+                    className="py-3 flex items-center justify-between gap-3 hover:bg-[#F8F9FB] rounded-lg transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Target className="w-4 h-4 text-[#0D9488] shrink-0" />
+                      <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#0D9488] truncate">{page.linkedProject.goal.title}</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#0D9488] shrink-0">{page.linkedProject.goal.progress}% Completed</span>
+                  </div>
+                )}
+
+                {page.linkedProject.issues && (
+                  <div 
+                    onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
+                    className="py-3 flex items-center justify-between gap-3 hover:bg-[#F8F9FB] rounded-lg transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <CheckCircle2 className="w-4 h-4 text-[#2563EB] shrink-0" />
+                      <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#2563EB]">Execution Tickets & Sprints</span>
+                    </div>
+                    <span className="text-[11px] text-[#6B7280] font-mono shrink-0">
+                      {page.linkedProject.issues.filter((i: any) => i.status === 'done' || i.status === 'released').length} / {page.linkedProject.issues.length} Done • {page.linkedProject.sprints?.length || 0} Sprints
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
