@@ -91,11 +91,12 @@ router.post('/:id/complete', async (req: AuthenticatedRequest, res: Response): P
       res.status(404).json({ error: 'Habit not found' });
       return;
     }
+    const isCompletedToday = existing.lastCompletedAt && new Date(existing.lastCompletedAt).toDateString() === new Date().toDateString();
     const habit = await prisma.habit.update({
       where: { id: req.params.id },
       data: {
-        streak: existing.streak + 1,
-        lastCompletedAt: new Date(),
+        streak: isCompletedToday ? Math.max(0, existing.streak - 1) : existing.streak + 1,
+        lastCompletedAt: isCompletedToday ? null : new Date(),
       },
       include: { linkedGoal: true },
     });

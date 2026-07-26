@@ -6,7 +6,7 @@ import { FolderKanban, ArrowLeft, Plus, CheckCircle2, Clock, Target, AlertCircle
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { cn } from '../lib/utils';
-import { computeGoalPace } from './Goals';
+import { computeGoalPace } from '../lib/goalUtils';
 import type { GoalWithRelations } from '../types/schema';
 
 function getDocIcon(iconName: string | null, className?: string) {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { CheckCircle2, Clock, TrendingUp, Flame, Sparkles, Plus, Sun, Moon, Check } from 'lucide-react';
 import { toast } from 'sonner';
@@ -25,9 +25,17 @@ function generate30DayPattern(habitId: string, streak: number) {
 }
 
 export function HabitTracker() {
+  const queryClient = useQueryClient();
   const { data: habits = [], isLoading } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [completedHabitIds, setCompletedHabitIds] = useState<Record<string, boolean>>({});
+
+  const completeMutation = useMutation({
+    mutationFn: (id: string) => api.habits.complete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+    },
+  });
 
   if (isLoading) return <div className="p-8 text-[#6B7280]">Loading habits...</div>;
 
@@ -54,12 +62,21 @@ export function HabitTracker() {
         toast.success(`Habit Completed!`, {
           description: `You checked off "${name || 'Routine'}". Keep the streak going!`
         });
+        completeMutation.mutate(id);
       }
       return { ...prev, [id]: nextState };
     });
   };
 
-  const completedCount = habits.filter((h, idx) => completedHabitIds[h.id] !== undefined ? completedHabitIds[h.id] : idx % 2 === 0).length;
+  const isHabitCompleted = (habit: any) => {
+    if (completedHabitIds[habit.id] !== undefined) return completedHabitIds[habit.id];
+    if (habit.lastCompletedAt) {
+      return new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString();
+    }
+    return false;
+  };
+
+  const completedCount = habits.filter(h => isHabitCompleted(h)).length;
   const totalHabits = habits.length || 1;
   const progressPct = Math.round((completedCount / totalHabits) * 100);
 
@@ -249,7 +266,7 @@ export function HabitTracker() {
 
           <div className="space-y-3">
             {habits.map((habit, index) => {
-              const isCompleted = completedHabitIds[habit.id] !== undefined ? completedHabitIds[habit.id] : index % 2 === 0;
+              const isCompleted = isHabitCompleted(habit);
 
               return (
                 <div 

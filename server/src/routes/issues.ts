@@ -147,6 +147,11 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
 
 router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    // Prevent foreign key constraint violation if issue has child issues
+    await prisma.issue.updateMany({
+      where: { parentIssueId: req.params.id },
+      data: { parentIssueId: null },
+    });
     await prisma.issue.delete({
       where: { id: req.params.id },
     });

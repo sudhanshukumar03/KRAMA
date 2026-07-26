@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { ChevronRight, FileText, Plus, FileSignature, Building2, Laptop, Brain, Clock, AlignLeft, BookOpen, Heading1, Heading2, List, ListOrdered, Quote, Code, Minus, Command } from 'lucide-react';
@@ -146,6 +146,7 @@ function Breadcrumbs({ page, pages }: { page: PageWithRelations, pages: PageWith
 }
 
 function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelations[] }) {
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -154,7 +155,10 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
     content: (page.blocks ? page.blocks as Content : ''),
     onUpdate: ({ editor }) => {
       const json = editor.getJSON();
-      api.pages.update(page.id, { blocks: json as any });
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        api.pages.update(page.id, { blocks: json as any });
+      }, 500);
     },
     editorProps: {
       attributes: {

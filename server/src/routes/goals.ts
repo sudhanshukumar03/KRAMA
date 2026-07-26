@@ -79,6 +79,14 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
 
 router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    await prisma.goal.updateMany({
+      where: { parentGoalId: req.params.id },
+      data: { parentGoalId: null },
+    });
+    await prisma.project.updateMany({
+      where: { goalId: req.params.id },
+      data: { goalId: null },
+    });
     await prisma.goal.delete({
       where: { id: req.params.id },
     });

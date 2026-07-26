@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'krama-os-secret-jwt-key-2026';
 
-export interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest extends Request<Record<string, string>> {
   user?: {
     id: string;
     username: string;
@@ -27,7 +27,7 @@ export const requireAuth = (req: AuthenticatedRequest, res: Response, next: Next
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string; username: string; role: string };
     req.user = decoded;
     next();
-  } catch (err) {
+  } catch {
     res.status(401).json({ error: 'Unauthorized: Invalid or expired token' });
   }
 };

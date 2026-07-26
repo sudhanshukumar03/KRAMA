@@ -6,7 +6,7 @@ import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { cn } from '../lib/utils';
 import type { GoalWithRelations } from '../types/schema';
-import { computeGoalPace, type GoalPace } from '../lib/goalUtils';
+import { computeGoalPace } from '../lib/goalUtils';
 import { useNavigate } from 'react-router-dom';
 
 function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number }) {
@@ -23,14 +23,10 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
     }
   });
 
-  // Mock historical points for the mini trendline
-  const trendPoints = [
-    Math.max(0, goal.progress - 30),
-    Math.max(0, goal.progress - 22),
-    Math.max(0, goal.progress - 15),
-    Math.max(0, goal.progress - 8),
-    goal.progress
-  ];
+  // Historical points for the mini trendline from live PostgreSQL snapshots
+  const trendPoints = (goal.snapshots && goal.snapshots.length > 0)
+    ? [...goal.snapshots].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(s => s.progress)
+    : [0, goal.progress];
 
   return (
     <div className="flex flex-col mb-4 group/goal">

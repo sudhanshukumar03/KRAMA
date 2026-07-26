@@ -8,10 +8,13 @@
   "scripts": {
     "dev:client": "npm run dev -w client",
     "dev:server": "npm run dev -w server",
-    "dev": "npm run dev:client & npm run dev:server"
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue,cyan\" \"npm run dev:server\" \"npm run dev:client\""
   },
   "dependencies": {
     "@prisma/client": "^7.9.0",
     "prisma": "^7.9.0"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.4"
   }
 }

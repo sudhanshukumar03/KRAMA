@@ -29,15 +29,26 @@ export function DailyReview() {
 
   const [selectedMood, setSelectedMood] = useState<string>(todayLog?.mood || 'Good');
   const [selectedEnergy, setSelectedEnergy] = useState<string>(todayLog?.energy || 'High');
-  const [wins, setWins] = useState<string[]>(todayLog?.wins || ['Shipped Kanban UI filter bar', 'Completed weekly review consistency']);
-  const [blockers, setBlockers] = useState<string[]>(todayLog?.blockers || ['None — smooth sprint execution']);
+  const [wins, setWins] = useState<string[]>(todayLog?.wins || []);
+  const [blockers, setBlockers] = useState<string[]>(todayLog?.blockers || []);
   const [newWin, setNewWin] = useState('');
   const [newBlocker, setNewBlocker] = useState('');
-  const [notes, setNotes] = useState(todayLog?.notes || 'Focused session on frontend UI polish.');
+  const [notes, setNotes] = useState(todayLog?.notes || '');
 
   // Live Deep Work Timer State
   const [timerRunning, setTimerRunning] = useState(false);
-  const [secondsElapsed, setSecondsElapsed] = useState<number>(todayLog ? todayLog.deepWorkMinutes * 60 : 180 * 60);
+  const [secondsElapsed, setSecondsElapsed] = useState<number>(todayLog ? todayLog.deepWorkMinutes * 60 : 0);
+
+  useEffect(() => {
+    if (todayLog) {
+      if (todayLog.mood) setSelectedMood(todayLog.mood);
+      if (todayLog.energy) setSelectedEnergy(todayLog.energy);
+      if (todayLog.wins) setWins(todayLog.wins);
+      if (todayLog.blockers) setBlockers(todayLog.blockers);
+      if (todayLog.notes !== null && todayLog.notes !== undefined) setNotes(todayLog.notes);
+      if (todayLog.deepWorkMinutes !== undefined) setSecondsElapsed(todayLog.deepWorkMinutes * 60);
+    }
+  }, [todayLog]);
 
   useEffect(() => {
     let interval: any = null;

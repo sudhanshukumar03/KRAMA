@@ -77,6 +77,10 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
 
 router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    await prisma.issue.updateMany({
+      where: { sprintId: req.params.id },
+      data: { sprintId: null },
+    });
     await prisma.sprint.delete({
       where: { id: req.params.id },
     });

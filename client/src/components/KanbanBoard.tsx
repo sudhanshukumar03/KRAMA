@@ -171,6 +171,7 @@ function Column({ title, issues, isLast, onDelete, onCreate }: { id: string, tit
 export function KanbanBoard() {
   const queryClient = useQueryClient();
   const { data: issues = [], isLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
   
   const [activeIssue, setActiveIssue] = useState<IssueWithRelations | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -179,12 +180,16 @@ export function KanbanBoard() {
   const handleCreateIssue = async (status: string = 'todo') => {
     const title = prompt('Enter issue title:', `New task in ${status.replace('_', ' ')}`);
     if (!title) return;
+    if (projects.length === 0) {
+      toast.error('No project found. Create a project first!');
+      return;
+    }
     const newIssue = await api.issues.create({
       title,
       status: status as any,
       priority: 'medium',
       assignee: 'me',
-      projectId: 'proj-1',
+      projectId: projects[0].id,
       estimate: 2,
       labels: []
     });
@@ -200,11 +205,25 @@ export function KanbanBoard() {
     await api.issues.delete(issue.id);
     queryClient.setQueryData<IssueWithRelations[]>(['issues'], old => old?.filter(i => i.id !== issue.id));
     toast.success(`Deleted "${issue.title}"`, {
-      description: `Issue #${issue.id} removed from sprint board.`,
+      description: `Issue #${issue.id.slice(-4)} removed from sprint board.`,
       action: {
         label: 'Undo',
         onClick: async () => {
-          await api.issues.create(deletedIssue);
+          await api.issues.create({
+            title: deletedIssue.title,
+            description: deletedIssue.description,
+            status: deletedIssue.status as any,
+            priority: deletedIssue.priority as any,
+            estimate: deletedIssue.estimate,
+            assignee: deletedIssue.assignee,
+            projectId: deletedIssue.projectId,
+            sprintId: deletedIssue.sprintId,
+            parentIssueId: deletedIssue.parentIssueId,
+            labels: deletedIssue.labels,
+            dueDate: deletedIssue.dueDate ? new Date(deletedIssue.dueDate) : undefined,
+            scheduledDate: deletedIssue.scheduledDate ? new Date(deletedIssue.scheduledDate) : undefined,
+            blockedByIds: (deletedIssue as any).blockedBy?.map((b: any) => b.id),
+          });
           queryClient.invalidateQueries({ queryKey: ['issues'] });
           toast.success(`Restored "${issue.title}"`);
         }
