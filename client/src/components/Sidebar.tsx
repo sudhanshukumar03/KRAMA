@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { toast } from 'sonner';
 import { 
   Home, 
   BookOpen, 
@@ -14,7 +15,8 @@ import {
   Clock4,
   TrendingUp,
   Sparkles,
-  Scale
+  Scale,
+  Download
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -57,6 +59,26 @@ export function Sidebar() {
     if (key === 'habits') return habits.length;
     if (key === 'pages') return pages.length;
     return null;
+  };
+
+  const handleExport = async () => {
+    try {
+      const toastId = toast.loading('Exporting workspace backup...');
+      const data = await api.workspaces.export();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `krama-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.dismiss(toastId);
+      toast.success('Workspace backup exported successfully');
+    } catch (err: any) {
+      toast.error('Failed to export backup: ' + err.message);
+    }
   };
 
   const renderLink = (item: { name: string; path: string; icon: any; shortcut?: string; badgeKey: string | null }) => {
@@ -152,6 +174,21 @@ export function Sidebar() {
             {executionItems.map(renderLink)}
           </div>
         </div>
+      </div>
+
+      {/* Export Backup Action */}
+      <div className="px-3 py-2 border-t border-[#E5E8EC]">
+        <button
+          onClick={handleExport}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-[#4B5563] hover:text-[#111827] hover:bg-[#F8F9FB] transition-colors border border-transparent hover:border-[#E5E8EC] group"
+          title="Export all workspace data as JSON"
+        >
+          <span className="flex items-center gap-2">
+            <Download className="w-3.5 h-3.5 text-[#6B7280] group-hover:text-[#2563EB] transition-colors" />
+            <span>Export Data</span>
+          </span>
+          <span className="text-[10px] font-mono text-[#9CA3AF] group-hover:text-[#6B7280]">JSON</span>
+        </button>
       </div>
 
       {/* Footer User Strip */}

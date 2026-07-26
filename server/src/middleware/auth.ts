@@ -1,7 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'krama-os-secret-jwt-key-2026';
+import { config } from '../config';
 
 export interface AuthenticatedRequest extends Request<Record<string, string>> {
   user?: {
@@ -24,7 +23,7 @@ export const requireAuth = (req: AuthenticatedRequest, res: Response, next: Next
       return;
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; username: string; role: string };
+    const decoded = jwt.verify(token, config.jwtSecret) as { id: string; username: string; role: string };
     req.user = decoded;
     next();
   } catch {

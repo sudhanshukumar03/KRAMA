@@ -72,6 +72,7 @@ export const api = {
     create: (data: Record<string, any>) => fetchApi<Workspace>('/workspaces', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<Workspace>(`/workspaces/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<void>(`/workspaces/${id}`, { method: 'DELETE' }),
+    export: () => fetchApi<any>('/workspaces/export'),
   },
   spaces: {
     list: () => fetchApi<Space[]>('/spaces'),

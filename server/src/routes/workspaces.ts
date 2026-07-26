@@ -18,6 +18,62 @@ router.get('/', async (_req: AuthenticatedRequest, res: Response): Promise<void>
   }
 });
 
+router.get('/export', async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const [
+      workspaces,
+      spaces,
+      pages,
+      goals,
+      projects,
+      issues,
+      sprints,
+      roadmapItems,
+      habits,
+      completions,
+      dailyLogs,
+      snapshots,
+      decisions,
+    ] = await Promise.all([
+      prisma.workspace.findMany(),
+      prisma.space.findMany(),
+      prisma.page.findMany(),
+      prisma.goal.findMany(),
+      prisma.project.findMany(),
+      prisma.issue.findMany(),
+      prisma.sprint.findMany(),
+      prisma.roadmapItem.findMany(),
+      prisma.habit.findMany(),
+      prisma.habitCompletion.findMany(),
+      prisma.dailyLog.findMany(),
+      prisma.goalProgressSnapshot.findMany(),
+      prisma.decision.findMany(),
+    ]);
+
+    res.json({
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      data: {
+        workspaces,
+        spaces,
+        pages,
+        goals,
+        projects,
+        issues,
+        sprints,
+        roadmapItems,
+        habits,
+        completions,
+        dailyLogs,
+        snapshots,
+        decisions,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const workspace = await prisma.workspace.findUnique({

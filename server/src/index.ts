@@ -17,14 +17,15 @@ import dailyLogRoutes from './routes/dailyLogs';
 import snapshotRoutes, { startSnapshotScheduler } from './routes/snapshots';
 import searchRoutes from './routes/search';
 import decisionRoutes from './routes/decisions';
+import { config } from './config';
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = config.port;
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000'],
+  origin: config.corsOrigins,
   credentials: true,
 }));
 app.use(express.json());

@@ -1,14 +1,23 @@
 import express, { type Response } from 'express';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
+import { config } from '../config';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'krama-os-secret-jwt-key-2026';
 
-router.post('/login', (req, res: Response): void => {
+// Rate limiter for login endpoint (20 requests per 15 minutes)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Limit each IP to 20 login requests per windowMs
+  message: { error: 'Too many login attempts from this IP, please try again after 15 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post('/login', loginLimiter, (req, res: Response): void => {
   const { username, password } = req.body;
 
-  // Single-user Engineering OS default authentication
   if (!username || !password) {
     res.status(400).json({ error: 'Username and password are required' });
     return;
@@ -20,11 +29,11 @@ router.post('/login', (req, res: Response): void => {
     role: 'owner',
   };
 
-  const token = jwt.sign(user, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign(user, config.jwtSecret, { expiresIn: '7d' });
 
   res.cookie('token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: config.isProduction,
     sameSite: 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
