@@ -14,11 +14,13 @@ import { WeeklyPlanner } from './WeeklyPlanner';
 import { TimelineView } from './TimelineView';
 import { HabitTracker } from './HabitTracker';
 import { DecisionLog } from './DecisionLog';
-import { Terminal, ArrowRight, WifiOff, Menu } from 'lucide-react';
+import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun } from 'lucide-react';
+import { useTheme } from '../lib/theme';
 
 export function AppShell() {
   const navigate = useNavigate();
-  const [activePrefix, setActivePrefix] = useState<'g' | 'e' | null>(null);
+  const { theme, toggleTheme } = useTheme();
+  const [activePrefix, setActivePrefix] = useState<'g' | 'e' | 't' | null>(null);
   const [showCheatsheet, setShowCheatsheet] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -78,6 +80,8 @@ export function AppShell() {
           else if (key === 's') navigate('/app/sprint');
           else if (key === 'r') navigate('/app/review');
           else if (key === 'h') navigate('/app/habits');
+        } else if (activePrefix === 't') {
+          if (key === 't') toggleTheme();
         }
         setActivePrefix(null);
         clearTimeout(timeoutId);
@@ -85,9 +89,9 @@ export function AppShell() {
       }
 
       // Start new chord
-      if (key === 'g' || key === 'e') {
+      if (key === 'g' || key === 'e' || key === 't') {
         e.preventDefault();
-        setActivePrefix(key as 'g' | 'e');
+        setActivePrefix(key as 'g' | 'e' | 't');
         timeoutId = setTimeout(() => {
           setActivePrefix(null);
         }, 2000);
@@ -134,8 +138,17 @@ export function AppShell() {
             </button>
             <span className="font-mono font-bold text-sm text-[#111827] tracking-tight">KRAMA OS</span>
           </div>
-          <div className="text-[10px] font-mono text-[#0D9488] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0] flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" /> Online
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="p-1.5 rounded-lg text-[#4B5563] hover:text-[#111827] hover:bg-[#F8F9FB] transition-colors border border-[#E5E8EC]"
+              title="Toggle Theme"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-[#6B7280]" />}
+            </button>
+            <div className="text-[10px] font-mono text-[#0D9488] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" /> Online
+            </div>
           </div>
         </div>
 
@@ -219,6 +232,7 @@ export function AppShell() {
                 <div className="flex items-center justify-between"><span className="text-[#111827]">Sprint View</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">E S</span></div>
                 <div className="flex items-center justify-between"><span className="text-[#111827]">Daily Review</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">E R</span></div>
                 <div className="flex items-center justify-between"><span className="text-[#111827]">Habit Tracker</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">E H</span></div>
+                <div className="flex items-center justify-between"><span className="text-[#111827]">Toggle Theme</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">T T</span></div>
               </div>
             </div>
 

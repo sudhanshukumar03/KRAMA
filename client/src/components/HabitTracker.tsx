@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { CheckCircle2, Clock, TrendingUp, Flame, Sparkles, Plus, Sun, Moon, Check, X } from 'lucide-react';
+import { CheckCircle2, Clock, TrendingUp, Flame, Sparkles, Plus, Sun, Moon, Check, X, Trash2, AlertTriangle, RotateCcw, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
@@ -191,6 +191,34 @@ export function HabitTracker() {
     },
   });
 
+  const restoreMutation = useMutation({
+    mutationFn: (snapshot: any) => api.habits.restore(snapshot),
+    onSuccess: (restoredHabit) => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      toast.success(`Restored "${restoredHabit?.name || 'Routine'}"`);
+    },
+    onError: () => toast.error('Failed to restore routine')
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.habits.delete(id),
+    onSuccess: (res, deletedId) => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      const deletedName = habits.find(h => h.id === deletedId)?.name || 'Routine';
+      toast.success(`Deleted "${deletedName}"`, {
+        action: res.snapshot ? {
+          label: 'Undo',
+          onClick: () => restoreMutation.mutate(res.snapshot)
+        } : undefined
+      });
+    },
+    onError: () => toast.error('Failed to delete routine')
+  });
+
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const createHabitMutation = useMutation({
     mutationFn: (data: { name: string; cadence: string; category: string; timeOfDay: string; duration: number }) =>
@@ -335,9 +363,21 @@ export function HabitTracker() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <h3 className="font-medium text-[16px] text-[#111827] truncate group-hover:text-[#111827] transition-colors">{habit.name}</h3>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[11px] font-bold tracking-tight shrink-0">
-                        <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[2]" /> {habit.streak}d
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[11px] font-bold tracking-tight">
+                          <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[2]" /> {habit.streak}d
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteMutation.mutate(habit.id);
+                          }}
+                          title="Delete Routine"
+                          className="w-7 h-7 rounded-md flex items-center justify-center text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-[#6B7280] font-medium">{habit.category || 'Uncategorized'}</span>
@@ -403,6 +443,16 @@ export function HabitTracker() {
                     <div className="flex items-center gap-3">
                       <span className="text-[11px] text-[#6B7280] font-mono">{habit.duration || 15}m</span>
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[10px] font-bold tracking-tight"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" /> {habit.streak}d</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteMutation.mutate(habit.id);
+                        }}
+                        title="Delete Routine"
+                        className="p-1 rounded text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -423,6 +473,16 @@ export function HabitTracker() {
                     <div className="flex items-center gap-3">
                       <span className="text-[11px] text-[#6B7280] font-mono">{habit.duration || 15}m</span>
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[10px] font-bold tracking-tight"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" /> {habit.streak}d</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteMutation.mutate(habit.id);
+                        }}
+                        title="Delete Routine"
+                        className="p-1 rounded text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -430,6 +490,56 @@ export function HabitTracker() {
               </div>
             </div>
 
+          </div>
+        </div>
+
+        {/* NEW: Dedicated Delete & Manage Routines Section */}
+        <div className="mt-10 pt-8 border-t border-[#E5E8EC]">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-[18px] font-medium tracking-tight text-[#111827] flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-[#DC2626]" /> Manage & Delete Routines
+              </h2>
+              <p className="text-xs text-[#6B7280] mt-0.5">
+                Audit, archive, or permanently remove daily routines. All deletions support transactional 1-click Undo.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white border border-[#E5E8EC] rounded-xl overflow-hidden shadow-2xs divide-y divide-[#E5E8EC]/60">
+            {habits.map(habit => (
+              <div key={habit.id} className="p-4 flex items-center justify-between gap-4 hover:bg-[#F8F9FB]/80 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-[#F8F9FB] border border-[#E5E8EC] flex items-center justify-center shrink-0">
+                    <Flame className="w-4 h-4 text-[#EA580C]" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium text-sm text-[#111827] truncate">{habit.name}</div>
+                    <div className="text-[11px] text-[#6B7280] font-mono flex items-center gap-2 mt-0.5">
+                      <span>{habit.category || 'General'}</span>
+                      <span>•</span>
+                      <span>{habit.timeOfDay || 'daily'} ({habit.duration || 15}m)</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-xs font-mono font-medium text-[#6B7280] bg-[#F8F9FB] px-2 py-1 rounded border border-[#E5E8EC]">
+                    {habit.streak}d streak
+                  </span>
+                  <button
+                    onClick={() => deleteMutation.mutate(habit.id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#FCA5A5] text-[#DC2626] bg-[#FEF2F2] hover:bg-[#FEE2E2] hover:border-[#F87171] transition-all text-xs font-medium cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+            {habits.length === 0 && (
+              <div className="p-6 text-center text-xs text-[#9CA3AF] font-mono">
+                No routines configured to delete.
+              </div>
+            )}
           </div>
         </div>
 

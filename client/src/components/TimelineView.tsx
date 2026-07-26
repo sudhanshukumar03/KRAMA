@@ -2,20 +2,303 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
-import { Plus, Settings, Check, ChevronLeft, ChevronRight, Search, Clock, CalendarPlus, Flame, Sparkles } from 'lucide-react';
+import { Plus, Settings, Check, ChevronLeft, ChevronRight, Search, Clock, CalendarPlus, Flame, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import { getIconForString } from '../lib/iconMap';
 import { LoadingState } from './ui/LoadingState';
+import { BaseButton } from './ui/BaseButton';
 
 const calendarDays = Array.from({ length: 31 }, (_, i) => i + 1);
 const weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+function RoutineCreateModal({
+  open,
+  onClose,
+  onSubmit,
+  isSubmitting
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: { name: string; cadence: string; category: string; timeOfDay: string; duration: number }) => void;
+  isSubmitting: boolean;
+}) {
+  const [name, setName] = useState('');
+  const [cadence] = useState('daily');
+  const [category] = useState('Execution');
+  const [timeOfDay, setTimeOfDay] = useState('morning');
+  const [duration, setDuration] = useState(15);
+
+  if (!open) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onSubmit({ name: name.trim(), cadence, category, timeOfDay, duration });
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="bg-white border border-[#E5E8EC] rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E8EC] bg-[#F8F9FB]/50">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#EA580C]/10 text-[#EA580C] flex items-center justify-center">
+              <Flame className="w-4 h-4 stroke-[2]" />
+            </div>
+            <h3 className="text-base font-medium text-[#111827]">Add Daily Routine</h3>
+          </div>
+          <button
+            onClick={onClose}
+            type="button"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FB] hover:text-[#111827] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              Routine Name <span className="text-[#DC2626]">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g., Morning Standup & Planning"
+              required
+              autoFocus
+              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Time of Day
+              </label>
+              <select
+                value={timeOfDay}
+                onChange={e => setTimeOfDay(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+              >
+                <option value="morning">Morning</option>
+                <option value="afternoon">Afternoon</option>
+                <option value="evening">Evening</option>
+                <option value="anytime">Anytime</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Duration (mins)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="480"
+                value={duration}
+                onChange={e => setDuration(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-[#E5E8EC] flex justify-end gap-3">
+            <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </BaseButton>
+            <BaseButton type="submit" disabled={isSubmitting || !name.trim()}>
+              {isSubmitting ? 'Adding...' : 'Add Routine'}
+            </BaseButton>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ScheduleTaskModal({
+  open,
+  onClose,
+  onSubmit,
+  defaultDate,
+  isSubmitting
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: { title: string; priority: string; estimate: number; scheduledDate: string }) => void;
+  defaultDate: string;
+  isSubmitting: boolean;
+}) {
+  const [title, setTitle] = useState('');
+  const [priority, setPriority] = useState('normal');
+  const [estimate, setEstimate] = useState(1);
+  const [scheduledDate, setScheduledDate] = useState(defaultDate);
+
+  useEffect(() => {
+    if (open) setScheduledDate(defaultDate);
+  }, [open, defaultDate]);
+
+  if (!open) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    onSubmit({ title: title.trim(), priority, estimate: Number(estimate), scheduledDate });
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="bg-white border border-[#E5E8EC] rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E8EC] bg-[#F8F9FB]/50">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
+              <CalendarPlus className="w-4 h-4 stroke-[2]" />
+            </div>
+            <h3 className="text-base font-medium text-[#111827]">Schedule Agenda Task</h3>
+          </div>
+          <button
+            onClick={onClose}
+            type="button"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FB] hover:text-[#111827] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              Task / Event Title <span className="text-[#DC2626]">*</span>
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g., Q3 System Architecture Review"
+              required
+              autoFocus
+              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Scheduled Date
+              </label>
+              <input
+                type="date"
+                value={scheduledDate}
+                onChange={e => setScheduledDate(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Estimated Hours
+              </label>
+              <input
+                type="number"
+                min="0.5"
+                max="12"
+                step="0.5"
+                value={estimate}
+                onChange={e => setEstimate(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              Priority
+            </label>
+            <select
+              value={priority}
+              onChange={e => setPriority(e.target.value)}
+              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+            >
+              <option value="normal">Normal</option>
+              <option value="high">High Priority</option>
+              <option value="urgent">Urgent / Blocker</option>
+            </select>
+          </div>
+
+          <div className="pt-4 border-t border-[#E5E8EC] flex justify-end gap-3">
+            <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </BaseButton>
+            <BaseButton type="submit" disabled={isSubmitting || !title.trim()}>
+              {isSubmitting ? 'Scheduling...' : 'Schedule Task'}
+            </BaseButton>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export function TimelineView() {
   const { data: issues = [], isLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
   const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
 
   const queryClient = useQueryClient();
+  const [routineModalOpen, setRoutineModalOpen] = useState(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+
+  const createRoutineMutation = useMutation({
+    mutationFn: (data: { name: string; cadence: string; category: string; timeOfDay: string; duration: number }) =>
+      api.habits.create({
+        name: data.name,
+        cadence: data.cadence,
+        category: data.category,
+        timeOfDay: data.timeOfDay,
+        duration: data.duration,
+        streak: 0
+      }),
+    onSuccess: (newHabit) => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      setRoutineModalOpen(false);
+      toast.success(`Added routine "${newHabit?.name || 'Routine'}"`);
+    },
+    onError: () => {
+      toast.error('Failed to add routine');
+    }
+  });
+
+  const scheduleTaskMutation = useMutation({
+    mutationFn: (data: { title: string; priority: string; estimate: number; scheduledDate: string }) =>
+      api.issues.create({
+        title: data.title,
+        priority: data.priority,
+        estimate: data.estimate,
+        scheduledDate: new Date(data.scheduledDate).toISOString(),
+        status: 'todo'
+      }),
+    onSuccess: (newTask) => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      setScheduleModalOpen(false);
+      toast.success(`Scheduled "${newTask?.title || 'Task'}"`);
+    },
+    onError: () => {
+      toast.error('Failed to schedule task');
+    }
+  });
   const toggleHabitMutation = useMutation({
     mutationFn: (id: string) => api.habits.complete(id),
     onSuccess: () => {
@@ -65,7 +348,6 @@ export function TimelineView() {
   const pinnedTasks = issues.filter(i => i.priority === 'urgent' || i.priority === 'high').slice(0, 3);
 
   const timeString = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-  const shortTimeString = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 
   return (
     <div className="p-6 md:p-8 h-full bg-canvas flex flex-col md:flex-row gap-6 overflow-y-auto overflow-x-hidden animate-in fade-in duration-150">
@@ -79,7 +361,7 @@ export function TimelineView() {
             K
           </div>
           <span className="font-medium tracking-tight text-xl text-[#111827]">Krama</span>
-          <button onClick={() => toast.info('Click any time slot on the timeline to schedule a new task')} className="ml-auto w-6 h-6 rounded-full border border-[#E5E8EC] bg-white flex items-center justify-center hover:border-[#111827] transition-colors shadow-2xs" title="New Task">
+          <button onClick={() => setScheduleModalOpen(true)} className="ml-auto w-6 h-6 rounded-full border border-[#E5E8EC] bg-white flex items-center justify-center hover:border-[#111827] transition-colors shadow-2xs" title="New Task">
             <Plus className="w-3.5 h-3.5 text-[#111827] stroke-[2]" />
           </button>
         </div>
@@ -204,7 +486,7 @@ export function TimelineView() {
             </p>
           </div>
           <div className="flex items-center gap-2.5">
-            <button onClick={() => toast.info('Select a time slot on the timeline to add a time block')} className="w-9 h-9 rounded-full bg-[#2563EB] text-white flex items-center justify-center hover:bg-[#1D4ED8] transition-colors shadow-sm" title="Add Time Block">
+            <button onClick={() => setScheduleModalOpen(true)} className="w-9 h-9 rounded-full bg-[#2563EB] text-white flex items-center justify-center hover:bg-[#1D4ED8] transition-colors shadow-sm" title="Add Time Block">
               <Plus className="w-4 h-4 stroke-[2]" />
             </button>
             <div className="flex items-center gap-2 p-1 pl-3 pr-1 bg-[#F8F9FB] border border-[#E5E8EC] rounded-full cursor-pointer hover:border-[#D1D5DB] transition-colors shadow-2xs" onClick={() => toast.info('Timeline settings & calendar preferences')} title="Settings">
@@ -239,7 +521,7 @@ export function TimelineView() {
               <Clock className="w-6 h-6 text-[#9CA3AF] mb-2 stroke-[1.5]" />
               <p className="text-sm font-medium text-[#111827] mb-1">No events scheduled for today</p>
               <p className="text-xs text-[#6B7280] mb-4">Your agenda is completely clear. Enjoy your focus time!</p>
-              <button onClick={() => toast.info('Click a time slot or use the Quick Add button above')} className="px-3.5 py-1.5 rounded-full bg-[#EFF4FE] text-[#2563EB] hover:bg-[#2563EB] hover:text-white text-xs font-medium transition-colors shadow-sm">
+              <button onClick={() => setScheduleModalOpen(true)} className="px-3.5 py-1.5 rounded-full bg-[#EFF4FE] text-[#2563EB] hover:bg-[#2563EB] hover:text-white text-xs font-medium transition-colors shadow-sm cursor-pointer">
                 + Schedule a task
               </button>
             </div>
@@ -326,7 +608,7 @@ export function TimelineView() {
             <div className="text-xs text-[#6B7280]">Ready for deep work</div>
           </div>
           <div className="text-2xl font-medium tracking-tight text-[#111827] font-mono">
-            {shortTimeString}
+            {timeString}
           </div>
         </div>
 
@@ -342,10 +624,15 @@ export function TimelineView() {
                 <p className="text-[10px] text-[#6B7280]">Quick pulse check</p>
               </div>
             </div>
-            <button onClick={() => window.location.href = '/app/habits'} className="text-[11px] font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors">Manage</button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setRoutineModalOpen(true)} className="text-[11px] font-medium text-[#EA580C] bg-[#FFF7ED] border border-[#FFEDD5] px-2 py-0.5 rounded hover:bg-[#FFEDD5] transition-colors flex items-center gap-1 cursor-pointer">
+                <Plus className="w-3 h-3 stroke-[2.5]" /> Add Routine
+              </button>
+              <button onClick={() => window.location.href = '/app/habits'} className="text-[11px] font-medium text-[#6B7280] hover:text-[#111827] transition-colors">Manage</button>
+            </div>
           </div>
           <div className="space-y-3 flex-1">
-            {habits.slice(0, 4).map((habit) => {
+            {habits.map((habit) => {
               const todayStr = new Date().toISOString().split('T')[0] || '';
               const isHabitDone = habit.completions?.some((c: any) => c.date.toString().startsWith(todayStr) && c.completed) ||
                 (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
@@ -377,11 +664,32 @@ export function TimelineView() {
                 </div>
               );
             })}
+            {habits.length === 0 && (
+              <div className="py-8 text-center border border-dashed border-[#E5E8EC] rounded-xl bg-[#F8F9FB]/50">
+                <p className="text-xs text-[#6B7280] mb-3">No daily routines added yet.</p>
+                <button onClick={() => setRoutineModalOpen(true)} className="px-3 py-1.5 rounded-lg bg-[#FFF7ED] text-[#EA580C] border border-[#FFEDD5] text-xs font-medium hover:bg-[#FFEDD5] transition-colors inline-flex items-center gap-1 cursor-pointer">
+                  <Plus className="w-3.5 h-3.5 stroke-[2]" /> Add Routine
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
       </div>
 
+      <RoutineCreateModal
+        open={routineModalOpen}
+        onClose={() => setRoutineModalOpen(false)}
+        onSubmit={(data) => createRoutineMutation.mutate(data)}
+        isSubmitting={createRoutineMutation.isPending}
+      />
+      <ScheduleTaskModal
+        open={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        onSubmit={(data) => scheduleTaskMutation.mutate(data)}
+        defaultDate={targetDate.toISOString().split('T')[0] || ''}
+        isSubmitting={scheduleTaskMutation.isPending}
+      />
     </div>
   );
 }

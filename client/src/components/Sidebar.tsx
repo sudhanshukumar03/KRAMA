@@ -17,9 +17,12 @@ import {
   Sparkles,
   Scale,
   Download,
-  X
+  X,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTheme } from '../lib/theme';
 
 const navItems = [
   { name: 'Dashboard', path: '/app/', icon: Home, shortcut: 'G D', badgeKey: null },
@@ -40,6 +43,7 @@ const executionItems = [
 
 export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
 
   // Fetch live counts for badges
   const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
@@ -179,6 +183,27 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
             {executionItems.map(renderLink)}
           </div>
         </div>
+      </div>
+
+      {/* Theme Toggle Action */}
+      <div className="px-3 py-2 border-t border-[#E5E8EC]">
+        <button
+          onClick={toggleTheme}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-[#4B5563] hover:text-[#111827] hover:bg-[#F8F9FB] transition-colors border border-transparent hover:border-[#E5E8EC] group cursor-pointer"
+          title="Toggle Dark / Bright Mode"
+        >
+          <span className="flex items-center gap-2">
+            {theme === 'dark' ? (
+              <Sun className="w-3.5 h-3.5 text-amber-500 group-hover:text-amber-600 transition-colors" />
+            ) : (
+              <Moon className="w-3.5 h-3.5 text-[#6B7280] group-hover:text-[#2563EB] transition-colors" />
+            )}
+            <span>{theme === 'dark' ? 'Bright Mode' : 'Dark Mode'}</span>
+          </span>
+          <span className="text-[10px] font-mono text-[#9CA3AF] group-hover:text-[#6B7280] uppercase">
+            {theme === 'dark' ? 'Light' : 'Dark'}
+          </span>
+        </button>
       </div>
 
       {/* Export Backup Action */}

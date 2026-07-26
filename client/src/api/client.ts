@@ -140,7 +140,8 @@ export const api = {
     list: () => fetchApi<Habit[]>('/habits'),
     create: (data: Record<string, any>) => fetchApi<Habit>('/habits', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<Habit>(`/habits/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<void>(`/habits/${id}`, { method: 'DELETE' }),
+    delete: (id: string) => fetchApi<{ message: string; snapshot: any }>(`/habits/${id}`, { method: 'DELETE' }),
+    restore: (snapshot: any) => fetchApi<Habit>('/habits/restore', { method: 'POST', body: JSON.stringify(snapshot) }),
     complete: (id: string, date?: string) => fetchApi<Habit>(`/habits/${id}/complete`, { method: 'POST', ...(date ? { body: JSON.stringify({ date }) } : {}) }),
   },
   dailyLogs: {

@@ -339,6 +339,34 @@ export function Goals() {
     }
   });
 
+  const restoreHabitMutation = useMutation({
+    mutationFn: (snapshot: any) => api.habits.restore(snapshot),
+    onSuccess: (restoredHabit) => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      toast.success(`Restored "${restoredHabit?.name || 'Routine'}"`);
+    },
+    onError: () => toast.error('Failed to restore routine')
+  });
+
+  const deleteHabitMutation = useMutation({
+    mutationFn: (id: string) => api.habits.delete(id),
+    onSuccess: (res, deletedId) => {
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      const deletedName = habits.find(h => h.id === deletedId)?.name || 'Routine';
+      toast.success(`Deleted "${deletedName}"`, {
+        action: res.snapshot ? {
+          label: 'Undo',
+          onClick: () => restoreHabitMutation.mutate(res.snapshot)
+        } : undefined
+      });
+    },
+    onError: () => toast.error('Failed to delete routine')
+  });
+
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const createGoalMutation = useMutation({
     mutationFn: (data: { title: string; type: string; progress: number; targetDate: string }) =>
@@ -486,11 +514,19 @@ export function Goals() {
                         <div className="text-[10px] text-[#6B7280] font-mono uppercase tracking-[0.02em] mt-0.5">{habit.timeOfDay || 'Daily'} • {habit.duration || 15}m</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 cursor-pointer" onClick={() => navigate('/app/habits')}>
-                      <div className="text-xs font-mono font-bold flex items-center gap-1 text-[#C2410C] bg-[#FFF7ED] px-2 py-0.5 rounded border border-[#FFEDD5]">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-xs font-mono font-bold flex items-center gap-1 text-[#C2410C] bg-[#FFF7ED] px-2 py-0.5 rounded border border-[#FFEDD5] cursor-pointer" onClick={() => navigate('/app/habits')}>
                         <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[2]" /> {habit.streak}d
                       </div>
-                      <ArrowRight className="w-3.5 h-3.5 text-[#9CA3AF] opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); deleteHabitMutation.mutate(habit.id); }}
+                        title="Delete Routine"
+                        className="p-1 rounded text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <ArrowRight className="w-3.5 h-3.5 text-[#9CA3AF] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={() => navigate('/app/habits')} />
                     </div>
                   </div>
                 );

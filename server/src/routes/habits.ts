@@ -56,6 +56,50 @@ router.get('/', async (_req: AuthenticatedRequest, res: Response): Promise<void>
   }
 });
 
+router.post('/restore', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { id, name, cadence, linkedGoalId, category, timeOfDay, difficulty, duration, streak, lastCompletedAt, createdAt, completions = [] } = req.body;
+    const habit = await prisma.$transaction(async (tx) => {
+      const h = await tx.habit.create({
+        data: {
+          ...(id && { id }),
+          name,
+          cadence: cadence || 'daily',
+          linkedGoalId: linkedGoalId || null,
+          category: category || null,
+          timeOfDay: timeOfDay || null,
+          difficulty: difficulty || null,
+          duration: duration !== undefined ? Number(duration) : null,
+          streak: streak !== undefined ? Number(streak) : 0,
+          lastCompletedAt: lastCompletedAt ? new Date(lastCompletedAt) : null,
+          ...(createdAt && { createdAt: new Date(createdAt) }),
+        },
+      });
+      for (const c of completions) {
+        await tx.habitCompletion.create({
+          data: {
+            ...(c.id && { id: c.id }),
+            habitId: h.id,
+            date: new Date(c.date),
+            completed: c.completed,
+            ...(c.createdAt && { createdAt: new Date(c.createdAt) }),
+          },
+        });
+      }
+      return await tx.habit.findUnique({
+        where: { id: h.id },
+        include: {
+          linkedGoal: true,
+          completions: { orderBy: { date: 'desc' } }
+        }
+      });
+    });
+    res.status(201).json(habit);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const habitId = req.params.id as string;
@@ -207,10 +251,17 @@ router.post('/:id/complete', async (req: AuthenticatedRequest, res: Response): P
 router.delete('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const habitId = req.params.id as string;
+    const snapshot = await prisma.habit.findUnique({
+      where: { id: habitId },
+      include: {
+        linkedGoal: true,
+        completions: { orderBy: { date: 'desc' } }
+      },
+    });
     await prisma.habit.delete({
       where: { id: habitId },
     });
-    res.status(204).send();
+    res.json({ message: 'Habit deleted successfully', snapshot });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

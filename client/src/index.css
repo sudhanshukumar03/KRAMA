@@ -80,6 +80,21 @@
   --transition-timing-function-ease-out: cubic-bezier(0, 0, 0.2, 1);
 }
 
+.dark {
+  --color-canvas: #090D16;
+  --color-surface: #111827;
+  --color-surface-hover: #1E293B;
+  --color-border: #1E293B;
+  --color-border-muted: #334155;
+  --color-primary: #F8FAFC;
+  --color-primary-fill: #3B82F6;
+  --color-secondary: #94A3B8;
+  --color-muted: #64748B;
+  --color-accent: #3B82F6;
+  --color-accent-hover: #60A5FA;
+  --color-accent-tint: #1E293B;
+}
+
 @utility progress-fill {
   transition: width 400ms cubic-bezier(0, 0, 0.2, 1);
 }
@@ -113,18 +128,18 @@
 
 @layer utilities {
   /* Automated reconciliation of legacy arbitrary values to definitive master tokens (#4 & #12) */
-  [class*="bg-[#FFFFFF]"] { background-color: var(--color-canvas) !important; }
-  [class*="bg-[#F8F9FB]"], [class*="hover:bg-[#F8F9FB]"]:hover, [class*="group-hover:bg-[#F8F9FB]"]:hover, [class*="bg-[#FAFAFA]"], [class*="hover:bg-[#FAFAFA]"]:hover { background-color: var(--color-surface) !important; }
-  [class*="border-[#E5E7EB]"], [class*="hover:border-[#E5E7EB]"]:hover { border-color: var(--color-border) !important; }
-  [class*="divide-[#E5E7EB]"] { border-color: var(--color-border) !important; }
+  [class*="bg-white"], [class*="bg-[#FFFFFF]"] { background-color: var(--color-surface) !important; }
+  [class*="bg-[#F8F9FB]"], [class*="hover:bg-[#F8F9FB]"]:hover, [class*="group-hover:bg-[#F8F9FB]"]:hover, [class*="bg-[#FAFAFA]"], [class*="hover:bg-[#FAFAFA]"]:hover { background-color: var(--color-surface-hover) !important; }
+  [class*="border-white"], [class*="border-[#E5E8EC]"], [class*="hover:border-[#E5E8EC]"]:hover, [class*="border-[#E5E7EB]"], [class*="hover:border-[#E5E7EB]"]:hover { border-color: var(--color-border) !important; }
+  [class*="divide-[#E5E8EC]"], [class*="divide-[#E5E7EB]"] { border-color: var(--color-border) !important; }
   
-  [class*="text-[#0A0A0A]"], [class*="hover:text-[#0A0A0A]"]:hover, [class*="group-hover:text-[#0A0A0A]"]:hover { color: var(--color-primary) !important; }
-  [class*="border-[#0A0A0A]"], [class*="hover:border-[#0A0A0A]"]:hover, [class*="group-hover:border-[#0A0A0A]"]:hover { border-color: var(--color-primary) !important; }
-  [class*="ring-[#0A0A0A]"], [class*="focus:ring-[#0A0A0A]"]:focus, [class*="focus-visible:ring-[#0A0A0A]"]:focus-visible { --tw-ring-color: var(--color-primary) !important; }
-  [class*="bg-[#0A0A0A]"], [class*="hover:bg-[#0A0A0A]"]:hover, [class*="group-hover:bg-[#0A0A0A]"]:hover { background-color: var(--color-primary-fill) !important; }
-  [class*="fill-[#0A0A0A]"] { fill: var(--color-primary-fill) !important; }
+  [class*="text-[#111827]"], [class*="hover:text-[#111827]"]:hover, [class*="group-hover:text-[#111827]"]:hover, [class*="text-[#0A0A0A]"], [class*="hover:text-[#0A0A0A]"]:hover, [class*="group-hover:text-[#0A0A0A]"]:hover { color: var(--color-primary) !important; }
+  [class*="border-[#111827]"], [class*="hover:border-[#111827]"]:hover, [class*="group-hover:border-[#111827]"]:hover, [class*="border-[#0A0A0A]"], [class*="hover:border-[#0A0A0A]"]:hover, [class*="group-hover:border-[#0A0A0A]"]:hover { border-color: var(--color-primary) !important; }
+  [class*="ring-[#111827]"], [class*="focus:ring-[#111827]"]:focus, [class*="focus-visible:ring-[#111827]"]:focus-visible, [class*="ring-[#0A0A0A]"], [class*="focus:ring-[#0A0A0A]"]:focus, [class*="focus-visible:ring-[#0A0A0A]"]:focus-visible { --tw-ring-color: var(--color-primary) !important; }
+  [class*="bg-[#111827]"], [class*="hover:bg-[#111827]"]:hover, [class*="group-hover:bg-[#111827]"]:hover, [class*="bg-[#0A0A0A]"], [class*="hover:bg-[#0A0A0A]"]:hover, [class*="group-hover:bg-[#0A0A0A]"]:hover { background-color: var(--color-primary-fill) !important; }
+  [class*="fill-[#111827]"], [class*="fill-[#0A0A0A]"] { fill: var(--color-primary-fill) !important; }
   
-  [class*="text-[#6B7280]"] { color: var(--color-secondary) !important; }
+  [class*="text-[#6B7280]"], [class*="text-[#4B5563]"] { color: var(--color-secondary) !important; }
   [class*="text-[#9CA3AF]"], [class*="placeholder:text-[#9CA3AF]"]::placeholder { color: var(--color-muted) !important; }
   
   [class*="text-[#DC2626]"] { color: var(--color-urgency) !important; }
