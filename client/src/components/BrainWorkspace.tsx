@@ -60,6 +60,23 @@ function PageTreeNode({
       toast.error('Failed to delete page');
     }
   };
+
+  const handleCreateChildPage = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const newPage = await api.pages.create({
+        title: 'Untitled Child Document',
+        parentPageId: page.id,
+        blocks: []
+      });
+      queryClient.invalidateQueries({ queryKey: ['pages'] });
+      setExpanded(true);
+      if (newPage?.id) onSelect(newPage.id);
+      toast.success(`Created sub-page under "${page.title}"`);
+    } catch (err) {
+      toast.error('Failed to create sub-page');
+    }
+  };
   
   return (
     <div>
@@ -106,7 +123,7 @@ function PageTreeNode({
         </span>
         <span className="truncate flex-1 z-10">{page.title}</span>
         <button 
-          onClick={(e) => { e.stopPropagation(); alert('Create child page'); }}
+          onClick={handleCreateChildPage}
           className={cn(
             "opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center transition-all duration-150 rounded-md focus:outline-none",
             isSelected 
@@ -240,7 +257,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
           <span className="text-badge text-[#6B7280] bg-[#F8F9FB] px-2.5 py-1 rounded border border-[#E5E8EC]">
             Auto-saved
           </span>
-          <BaseButton onClick={() => alert('Document exported to PDF/Markdown')}>
+          <BaseButton onClick={() => toast.success('Document exported to PDF/Markdown')}>
             Export Doc
           </BaseButton>
         </div>
@@ -391,8 +408,24 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
 }
 
 export function BrainWorkspace() {
+  const queryClient = useQueryClient();
   const { data: pages = [], isLoading, isError } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
   const [selectedPageId, setSelectedPageId] = useState<string | null>(pages[0]?.id || null);
+
+  const handleCreateRootPage = async () => {
+    try {
+      const newPage = await api.pages.create({
+        title: 'Untitled Document',
+        parentPageId: null,
+        blocks: []
+      });
+      queryClient.invalidateQueries({ queryKey: ['pages'] });
+      if (newPage?.id) setSelectedPageId(newPage.id);
+      toast.success('Created new document');
+    } catch (err) {
+      toast.error('Failed to create document');
+    }
+  };
 
   if (isLoading) return <LoadingState variant="brain" title="Loading Knowledge Base..." description="Compiling technical specs and documentation trees..." />;
   if (isError) {
@@ -429,7 +462,7 @@ export function BrainWorkspace() {
           </div>
         </div>
         
-        <BaseButton onClick={() => alert('New Document')}>
+        <BaseButton onClick={handleCreateRootPage}>
           <Plus className="w-4 h-4 mr-1.5 stroke-[2]" />
           New Document
         </BaseButton>
@@ -441,7 +474,7 @@ export function BrainWorkspace() {
           <div className="p-3.5 border-b border-[#E5E8EC] flex justify-between items-center h-12 bg-white/50">
             <span className="text-[11px] font-mono font-bold text-[#6B7280] uppercase tracking-wider">Page Tree</span>
             <button 
-              onClick={() => alert('Create root document')}
+              onClick={handleCreateRootPage}
               className="text-[#6B7280] hover:text-[#111827] hover:bg-white border border-transparent hover:border-[#E5E8EC] transition-all rounded-md p-1"
               title="Add Root Page"
             >
@@ -472,7 +505,7 @@ export function BrainWorkspace() {
                 title="No Document Selected"
                 description="Select a document from the page tree on the left or create a new one to start writing."
                 actionLabel="Create New Page"
-                onAction={() => alert('Create page action')}
+                onAction={handleCreateRootPage}
               />
             </div>
           )}

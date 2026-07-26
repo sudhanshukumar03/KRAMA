@@ -36,6 +36,26 @@ export function Projects() {
     }
   };
 
+  const handleCreateProject = async () => {
+    try {
+      const name = 'New Strategic Initiative';
+      const newProj = await api.projects.create({
+        name,
+        problemStatement: 'Define strategic goals, scope, and technical deliverables.',
+        status: 'in_progress',
+        progress: 0,
+        targetDate: new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0]
+      });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast.success(`Created "${name}"`, {
+        description: 'Click project card to view roadmap and board.'
+      });
+      if (newProj?.id) navigate(`/app/projects/${newProj.id}`);
+    } catch (err) {
+      toast.error('Failed to create project');
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'idea' | 'paused' | 'shipped'>('all');
 
@@ -70,7 +90,7 @@ export function Projects() {
             <p className="text-[13px] text-[#6B7280]">Track initiatives, milestones, and linked quarterly OKRs.</p>
           </div>
         </div>
-        <BaseButton onClick={() => alert('New Project')}>
+        <BaseButton onClick={handleCreateProject}>
           <Plus className="w-4 h-4 mr-1.5 stroke-[2]" />
           New Project
         </BaseButton>

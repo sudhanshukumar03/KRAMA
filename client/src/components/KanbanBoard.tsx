@@ -191,7 +191,7 @@ function Column({ title, issues, isLast, onDelete, onCreate }: { id: string, tit
 
         {/* Inline + Quick Add Button */}
         <button 
-          onClick={() => onCreate ? onCreate(title) : alert(`Quick add task to ${title.replace('_', ' ')}`)}
+          onClick={() => onCreate ? onCreate(title) : toast.info(`Quick add task to ${title.replace('_', ' ')}`)}
           className="w-full mt-2 py-2 border border-dashed border-[#E5E8EC] hover:border-[#111827] hover:bg-[#F8F9FB] rounded-lg text-xs font-medium text-[#9CA3AF] hover:text-[#111827] transition-all flex items-center justify-center gap-1.5 opacity-80 hover:opacity-100"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2]" /> Quick Add
@@ -211,12 +211,11 @@ export function KanbanBoard() {
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'urgent' | 'high' | 'medium' | 'low'>('all');
 
   const handleCreateIssue = async (status: string = 'todo') => {
-    const title = prompt('Enter issue title:', `New task in ${status.replace('_', ' ')}`);
-    if (!title) return;
     if (projects.length === 0) {
       toast.error('No project found. Create a project first!');
       return;
     }
+    const title = `New Task (${status.replace('_', ' ')})`;
     const newIssue = await api.issues.create({
       title,
       status: status as any,
@@ -227,13 +226,12 @@ export function KanbanBoard() {
       labels: []
     });
     queryClient.invalidateQueries({ queryKey: ['issues'] });
-    toast.success(`Created issue #${newIssue.id.slice(-4)}`, {
-      description: `"${title}" added to ${status.replace('_', ' ')}`
+    toast.success(`Created "${title}"`, {
+      description: `Added to ${status.replace('_', ' ')}. Click card to edit.`
     });
   };
 
   const handleDeleteIssue = async (issue: IssueWithRelations) => {
-    if (!confirm(`Are you sure you want to delete "${issue.title}"?`)) return;
     const deletedIssue = { ...issue };
     await api.issues.delete(issue.id);
     queryClient.setQueryData<IssueWithRelations[]>(['issues'], old => old?.filter(i => i.id !== issue.id));

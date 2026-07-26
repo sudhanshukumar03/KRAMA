@@ -210,6 +210,24 @@ export function Goals() {
     }
   });
 
+  const handleCreateGoal = async () => {
+    try {
+      const title = 'New Q3 Strategic Objective';
+      await api.goals.create({
+        title,
+        progress: 0,
+        targetDate: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
+        status: 'on_track'
+      });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      toast.success(`Created "${title}"`, {
+        description: 'Click goal card to edit objectives and progress.'
+      });
+    } catch (err) {
+      toast.error('Failed to create goal');
+    }
+  };
+
   if (goalsLoading || habitsLoading) {
     return <LoadingState variant="goals" title="Loading Goals & OKRs..." description="Calculating progress velocities and habit links..." />;
   }
@@ -243,7 +261,7 @@ export function Goals() {
           </div>
           <p className="text-[13px] text-[#6B7280]">Track high-level quarterly objectives, pacing metrics, and linked daily routines.</p>
         </div>
-        <BaseButton onClick={() => alert('New OKR Goal')}>
+        <BaseButton onClick={handleCreateGoal}>
           <Plus className="w-4 h-4 mr-1.5 stroke-[2]" /> New Goal
         </BaseButton>
       </div>
@@ -277,6 +295,7 @@ export function Goals() {
                   icon={Target}
                   description="No goals set."
                   actionLabel="Set Goal"
+                  onAction={handleCreateGoal}
                 />
               </div>
             )}

@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { CalendarCheck, Save, Brain, Zap, Smile, Play, Pause, RotateCcw, Plus, Sparkles, Check, Clock, Trophy, AlertTriangle, FileText, Activity, AlertCircle } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
+import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
 const MOOD_OPTIONS = [
@@ -112,7 +113,7 @@ export function DailyReview() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
       queryClient.invalidateQueries({ queryKey: ['dailyLogs'] });
-      alert('Daily review log saved successfully!');
+      toast.success('Daily review log saved successfully!');
     }
   });
 

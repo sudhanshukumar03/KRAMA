@@ -46,6 +46,24 @@ export function HabitTracker() {
     },
   });
 
+  const handleCreateHabit = async () => {
+    try {
+      const name = 'New Daily Routine';
+      await api.habits.create({
+        name,
+        category: 'Execution',
+        timeOfDay: 'morning',
+        streak: 0
+      });
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      toast.success(`Created "${name}"`, {
+        description: 'Click habit row to configure frequency and target times.'
+      });
+    } catch (err) {
+      toast.error('Failed to create habit');
+    }
+  };
+
   if (isLoading) return <LoadingState variant="habit-tracker" title="Loading Habits..." description="Syncing streak logs and daily routines..." />;
   if (isError) {
     return (
@@ -120,7 +138,7 @@ export function HabitTracker() {
               <p className="text-[13px] text-[#6B7280]">Manage, track, and maintain consistency across your daily routines.</p>
             </div>
           </div>
-          <BaseButton onClick={() => alert('Create New Habit')}>
+          <BaseButton onClick={handleCreateHabit}>
             <Plus className="w-4 h-4 mr-1.5 stroke-[2]" /> New Habit
           </BaseButton>
         </div>
@@ -210,7 +228,7 @@ export function HabitTracker() {
           })}
           {filteredHabits.length === 0 && (
             <div className="col-span-full py-12">
-              <EmptyState icon={CheckCircle2} description="No habits found in this category" />
+              <EmptyState icon={CheckCircle2} description="No habits found in this category" actionLabel="Create Habit" onAction={handleCreateHabit} />
             </div>
           )}
         </div>

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Plus, ChevronLeft, ChevronRight, Check, Clock, Flame } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import type { IssueWithRelations } from '../types/schema';
 import { BaseButton } from './ui/BaseButton';
@@ -216,7 +217,7 @@ export function WeeklyPlanner() {
               <ChevronRight className="w-4 h-4 stroke-[1.75]" />
             </button>
           </div>
-          <BaseButton onClick={() => alert('New Task Block')}>
+          <BaseButton onClick={() => toast.info('Click a day column below to schedule a task block')}>
             <Plus className="w-4 h-4 mr-1.5 stroke-[2]" /> Schedule Task
           </BaseButton>
         </div>
@@ -272,7 +273,7 @@ export function WeeklyPlanner() {
                 isToday={day.isToday}
                 issues={dayIssues}
                 isLast={index === weekDays.length - 1}
-                onAddTask={(dayName) => alert(`Schedule task for ${dayName}`)}
+                onAddTask={(dayName) => toast.info(`Select time slot on ${dayName} to schedule task`)}
               />
             );
           })}

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { FolderKanban, ArrowLeft, Plus, CheckCircle2, Clock, Target, AlertCircle, XCircle, ArrowUpCircle, FileText, Sparkles, CheckSquare, Building2, Laptop } from 'lucide-react';
+import { toast } from 'sonner';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { LoadingState } from './ui/LoadingState';
@@ -100,7 +101,7 @@ export function ProjectDetail() {
               )}
             </div>
           </div>
-          <BaseButton onClick={() => alert('Edit Project Settings')}>
+          <BaseButton onClick={() => toast.info('Project settings edit modal coming in future phase')}>
             Edit Project
           </BaseButton>
         </div>
@@ -234,7 +235,7 @@ export function ProjectDetail() {
               <span className="text-xs font-mono text-[#6B7280] font-medium">
                 Showing <strong className="text-[#111827]">{projectIssues.length}</strong> project execution tickets across 7 columns
               </span>
-              <BaseButton onClick={() => alert('New Ticket for Project')} className="text-xs py-1.5">
+              <BaseButton onClick={() => navigate('/app/kanban')} className="text-xs py-1.5">
                 <Plus className="w-3.5 h-3.5 mr-1" /> New Project Issue
               </BaseButton>
             </div>
@@ -258,7 +259,7 @@ export function ProjectDetail() {
                         return (
                           <div 
                             key={issue.id} 
-                            onClick={() => alert(`View issue ${issue.id}`)}
+                            onClick={() => navigate('/app/kanban')}
                             className="bg-white border border-[#E5E8EC] rounded-xl p-3.5 shadow-2xs hover:border-[#2563EB] hover:shadow-md transition-all cursor-pointer group flex flex-col gap-2.5"
                           >
                             <div className="flex items-start justify-between gap-2">

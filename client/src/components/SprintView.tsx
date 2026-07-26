@@ -1,13 +1,32 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Clock, Play, ListTodo, Flame, CheckCircle2, TrendingDown, Activity, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import { EmptyState } from './ui/EmptyState';
 import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
 
 export function SprintView() {
+  const queryClient = useQueryClient();
   const { data: sprints = [], isLoading: sprintsLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
   const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+
+  const handleStartSprint = async () => {
+    try {
+      const now = new Date();
+      const end = new Date(now.getTime() + 14 * 86400000);
+      await api.sprints.create({
+        name: `Sprint ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+        startDate: now.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
+        goals: 'Execute high-priority sprint backlog items.'
+      });
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      toast.success('Started new 14-day sprint!');
+    } catch (err) {
+      toast.error('Failed to start sprint');
+    }
+  };
 
   if (sprintsLoading || issuesLoading) return <LoadingState title="Loading Sprint View..." description="Synchronizing sprint burnup and team velocity..." />;
 
@@ -21,7 +40,7 @@ export function SprintView() {
           title="No Active Sprint"
           description="Plan a sprint to focus your execution."
           actionLabel="Start Sprint"
-          onAction={() => alert('Start sprint')}
+          onAction={handleStartSprint}
         />
       </div>
     );
