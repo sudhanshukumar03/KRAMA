@@ -59,15 +59,15 @@ export function ProjectDetail() {
   const projectRoadmap = project.roadmapItems || roadmapItems.filter(r => r.projectId === project.id).sort((a, b) => a.order - b.order);
   const projectGoal = project.goal || (project.goalId ? goals.find(g => g.id === project.goalId) : null);
 
-  const completedIssues = projectIssues.filter(i => i.status === 'done' || i.status === 'released');
-  const openIssues = projectIssues.filter(i => i.status !== 'done' && i.status !== 'released');
+  const completedIssues = projectIssues.filter((i: any) => i.status === 'done' || i.status === 'released');
+  const openIssues = projectIssues.filter((i: any) => i.status !== 'done' && i.status !== 'released');
   
   // Calculate days since last update
   const daysSinceUpdate = Math.max(0, Math.floor((new Date().getTime() - new Date(project.updatedAt).getTime()) / (1000 * 3600 * 24)));
 
   // Kanban Columns Logic
   const columns = ['backlog', 'todo', 'in_progress', 'review', 'testing', 'done', 'released'];
-  const getIssuesByStatus = (status: string) => projectIssues.filter(i => i.status === status);
+  const getIssuesByStatus = (status: string) => projectIssues.filter((i: any) => i.status === status);
 
   return (
     <div className="flex flex-col h-full bg-canvas animate-in fade-in duration-150 pb-20 overflow-y-auto">
@@ -185,7 +185,7 @@ export function ProjectDetail() {
                   </button>
                 </div>
                 <div className="divide-y divide-[#E5E8EC] border border-[#E5E8EC] rounded-xl bg-white shadow-2xs overflow-hidden">
-                  {projectDocs.slice(0, 3).map(doc => (
+                  {projectDocs.slice(0, 3).map((doc: any) => (
                     <div key={doc.id} onClick={() => navigate(`/app/brain`)} className="p-3.5 hover:bg-[#F8F9FB] transition-colors flex items-center gap-3 cursor-pointer group">
                       {getDocIcon(doc.icon, "w-5 h-5 text-[#7C3AED] shrink-0 group-hover:scale-110 transition-transform")}
                       <div className="flex flex-col min-w-0">
@@ -207,7 +207,7 @@ export function ProjectDetail() {
                   </button>
                 </div>
                 <div className="divide-y divide-[#E5E8EC] border border-[#E5E8EC] rounded-xl bg-white shadow-2xs overflow-hidden">
-                  {projectIssues.slice(0, 3).map(issue => (
+                  {projectIssues.slice(0, 3).map((issue: any) => (
                     <div key={issue.id} onClick={() => setActiveTab('board')} className="p-3.5 hover:bg-[#F8F9FB] transition-colors flex items-center justify-between cursor-pointer group">
                       <div className="flex flex-col min-w-0 pr-3">
                         <span className="font-medium text-sm text-[#111827] truncate group-hover:text-[#2563EB] transition-colors">{issue.title}</span>
@@ -251,7 +251,7 @@ export function ProjectDetail() {
                     </div>
                     
                     <div className="flex-1 p-2.5 space-y-2.5 overflow-y-auto bg-[#F8F9FB]/50 min-h-[350px] max-h-[60vh]">
-                      {columnIssues.map(issue => {
+                      {columnIssues.map((issue: any) => {
                         const subTasks = issue.childIssues || [];
                         const completedSubs = subTasks.filter((c: any) => c.status === 'done' || c.status === 'released').length;
                         const hasSubs = subTasks.length > 0;
@@ -375,7 +375,7 @@ export function ProjectDetail() {
         {/* Docs Tab */}
         {activeTab === 'docs' && (
           <div className="max-w-5xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-150">
-            {projectDocs.map(doc => (
+            {projectDocs.map((doc: any) => (
               <div 
                 key={doc.id} 
                 onClick={() => navigate(`/app/brain`)}

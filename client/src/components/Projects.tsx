@@ -155,7 +155,7 @@ export function Projects() {
                   const totalDocs = project._count?.docs ?? (project.docs?.length || pages.filter(p => p.linkedProjectId === project.id).length);
                   const totalSprints = project._count?.sprints ?? (project.sprints?.length || sprints.filter(s => s.projectId === project.id).length);
                   
-                  const completedIssues = projectIssues.filter(i => i.status === 'done' || i.status === 'released').length;
+                  const completedIssues = projectIssues.filter((i: any) => i.status === 'done' || i.status === 'released').length;
                   const totalIssues = project._count?.issues ?? projectIssues.length;
                   const progressPct = totalIssues > 0 ? (completedIssues / totalIssues) * 100 : 0;
 
