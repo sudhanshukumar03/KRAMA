@@ -99,10 +99,10 @@ export function HabitTracker() {
   const progressPct = Math.round((completedCount / totalHabits) * 100);
 
   return (
-    <div className="flex h-full w-full bg-canvas animate-in fade-in duration-150">
+    <div className="flex flex-col lg:flex-row h-full w-full bg-canvas animate-in fade-in duration-150 overflow-y-auto lg:overflow-hidden">
       
       {/* LEFT COLUMN: Main Content */}
-      <div className="flex-1 h-full overflow-y-auto p-8 lg:p-12 relative border-r border-[#E5E8EC]">
+      <div className="flex-1 lg:h-full lg:overflow-y-auto p-4 sm:p-6 lg:p-12 relative border-b lg:border-b-0 lg:border-r border-[#E5E8EC]">
         
         {/* Header with Category Tile (#EA580C Orange) */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
@@ -265,9 +265,9 @@ export function HabitTracker() {
 
       </div>
 
-      {/* RIGHT COLUMN: Daily Checklist Widget (30%) */}
-      <div className="w-[30%] bg-[#F8F9FB] h-full overflow-y-auto p-8 border-l border-[#E5E8EC] hidden lg:block">
-        <div className="bg-white border border-[#E5E8EC] shadow-sm rounded-xl p-6 relative overflow-hidden">
+      {/* RIGHT COLUMN: Daily Checklist Widget (30% on desktop, 100% on mobile) */}
+      <div className="w-full lg:w-[30%] bg-[#F8F9FB] lg:h-full lg:overflow-y-auto p-4 sm:p-6 lg:p-8 border-t lg:border-t-0 lg:border-l border-[#E5E8EC]">
+        <div className="bg-white border border-[#E5E8EC] shadow-sm rounded-xl p-4 sm:p-6 relative overflow-hidden">
           
           <div className="absolute top-0 left-0 w-full h-1.5 bg-[#EA580C]" />
           

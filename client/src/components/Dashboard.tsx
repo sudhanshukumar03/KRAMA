@@ -124,7 +124,7 @@ export function Dashboard() {
   const activeStreaksCount = habits.filter(h => h.streak > 0).length;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 flex flex-col gap-8 pb-20">
+    <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 flex flex-col gap-8 pb-20">
       
       {/* Header (#1 Typography: 32px/650 title, 15px/450 body) */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#E5E8EC] pb-6">
