@@ -9,5 +9,9 @@
     "dev:client": "npm run dev -w client",
     "dev:server": "npm run dev -w server",
     "dev": "npm run dev:client & npm run dev:server"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.9.0",
+    "prisma": "^7.9.0"
   }
 }

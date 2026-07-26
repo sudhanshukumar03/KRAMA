@@ -104,6 +104,8 @@ model Issue {
   parentIssueId String?
   parentIssue   Issue?    @relation("IssueHierarchy", fields: [parentIssueId], references: [id])
   childIssues   Issue[]   @relation("IssueHierarchy")
+  blockedBy     Issue[]   @relation("IssueDependencies")
+  blocking      Issue[]   @relation("IssueDependencies")
   labels        String[]  // bug, feature, task, chore
   dueDate       DateTime?
   scheduledDate DateTime?
