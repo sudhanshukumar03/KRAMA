@@ -14,11 +14,13 @@ async function ensureAuth(): Promise<string | null> {
       body: JSON.stringify({ username: 'engineer', password: 'secure_password' }),
     });
     if (res.ok) {
+      window.dispatchEvent(new CustomEvent('krama:api-online'));
       const data = await res.json();
       cachedToken = data.token;
       return cachedToken;
     }
   } catch (err) {
+    window.dispatchEvent(new CustomEvent('krama:api-offline'));
     console.warn('Auto-auth connection failed (is backend server running?):', err);
   }
   return null;
@@ -35,22 +37,35 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     headers.set('Authorization', `Bearer ${cachedToken}`);
   }
 
-  let res = await fetch(`/api/v1${endpoint}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  let res: Response;
+  try {
+    res = await fetch(`/api/v1${endpoint}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
+    window.dispatchEvent(new CustomEvent('krama:api-online'));
+  } catch (netErr) {
+    window.dispatchEvent(new CustomEvent('krama:api-offline'));
+    throw netErr;
+  }
 
   if (res.status === 401) {
     cachedToken = null;
     await ensureAuth();
     if (cachedToken) {
       headers.set('Authorization', `Bearer ${cachedToken}`);
-      res = await fetch(`/api/v1${endpoint}`, {
-        ...options,
-        headers,
-        credentials: 'include',
-      });
+      try {
+        res = await fetch(`/api/v1${endpoint}`, {
+          ...options,
+          headers,
+          credentials: 'include',
+        });
+        window.dispatchEvent(new CustomEvent('krama:api-online'));
+      } catch (netErr) {
+        window.dispatchEvent(new CustomEvent('krama:api-offline'));
+        throw netErr;
+      }
     }
   }
 

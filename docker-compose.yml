@@ -14,5 +14,22 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: krama_api
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: "postgresql://postgres:password@db:5432/krama?schema=public"
+      JWT_SECRET: "krama-os-secret-jwt-key-2026-prod-docker-secure"
+      CORS_ORIGIN: "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
+    ports:
+      - "3001:3001"
+    depends_on:
+      - db
+    restart: unless-stopped
+
 volumes:
   postgres_data:
