@@ -32,6 +32,13 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
   }
 });
 
+const normalizeArray = (val: any): string[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.map(String);
+  if (typeof val === 'string') return val.split(',').map(s => s.trim()).filter(Boolean);
+  return [String(val)];
+};
+
 router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { date, wins, blockers, mood, energy, deepWorkMinutes, notes } = req.body;
@@ -42,8 +49,8 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
     const log = await prisma.dailyLog.create({
       data: {
         date: new Date(date),
-        wins: wins || [],
-        blockers: blockers || [],
+        wins: normalizeArray(wins),
+        blockers: normalizeArray(blockers),
         mood: mood || null,
         energy: energy || null,
         deepWorkMinutes: deepWorkMinutes !== undefined ? Number(deepWorkMinutes) : 0,
@@ -63,8 +70,8 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
       where: { id: req.params.id },
       data: {
         ...(date !== undefined && { date: new Date(date) }),
-        ...(wins !== undefined && { wins }),
-        ...(blockers !== undefined && { blockers }),
+        ...(wins !== undefined && { wins: normalizeArray(wins) }),
+        ...(blockers !== undefined && { blockers: normalizeArray(blockers) }),
         ...(mood !== undefined && { mood }),
         ...(energy !== undefined && { energy }),
         ...(deepWorkMinutes !== undefined && { deepWorkMinutes: Number(deepWorkMinutes) }),

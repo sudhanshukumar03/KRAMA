@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { CheckCircle2, Clock, TrendingUp, Flame, Sparkles, Plus, Sun, Moon, Check } from 'lucide-react';
+import { CheckCircle2, Clock, TrendingUp, Flame, Sparkles, Plus, Sun, Moon, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
@@ -32,6 +32,151 @@ function generate30DayPattern(habit: any) {
   return days;
 }
 
+function HabitCreateModal({
+  open,
+  onClose,
+  onSubmit,
+  isSubmitting
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: { name: string; cadence: string; category: string; timeOfDay: string; duration: number }) => void;
+  isSubmitting: boolean;
+}) {
+  const [name, setName] = useState('');
+  const [cadence, setCadence] = useState('daily');
+  const [category, setCategory] = useState('Execution');
+  const [timeOfDay, setTimeOfDay] = useState('morning');
+  const [duration, setDuration] = useState(15);
+
+  if (!open) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onSubmit({ name: name.trim(), cadence, category, timeOfDay, duration });
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="bg-white border border-[#E5E8EC] rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E8EC] bg-[#F8F9FB]/50">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#EA580C]/10 text-[#EA580C] flex items-center justify-center">
+              <Flame className="w-4 h-4 stroke-[2]" />
+            </div>
+            <h3 className="text-base font-medium text-[#111827]">Create New Routine / Habit</h3>
+          </div>
+          <button
+            onClick={onClose}
+            type="button"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FB] hover:text-[#111827] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              Routine Name <span className="text-[#DC2626]">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g., 45m Focused Deep Work"
+              required
+              autoFocus
+              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Cadence
+              </label>
+              <select
+                value={cadence}
+                onChange={e => setCadence(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+              >
+                <option value="daily">Daily Routine</option>
+                <option value="weekly">Weekly Check-in</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Category
+              </label>
+              <select
+                value={category}
+                onChange={e => setCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+              >
+                <option value="Execution">Execution</option>
+                <option value="Brain">Brain</option>
+                <option value="Goals">Goals</option>
+                <option value="Habits">Habits</option>
+                <option value="Projects">Projects</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Time of Day
+              </label>
+              <select
+                value={timeOfDay}
+                onChange={e => setTimeOfDay(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+              >
+                <option value="morning">Morning</option>
+                <option value="afternoon">Afternoon</option>
+                <option value="evening">Evening</option>
+                <option value="anytime">Anytime</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Duration (mins)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="480"
+                value={duration}
+                onChange={e => setDuration(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-[#E5E8EC] flex justify-end gap-3">
+            <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </BaseButton>
+            <BaseButton type="submit" disabled={isSubmitting || !name.trim()}>
+              {isSubmitting ? 'Creating...' : 'Create Habit'}
+            </BaseButton>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function HabitTracker() {
   const queryClient = useQueryClient();
   const { data: habits = [], isLoading, isError } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
@@ -46,23 +191,29 @@ export function HabitTracker() {
     },
   });
 
-  const handleCreateHabit = async () => {
-    try {
-      const name = 'New Daily Routine';
-      await api.habits.create({
-        name,
-        cadence: 'daily',
-        category: 'Execution',
-        timeOfDay: 'morning',
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const createHabitMutation = useMutation({
+    mutationFn: (data: { name: string; cadence: string; category: string; timeOfDay: string; duration: number }) =>
+      api.habits.create({
+        name: data.name,
+        cadence: data.cadence,
+        category: data.category,
+        timeOfDay: data.timeOfDay,
+        duration: data.duration,
         streak: 0
-      });
+      }),
+    onSuccess: (newHabit) => {
       queryClient.invalidateQueries({ queryKey: ['habits'] });
-      toast.success(`Created "${name}"`, {
-        description: 'Click habit row to configure frequency and target times.'
-      });
-    } catch (err) {
+      setCreateModalOpen(false);
+      toast.success(`Created "${newHabit?.name || 'Habit'}"`);
+    },
+    onError: () => {
       toast.error('Failed to create habit');
     }
+  });
+
+  const handleCreateHabit = () => {
+    setCreateModalOpen(true);
   };
 
   if (isLoading) return <LoadingState variant="habit-tracker" title="Loading Habits..." description="Syncing streak logs and daily routines..." />;
@@ -352,6 +503,12 @@ export function HabitTracker() {
         </div>
       </div>
 
+      <HabitCreateModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSubmit={(data) => createHabitMutation.mutate(data)}
+        isSubmitting={createHabitMutation.isPending}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { 
@@ -25,7 +25,7 @@ import type { IssueWithRelations } from '../types/schema';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 import { ErrorState } from './ui/ErrorState';
-import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks, Search, Filter, Plus, User, Trash2, AlertCircle } from 'lucide-react';
+import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks, Search, Filter, Plus, User, Trash2, AlertCircle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
@@ -44,7 +44,7 @@ function getStatusIcon(status: string) {
   }
 }
 
-function IssueCard({ issue, isDragging, onDelete }: { issue: IssueWithRelations, isDragging?: boolean, onDelete?: (issue: IssueWithRelations) => void }) {
+function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithRelations, isDragging?: boolean, onDelete?: (issue: IssueWithRelations) => void, onClick?: (issue: IssueWithRelations) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: issue.id });
 
   const style = {
@@ -65,6 +65,7 @@ function IssueCard({ issue, isDragging, onDelete }: { issue: IssueWithRelations,
       style={style} 
       {...attributes} 
       {...listeners}
+      onClick={() => onClick && onClick(issue)}
       className={cn(
         "p-3 rounded-lg border border-[#E5E8EC] bg-white shadow-sm text-sm cursor-grab active:cursor-grabbing hover:border-[#111827] transition-all duration-150 group",
         isDragging && "scale-[1.03] shadow-md opacity-90 border-[#111827] ring-2 ring-[#111827] ring-offset-1 z-50 cursor-grabbing"
@@ -153,7 +154,7 @@ function IssueCard({ issue, isDragging, onDelete }: { issue: IssueWithRelations,
   );
 }
 
-function Column({ title, issues, isLast, onDelete, onCreate }: { id: string, title: string, issues: IssueWithRelations[], isLast: boolean, onDelete?: (issue: IssueWithRelations) => void, onCreate?: (status: string) => void }) {
+function Column({ title, issues, isLast, onDelete, onCreate, onClick }: { id: string, title: string, issues: IssueWithRelations[], isLast: boolean, onDelete?: (issue: IssueWithRelations) => void, onCreate?: (status: string) => void, onClick?: (issue: IssueWithRelations) => void }) {
   return (
     <div className={cn(
       "flex flex-col w-[300px] flex-shrink-0 bg-white h-full",
@@ -183,7 +184,7 @@ function Column({ title, issues, isLast, onDelete, onCreate }: { id: string, tit
           ) : (
             <SortableContext items={issues.map(i => i.id)} strategy={verticalListSortingStrategy}>
               {issues.map(issue => (
-                <IssueCard key={issue.id} issue={issue} onDelete={onDelete} />
+                <IssueCard key={issue.id} issue={issue} onDelete={onDelete} onClick={onClick} />
               ))}
             </SortableContext>
           )}
@@ -201,6 +202,388 @@ function Column({ title, issues, isLast, onDelete, onCreate }: { id: string, tit
   );
 }
 
+function IssueCreateModal({
+  open,
+  initialStatus,
+  allIssues,
+  onClose,
+  onSubmit,
+  isSubmitting
+}: {
+  open: boolean;
+  initialStatus: string;
+  allIssues: IssueWithRelations[];
+  onClose: () => void;
+  onSubmit: (data: { title: string; description: string; status: string; priority: string; estimate: number; blockedByIds: string[] }) => void;
+  isSubmitting: boolean;
+}) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [status, setStatus] = useState(initialStatus || 'todo');
+  const [priority, setPriority] = useState('medium');
+  const [estimate, setEstimate] = useState(2);
+  const [blockedByIds, setBlockedByIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (open && initialStatus) setStatus(initialStatus);
+  }, [open, initialStatus]);
+
+  if (!open) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    onSubmit({ title: title.trim(), description: description.trim(), status, priority, estimate: Number(estimate) || 0, blockedByIds });
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="bg-white border border-[#E5E8EC] rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E8EC] bg-[#F8F9FB]/50 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
+              <ListChecks className="w-4 h-4 stroke-[2]" />
+            </div>
+            <h3 className="text-base font-medium text-[#111827]">Create New Task / Issue</h3>
+          </div>
+          <button
+            onClick={onClose}
+            type="button"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FB] hover:text-[#111827] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+          <div>
+            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              Task Title <span className="text-[#DC2626]">*</span>
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g., Implement OAuth2 Login Flow"
+              required
+              autoFocus
+              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Add technical details, acceptance criteria, or context..."
+              rows={3}
+              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Column / Status
+              </label>
+              <select
+                value={status}
+                onChange={e => setStatus(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+              >
+                {STATUSES.map(s => (
+                  <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Priority
+              </label>
+              <select
+                value={priority}
+                onChange={e => setPriority(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Estimate (hrs)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={estimate}
+                onChange={e => setEstimate(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 text-[#DC2626]" /> Dependencies (Blocked By)
+            </label>
+            <div className="max-h-36 overflow-y-auto border border-[#E5E8EC] rounded-lg p-2.5 space-y-1.5 bg-[#F8F9FB]/50">
+              {allIssues.length === 0 ? (
+                <div className="text-xs text-[#9CA3AF] italic text-center py-2">No other tasks available to link as dependencies</div>
+              ) : (
+                allIssues.map(other => {
+                  const isChecked = blockedByIds.includes(other.id);
+                  return (
+                    <label key={other.id} className="flex items-center gap-2 text-xs text-[#111827] cursor-pointer hover:bg-white p-1.5 rounded transition-colors border border-transparent hover:border-[#E5E8EC]">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={e => {
+                          if (e.target.checked) {
+                            setBlockedByIds([...blockedByIds, other.id]);
+                          } else {
+                            setBlockedByIds(blockedByIds.filter(id => id !== other.id));
+                          }
+                        }}
+                        className="rounded border-[#E5E8EC] text-[#2563EB] focus:ring-[#2563EB]"
+                      />
+                      <span className="font-mono text-[#6B7280] text-[10px] bg-white border border-[#E5E8EC] px-1 py-0.5 rounded">#{other.id.slice(-4)}</span>
+                      <span className="truncate flex-1 font-medium">{other.title}</span>
+                      <span className="text-[10px] text-[#9CA3AF] uppercase capitalize">{other.status.replace('_', ' ')}</span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+            <p className="text-[11px] text-[#6B7280] mt-1">Select any tasks that must be completed before this task can start.</p>
+          </div>
+
+          <div className="pt-4 border-t border-[#E5E8EC] flex justify-end gap-3 shrink-0">
+            <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </BaseButton>
+            <BaseButton type="submit" disabled={isSubmitting || !title.trim()}>
+              {isSubmitting ? 'Creating...' : 'Create Task'}
+            </BaseButton>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function IssueEditModal({
+  open,
+  issue,
+  allIssues,
+  onClose,
+  onSubmit,
+  isSubmitting,
+}: {
+  open: boolean;
+  issue: IssueWithRelations | null;
+  allIssues: IssueWithRelations[];
+  onClose: () => void;
+  onSubmit: (id: string, data: { title?: string; description?: string; status?: string; priority?: string; estimate?: number; blockedByIds?: string[] }) => void;
+  isSubmitting: boolean;
+}) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [status, setStatus] = useState('todo');
+  const [priority, setPriority] = useState('medium');
+  const [estimate, setEstimate] = useState(2);
+  const [blockedByIds, setBlockedByIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (open && issue) {
+      setTitle(issue.title || '');
+      setDescription(issue.description || '');
+      setStatus(issue.status || 'todo');
+      setPriority(issue.priority || 'medium');
+      setEstimate(issue.estimate ?? 2);
+      setBlockedByIds(issue.blockedBy?.map((b: any) => b.id) || []);
+    }
+  }, [open, issue]);
+
+  if (!open || !issue) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    onSubmit(issue.id, {
+      title: title.trim(),
+      description: description.trim(),
+      status,
+      priority,
+      estimate: Number(estimate) || 0,
+      blockedByIds,
+    });
+  };
+
+  const otherIssues = allIssues.filter(i => i.id !== issue.id);
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="bg-white border border-[#E5E8EC] rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E8EC] bg-[#F8F9FB]/50 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
+              <ListChecks className="w-4 h-4 stroke-[2]" />
+            </div>
+            <h3 className="text-base font-medium text-[#111827]">Edit Task #{issue.id.slice(-4)}</h3>
+          </div>
+          <button
+            onClick={onClose}
+            type="button"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FB] hover:text-[#111827] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+          <div>
+            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              Task Title <span className="text-[#DC2626]">*</span>
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              required
+              autoFocus
+              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Column / Status
+              </label>
+              <select
+                value={status}
+                onChange={e => setStatus(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+              >
+                {STATUSES.map(s => (
+                  <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Priority
+              </label>
+              <select
+                value={priority}
+                onChange={e => setPriority(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Estimate (hrs)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={estimate}
+                onChange={e => setEstimate(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 text-[#DC2626]" /> Dependencies (Blocked By)
+            </label>
+            <div className="max-h-36 overflow-y-auto border border-[#E5E8EC] rounded-lg p-2.5 space-y-1.5 bg-[#F8F9FB]/50">
+              {otherIssues.length === 0 ? (
+                <div className="text-xs text-[#9CA3AF] italic text-center py-2">No other tasks available to link as dependencies</div>
+              ) : (
+                otherIssues.map(other => {
+                  const isChecked = blockedByIds.includes(other.id);
+                  return (
+                    <label key={other.id} className="flex items-center gap-2 text-xs text-[#111827] cursor-pointer hover:bg-white p-1.5 rounded transition-colors border border-transparent hover:border-[#E5E8EC]">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={e => {
+                          if (e.target.checked) {
+                            setBlockedByIds([...blockedByIds, other.id]);
+                          } else {
+                            setBlockedByIds(blockedByIds.filter(id => id !== other.id));
+                          }
+                        }}
+                        className="rounded border-[#E5E8EC] text-[#2563EB] focus:ring-[#2563EB]"
+                      />
+                      <span className="font-mono text-[#6B7280] text-[10px] bg-white border border-[#E5E8EC] px-1 py-0.5 rounded">#{other.id.slice(-4)}</span>
+                      <span className="truncate flex-1 font-medium">{other.title}</span>
+                      <span className="text-[10px] text-[#9CA3AF] uppercase capitalize">{other.status.replace('_', ' ')}</span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+            <p className="text-[11px] text-[#6B7280] mt-1">Select any tasks that must be completed before this task can start.</p>
+          </div>
+
+          <div className="pt-4 border-t border-[#E5E8EC] flex justify-end gap-3 shrink-0">
+            <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </BaseButton>
+            <BaseButton type="submit" disabled={isSubmitting || !title.trim()}>
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
+            </BaseButton>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function KanbanBoard() {
   const queryClient = useQueryClient();
   const { data: issues = [], isLoading, isError } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
@@ -210,57 +593,84 @@ export function KanbanBoard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'urgent' | 'high' | 'medium' | 'low'>('all');
 
-  const handleCreateIssue = async (status: string = 'todo') => {
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createStatus, setCreateStatus] = useState('todo');
+
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingIssue, setEditingIssue] = useState<IssueWithRelations | null>(null);
+
+  const createIssueMutation = useMutation({
+    mutationFn: (data: { title: string; description: string; status: string; priority: string; estimate: number; blockedByIds?: string[] }) =>
+      api.issues.create({
+        title: data.title,
+        description: data.description,
+        status: data.status as any,
+        priority: data.priority as any,
+        estimate: data.estimate,
+        assignee: 'me',
+        projectId: projects[0]?.id,
+        labels: [],
+        blockedByIds: data.blockedByIds || []
+      }),
+    onSuccess: (newIssue) => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      setCreateModalOpen(false);
+      toast.success(`Created "${newIssue?.title || 'Task'}"`, {
+        description: `Added to ${(newIssue?.status || createStatus).replace('_', ' ')}.`
+      });
+    },
+    onError: () => {
+      toast.error('Failed to create task');
+    }
+  });
+
+  const updateIssueDetailMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<IssueWithRelations> & { blockedByIds?: string[] } }) =>
+      api.issues.update(id, data),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      setEditModalOpen(false);
+      setEditingIssue(null);
+      toast.success(`Updated "${updated?.title || 'Task'}"`);
+    },
+    onError: () => {
+      toast.error('Failed to update task details');
+    }
+  });
+
+  const handleCreateIssue = (status: string = 'todo') => {
     if (projects.length === 0) {
       toast.error('No project found. Create a project first!');
       return;
     }
-    const title = `New Task (${status.replace('_', ' ')})`;
-    await api.issues.create({
-      title,
-      status: status as any,
-      priority: 'medium',
-      assignee: 'me',
-      projectId: projects[0].id,
-      estimate: 2,
-      labels: []
-    });
-    queryClient.invalidateQueries({ queryKey: ['issues'] });
-    toast.success(`Created "${title}"`, {
-      description: `Added to ${status.replace('_', ' ')}. Click card to edit.`
-    });
+    setCreateStatus(status);
+    setCreateModalOpen(true);
+  };
+
+  const handleEditIssue = (issue: IssueWithRelations) => {
+    setEditingIssue(issue);
+    setEditModalOpen(true);
   };
 
   const handleDeleteIssue = async (issue: IssueWithRelations) => {
-    const deletedIssue = { ...issue };
-    await api.issues.delete(issue.id);
-    queryClient.setQueryData<IssueWithRelations[]>(['issues'], old => old?.filter(i => i.id !== issue.id));
-    toast.success(`Deleted "${issue.title}"`, {
-      description: `Issue #${issue.id.slice(-4)} removed from sprint board.`,
-      action: {
-        label: 'Undo',
-        onClick: async () => {
-          await api.issues.create({
-            title: deletedIssue.title,
-            description: deletedIssue.description,
-            status: deletedIssue.status as any,
-            priority: deletedIssue.priority as any,
-            estimate: deletedIssue.estimate,
-            assignee: deletedIssue.assignee,
-            projectId: deletedIssue.projectId,
-            sprintId: deletedIssue.sprintId,
-            parentIssueId: deletedIssue.parentIssueId,
-            labels: deletedIssue.labels,
-            dueDate: deletedIssue.dueDate ? new Date(deletedIssue.dueDate) : undefined,
-            scheduledDate: deletedIssue.scheduledDate ? new Date(deletedIssue.scheduledDate) : undefined,
-            blockedByIds: (deletedIssue as any).blockedBy?.map((b: any) => b.id),
-          });
-          queryClient.invalidateQueries({ queryKey: ['issues'] });
-          toast.success(`Restored "${issue.title}"`);
-        }
-      },
-      duration: 5000,
-    });
+    try {
+      const res = await api.issues.delete(issue.id);
+      queryClient.setQueryData<IssueWithRelations[]>(['issues'], old => old?.filter(i => i.id !== issue.id));
+      toast.success(`Deleted "${issue.title}"`, {
+        description: `Issue #${issue.id.slice(-4)} removed from sprint board.`,
+        action: res?.snapshot ? {
+          label: 'Undo',
+          onClick: async () => {
+            await api.issues.restore(res.snapshot);
+            queryClient.invalidateQueries({ queryKey: ['issues'] });
+            toast.success(`Restored "${issue.title}"`);
+          }
+        } : undefined,
+        duration: 5000,
+      });
+    } catch (err) {
+      toast.error("Failed to delete issue");
+    }
   };
 
   const updateIssueMutation = useMutation({
@@ -403,7 +813,7 @@ export function KanbanBoard() {
             {STATUSES.map((status, index) => {
               const columnIssues = filteredIssues.filter(i => i.status === status);
               return (
-                <Column key={status} id={status} title={status} issues={columnIssues} isLast={index === STATUSES.length - 1} onDelete={handleDeleteIssue} onCreate={handleCreateIssue} />
+                <Column key={status} id={status} title={status} issues={columnIssues} isLast={index === STATUSES.length - 1} onDelete={handleDeleteIssue} onCreate={handleCreateIssue} onClick={handleEditIssue} />
               );
             })}
             
@@ -416,6 +826,24 @@ export function KanbanBoard() {
           </DndContext>
         </div>
       </div>
+
+      <IssueCreateModal
+        open={createModalOpen}
+        initialStatus={createStatus}
+        allIssues={issues}
+        onClose={() => setCreateModalOpen(false)}
+        onSubmit={(data) => createIssueMutation.mutate(data)}
+        isSubmitting={createIssueMutation.isPending}
+      />
+
+      <IssueEditModal
+        open={editModalOpen}
+        issue={editingIssue}
+        allIssues={issues}
+        onClose={() => { setEditModalOpen(false); setEditingIssue(null); }}
+        onSubmit={(id, data) => updateIssueDetailMutation.mutate({ id, data })}
+        isSubmitting={updateIssueDetailMutation.isPending}
+      />
     </div>
   );
 }

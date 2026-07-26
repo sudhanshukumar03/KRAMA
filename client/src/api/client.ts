@@ -121,7 +121,8 @@ export const api = {
     list: () => fetchApi<IssueWithRelations[]>('/issues'),
     create: (data: Record<string, any> & { title: string }) => fetchApi<IssueWithRelations>('/issues', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<IssueWithRelations>(`/issues/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<void>(`/issues/${id}`, { method: 'DELETE' }),
+    delete: (id: string) => fetchApi<{ message: string; snapshot: any }>(`/issues/${id}`, { method: 'DELETE' }),
+    restore: (snapshot: Record<string, any>) => fetchApi<IssueWithRelations>('/issues/restore', { method: 'POST', body: JSON.stringify(snapshot) }),
   },
   sprints: {
     list: () => fetchApi<Sprint[]>('/sprints'),

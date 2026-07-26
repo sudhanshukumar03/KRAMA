@@ -1,12 +1,138 @@
 import { useState, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, Trash2 } from 'lucide-react';
+import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, Trash2, X } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+
+function ProjectCreateModal({
+  open,
+  onClose,
+  onSubmit,
+  isSubmitting
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: { name: string; problemStatement: string; status: string; targetDate: string }) => void;
+  isSubmitting: boolean;
+}) {
+  const [name, setName] = useState('');
+  const [problemStatement, setProblemStatement] = useState('');
+  const [status, setStatus] = useState('active');
+  const [targetDate, setTargetDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 60);
+    return d.toISOString().split('T')[0];
+  });
+
+  if (!open) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onSubmit({ name: name.trim(), problemStatement: problemStatement.trim(), status, targetDate });
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="bg-white border border-[#E5E8EC] rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E8EC] bg-[#F8F9FB]/50">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
+              <FolderKanban className="w-4 h-4 stroke-[2]" />
+            </div>
+            <h3 className="text-base font-medium text-[#111827]">Create New Project</h3>
+          </div>
+          <button
+            onClick={onClose}
+            type="button"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FB] hover:text-[#111827] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              Project Name <span className="text-[#DC2626]">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g., Mobile Companion App v2"
+              required
+              autoFocus
+              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              Problem Statement / Scope
+            </label>
+            <textarea
+              value={problemStatement}
+              onChange={e => setProblemStatement(e.target.value)}
+              placeholder="Briefly describe the objective and scope..."
+              rows={3}
+              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Status
+              </label>
+              <select
+                value={status}
+                onChange={e => setStatus(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+              >
+                <option value="idea">Idea / Discovery</option>
+                <option value="active">Active Execution</option>
+                <option value="paused">Paused</option>
+                <option value="shipped">Shipped</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Target Date
+              </label>
+              <input
+                type="date"
+                value={targetDate}
+                onChange={e => setTargetDate(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-[#E5E8EC] flex justify-end gap-3">
+            <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </BaseButton>
+            <BaseButton type="submit" disabled={isSubmitting || !name.trim()}>
+              {isSubmitting ? 'Creating...' : 'Create Project'}
+            </BaseButton>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export function Projects() {
   const navigate = useNavigate();
@@ -36,24 +162,31 @@ export function Projects() {
     }
   };
 
-  const handleCreateProject = async () => {
-    try {
-      const name = 'New Strategic Initiative';
-      const newProj = await api.projects.create({
-        name,
-        problemStatement: 'Define strategic goals, scope, and technical deliverables.',
-        status: 'in_progress',
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const createProjectMutation = useMutation({
+    mutationFn: (data: { name: string; problemStatement: string; status: string; targetDate: string }) =>
+      api.projects.create({
+        name: data.name,
+        problemStatement: data.problemStatement,
+        status: data.status,
         progress: 0,
-        targetDate: new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0]
-      });
+        targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : null
+      }),
+    onSuccess: (newProj) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success(`Created "${name}"`, {
+      setCreateModalOpen(false);
+      toast.success(`Created "${newProj?.name || 'Project'}"`, {
         description: 'Click project card to view roadmap and board.'
       });
       if (newProj?.id) navigate(`/app/projects/${newProj.id}`);
-    } catch (err) {
+    },
+    onError: () => {
       toast.error('Failed to create project');
     }
+  });
+
+  const handleCreateProject = () => {
+    setCreateModalOpen(true);
   };
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -260,6 +393,13 @@ export function Projects() {
           );
         })}
       </div>
+
+      <ProjectCreateModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSubmit={(data) => createProjectMutation.mutate(data)}
+        isSubmitting={createProjectMutation.isPending}
+      />
     </div>
   );
 }

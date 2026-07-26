@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Target, CheckCircle2, ListTodo, AlertCircle, Play, Plus, Download, Clock, ArrowUpRight, Flame, TrendingUp, Sparkles, Check } from 'lucide-react';
@@ -24,17 +24,6 @@ function getTimeAgo(date: Date) {
   if (interval > 1) return Math.floor(interval) + "m ago";
   return "just now";
 }
-
-// Mock chart data (Issues completed per day)
-const barData = [
-  { name: 'Mon', completed: 3 },
-  { name: 'Tue', completed: 5 },
-  { name: 'Wed', completed: 2 },
-  { name: 'Thu', completed: 8 },
-  { name: 'Fri', completed: 4 },
-  { name: 'Sat', completed: 1 },
-  { name: 'Sun', completed: 0 },
-];
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -123,6 +112,40 @@ export function Dashboard() {
   // Active Habit Streaks count
   const activeStreaksCount = habits.filter(h => h.streak > 0).length;
 
+  // Dynamic 7-day velocity and chart data
+  const liveBarData = useMemo(() => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const data = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 86400000);
+      const dayStr = d.toISOString().split('T')[0];
+      const completedCount = doneIssues.filter(issue => {
+        const dateToUse = issue.completedAt ? new Date(issue.completedAt) : new Date(issue.updatedAt);
+        return dateToUse.toISOString().split('T')[0] === dayStr;
+      }).length;
+      data.push({
+        name: days[d.getDay()] || '',
+        completed: completedCount
+      });
+    }
+    return data;
+  }, [doneIssues, today]);
+
+  const weeklyVelocityCount = useMemo(() => {
+    return liveBarData.reduce((sum, item) => sum + item.completed, 0);
+  }, [liveBarData]);
+
+  const avgGoalProgress = useMemo(() => {
+    if (goals.length === 0) return 0;
+    const totalProg = goals.reduce((sum, g) => sum + (g.progress || 0), 0);
+    return Math.round(totalProg / goals.length);
+  }, [goals]);
+
+  const goalStatusBadge = avgGoalProgress >= 70 ? 'Ahead' : avgGoalProgress >= 30 ? 'On Track' : goals.length === 0 ? 'No Goals' : 'Needs Attention';
+  const badgeColors = avgGoalProgress >= 30 
+    ? 'text-[#0D9488] bg-[#0D9488]/10 border-[#0D9488]/20' 
+    : 'text-[#DC2626] bg-[#DC2626]/10 border-[#DC2626]/20';
+
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 flex flex-col gap-8 pb-20">
       
@@ -163,17 +186,20 @@ export function Dashboard() {
               <span className="text-caption font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
                 <TrendingUp className="w-3.5 h-3.5 text-[#111827] stroke-[1.75]" /> Weekly Velocity
               </span>
-              <span className="text-badge text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-1.5 py-0.5 rounded">+18 pts</span>
+              <span className="text-badge text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-1.5 py-0.5 rounded">{weeklyVelocityCount > 0 ? `+${weeklyVelocityCount} tasks` : '0 tasks'}</span>
             </div>
             <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-medium font-mono text-[#111827]">23 <span className="text-caption font-sans text-[#6B7280] font-normal">tasks/wk</span></span>
+              <span className="text-2xl font-medium font-mono text-[#111827]">{weeklyVelocityCount} <span className="text-caption font-sans text-[#6B7280] font-normal">tasks/wk</span></span>
             </div>
             <div className="mt-3 flex items-center gap-1.5">
-              {[3, 5, 2, 8, 4, 1, 0].map((val, i) => (
-                <div key={i} className="flex-1 h-1.5 rounded-full bg-[#F8F9FB] overflow-hidden">
-                  <div className="h-full bg-[#111827] transition-all duration-400 ease-out" style={{ width: `${(val / 8) * 100}%` }} />
-                </div>
-              ))}
+              {liveBarData.map((item, i) => {
+                const maxVal = Math.max(1, ...liveBarData.map(d => d.completed));
+                return (
+                  <div key={i} title={`${item.name}: ${item.completed}`} className="flex-1 h-1.5 rounded-full bg-[#F8F9FB] overflow-hidden">
+                    <div className="h-full bg-[#111827] transition-all duration-400 ease-out" style={{ width: `${(item.completed / maxVal) * 100}%` }} />
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -206,19 +232,19 @@ export function Dashboard() {
             </div>
           </div>
 
-          {/* Metric 3: Q3 OKR Pace */}
+          {/* Metric 3: Goals / OKR Pace */}
           <div className="pt-6 lg:pt-0 sm:px-6 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <span className="text-caption font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
-                <Target className="w-3.5 h-3.5 text-[#0D9488] stroke-[1.75]" /> Q3 OKR Pace
+                <Target className="w-3.5 h-3.5 text-[#0D9488] stroke-[1.75]" /> Goals & OKR Pace
               </span>
-              <span className="text-badge text-[#0D9488] bg-[#0D9488]/10 border border-[#0D9488]/20 px-1.5 py-0.5 rounded">On Track</span>
+              <span className={`text-badge border px-1.5 py-0.5 rounded ${badgeColors}`}>{goalStatusBadge}</span>
             </div>
             <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-medium font-mono text-[#111827]">35% <span className="text-caption font-sans text-[#6B7280] font-normal">avg progress</span></span>
+              <span className="text-2xl font-medium font-mono text-[#111827]">{avgGoalProgress}% <span className="text-caption font-sans text-[#6B7280] font-normal">avg progress</span></span>
             </div>
             <div className="mt-3 h-1.5 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/40">
-              <div className="h-full bg-[#0D9488] transition-all duration-400 ease-out" style={{ width: '35%' }} />
+              <div className="h-full bg-[#0D9488] transition-all duration-400 ease-out" style={{ width: `${avgGoalProgress}%` }} />
             </div>
           </div>
 
@@ -447,7 +473,7 @@ export function Dashboard() {
           </div>
           <div className="h-56 w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <BarChart data={liveBarData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E8EC" />
                 <Tooltip 
                   cursor={{ fill: '#F8F9FB', opacity: 0.8 }} 

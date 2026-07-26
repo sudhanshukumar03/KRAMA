@@ -141,6 +141,9 @@ router.delete('/:id', async (req, res) => {
             where: { id: req.params.id },
             include: {
                 snapshots: true,
+                childGoals: true,
+                linkedProjects: true,
+                habits: true,
             },
         });
         await prisma.goal.updateMany({
@@ -150,6 +153,10 @@ router.delete('/:id', async (req, res) => {
         await prisma.project.updateMany({
             where: { goalId: req.params.id },
             data: { goalId: null },
+        });
+        await prisma.habit.updateMany({
+            where: { linkedGoalId: req.params.id },
+            data: { linkedGoalId: null },
         });
         await prisma.goal.delete({
             where: { id: req.params.id },
@@ -165,34 +172,64 @@ router.delete('/:id', async (req, res) => {
 });
 router.post('/restore', async (req, res) => {
     try {
-        const { id, title, type, targetDate, parentGoalId, progress, snapshots = [] } = req.body;
+        const { id, title, type, targetDate, parentGoalId, progress, snapshots = [], childGoals = [], linkedProjects = [], habits = [] } = req.body;
+        let validParentId = null;
+        if (parentGoalId && typeof parentGoalId === 'string' && parentGoalId.trim() !== '') {
+            const parentExists = await prisma.goal.findUnique({ where: { id: parentGoalId.trim() } });
+            if (parentExists)
+                validParentId = parentGoalId.trim();
+        }
+        const validTargetDate = targetDate && !isNaN(new Date(targetDate).getTime()) ? new Date(targetDate) : null;
         const goal = await prisma.$transaction(async (tx) => {
             const g = await tx.goal.create({
                 data: {
                     ...(id && { id }),
-                    title,
+                    title: title || 'Restored Goal',
                     type: type || 'quarterly',
-                    targetDate: targetDate ? new Date(targetDate) : null,
-                    parentGoalId: parentGoalId || null,
-                    progress: progress || 0,
+                    targetDate: validTargetDate,
+                    parentGoalId: validParentId,
+                    progress: Number(progress) || 0,
                 },
             });
             for (const s of snapshots) {
-                await tx.goalProgressSnapshot.create({
-                    data: {
-                        ...(s.id && { id: s.id }),
-                        goalId: g.id,
-                        progress: s.progress,
-                        date: new Date(s.date),
-                        note: s.note || null,
-                    },
-                });
+                const snapDate = s.date && !isNaN(new Date(s.date).getTime()) ? new Date(s.date) : new Date();
+                const existingSnap = s.id ? await tx.goalProgressSnapshot.findUnique({ where: { id: s.id } }) : null;
+                if (!existingSnap) {
+                    await tx.goalProgressSnapshot.create({
+                        data: {
+                            ...(s.id && { id: s.id }),
+                            goalId: g.id,
+                            progress: Number(s.progress) || 0,
+                            date: snapDate,
+                            note: s.note || null,
+                        },
+                    });
+                }
+            }
+            for (const child of childGoals) {
+                if (child?.id) {
+                    await tx.goal.updateMany({ where: { id: child.id }, data: { parentGoalId: g.id } });
+                }
+            }
+            for (const proj of linkedProjects) {
+                if (proj?.id) {
+                    await tx.project.updateMany({ where: { id: proj.id }, data: { goalId: g.id } });
+                }
+            }
+            for (const h of habits) {
+                if (h?.id) {
+                    await tx.habit.updateMany({ where: { id: h.id }, data: { linkedGoalId: g.id } });
+                }
             }
             return await tx.goal.findUnique({
                 where: { id: g.id },
                 include: goalInclude,
             });
         });
+        if (validParentId) {
+            await recalculateGoalRollups(validParentId);
+        }
+        await recalculateGoalRollups(goal?.id || null);
         res.status(201).json(goal);
     }
     catch (err) {

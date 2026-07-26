@@ -33,11 +33,14 @@ router.get('/:id', async (req, res) => {
 });
 router.post('/', async (req, res) => {
     try {
-        const { title, description, status, priority, estimate, assignee, projectId, sprintId, parentIssueId, labels, dueDate, scheduledDate, blockedByIds, } = req.body;
+        const { title, description, status, priority, estimate, assignee, projectId, sprintId, parentIssueId, labels, dueDate, scheduledDate, blockedByIds, blockedBy, } = req.body;
         if (!title || !status || !priority || !projectId) {
             res.status(400).json({ error: 'Title, status, priority, and projectId are required' });
             return;
         }
+        const depIds = blockedByIds !== undefined && Array.isArray(blockedByIds)
+            ? blockedByIds
+            : (blockedBy && Array.isArray(blockedBy) ? blockedBy.map((b) => typeof b === 'string' ? b : b.id) : undefined);
         const issue = await prisma.issue.create({
             data: {
                 title,
@@ -53,9 +56,9 @@ router.post('/', async (req, res) => {
                 dueDate: dueDate ? new Date(dueDate) : null,
                 scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
                 completedAt: status === 'done' ? new Date() : null,
-                ...(blockedByIds && Array.isArray(blockedByIds) && blockedByIds.length > 0 && {
+                ...(depIds && Array.isArray(depIds) && depIds.length > 0 && {
                     blockedBy: {
-                        connect: blockedByIds.map((id) => ({ id })),
+                        connect: depIds.map((id) => ({ id })),
                     },
                 }),
             },
@@ -69,7 +72,7 @@ router.post('/', async (req, res) => {
 });
 router.put('/:id', async (req, res) => {
     try {
-        const { title, description, status, priority, estimate, assignee, sprintId, parentIssueId, labels, dueDate, scheduledDate, blockedByIds, } = req.body;
+        const { title, description, status, priority, estimate, assignee, sprintId, parentIssueId, labels, dueDate, scheduledDate, blockedByIds, blockedBy, } = req.body;
         const existing = await prisma.issue.findUnique({ where: { id: req.params.id } });
         if (!existing) {
             res.status(404).json({ error: 'Issue not found' });
@@ -82,6 +85,9 @@ router.put('/:id', async (req, res) => {
         else if (status && status !== 'done') {
             completedAt = null;
         }
+        const depIds = blockedByIds !== undefined && Array.isArray(blockedByIds)
+            ? blockedByIds
+            : (blockedBy !== undefined && Array.isArray(blockedBy) ? blockedBy.map((b) => typeof b === 'string' ? b : b.id) : undefined);
         const issue = await prisma.issue.update({
             where: { id: req.params.id },
             data: {
@@ -97,9 +103,9 @@ router.put('/:id', async (req, res) => {
                 ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
                 ...(scheduledDate !== undefined && { scheduledDate: scheduledDate ? new Date(scheduledDate) : null }),
                 completedAt,
-                ...(blockedByIds !== undefined && Array.isArray(blockedByIds) && {
+                ...(depIds !== undefined && Array.isArray(depIds) && {
                     blockedBy: {
-                        set: blockedByIds.map((id) => ({ id })),
+                        set: depIds.map((id) => ({ id })),
                     },
                 }),
             },
@@ -113,6 +119,10 @@ router.put('/:id', async (req, res) => {
 });
 router.delete('/:id', async (req, res) => {
     try {
+        const snapshot = await prisma.issue.findUnique({
+            where: { id: req.params.id },
+            include: { project: true, sprint: true, blockedBy: true, blocking: true, childIssues: true },
+        });
         // Prevent foreign key constraint violation if issue has child issues
         await prisma.issue.updateMany({
             where: { parentIssueId: req.params.id },
@@ -121,7 +131,41 @@ router.delete('/:id', async (req, res) => {
         await prisma.issue.delete({
             where: { id: req.params.id },
         });
-        res.status(204).send();
+        res.json({ message: 'Issue deleted successfully', snapshot });
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+router.post('/restore', async (req, res) => {
+    try {
+        const { id, title, description, status, priority, estimate, assignee, projectId, sprintId, parentIssueId, labels, dueDate, scheduledDate, completedAt, blockedBy = [] } = req.body;
+        const depIds = Array.isArray(blockedBy) ? blockedBy.map((b) => typeof b === 'string' ? b : b.id) : [];
+        const issue = await prisma.issue.create({
+            data: {
+                ...(id && { id }),
+                title,
+                description: description || null,
+                status: status || 'todo',
+                priority: priority || 'medium',
+                estimate: estimate !== undefined && estimate !== null ? Number(estimate) : null,
+                assignee: assignee || null,
+                projectId: projectId || null,
+                sprintId: sprintId || null,
+                parentIssueId: parentIssueId || null,
+                labels: labels || [],
+                dueDate: dueDate ? new Date(dueDate) : null,
+                scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
+                completedAt: completedAt ? new Date(completedAt) : null,
+                ...(depIds.length > 0 && {
+                    blockedBy: {
+                        connect: depIds.map((id) => ({ id })),
+                    },
+                }),
+            },
+            include: { project: true, sprint: true, blockedBy: true, blocking: true, childIssues: true },
+        });
+        res.status(201).json(issue);
     }
     catch (err) {
         res.status(500).json({ error: err.message });

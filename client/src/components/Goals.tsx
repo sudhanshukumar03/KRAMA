@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, Sparkles, ArrowRight, Flame, Check, Trash2 } from 'lucide-react';
+import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, Sparkles, ArrowRight, Flame, Check, Trash2, X } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { LoadingState } from './ui/LoadingState';
@@ -195,6 +195,135 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
   );
 }
 
+function GoalCreateModal({
+  open,
+  onClose,
+  onSubmit,
+  isSubmitting
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: { title: string; type: string; progress: number; targetDate: string }) => void;
+  isSubmitting: boolean;
+}) {
+  const [title, setTitle] = useState('');
+  const [type, setType] = useState('quarterly');
+  const [progress, setProgress] = useState(0);
+  const [targetDate, setTargetDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 90);
+    return d.toISOString().split('T')[0];
+  });
+
+  if (!open) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    onSubmit({ title: title.trim(), type, progress, targetDate });
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="bg-white border border-[#E5E8EC] rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E8EC] bg-[#F8F9FB]/50">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#0D9488]/10 text-[#0D9488] flex items-center justify-center">
+              <Target className="w-4 h-4 stroke-[2]" />
+            </div>
+            <h3 className="text-base font-medium text-[#111827]">Create New Goal / OKR</h3>
+          </div>
+          <button
+            onClick={onClose}
+            type="button"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FB] hover:text-[#111827] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              Objective Title <span className="text-[#DC2626]">*</span>
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g., Ship Krama OS v1.0 Public Beta"
+              required
+              autoFocus
+              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition-all"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Strategic Horizon
+              </label>
+              <select
+                value={type}
+                onChange={e => setType(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition-all"
+              >
+                <option value="quarterly">Quarterly (90 Days)</option>
+                <option value="yearly">Annual Horizon</option>
+                <option value="monthly">Monthly Sprint</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+                Target Date
+              </label>
+              <input
+                type="date"
+                value={targetDate}
+                onChange={e => setTargetDate(e.target.value)}
+                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition-all"
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="text-xs font-mono font-medium text-[#6B7280] uppercase">
+                Initial Progress
+              </label>
+              <span className="text-xs font-mono font-bold text-[#0D9488]">{progress}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={progress}
+              onChange={e => setProgress(Number(e.target.value))}
+              className="w-full accent-[#0D9488] cursor-pointer"
+            />
+          </div>
+
+          <div className="pt-4 border-t border-[#E5E8EC] flex justify-end gap-3">
+            <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </BaseButton>
+            <BaseButton type="submit" disabled={isSubmitting || !title.trim()}>
+              {isSubmitting ? 'Creating...' : 'Create Goal'}
+            </BaseButton>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function Goals() {
   const navigate = useNavigate();
   const { data: goals = [], isLoading: goalsLoading, isError: goalsError } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
@@ -210,23 +339,28 @@ export function Goals() {
     }
   });
 
-  const handleCreateGoal = async () => {
-    try {
-      const title = 'New Q3 Strategic Objective';
-      await api.goals.create({
-        title,
-        type: 'quarterly',
-        progress: 0,
-        targetDate: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const createGoalMutation = useMutation({
+    mutationFn: (data: { title: string; type: string; progress: number; targetDate: string }) =>
+      api.goals.create({
+        title: data.title,
+        type: data.type,
+        progress: data.progress,
+        targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : null,
         status: 'on_track'
-      });
+      }),
+    onSuccess: (newGoal) => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
-      toast.success(`Created "${title}"`, {
-        description: 'Click goal card to edit objectives and progress.'
-      });
-    } catch (err) {
+      setCreateModalOpen(false);
+      toast.success(`Created "${newGoal?.title || 'Goal'}"`);
+    },
+    onError: () => {
       toast.error('Failed to create goal');
     }
+  });
+
+  const handleCreateGoal = () => {
+    setCreateModalOpen(true);
   };
 
   if (goalsLoading || habitsLoading) {
@@ -379,6 +513,13 @@ export function Goals() {
         </div>
 
       </div>
+
+      <GoalCreateModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSubmit={(data) => createGoalMutation.mutate(data)}
+        isSubmitting={createGoalMutation.isPending}
+      />
     </div>
   );
 }

@@ -180,19 +180,19 @@ function Breadcrumbs({ page, pages }: { page: PageWithRelations, pages: PageWith
   }
 
   return (
-    <div className="flex items-center gap-1.5 text-caption text-[#6B7280] mb-6 font-mono select-none overflow-x-auto pb-1">
-      <span className="flex items-center gap-1.5 hover:text-[#111827] cursor-pointer transition-colors duration-150">
-        <BookOpen className="w-3.5 h-3.5 text-[#9CA3AF]" /> Knowledge Base
+    <div className="flex items-center gap-1.5 text-caption text-[#6B7280] mb-4 font-mono select-none overflow-x-auto py-2 leading-normal">
+      <span className="flex items-center gap-1.5 hover:text-[#111827] cursor-pointer transition-colors duration-150 shrink-0">
+        <BookOpen className="w-3.5 h-3.5 text-[#9CA3AF] shrink-0" /> Knowledge Base
       </span>
       {trail.map((p, idx) => (
         <div key={p.id} className="flex items-center gap-1.5 flex-shrink-0">
-          <ChevronRight className="w-3.5 h-3.5 text-[#D1D5DB]" />
+          <ChevronRight className="w-3.5 h-3.5 text-[#D1D5DB] shrink-0" />
           <span className={cn(
-            "flex items-center gap-1.5 px-1.5 py-0.5 rounded-md transition-colors duration-150", 
+            "flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors duration-150 leading-none", 
             idx === trail.length - 1 ? "text-[#111827] font-medium bg-[#F8F9FB] border border-[#E5E8EC]" : "hover:text-[#111827] hover:bg-[#F8F9FB] cursor-pointer"
           )}>
-            {getIconComponent(p.icon, "w-3.5 h-3.5 text-[#6B7280]")}
-            {p.title}
+            {getIconComponent(p.icon, "w-3.5 h-3.5 text-[#6B7280] shrink-0")}
+            <span>{p.title}</span>
           </span>
         </div>
       ))}
