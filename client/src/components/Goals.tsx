@@ -215,6 +215,7 @@ export function Goals() {
       const title = 'New Q3 Strategic Objective';
       await api.goals.create({
         title,
+        type: 'quarterly',
         progress: 0,
         targetDate: new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0],
         status: 'on_track'

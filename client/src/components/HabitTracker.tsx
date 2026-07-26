@@ -51,6 +51,7 @@ export function HabitTracker() {
       const name = 'New Daily Routine';
       await api.habits.create({
         name,
+        cadence: 'daily',
         category: 'Execution',
         timeOfDay: 'morning',
         streak: 0
