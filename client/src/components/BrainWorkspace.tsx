@@ -11,6 +11,7 @@ import { cn } from '../lib/utils';
 import { EmptyState } from './ui/EmptyState';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
+import { ErrorState } from './ui/ErrorState';
 import { toast } from 'sonner';
 
 function getIconComponent(iconName: string | null, className?: string) {
@@ -399,10 +400,20 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
 }
 
 export function BrainWorkspace() {
-  const { data: pages = [], isLoading } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
+  const { data: pages = [], isLoading, isError } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
   const [selectedPageId, setSelectedPageId] = useState<string | null>(pages[0]?.id || null);
 
-  if (isLoading) return <LoadingState title="Loading Knowledge Base..." description="Compiling technical specs and documentation trees..." />;
+  if (isLoading) return <LoadingState variant="brain" title="Loading Knowledge Base..." description="Compiling technical specs and documentation trees..." />;
+  if (isError) {
+    return (
+      <div className="p-8">
+        <ErrorState
+          title="Failed to load Knowledge Base"
+          message="Could not retrieve documents from the server. Please check your network or server connection."
+        />
+      </div>
+    );
+  }
 
   const rootPages = pages.filter(p => !p.parentPageId);
   const selectedPage = pages.find(p => p.id === selectedPageId);

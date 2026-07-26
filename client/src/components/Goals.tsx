@@ -5,6 +5,7 @@ import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle,
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { LoadingState } from './ui/LoadingState';
+import { ErrorState } from './ui/ErrorState';
 import { cn } from '../lib/utils';
 import type { GoalWithRelations } from '../types/schema';
 import { computeGoalPace } from '../lib/goalUtils';
@@ -196,8 +197,8 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
 
 export function Goals() {
   const navigate = useNavigate();
-  const { data: goals = [], isLoading: goalsLoading } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
-  const { data: habits = [], isLoading: habitsLoading } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
+  const { data: goals = [], isLoading: goalsLoading, isError: goalsError } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
+  const { data: habits = [], isLoading: habitsLoading, isError: habitsError } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
 
   const queryClient = useQueryClient();
   const toggleHabitMutation = useMutation({
@@ -209,7 +210,24 @@ export function Goals() {
     }
   });
 
-  if (goalsLoading || habitsLoading) return <LoadingState title="Loading Goals & OKRs..." description="Calculating progress velocities and habit links..." />;
+  if (goalsLoading || habitsLoading) {
+    return <LoadingState variant="goals" title="Loading Goals & OKRs..." description="Calculating progress velocities and habit links..." />;
+  }
+
+  if (goalsError || habitsError) {
+    return (
+      <div className="p-8">
+        <ErrorState
+          title="Failed to load Goals & OKRs"
+          message="Could not retrieve goals and habit data from the server. Please verify your connection."
+          onRetry={() => {
+            queryClient.invalidateQueries({ queryKey: ['goals'] });
+            queryClient.invalidateQueries({ queryKey: ['habits'] });
+          }}
+        />
+      </div>
+    );
+  }
 
   const rootGoals = goals.filter(g => !g.parentGoalId);
 

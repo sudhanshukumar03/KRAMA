@@ -24,6 +24,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { IssueWithRelations } from '../types/schema';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
+import { ErrorState } from './ui/ErrorState';
 import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks, Search, Filter, Plus, User, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
@@ -195,7 +196,7 @@ function Column({ title, issues, isLast, onDelete, onCreate }: { id: string, tit
 
 export function KanbanBoard() {
   const queryClient = useQueryClient();
-  const { data: issues = [], isLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+  const { data: issues = [], isLoading, isError } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
   
   const [activeIssue, setActiveIssue] = useState<IssueWithRelations | null>(null);
@@ -288,7 +289,18 @@ export function KanbanBoard() {
     });
   }, [issues, searchQuery, priorityFilter]);
 
-  if (isLoading) return <LoadingState title="Loading Kanban Board..." description="Organizing sprint tasks and dependencies..." />;
+  if (isLoading) return <LoadingState variant="kanban" title="Loading Kanban Board..." description="Organizing sprint tasks and dependencies..." />;
+  if (isError) {
+    return (
+      <div className="p-8">
+        <ErrorState
+          title="Failed to load Kanban board"
+          message="Could not fetch sprint tasks from the server. Please verify your connection."
+          onRetry={() => queryClient.invalidateQueries({ queryKey: ['issues'] })}
+        />
+      </div>
+    );
+  }
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;

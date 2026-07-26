@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { LoadingState } from './ui/LoadingState';
+import { ErrorState } from './ui/ErrorState';
 import { cn } from '../lib/utils';
 import { getIconForString } from '../lib/iconMap';
 
@@ -33,7 +34,7 @@ function generate30DayPattern(habit: any) {
 
 export function HabitTracker() {
   const queryClient = useQueryClient();
-  const { data: habits = [], isLoading } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
+  const { data: habits = [], isLoading, isError } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   const completeMutation = useMutation({
@@ -45,7 +46,18 @@ export function HabitTracker() {
     },
   });
 
-  if (isLoading) return <LoadingState title="Loading Habits..." description="Syncing streak logs and daily routines..." />;
+  if (isLoading) return <LoadingState variant="habit-tracker" title="Loading Habits..." description="Syncing streak logs and daily routines..." />;
+  if (isError) {
+    return (
+      <div className="p-8">
+        <ErrorState
+          title="Failed to load Habits"
+          message="Could not retrieve habit and streak logs from the server. Please check your connection."
+          onRetry={() => queryClient.invalidateQueries({ queryKey: ['habits'] })}
+        />
+      </div>
+    );
+  }
 
   const categoriesMap = new Map<string, number>();
   habits.forEach(h => {

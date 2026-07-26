@@ -6,6 +6,7 @@ import { FolderKanban, ArrowLeft, Plus, CheckCircle2, Clock, Target, AlertCircle
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { LoadingState } from './ui/LoadingState';
+import { ErrorState } from './ui/ErrorState';
 import { cn } from '../lib/utils';
 import { computeGoalPace } from '../lib/goalUtils';
 import type { GoalWithRelations } from '../types/schema';
@@ -21,13 +22,26 @@ export function ProjectDetail() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'board' | 'roadmap' | 'docs'>('overview');
 
-  const { data: projects = [], isLoading: pLoading } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
-  const { data: issues = [], isLoading: iLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+  const { data: projects = [], isLoading: pLoading, isError: pError } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+  const { data: issues = [], isLoading: iLoading, isError: iError } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
   const { data: pages = [], isLoading: docsLoading } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
   const { data: roadmapItems = [], isLoading: rmLoading } = useQuery({ queryKey: ['roadmapItems'], queryFn: api.roadmapItems.list });
   const { data: goals = [], isLoading: goalsLoading } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
 
-  if (pLoading || iLoading || docsLoading || rmLoading || goalsLoading) return <LoadingState title="Loading Project Details..." description="Aggregating roadmap milestones, sprint tasks, and documentation..." />;
+  if (pLoading || iLoading || docsLoading || rmLoading || goalsLoading) {
+    return <LoadingState variant="project-detail" title="Loading Project Details..." description="Aggregating roadmap milestones, sprint tasks, and documentation..." />;
+  }
+
+  if (pError || iError) {
+    return (
+      <div className="p-8">
+        <ErrorState
+          title="Failed to load Project Details"
+          message="Could not retrieve project data from the server. Please verify your connection."
+        />
+      </div>
+    );
+  }
 
   const project = projects.find(p => p.id === id);
   if (!project) return (
