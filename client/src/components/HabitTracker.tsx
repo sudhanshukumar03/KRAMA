@@ -326,7 +326,7 @@ export function HabitTracker() {
               <span className="text-sm font-medium text-[#111827] font-mono">{progressPct}%</span>
             </div>
             <div className="h-2 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/40">
-              <div className="h-full bg-[#EA580C] transition-all duration-300" style={{ width: `${progressPct}%` }} />
+              <div className="h-full bg-[#EA580C] transition-all duration-400 ease-out" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
 

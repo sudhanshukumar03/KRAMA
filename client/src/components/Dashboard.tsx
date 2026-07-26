@@ -6,7 +6,7 @@ import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 import { ErrorState } from './ui/ErrorState';
 import { cn } from '../lib/utils';
-import { BarChart, Bar, ResponsiveContainer, XAxis, PieChart, Pie, Cell, Tooltip } from 'recharts';
+import { BarChart, Bar, ResponsiveContainer, XAxis, PieChart, Pie, Cell, Tooltip, CartesianGrid } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
 // Helper for relative time
@@ -243,31 +243,31 @@ export function Dashboard() {
         {/* Row 1: Stat Cards with #6 Icon Sizing: 36x36px container (w-9 h-9), 16px icon (w-4 h-4), and #7 Card hover lift */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           
-          {/* Hero Card */}
-          <div onClick={() => navigate('/app/timeline')} className="bg-[#111827] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between cursor-pointer group">
+          {/* Hero Card (#8 Guide the Eye: Solid Brand Blue Fill) */}
+          <div onClick={() => navigate('/app/timeline')} className="bg-[#2563EB] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between cursor-pointer group">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-[10px] bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-150">
+                <div className="w-9 h-9 rounded-[10px] bg-white/20 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-150">
                   <AlertCircle className="w-4 h-4 stroke-[2]" />
                 </div>
                 <div>
                   <div className="text-2xl font-medium text-white leading-none mb-1 font-mono">{inProgressIssues.length}</div>
-                  <div className="text-caption text-[#9CA3AF] font-medium">In Progress</div>
+                  <div className="text-caption text-white/90 font-medium">In Progress</div>
                 </div>
               </div>
-              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-white transition-colors duration-150" />
+              <ArrowUpRight className="w-4 h-4 text-white/80 group-hover:text-white transition-colors duration-150" />
             </div>
-            <div className="mt-4 text-badge text-[#9CA3AF] flex items-center justify-between">
+            <div className="mt-4 text-badge text-white/80 flex items-center justify-between">
               <span>Focus on these today</span>
               <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">open timeline &rarr;</span>
             </div>
           </div>
 
-          {/* Projects Card */}
-          <div onClick={() => navigate('/app/projects')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#111827] hover:shadow-md flex flex-col justify-between cursor-pointer group">
+          {/* Projects Card (Indigo Category Tint #4F46E5) */}
+          <div onClick={() => navigate('/app/projects')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#4F46E5] hover:shadow-md flex flex-col justify-between cursor-pointer group">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-[10px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 group-hover:bg-[#111827] group-hover:text-white transition-all duration-150 shadow-2xs">
+                <div className="w-9 h-9 rounded-[10px] bg-[#4F46E5]/10 text-[#4F46E5] flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-150 shadow-2xs">
                   <Target className="w-4 h-4 stroke-[2]" />
                 </div>
                 <div>
@@ -275,19 +275,19 @@ export function Dashboard() {
                   <div className="text-caption text-[#6B7280] font-medium">Active Projects</div>
                 </div>
               </div>
-              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#111827] transition-colors duration-150" />
+              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#4F46E5] transition-colors duration-150" />
             </div>
             <div className="mt-4 text-badge text-[#9CA3AF] flex items-center justify-between">
               <span>+1 this week</span>
-              <span className="text-[#111827] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">view projects &rarr;</span>
+              <span className="text-[#4F46E5] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">view projects &rarr;</span>
             </div>
           </div>
 
-          {/* To Do Card */}
-          <div onClick={() => navigate('/app/timeline')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#111827] hover:shadow-md flex flex-col justify-between cursor-pointer group">
+          {/* To Do Card (Execution Blue Category Tint #2563EB) */}
+          <div onClick={() => navigate('/app/timeline')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#2563EB] hover:shadow-md flex flex-col justify-between cursor-pointer group">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-[10px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 group-hover:bg-[#111827] group-hover:text-white transition-all duration-150 shadow-2xs">
+                <div className="w-9 h-9 rounded-[10px] bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-150 shadow-2xs">
                   <ListTodo className="w-4 h-4 stroke-[2]" />
                 </div>
                 <div>
@@ -295,19 +295,19 @@ export function Dashboard() {
                   <div className="text-caption text-[#6B7280] font-medium">To Do</div>
                 </div>
               </div>
-              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#111827] transition-colors duration-150" />
+              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#2563EB] transition-colors duration-150" />
             </div>
             <div className="mt-4 text-badge text-[#9CA3AF] flex items-center justify-between">
               <span>-2 since yesterday</span>
-              <span className="text-[#111827] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">open board &rarr;</span>
+              <span className="text-[#2563EB] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">open board &rarr;</span>
             </div>
           </div>
 
-          {/* Completed Card */}
-          <div onClick={() => navigate('/app/goals')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#111827] hover:shadow-md flex flex-col justify-between cursor-pointer group">
+          {/* Completed Card (Goals Teal Category Tint #0D9488) */}
+          <div onClick={() => navigate('/app/goals')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#0D9488] hover:shadow-md flex flex-col justify-between cursor-pointer group">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-[10px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 group-hover:bg-[#111827] group-hover:text-white transition-all duration-150 shadow-2xs">
+                <div className="w-9 h-9 rounded-[10px] bg-[#0D9488]/10 text-[#0D9488] flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-150 shadow-2xs">
                   <CheckCircle2 className="w-4 h-4 stroke-[2]" />
                 </div>
                 <div>
@@ -315,11 +315,11 @@ export function Dashboard() {
                   <div className="text-caption text-[#6B7280] font-medium">Completed</div>
                 </div>
               </div>
-              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#111827] transition-colors duration-150" />
+              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#0D9488] transition-colors duration-150" />
             </div>
             <div className="mt-4 text-badge text-[#9CA3AF] flex items-center justify-between">
               <span>92% Sprint Pace</span>
-              <span className="text-[#111827] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">view goals &rarr;</span>
+              <span className="text-[#0D9488] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">view goals &rarr;</span>
             </div>
           </div>
         </div>
@@ -403,6 +403,36 @@ export function Dashboard() {
         </div>
       </div>
 
+      {/* SECTION 2.5: PROJECTS (#8 Guide the Eye Order: Focus -> Progress -> Projects -> Analytics -> Upcoming) */}
+      <div className="space-y-4 pt-4">
+        <div className="flex items-center justify-between border-b border-[#E5E8EC] pb-3">
+          <h2 className="text-h2 tracking-tight text-[#111827]">Active Projects</h2>
+          <span className="text-badge text-[#4F46E5] cursor-pointer hover:underline lowercase font-normal" onClick={() => navigate('/app/projects')}>view portfolio &rarr;</span>
+        </div>
+        <div className="divide-y divide-[#E5E8EC]/60">
+          {activeProjects.slice(0, 4).map(project => (
+            <div key={project.id} onClick={() => navigate('/app/projects')} className="py-3 flex items-center justify-between gap-4 group cursor-pointer hover:bg-[#F8F9FB] -mx-2 px-2 rounded-lg transition-all duration-150">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-md bg-[#4F46E5]/10 text-[#4F46E5] flex items-center justify-center shrink-0">
+                  <Target className="w-4 h-4 stroke-[1.75]" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-medium text-[#111827] text-body truncate group-hover:text-[#4F46E5] transition-colors duration-150">{project.name}</div>
+                  <div className="text-caption text-[#6B7280] truncate">{project.description || 'No description provided'}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-6 shrink-0">
+                <span className="text-badge text-[#4F46E5] bg-[#4F46E5]/10 px-2 py-0.5 rounded uppercase font-mono">{project.status || 'Active'}</span>
+                <span className="text-caption text-[#4F46E5] font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1">open &rarr;</span>
+              </div>
+            </div>
+          ))}
+          {activeProjects.length === 0 && (
+            <div className="py-6 text-body text-[#9CA3AF]">No active projects logged</div>
+          )}
+        </div>
+      </div>
+
       {/* SECTION 3: ANALYTICS (#8 Guide the Eye Order, #2 Chrome Reduction: Unboxed Section, #9 Chart Polish) */}
       <div className="space-y-6 pt-4">
         <div className="flex items-center justify-between border-b border-[#E5E8EC] pb-3">
@@ -418,6 +448,7 @@ export function Dashboard() {
           <div className="h-56 w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E8EC" />
                 <Tooltip 
                   cursor={{ fill: '#F8F9FB', opacity: 0.8 }} 
                   contentStyle={{ borderRadius: '12px', border: '1px solid #E5E8EC', backgroundColor: '#FFFFFF', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)', fontSize: '13px', padding: '8px 12px' }}

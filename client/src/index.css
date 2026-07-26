@@ -63,6 +63,7 @@
   --space-6: 24px;
   --space-8: 32px;
   --space-10: 40px;
+  --space-12: 48px;
   --space-16: 64px;
   
   /* Required custom transition durations (#7) */
@@ -77,6 +78,31 @@
   --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   --transition-timing-function-ease-in: cubic-bezier(0.4, 0, 1, 1);
   --transition-timing-function-ease-out: cubic-bezier(0, 0, 0.2, 1);
+}
+
+@utility progress-fill {
+  transition: width 400ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+@utility category-tile {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@utility hairline-row {
+  border-top: 1px solid var(--color-border);
+  padding-top: 12px;
+  padding-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @layer base {

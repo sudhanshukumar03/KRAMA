@@ -256,7 +256,7 @@ function DecisionCard({
   return (
     <div
       className={cn(
-        'bg-white border border-[#E5E8EC] rounded-xl transition-all duration-200 hover:border-[#4F46E5]/40 shadow-sm group',
+        'bg-white border border-[#E5E8EC] rounded-xl transition-all duration-150 hover:border-[#4F46E5]/40 shadow-sm group',
         expanded && 'border-[#4F46E5]/30 shadow-md'
       )}
     >

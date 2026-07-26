@@ -53,7 +53,7 @@ export function SprintView() {
       <div className="mb-6 bg-white border border-[#E5E8EC] rounded-xl p-8 relative overflow-hidden shadow-sm">
         {/* Progress Background */}
         <div className="absolute top-0 left-0 h-1.5 bg-[#E5E8EC] w-full" />
-        <div className="absolute top-0 left-0 h-1.5 bg-[#2563EB] transition-all duration-1000 ease-out" style={{ width: `${progress}%` }} />
+        <div className="absolute top-0 left-0 h-1.5 bg-[#2563EB] transition-all duration-400 ease-out" style={{ width: `${progress}%` }} />
 
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
           <div>
@@ -132,7 +132,7 @@ export function SprintView() {
 
           <div className="bg-white border border-[#E5E8EC] rounded-xl overflow-hidden divide-y divide-[#E5E8EC] shadow-sm">
             {sprintIssues.map(issue => (
-              <div key={issue.id} className="p-4 hover:bg-[#F8F9FB] transition-colors duration-100 flex gap-3.5 items-start cursor-pointer group">
+              <div key={issue.id} className="p-4 hover:bg-[#F8F9FB] transition-colors duration-150 flex gap-3.5 items-start cursor-pointer group">
                 <div className="mt-1">
                   <div className="w-4 h-4 rounded border-2 border-[#D1D5DB] group-hover:border-[#2563EB] transition-colors" />
                 </div>

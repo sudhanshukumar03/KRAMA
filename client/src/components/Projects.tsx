@@ -189,7 +189,7 @@ export function Projects() {
                         </div>
                         <div className="h-2 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/60">
                           <div 
-                            className="h-full bg-[#4F46E5] transition-all duration-300"
+                            className="h-full bg-[#4F46E5] transition-all duration-400 ease-out"
                             style={{ width: `${progressPct}%` }}
                           />
                         </div>

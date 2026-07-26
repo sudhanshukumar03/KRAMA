@@ -100,24 +100,24 @@ function IssueCard({ issue, isDragging, onDelete }: { issue: IssueWithRelations,
         {issue.title}
       </div>
 
-      {/* Real Dependency Badges */}
+      {/* Real Dependency Badges (#4 Dependency Labels: text-caption / 11px with color coding) */}
       {((issue.blockedBy && issue.blockedBy.length > 0) || (issue.blocking && issue.blocking.length > 0)) && (
         <div className="flex flex-wrap gap-1.5 mb-2">
           {issue.blockedBy && issue.blockedBy.length > 0 && (
             <span 
               title={`Blocked by: ${issue.blockedBy.map((b: any) => b.title).join(', ')}`}
-              className="px-1.5 py-0.5 rounded bg-red-50 text-[#DC2626] border border-[#DC2626]/20 font-mono text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+              className="px-2 py-0.5 rounded bg-red-50 text-[#DC2626] border border-[#DC2626]/20 font-mono text-caption font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full shadow-2xs"
             >
-              <AlertCircle className="w-3 h-3 shrink-0" />
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               Blocked by: {issue.blockedBy.map((b: any) => b.id.slice(0, 6).toUpperCase()).join(', ')}
             </span>
           )}
           {issue.blocking && issue.blocking.length > 0 && (
             <span 
               title={`Blocking: ${issue.blocking.map((b: any) => b.title).join(', ')}`}
-              className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-mono text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+              className="px-2 py-0.5 rounded bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 font-mono text-caption font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full shadow-2xs"
             >
-              <AlertCircle className="w-3 h-3 shrink-0" />
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               Blocking: {issue.blocking.length} {issue.blocking.length === 1 ? 'ticket' : 'tickets'}
             </span>
           )}
@@ -132,7 +132,7 @@ function IssueCard({ issue, isDragging, onDelete }: { issue: IssueWithRelations,
               <span>{completedSubtasks}/{totalSubtasks}</span>
             </div>
             <div className="h-1 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/40">
-              <div className="h-full bg-[#2563EB] transition-all duration-300" style={{ width: `${subtaskPct}%` }} />
+              <div className="h-full bg-[#2563EB] transition-all duration-400 ease-out" style={{ width: `${subtaskPct}%` }} />
             </div>
           </div>
         )}
@@ -159,7 +159,14 @@ function Column({ title, issues, isLast, onDelete, onCreate }: { id: string, tit
       "flex flex-col w-[300px] flex-shrink-0 bg-white h-full",
       !isLast && "border-r border-[#E5E8EC]"
     )}>
-      <div className="px-4 py-3 font-medium text-sm text-[#111827] flex justify-between items-center bg-[#F8F9FB] border-b border-[#E5E8EC]">
+      <div className={cn(
+        "px-4 py-3 font-medium text-sm text-[#111827] flex justify-between items-center bg-[#F8F9FB] border-b border-[#E5E8EC] relative shadow-2xs",
+        title === 'todo' && "border-t-2 border-t-[#6B7280]",
+        title === 'in_progress' && "border-t-2 border-t-[#2563EB]",
+        title === 'blocked' && "border-t-2 border-t-[#DC2626]",
+        title === 'review' && "border-t-2 border-t-[#7C3AED]",
+        title === 'done' && "border-t-2 border-t-[#0D9488]"
+      )}>
         <div className="flex items-center gap-2">
           {getStatusIcon(title)}
           <span className="capitalize font-medium text-xs tracking-tight">{title.replace('_', ' ')}</span>

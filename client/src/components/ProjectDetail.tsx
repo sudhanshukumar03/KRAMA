@@ -403,33 +403,34 @@ export function ProjectDetail() {
   );
 }
 
-// Compact Goal Card reused for the Overview Tab
+// Compact Goal Card reused for the Overview Tab (#3 Linked Goal Card Priority: Strongest Visual Treatment)
 function CompactGoalCard({ goal }: { goal: GoalWithRelations }) {
   const pace = computeGoalPace(goal);
 
   return (
     <div 
       onClick={() => window.location.href = '/app/goals'}
-      className="bg-white border border-[#E5E8EC] rounded-xl p-5 hover:border-[#0D9488] shadow-sm hover:shadow-md transition-all cursor-pointer"
+      className="bg-surface border-2 border-[#0D9488] rounded-xl p-6 shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer relative overflow-hidden group"
     >
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+      <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-[#0D9488]" />
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 pl-2">
         <div>
           <div className="flex items-center gap-2.5 mb-1">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#0D9488] bg-[#0D9488]/10 border border-[#0D9488]/20 px-2 py-0.5 rounded">
-              {goal.type}
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-white bg-[#0D9488] px-2 py-0.5 rounded shadow-2xs">
+              {goal.type} • LINKED OKR
             </span>
-            <h3 className="text-lg font-semibold text-[#111827]">{goal.title}</h3>
+            <h3 className="text-xl font-bold text-primary">{goal.title}</h3>
           </div>
           {goal.targetDate && (
-            <div className="flex items-center gap-1.5 text-xs font-mono text-[#6B7280]">
+            <div className="flex items-center gap-1.5 text-xs font-mono text-secondary">
               <Clock className="w-3.5 h-3.5 text-[#0D9488]" />
               Target Date: {new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </div>
           )}
         </div>
         <div className="text-right font-mono">
-          <span className="text-3xl font-bold text-[#111827]">{goal.progress}%</span>
-          <span className="block text-[10px] text-[#6B7280] uppercase">Progress</span>
+          <span className="text-3xl font-bold text-[#0D9488]">{goal.progress}%</span>
+          <span className="block text-badge text-secondary">Progress</span>
         </div>
       </div>
       

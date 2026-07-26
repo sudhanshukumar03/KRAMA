@@ -333,62 +333,53 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
       </div>
 
       {/* Editor Content Box with #11 Block Hover and Spacing */}
-      <div className="flex-1 bg-white rounded-xl p-8 border border-[#E5E8EC] shadow-2xs min-h-[540px] flex flex-col justify-between">
+      <div className="flex-1 bg-white rounded-xl p-8 border border-[#E5E8EC] shadow-2xs min-h-[540px] flex flex-col justify-between max-w-3xl mx-auto w-full">
         <EditorContent editor={editor} />
 
-        {/* Transitive References & Backlinks Panel */}
+        {/* Transitive References & Backlinks Panel (#2 Chrome Reduction: Hairline rows instead of boxed cards) */}
         {page.linkedProject && (
           <div className="mt-12 pt-6 border-t border-[#E5E8EC] font-mono text-xs">
             <div className="flex items-center gap-1.5 font-bold uppercase tracking-widest text-[#6B7280] mb-3">
               <Link2 className="w-4 h-4 text-[#7C3AED]" /> Transitive References & Backlinks
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="divide-y divide-[#E5E8EC]/60 -mx-2 px-2">
               <div 
                 onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
-                className="p-3 bg-[#F8F9FB] rounded-lg border border-[#E5E8EC] hover:border-[#4F46E5] transition-all cursor-pointer group"
+                className="py-3 flex items-center justify-between gap-3 hover:bg-[#F8F9FB] rounded-lg transition-colors cursor-pointer group"
               >
-                <div className="flex items-center gap-2 text-[#4F46E5] font-medium mb-1">
-                  <FolderKanban className="w-3.5 h-3.5 shrink-0" /> Linked Initiative
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <FolderKanban className="w-4 h-4 text-[#4F46E5] shrink-0" />
+                  <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#4F46E5] truncate">{page.linkedProject.name}</span>
+                  <span className="text-[10px] text-[#9CA3AF] uppercase font-mono tracking-wider">({page.linkedProject.status})</span>
                 </div>
-                <div className="font-sans text-sm font-semibold text-[#111827] group-hover:text-[#4F46E5] truncate">
-                  {page.linkedProject.name}
-                </div>
-                <div className="text-[10px] text-[#9CA3AF] mt-0.5 uppercase tracking-wider">
-                  Status: {page.linkedProject.status}
-                </div>
+                <span className="text-[11px] text-[#4F46E5] font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">view initiative &rarr;</span>
               </div>
 
               {page.linkedProject.goal && (
                 <div 
                   onClick={() => window.location.href = '/app/goals'}
-                  className="p-3 bg-[#0D9488]/5 rounded-lg border border-[#0D9488]/20 hover:border-[#0D9488] transition-all cursor-pointer group"
+                  className="py-3 flex items-center justify-between gap-3 hover:bg-[#F8F9FB] rounded-lg transition-colors cursor-pointer group"
                 >
-                  <div className="flex items-center gap-2 text-[#0D9488] font-medium mb-1">
-                    <Target className="w-3.5 h-3.5 shrink-0" /> Parent OKR Goal
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Target className="w-4 h-4 text-[#0D9488] shrink-0" />
+                    <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#0D9488] truncate">{page.linkedProject.goal.title}</span>
                   </div>
-                  <div className="font-sans text-sm font-semibold text-[#111827] group-hover:text-[#0D9488] truncate">
-                    {page.linkedProject.goal.title}
-                  </div>
-                  <div className="text-[10px] text-[#0D9488] mt-0.5 font-bold">
-                    {page.linkedProject.goal.progress}% Completed
-                  </div>
+                  <span className="text-[11px] font-bold text-[#0D9488] shrink-0">{page.linkedProject.goal.progress}% Completed</span>
                 </div>
               )}
 
               {page.linkedProject.issues && (
                 <div 
                   onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
-                  className="p-3 bg-[#F8F9FB] rounded-lg border border-[#E5E8EC] hover:border-[#2563EB] transition-all cursor-pointer group"
+                  className="py-3 flex items-center justify-between gap-3 hover:bg-[#F8F9FB] rounded-lg transition-colors cursor-pointer group"
                 >
-                  <div className="flex items-center gap-2 text-[#2563EB] font-medium mb-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Execution Tickets
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <CheckCircle2 className="w-4 h-4 text-[#2563EB] shrink-0" />
+                    <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#2563EB]">Execution Tickets & Sprints</span>
                   </div>
-                  <div className="font-sans text-sm font-semibold text-[#111827] group-hover:text-[#2563EB]">
-                    {page.linkedProject.issues.filter((i: any) => i.status === 'done' || i.status === 'released').length} / {page.linkedProject.issues.length} Issues Done
-                  </div>
-                  <div className="text-[10px] text-[#6B7280] mt-0.5">
-                    {page.linkedProject.sprints?.length || 0} Linked Sprints
-                  </div>
+                  <span className="text-[11px] text-[#6B7280] font-mono shrink-0">
+                    {page.linkedProject.issues.filter((i: any) => i.status === 'done' || i.status === 'released').length} / {page.linkedProject.issues.length} Done • {page.linkedProject.sprints?.length || 0} Sprints
+                  </span>
                 </div>
               )}
             </div>
