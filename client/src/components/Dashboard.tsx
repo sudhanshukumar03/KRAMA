@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { Target, CheckCircle2, ListTodo, AlertCircle, Play, Plus, Download, Clock, ArrowUpRight, Flame, TrendingUp, Sparkles, Check } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
+import { ErrorState } from './ui/ErrorState';
 import { cn } from '../lib/utils';
 import { BarChart, Bar, ResponsiveContainer, XAxis, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { useNavigate } from 'react-router-dom';
@@ -39,8 +40,8 @@ export function Dashboard() {
   const navigate = useNavigate();
   const [activityFilter, setActivityFilter] = useState<'All' | 'Issue' | 'Project' | 'Habit' | 'Page'>('All');
   
-  const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
-  const { data: projects = [], isLoading: projectsLoading } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+  const { data: issues = [], isLoading: issuesLoading, isError: issuesError } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+  const { data: projects = [], isLoading: projectsLoading, isError: projectsError } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
   const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
   const { data: pages = [] } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
   const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
@@ -56,7 +57,24 @@ export function Dashboard() {
     }
   });
 
-  if (issuesLoading || projectsLoading) return <LoadingState title="Loading dashboard..." description="Compiling metrics and workspace activity..." />;
+  if (issuesLoading || projectsLoading) {
+    return <LoadingState variant="dashboard" title="Loading dashboard..." description="Compiling metrics and workspace activity..." />;
+  }
+
+  if (issuesError || projectsError) {
+    return (
+      <div className="p-6">
+        <ErrorState
+          title="Failed to load dashboard data"
+          message="An error occurred while fetching dashboard metrics. Please check your network connection or server status."
+          onRetry={() => {
+            queryClient.invalidateQueries({ queryKey: ['issues'] });
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+          }}
+        />
+      </div>
+    );
+  }
 
   const activeProjects = projects.filter(p => p.status === 'active');
   const todoIssues = issues.filter(i => ['todo', 'backlog'].includes(i.status));

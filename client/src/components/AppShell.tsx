@@ -14,12 +14,25 @@ import { WeeklyPlanner } from './WeeklyPlanner';
 import { TimelineView } from './TimelineView';
 import { HabitTracker } from './HabitTracker';
 import { DecisionLog } from './DecisionLog';
-import { Terminal, ArrowRight } from 'lucide-react';
+import { Terminal, ArrowRight, WifiOff, Menu } from 'lucide-react';
 
 export function AppShell() {
   const navigate = useNavigate();
   const [activePrefix, setActivePrefix] = useState<'g' | 'e' | null>(null);
   const [showCheatsheet, setShowCheatsheet] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOffline = () => setIsOffline(true);
+    const handleOnline = () => setIsOffline(false);
+    window.addEventListener('krama:api-offline', handleOffline);
+    window.addEventListener('krama:api-online', handleOnline);
+    return () => {
+      window.removeEventListener('krama:api-offline', handleOffline);
+      window.removeEventListener('krama:api-online', handleOnline);
+    };
+  }, []);
 
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
@@ -89,26 +102,60 @@ export function AppShell() {
   }, [activePrefix, navigate, showCheatsheet]);
 
   return (
-    <div className="flex h-screen w-full bg-canvas text-primary overflow-hidden font-sans select-none">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-canvas text-primary overflow-hidden font-sans select-none">
       <CommandPalette />
-      <Sidebar />
+      <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
       
-      <main className="flex-1 overflow-y-auto bg-canvas relative animate-in fade-in duration-150">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/brain/*" element={<BrainWorkspace />} />
-          <Route path="/goals/*" element={<Goals />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/projects/:id" element={<ProjectDetail />} />
-          <Route path="/board/*" element={<KanbanBoard />} />
-          <Route path="/sprint/*" element={<SprintView />} />
-          <Route path="/planner/*" element={<WeeklyPlanner />} />
-          <Route path="/timeline/*" element={<TimelineView />} />
-          <Route path="/review/*" element={<DailyReview />} />
-          <Route path="/habits/*" element={<HabitTracker />} />
-          <Route path="/decisions" element={<DecisionLog />} />
-        </Routes>
-      </main>
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        {/* Offline Mode Warning Banner */}
+        {isOffline && (
+          <div className="w-full bg-[#FEF2F2] border-b border-[#FECACA] px-4 py-2 flex items-center justify-between text-xs text-[#991B1B] z-50 shrink-0 animate-in fade-in slide-in-from-top duration-200">
+            <div className="flex items-center gap-2 font-medium">
+              <WifiOff className="w-4 h-4 text-[#DC2626] animate-pulse shrink-0" />
+              <span>API Unreachable — Offline Mode. Changes may not be saved to server. Reconnecting...</span>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-2.5 py-1 bg-white hover:bg-[#FEE2E2] text-[#DC2626] rounded border border-[#FECACA] font-medium transition-colors shrink-0"
+            >
+              Retry Now
+            </button>
+          </div>
+        )}
+
+        {/* Mobile Top Header */}
+        <div className="md:hidden flex items-center justify-between p-3 bg-white border-b border-[#E5E8EC] z-40 shrink-0">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-1.5 rounded-lg text-[#4B5563] hover:text-[#111827] hover:bg-[#F8F9FB] transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="font-mono font-bold text-sm text-[#111827] tracking-tight">KRAMA OS</span>
+          </div>
+          <div className="text-[10px] font-mono text-[#0D9488] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0] flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" /> Online
+          </div>
+        </div>
+
+        <main className="flex-1 overflow-y-auto bg-canvas relative animate-in fade-in duration-150">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/brain/*" element={<BrainWorkspace />} />
+            <Route path="/goals/*" element={<Goals />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/projects/:id" element={<ProjectDetail />} />
+            <Route path="/board/*" element={<KanbanBoard />} />
+            <Route path="/sprint/*" element={<SprintView />} />
+            <Route path="/planner/*" element={<WeeklyPlanner />} />
+            <Route path="/timeline/*" element={<TimelineView />} />
+            <Route path="/review/*" element={<DailyReview />} />
+            <Route path="/habits/*" element={<HabitTracker />} />
+            <Route path="/decisions" element={<DecisionLog />} />
+          </Routes>
+        </main>
+      </div>
 
       {/* NEW: Visual Two-Key Chord HUD Indicator */}
       {activePrefix && (

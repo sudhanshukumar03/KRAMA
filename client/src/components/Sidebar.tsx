@@ -16,7 +16,8 @@ import {
   TrendingUp,
   Sparkles,
   Scale,
-  Download
+  Download,
+  X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -37,7 +38,7 @@ const executionItems = [
   { name: 'Habit Tracker', path: '/app/habits', icon: TrendingUp, shortcut: 'E H', badgeKey: 'habits' },
 ];
 
-export function Sidebar() {
+export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
   const location = useLocation();
 
   // Fetch live counts for badges
@@ -90,6 +91,7 @@ export function Sidebar() {
       <Link
         key={item.path}
         to={item.path}
+        onClick={onMobileClose}
         className={cn(
           "group flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all duration-100 outline-none select-none",
           isActive 
@@ -123,7 +125,7 @@ export function Sidebar() {
     );
   };
 
-  return (
+  const sidebarContent = (
     <div className="w-64 border-r border-[#E5E8EC] bg-[#F8F9FB] flex flex-col h-full flex-shrink-0 select-none">
       {/* Header / Brand */}
       <div className="h-14 flex items-center justify-between px-4 border-b border-[#E5E8EC] bg-white">
@@ -141,7 +143,10 @@ export function Sidebar() {
       {/* Search / Command Palette Trigger */}
       <div className="p-3 border-b border-[#E5E8EC] bg-white/50">
         <button 
-          onClick={() => window.dispatchEvent(new CustomEvent('open-cmdk'))}
+          onClick={() => {
+            onMobileClose?.();
+            window.dispatchEvent(new CustomEvent('open-cmdk'));
+          }}
           className="w-full flex items-center justify-between px-3 py-2 text-xs text-[#6B7280] bg-white border border-[#E5E8EC] rounded-lg hover:border-[#2563EB] hover:text-[#111827] transition-all shadow-2xs outline-none cursor-pointer group"
         >
           <div className="flex items-center gap-2">
@@ -209,5 +214,28 @@ export function Sidebar() {
         </div>
       </div>
     </div>
+  );
+
+  return (
+    <>
+      <div className="hidden md:block h-full">
+        {sidebarContent}
+      </div>
+
+      {mobileOpen && (
+        <div className="fixed inset-0 z-[60] md:hidden flex animate-in fade-in duration-150">
+          <div onClick={onMobileClose} className="fixed inset-0 bg-black/40 backdrop-blur-2xs" />
+          <div className="relative h-full z-10 animate-in slide-in-from-left duration-200">
+            <button
+              onClick={onMobileClose}
+              className="absolute top-3 right-3 p-1.5 rounded-md text-[#6B7280] hover:text-[#111827] hover:bg-[#E5E8EC] z-20"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            {sidebarContent}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
