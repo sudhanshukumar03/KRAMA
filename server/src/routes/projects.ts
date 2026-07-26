@@ -142,10 +142,8 @@ router.post('/restore', async (req: AuthenticatedRequest, res: Response): Promis
           data: {
             ...(s.id && { id: s.id }),
             name: s.name,
-            goal: s.goal || null,
             startDate: new Date(s.startDate),
             endDate: new Date(s.endDate),
-            status: s.status || 'planned',
             projectId: p.id,
           },
         });
@@ -155,8 +153,8 @@ router.post('/restore', async (req: AuthenticatedRequest, res: Response): Promis
           data: {
             ...(r.id && { id: r.id }),
             title: r.title,
-            quarter: r.quarter,
-            year: r.year,
+            version: r.version || null,
+            order: r.order || 0,
             status: r.status || 'planned',
             projectId: p.id,
           },
@@ -172,7 +170,7 @@ router.post('/restore', async (req: AuthenticatedRequest, res: Response): Promis
             priority: i.priority || 'medium',
             projectId: p.id,
             sprintId: i.sprintId || null,
-            assigneeId: i.assigneeId || null,
+            assignee: i.assignee || null,
           },
         });
       }

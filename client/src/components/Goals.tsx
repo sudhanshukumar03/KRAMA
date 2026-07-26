@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, Sparkles, ArrowRight, Flame, Check } from 'lucide-react';
+import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, Sparkles, ArrowRight, Flame, Check, Trash2 } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
 import { LoadingState } from './ui/LoadingState';
@@ -9,6 +9,7 @@ import { cn } from '../lib/utils';
 import type { GoalWithRelations } from '../types/schema';
 import { computeGoalPace } from '../lib/goalUtils';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number }) {
   const queryClient = useQueryClient();
@@ -23,6 +24,26 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
       setIsEditingProgress(false);
     }
   });
+
+  const handleDeleteGoal = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const res = await api.goals.delete(goal.id);
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      toast.success(`Deleted "${goal.title}"`, {
+        action: res?.snapshot ? {
+          label: 'Undo',
+          onClick: async () => {
+            await api.goals.restore(res.snapshot);
+            queryClient.invalidateQueries({ queryKey: ['goals'] });
+            toast.success(`Restored "${goal.title}"`);
+          }
+        } : undefined
+      });
+    } catch (err) {
+      toast.error('Failed to delete goal');
+    }
+  };
 
   // Historical points for the mini trendline from live PostgreSQL snapshots
   const trendPoints = (goal.snapshots && goal.snapshots.length > 0)
@@ -69,6 +90,13 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
               {isEditingProgress ? 'Done' : 'Update Pace'}
             </button>
             <span className="text-2xl font-medium text-[#111827] font-mono tracking-tight">{goal.progress}%</span>
+            <button
+              onClick={handleDeleteGoal}
+              className="opacity-0 group-hover/goal:opacity-100 p-1.5 text-[#9CA3AF] hover:text-[#DC2626] hover:bg-red-50 rounded transition-all duration-150 ml-1"
+              title="Delete goal"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         </div>
         

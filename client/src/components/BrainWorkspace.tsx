@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { ChevronRight, FileText, Plus, FileSignature, Building2, Laptop, Brain, Clock, AlignLeft, BookOpen, Heading1, Heading2, List, ListOrdered, Quote, Code, Minus, Command, FolderKanban, Target, CheckCircle2, Link2 } from 'lucide-react';
+import { ChevronRight, FileText, Plus, FileSignature, Building2, Laptop, Brain, Clock, AlignLeft, BookOpen, Heading1, Heading2, List, ListOrdered, Quote, Code, Minus, Command, FolderKanban, Target, CheckCircle2, Link2, Trash2 } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Content } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -11,6 +11,7 @@ import { cn } from '../lib/utils';
 import { EmptyState } from './ui/EmptyState';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
+import { toast } from 'sonner';
 
 function getIconComponent(iconName: string | null, className?: string) {
   if (iconName === 'landmark') return <Building2 className={cn(className || "w-4 h-4 text-[#6B7280]", "stroke-[1.75]")} />;
@@ -32,10 +33,32 @@ function PageTreeNode({
   onSelect: (id: string) => void, 
   selectedId: string | null 
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(level === 0);
+  const queryClient = useQueryClient();
   const children = pages.filter(p => p.parentPageId === page.id);
   const hasChildren = children.length > 0;
   const isSelected = selectedId === page.id;
+
+  const handleDeletePage = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const res = await api.pages.delete(page.id);
+      queryClient.invalidateQueries({ queryKey: ['pages'] });
+      if (isSelected) onSelect(pages.find(p => p.id !== page.id)?.id || '');
+      toast.success(`Deleted "${page.title}"`, {
+        action: res?.snapshot ? {
+          label: 'Undo',
+          onClick: async () => {
+            await api.pages.restore(res.snapshot);
+            queryClient.invalidateQueries({ queryKey: ['pages'] });
+            toast.success(`Restored "${page.title}"`);
+          }
+        } : undefined
+      });
+    } catch (err) {
+      toast.error('Failed to delete page');
+    }
+  };
   
   return (
     <div>
@@ -92,6 +115,18 @@ function PageTreeNode({
           title="Add Sub-page"
         >
           <Plus className="w-3.5 h-3.5" />
+        </button>
+        <button 
+          onClick={handleDeletePage}
+          className={cn(
+            "opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center transition-all duration-150 rounded-md focus:outline-none",
+            isSelected 
+              ? "text-white hover:bg-white/20" 
+              : "text-[#9CA3AF] hover:text-[#DC2626] hover:bg-red-50"
+          )}
+          title="Delete Page"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
       

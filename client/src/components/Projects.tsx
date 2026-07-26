@@ -1,18 +1,40 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles } from 'lucide-react';
+import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, Trash2 } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 export function Projects() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: projects = [], isLoading: pLoading } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
   const { data: issues = [], isLoading: iLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
   const { data: pages = [], isLoading: docLoading } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
   const { data: sprints = [], isLoading: sLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
+
+  const handleDeleteProject = async (e: React.MouseEvent, project: any) => {
+    e.stopPropagation();
+    try {
+      const res = await api.projects.delete(project.id);
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast.success(`Deleted "${project.name}"`, {
+        action: res?.snapshot ? {
+          label: 'Undo',
+          onClick: async () => {
+            await api.projects.restore(res.snapshot);
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+            toast.success(`Restored "${project.name}"`);
+          }
+        } : undefined
+      });
+    } catch (err) {
+      toast.error('Failed to delete project');
+    }
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'idea' | 'paused' | 'shipped'>('all');
@@ -131,9 +153,18 @@ export function Projects() {
                           <h3 className="font-medium text-[16px] text-[#111827] line-clamp-1 group-hover:text-[#4F46E5] transition-colors">
                             {project.name}
                           </h3>
-                          <span className="font-mono text-[10px] text-[#9CA3AF] shrink-0 bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">
-                            {project.id.slice(0, 6).toUpperCase()}
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="font-mono text-[10px] text-[#9CA3AF] bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">
+                              {project.id.slice(0, 6).toUpperCase()}
+                            </span>
+                            <button
+                              onClick={(e) => handleDeleteProject(e, project)}
+                              className="opacity-0 group-hover:opacity-100 p-1 text-[#9CA3AF] hover:text-[#DC2626] hover:bg-red-50 rounded transition-all duration-150"
+                              title="Delete project"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                         
                         {project.problemStatement && (
