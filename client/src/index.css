@@ -4,10 +4,10 @@
 @theme {
   --font-sans: "Cabinet Grotesk", "General Sans", ui-sans-serif, system-ui, sans-serif;
   
-  /* Definitive Master Tokens */
+  /* Definitive Master Tokens (#12 & #4) */
   --color-canvas: #FFFFFF;
-  --color-surface: #F8F9FB;
-  --color-surface-hover: #EFF4FE;
+  --color-surface: #FCFCFD;
+  --color-surface-hover: #FAFAFB;
   --color-border: #E5E8EC;
   --color-border-muted: #D1D5DB;
   --color-primary: #111827;
@@ -25,8 +25,47 @@
   --color-goals: #0D9488;
   --color-habits: #EA580C;
   --color-projects: #4F46E5;
+
+  /* Typography Scale Tokens (#1 & #12) */
+  --font-title: 32px;
+  --font-h2: 22px;
+  --font-card-title: 17px;
+  --font-body: 15px;
+  --font-caption: 13px;
+  --font-badge: 11px;
+
+  --text-title: 32px;
+  --text-title--font-weight: 650;
+  --text-h2: 22px;
+  --text-h2--font-weight: 600;
+  --text-card-title: 17px;
+  --text-card-title--font-weight: 600;
+  --text-body: 15px;
+  --text-body--font-weight: 450;
+  --text-body--line-height: 1.55;
+  --text-caption: 13px;
+  --text-caption--font-weight: 450;
+  --text-badge: 11px;
+  --text-badge--font-weight: 600;
+  --text-badge--letter-spacing: 0.03em;
+
+  /* Corner Radius Tokens (#5 & #12: Standardized 4 values) */
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /* 8pt Spacing Tokens (#3 & #12) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-16: 64px;
   
-  /* Required custom transition durations */
+  /* Required custom transition durations (#7) */
   --default-transition-duration: 150ms;
   --transition-duration-100: 100ms;
   --transition-duration-120: 120ms;
@@ -42,14 +81,14 @@
 
 @layer base {
   body {
-    @apply bg-canvas text-primary font-sans antialiased selection:bg-accent/10 selection:text-accent relative;
+    @apply bg-canvas text-primary font-sans antialiased selection:bg-accent/10 selection:text-accent relative text-[15px] font-[450] leading-[1.55];
   }
 }
 
 @layer utilities {
-  /* Automated reconciliation of legacy arbitrary values to definitive master tokens */
+  /* Automated reconciliation of legacy arbitrary values to definitive master tokens (#4 & #12) */
   [class*="bg-[#FFFFFF]"] { background-color: var(--color-canvas) !important; }
-  [class*="bg-[#FAFAFA]"], [class*="hover:bg-[#FAFAFA]"]:hover, [class*="group-hover:bg-[#FAFAFA]"]:hover { background-color: var(--color-surface) !important; }
+  [class*="bg-[#F8F9FB]"], [class*="hover:bg-[#F8F9FB]"]:hover, [class*="group-hover:bg-[#F8F9FB]"]:hover, [class*="bg-[#FAFAFA]"], [class*="hover:bg-[#FAFAFA]"]:hover { background-color: var(--color-surface) !important; }
   [class*="border-[#E5E7EB]"], [class*="hover:border-[#E5E7EB]"]:hover { border-color: var(--color-border) !important; }
   [class*="divide-[#E5E7EB]"] { border-color: var(--color-border) !important; }
   

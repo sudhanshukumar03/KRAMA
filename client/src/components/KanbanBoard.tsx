@@ -33,11 +33,11 @@ function getStatusIcon(status: string) {
   switch (status) {
     case 'backlog': return <Circle className="w-4 h-4 text-[#9CA3AF] stroke-[1.75]" />;
     case 'todo': return <CircleDot className="w-4 h-4 text-[#6B7280] stroke-[1.75]" />;
-    case 'in_progress': return <CircleDashed className="w-4 h-4 text-amber-500 stroke-[1.75]" />;
-    case 'review': return <CheckCircle className="w-4 h-4 text-blue-500 stroke-[1.75]" />;
-    case 'testing': return <CheckCircle className="w-4 h-4 text-purple-500 stroke-[1.75]" />;
-    case 'done': return <CheckCircle2 className="w-4 h-4 fill-current text-[#111827]" />;
-    case 'released': return <CheckCircle2 className="w-4 h-4 fill-current text-[#111827]" />;
+    case 'in_progress': return <CircleDashed className="w-4 h-4 text-[#2563EB] stroke-[1.75]" />;
+    case 'review': return <CheckCircle className="w-4 h-4 text-[#4F46E5] stroke-[1.75]" />;
+    case 'testing': return <CheckCircle className="w-4 h-4 text-[#6B7280] stroke-[1.75]" />;
+    case 'done': return <CheckCircle2 className="w-4 h-4 text-[#0D9488] stroke-[2]" />;
+    case 'released': return <CheckCircle2 className="w-4 h-4 text-[#0D9488] stroke-[2]" />;
     default: return <Circle className="w-4 h-4 stroke-[1.75]" />;
   }
 }
@@ -64,8 +64,8 @@ function IssueCard({ issue, isDragging, onDelete }: { issue: IssueWithRelations,
       {...attributes} 
       {...listeners}
       className={cn(
-        "p-3 rounded-lg border border-[#E5E8EC] bg-white shadow-sm text-sm cursor-grab active:cursor-grabbing hover:border-[#2563EB] transition-all duration-150 group",
-        isDragging && "scale-[1.03] shadow-md opacity-90 border-[#2563EB] ring-2 ring-[#2563EB] ring-offset-1 z-50 cursor-grabbing"
+        "p-3 rounded-lg border border-[#E5E8EC] bg-white shadow-sm text-sm cursor-grab active:cursor-grabbing hover:border-[#111827] transition-all duration-150 group",
+        isDragging && "scale-[1.03] shadow-md opacity-90 border-[#111827] ring-2 ring-[#111827] ring-offset-1 z-50 cursor-grabbing"
       )}
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -159,7 +159,7 @@ function Column({ title, issues, isLast, onDelete, onCreate }: { id: string, tit
         {/* Inline + Quick Add Button */}
         <button 
           onClick={() => onCreate ? onCreate(title) : alert(`Quick add task to ${title.replace('_', ' ')}`)}
-          className="w-full mt-2 py-2 border border-dashed border-[#E5E8EC] hover:border-[#2563EB] hover:bg-[#EFF4FE]/20 rounded-lg text-xs font-medium text-[#9CA3AF] hover:text-[#2563EB] transition-all flex items-center justify-center gap-1.5 opacity-80 hover:opacity-100"
+          className="w-full mt-2 py-2 border border-dashed border-[#E5E8EC] hover:border-[#111827] hover:bg-[#F8F9FB] rounded-lg text-xs font-medium text-[#9CA3AF] hover:text-[#111827] transition-all flex items-center justify-center gap-1.5 opacity-80 hover:opacity-100"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2]" /> Quick Add
         </button>

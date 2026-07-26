@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Plus, ChevronLeft, ChevronRight, CheckCircle2, Circle, Clock, Flame } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Check, Clock, Flame } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import type { IssueWithRelations } from '../types/schema';
@@ -310,7 +310,7 @@ export function WeeklyPlanner() {
                     <div className="text-[11px] text-[#6B7280] ml-3.5">{habit.timeOfDay} • {habit.duration || 15}m</div>
                   </td>
                   <td className="py-3.5 px-3 font-mono text-xs font-medium text-[#111827]">
-                    <span className="flex items-center gap-1 text-[#EA580C]"><Flame className="w-3.5 h-3.5 text-[#EA580C] fill-[#EA580C]" />{habit.streak + (habitChecks[`${habit.id}-0`] ? 1 : 0)}</span>
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[10px] font-bold"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" />{habit.streak + (habitChecks[`${habit.id}-0`] ? 1 : 0)}d</span>
                   </td>
                   {weekDays.map((day, dayIdx) => {
                     // Mock check state: either locally checked, or default checked for past days if index % 2 === 0
@@ -321,12 +321,14 @@ export function WeeklyPlanner() {
                       <td key={dayIdx} className={cn("py-3.5 px-3 text-center", day.isToday ? "bg-[#EFF4FE]/10" : "")}>
                         <button 
                           onClick={() => toggleHabitDay(habit.id, dayIdx)}
-                          className="p-1 focus:outline-none hover:scale-110 transition-transform"
+                          className="p-1 focus:outline-none hover:scale-105 transition-transform block mx-auto"
                         >
                           {isChecked ? (
-                            <CheckCircle2 className="w-5 h-5 text-[#EA580C] stroke-[2]" />
+                            <div className="w-5 h-5 mx-auto rounded-md bg-[#111827] text-white flex items-center justify-center shadow-2xs transition-all animate-in zoom-in-50 duration-150">
+                              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </div>
                           ) : (
-                            <Circle className="w-5 h-5 text-[#D1D5DB] hover:text-[#111827] stroke-[1.5] transition-colors" />
+                            <div className="w-5 h-5 mx-auto rounded-md border border-[#D1D5DB] bg-white hover:border-[#111827] transition-all flex items-center justify-center shadow-2xs" />
                           )}
                         </button>
                       </td>

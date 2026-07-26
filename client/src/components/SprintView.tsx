@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Clock, Play, ListTodo, Flame, CheckCircle2, TrendingDown, Activity } from 'lucide-react';
+import { Clock, Play, ListTodo, Flame, CheckCircle2, TrendingDown, Activity, Check } from 'lucide-react';
 import { EmptyState } from './ui/EmptyState';
 import { cn } from '../lib/utils';
 
@@ -187,8 +187,8 @@ export function SprintView() {
             {doneIssues.map(issue => (
               <div key={issue.id} className="p-4 flex gap-3.5 items-start text-[#9CA3AF] group hover:bg-white transition-colors">
                 <div className="mt-1">
-                  <div className="w-4 h-4 rounded border-2 border-[#0D9488] bg-[#0D9488] flex items-center justify-center">
-                    <CheckCircle2 className="w-3 h-3 text-white stroke-[2.5]" />
+                  <div className="w-4 h-4 rounded bg-[#0D9488] flex items-center justify-center shadow-2xs">
+                    <Check className="w-3 h-3 text-white stroke-[3]" />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">

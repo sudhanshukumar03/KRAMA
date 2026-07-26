@@ -40,8 +40,8 @@ export function Projects() {
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <h1 className="text-[28px] font-medium tracking-tight text-[#111827]">Projects</h1>
-              <span className="bg-[#4F46E5]/10 text-[#4F46E5] border border-[#4F46E5]/20 px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-[0.02em] flex items-center gap-1">
-                <Sparkles className="w-3 h-3 fill-[#4F46E5]" /> {projects.length} initiatives
+              <span className="bg-[#F8F9FB] text-[#6B7280] border border-[#E5E8EC] px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-[0.02em] flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-[#111827] stroke-[2]" /> {projects.length} initiatives
               </span>
             </div>
             <p className="text-[13px] text-[#6B7280]">Track initiatives, milestones, and linked quarterly OKRs.</p>
@@ -144,7 +144,7 @@ export function Projects() {
 
                       {/* Compact Stat Row */}
                       <div className="text-xs font-mono text-[#6B7280] bg-[#F8F9FB] p-2.5 rounded-lg border border-[#E5E8EC]/60 flex items-center justify-between">
-                        <span className="flex items-center gap-1 font-medium text-[#111827]"><CheckCircle2 className="w-3.5 h-3.5 text-[#2563EB]" /> {completedIssues}/{totalIssues} Issues</span>
+                        <span className="flex items-center gap-1 font-medium text-[#111827]"><CheckCircle2 className="w-3.5 h-3.5 text-[#0D9488] stroke-[2]" /> {completedIssues}/{totalIssues} Issues</span>
                         <span>{projectDocs.length} Docs</span>
                         <span>{projectSprints.length} Sprints</span>
                       </div>

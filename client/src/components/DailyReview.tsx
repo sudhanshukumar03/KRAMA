@@ -105,8 +105,8 @@ export function DailyReview() {
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <h1 className="text-[28px] font-medium tracking-tight text-[#111827]">Daily Review</h1>
-              <span className="bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20 px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-[0.02em] flex items-center gap-1">
-                <Sparkles className="w-3 h-3 fill-[#2563EB]" /> Daily Sync
+              <span className="bg-[#F8F9FB] text-[#6B7280] border border-[#E5E8EC] px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-[0.02em] flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-[#111827] stroke-[2]" /> Daily Sync
               </span>
             </div>
             <p className="text-[13px] text-[#6B7280]">Reflect on today's execution, track live deep work sessions, and calibrate energy.</p>
@@ -151,11 +151,11 @@ export function DailyReview() {
               onClick={() => setTimerRunning(!timerRunning)}
               className={cn(
                 "w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-sm",
-                timerRunning ? "bg-amber-500 hover:bg-amber-600 text-white" : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                timerRunning ? "bg-amber-500 hover:bg-amber-600 text-white" : "bg-white hover:bg-[#F8F9FB] text-[#111827]"
               )}
               title={timerRunning ? "Pause Timer" : "Start Focus Timer"}
             >
-              {timerRunning ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white ml-0.5" />}
+              {timerRunning ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-[#111827] ml-0.5" />}
             </button>
 
             <button

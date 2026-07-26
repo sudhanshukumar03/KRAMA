@@ -379,7 +379,7 @@ export function TimelineView() {
                         "font-medium text-xs truncate group-hover:text-[#EA580C] transition-colors",
                         isHabitDone ? "text-[#9CA3AF] line-through" : "text-[#111827]"
                       )}>{habit.name}</div>
-                      <div className="text-[10px] text-[#6B7280] font-mono flex items-center gap-1"><Flame className="w-3 h-3 text-[#EA580C] fill-[#EA580C]" />{habit.streak} day streak</div>
+                      <div className="text-[10px] text-[#6B7280] font-mono flex items-center gap-1.5"><span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[9px] font-bold"><Flame className="w-2.5 h-2.5 text-[#EA580C] stroke-[2]" />{habit.streak}d</span> streak</div>
                     </div>
                   </div>
                   <div className="text-[11px] font-mono text-[#6B7280] shrink-0 ml-2 bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">

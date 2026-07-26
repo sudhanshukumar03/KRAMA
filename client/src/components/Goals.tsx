@@ -249,7 +249,7 @@ export function Goals() {
           <div className="flex items-center gap-2.5 mb-1">
             <h1 className="text-[28px] font-medium tracking-tight text-[#111827]">Goals & OKRs</h1>
             <span className="bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-[0.02em] flex items-center gap-1">
-              <Sparkles className="w-3 h-3 fill-[#0D9488]" /> Q3 Strategic Horizon
+              <Sparkles className="w-3 h-3 stroke-[2]" /> Q3 Strategic Horizon
             </span>
           </div>
           <p className="text-[13px] text-[#6B7280]">Track high-level quarterly objectives, pacing metrics, and linked daily routines.</p>
@@ -273,7 +273,7 @@ export function Goals() {
                 <p className="text-xs text-[#6B7280]">Interactive snapshots and automatic pacing projections</p>
               </div>
             </div>
-            <span className="text-xs font-mono text-[#0D9488] bg-[#0D9488]/10 px-2.5 py-1 rounded font-medium">
+            <span className="text-xs font-mono text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-2.5 py-1 rounded font-medium">
               {rootGoals.length} strategic OKRs
             </span>
           </div>
@@ -323,8 +323,8 @@ export function Goals() {
                     <div className="text-[10px] text-[#6B7280] font-mono uppercase tracking-[0.02em] mt-0.5">{habit.timeOfDay || 'Daily'} • {habit.duration || 15}m</div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <div className="text-xs font-mono font-bold flex items-center gap-1 text-[#EA580C] bg-[#EA580C]/10 px-2 py-0.5 rounded border border-[#EA580C]/20">
-                      <Flame className="w-3.5 h-3.5 text-[#EA580C] fill-[#EA580C]" /> {habit.streak}d
+                    <div className="text-xs font-mono font-bold flex items-center gap-1 text-[#C2410C] bg-[#FFF7ED] px-2 py-0.5 rounded border border-[#FFEDD5]">
+                      <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[2]" /> {habit.streak}d
                     </div>
                     <ArrowRight className="w-3.5 h-3.5 text-[#9CA3AF] opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>

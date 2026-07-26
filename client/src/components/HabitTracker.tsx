@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { CheckCircle2, Circle, Clock, TrendingUp, Flame, Sparkles, Plus, Sun, Moon } from 'lucide-react';
+import { CheckCircle2, Clock, TrendingUp, Flame, Sparkles, Plus, Sun, Moon, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
@@ -79,7 +79,7 @@ export function HabitTracker() {
               <div className="flex items-center gap-2 mb-0.5">
                 <h1 className="text-[28px] font-medium tracking-tight text-[#111827]">Habits</h1>
                 <span className="bg-[#EA580C]/10 text-[#EA580C] border border-[#EA580C]/20 px-2 py-0.2 rounded text-[10px] font-medium uppercase tracking-[0.02em] flex items-center gap-1 font-mono">
-                  <Flame className="w-3 h-3 fill-[#EA580C]" /> {habits.length} routines
+                  <Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" /> {habits.length} routines
                 </span>
               </div>
               <p className="text-[13px] text-[#6B7280]">Manage, track, and maintain consistency across your daily routines.</p>
@@ -122,16 +122,16 @@ export function HabitTracker() {
             const heatmap = generate30DayPattern(habit.id, habit.streak);
 
             return (
-              <div key={habit.id} className="bg-white border border-[#E5E8EC] rounded-xl p-5 hover:border-[#EA580C] transition-all cursor-pointer group flex flex-col justify-between shadow-sm gap-4">
+              <div key={habit.id} className="bg-white border border-[#E5E8EC] rounded-xl p-5 hover:border-[#111827] transition-all cursor-pointer group flex flex-col justify-between shadow-sm gap-4">
                 <div className="flex items-start gap-4">
-                  <div className="w-11 h-11 bg-[#EA580C]/10 rounded-xl border border-[#EA580C]/20 flex items-center justify-center shrink-0 group-hover:bg-[#EA580C] transition-colors">
-                    <Icon className="w-5 h-5 text-[#EA580C] group-hover:text-white transition-colors stroke-[1.75]" />
+                  <div className="w-11 h-11 bg-[#F8F9FB] rounded-xl border border-[#E5E8EC] flex items-center justify-center shrink-0 group-hover:border-[#111827] group-hover:bg-[#111827] transition-all shadow-2xs">
+                    <Icon className="w-5 h-5 text-[#111827] group-hover:text-white transition-colors stroke-[1.75]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <h3 className="font-medium text-[16px] text-[#111827] truncate group-hover:text-[#EA580C] transition-colors">{habit.name}</h3>
-                      <span className="text-xs font-mono font-bold text-[#EA580C] bg-[#EA580C]/10 px-2 py-0.5 rounded border border-[#EA580C]/20 shrink-0 flex items-center gap-1">
-                        <Flame className="w-3.5 h-3.5 text-[#EA580C] fill-[#EA580C]" /> {habit.streak}d
+                      <h3 className="font-medium text-[16px] text-[#111827] truncate group-hover:text-[#111827] transition-colors">{habit.name}</h3>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[11px] font-bold tracking-tight shrink-0">
+                        <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[2]" /> {habit.streak}d
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -194,11 +194,11 @@ export function HabitTracker() {
               </h3>
               <div className="space-y-2">
                 {morningHabits.map(habit => (
-                  <div key={habit.id} className="flex justify-between items-center bg-[#F8F9FB] border border-[#E5E8EC] p-3 rounded-lg hover:border-[#EA580C] transition-colors group">
-                    <span className="text-sm font-medium text-[#111827] group-hover:text-[#EA580C] transition-colors">{habit.name}</span>
+                  <div key={habit.id} className="flex justify-between items-center bg-[#F8F9FB] border border-[#E5E8EC] p-3 rounded-lg hover:border-[#111827] transition-colors group">
+                    <span className="text-sm font-medium text-[#111827] group-hover:text-[#111827] transition-colors">{habit.name}</span>
                     <div className="flex items-center gap-3">
                       <span className="text-[11px] text-[#6B7280] font-mono">{habit.duration || 15}m</span>
-                      <span className="text-xs font-mono font-bold text-[#EA580C] flex items-center gap-1"><Flame className="w-3.5 h-3.5 text-[#EA580C] fill-[#EA580C]" /> {habit.streak}</span>
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[10px] font-bold tracking-tight"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" /> {habit.streak}d</span>
                     </div>
                   </div>
                 ))}
@@ -214,11 +214,11 @@ export function HabitTracker() {
               </h3>
               <div className="space-y-2">
                 {eveningHabits.map(habit => (
-                  <div key={habit.id} className="flex justify-between items-center bg-[#F8F9FB] border border-[#E5E8EC] p-3 rounded-lg hover:border-[#EA580C] transition-colors group">
-                    <span className="text-sm font-medium text-[#111827] group-hover:text-[#EA580C] transition-colors">{habit.name}</span>
+                  <div key={habit.id} className="flex justify-between items-center bg-[#F8F9FB] border border-[#E5E8EC] p-3 rounded-lg hover:border-[#111827] transition-colors group">
+                    <span className="text-sm font-medium text-[#111827] group-hover:text-[#111827] transition-colors">{habit.name}</span>
                     <div className="flex items-center gap-3">
                       <span className="text-[11px] text-[#6B7280] font-mono">{habit.duration || 15}m</span>
-                      <span className="text-xs font-mono font-bold text-[#EA580C] flex items-center gap-1"><Flame className="w-3.5 h-3.5 text-[#EA580C] fill-[#EA580C]" /> {habit.streak}</span>
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[10px] font-bold tracking-tight"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" /> {habit.streak}d</span>
                     </div>
                   </div>
                 ))}
@@ -257,7 +257,7 @@ export function HabitTracker() {
                   onClick={() => toggleTodayCompletion(habit.id, habit.name)}
                   className={cn(
                     "flex items-center gap-3 group cursor-pointer p-2 rounded-lg transition-all border",
-                    isCompleted ? "bg-[#F8F9FB] border-transparent" : "bg-white border-[#E5E8EC] hover:border-[#EA580C] shadow-2xs"
+                    isCompleted ? "bg-[#F8F9FB] border-transparent" : "bg-white border-[#E5E8EC] hover:border-[#111827] shadow-2xs"
                   )}
                 >
                   <div className="w-5 text-right text-[11px] font-mono text-[#9CA3AF]">
@@ -265,15 +265,17 @@ export function HabitTracker() {
                   </div>
                   <button className="focus:outline-none">
                     {isCompleted ? (
-                      <CheckCircle2 className="w-4 h-4 text-[#EA580C] stroke-[2]" />
+                      <div className="w-5 h-5 rounded-md bg-[#111827] text-white flex items-center justify-center shadow-2xs transition-all animate-in zoom-in-50 duration-150">
+                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      </div>
                     ) : (
-                      <Circle className="w-4 h-4 text-[#D1D5DB] group-hover:text-[#EA580C] transition-colors stroke-[1.5]" />
+                      <div className="w-5 h-5 rounded-md border border-[#D1D5DB] bg-white group-hover:border-[#111827] transition-all flex items-center justify-center shadow-2xs" />
                     )}
                   </button>
                   <div className="min-w-0 flex-1">
                     <span className={cn(
                       "text-sm transition-colors min-w-0 truncate block",
-                      isCompleted ? "text-[#9CA3AF] line-through decoration-[#D1D5DB]" : "text-[#111827] font-medium group-hover:text-[#EA580C]"
+                      isCompleted ? "text-[#9CA3AF] line-through decoration-[#D1D5DB]" : "text-[#111827] font-medium group-hover:text-[#111827]"
                     )}>
                       {habit.name}
                     </span>

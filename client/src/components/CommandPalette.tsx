@@ -94,7 +94,7 @@ export function CommandPalette() {
               className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#111827] aria-selected:text-white transition-colors group mb-1"
             >
               <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-[#2563EB]/10 group-aria-selected:bg-white/20 text-[#2563EB] group-aria-selected:text-white flex items-center justify-center">
+                <div className="w-7 h-7 rounded-lg bg-[#F8F9FB] border border-[#E5E8EC] group-aria-selected:bg-white/20 group-aria-selected:border-transparent text-[#111827] group-aria-selected:text-white flex items-center justify-center">
                   <Brain className="w-4 h-4 stroke-[2]" />
                 </div>
                 <div>
@@ -112,7 +112,7 @@ export function CommandPalette() {
               className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#111827] aria-selected:text-white transition-colors group mb-1"
             >
               <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-[#0D9488]/10 group-aria-selected:bg-white/20 text-[#0D9488] group-aria-selected:text-white flex items-center justify-center">
+                <div className="w-7 h-7 rounded-lg bg-[#F8F9FB] border border-[#E5E8EC] group-aria-selected:bg-white/20 group-aria-selected:border-transparent text-[#111827] group-aria-selected:text-white flex items-center justify-center">
                   <Plus className="w-4 h-4 stroke-[2]" />
                 </div>
                 <div>
@@ -130,7 +130,7 @@ export function CommandPalette() {
               className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#111827] aria-selected:text-white transition-colors group"
             >
               <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-[#EA580C]/10 group-aria-selected:bg-white/20 text-[#EA580C] group-aria-selected:text-white flex items-center justify-center">
+                <div className="w-7 h-7 rounded-lg bg-[#F8F9FB] border border-[#E5E8EC] group-aria-selected:bg-white/20 group-aria-selected:border-transparent text-[#111827] group-aria-selected:text-white flex items-center justify-center">
                   <Calendar className="w-4 h-4 stroke-[2]" />
                 </div>
                 <div>
@@ -249,7 +249,7 @@ export function CommandPalette() {
 
           {/* Projects Group */}
           <Command.Group 
-            heading={<div className="flex items-center gap-1.5 text-[#4F46E5]"><FolderKanban className="w-3.5 h-3.5 text-[#4F46E5]" /><span>Engineering Projects</span></div>} 
+            heading={<div className="flex items-center gap-1.5 text-[#111827]"><FolderKanban className="w-3.5 h-3.5 text-[#111827]" /><span>Engineering Projects</span></div>} 
             className="pt-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
           >
             {projects.map((proj) => (

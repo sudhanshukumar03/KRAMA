@@ -125,9 +125,9 @@ export function Dashboard() {
         <div className="sm:pr-5 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
-              <TrendingUp className="w-3.5 h-3.5 text-[#2563EB] stroke-[1.75]" /> Weekly Velocity
+              <TrendingUp className="w-3.5 h-3.5 text-[#111827] stroke-[1.75]" /> Weekly Velocity
             </span>
-            <span className="text-[10px] font-mono text-[#2563EB] bg-[#EFF4FE] px-1.5 py-0.2 rounded font-medium">+18 pts</span>
+            <span className="text-[10px] font-mono text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-1.5 py-0.2 rounded font-medium">+18 pts</span>
           </div>
           <div className="flex items-baseline justify-between mt-1">
             <span className="text-2xl font-medium font-mono text-[#111827]">23 <span className="text-xs font-sans text-[#6B7280] font-normal">tasks/wk</span></span>
@@ -135,7 +135,7 @@ export function Dashboard() {
           <div className="mt-3 flex items-center gap-1">
             {[3, 5, 2, 8, 4, 1, 0].map((val, i) => (
               <div key={i} className="flex-1 h-1.5 rounded-full bg-[#F8F9FB] overflow-hidden">
-                <div className="h-full bg-[#2563EB]" style={{ width: `${(val / 8) * 100}%` }} />
+                <div className="h-full bg-[#111827]" style={{ width: `${(val / 8) * 100}%` }} />
               </div>
             ))}
           </div>
@@ -147,7 +147,7 @@ export function Dashboard() {
             <span className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
               <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[1.75]" /> Active Streaks
             </span>
-            <span className="text-[10px] font-mono text-[#EA580C] bg-[#EA580C]/10 px-1.5 py-0.2 rounded font-medium">{activeStreaksCount} active</span>
+            <span className="text-[10px] font-mono text-[#C2410C] bg-[#FFF7ED] border border-[#FFEDD5] px-1.5 py-0.2 rounded font-medium">{activeStreaksCount} active</span>
           </div>
           <div className="flex items-baseline justify-between mt-1">
             <span className="text-2xl font-medium font-mono text-[#111827]">{habits.length || 3} <span className="text-xs font-sans text-[#6B7280] font-normal">habits logged</span></span>
@@ -168,7 +168,7 @@ export function Dashboard() {
             <span className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
               <Target className="w-3.5 h-3.5 text-[#0D9488] stroke-[1.75]" /> Q3 OKR Pace
             </span>
-            <span className="text-[10px] font-mono text-[#0D9488] bg-[#0D9488]/10 px-1.5 py-0.2 rounded font-medium">On Track</span>
+            <span className="text-[10px] font-mono text-[#0D9488] bg-[#0D9488]/10 border border-[#0D9488]/20 px-1.5 py-0.2 rounded font-medium">On Track</span>
           </div>
           <div className="flex items-baseline justify-between mt-1">
             <span className="text-2xl font-medium font-mono text-[#111827]">35% <span className="text-xs font-sans text-[#6B7280] font-normal">avg progress</span></span>
@@ -182,15 +182,15 @@ export function Dashboard() {
         <div className="pt-4 lg:pt-0 sm:pl-5 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-[#7C3AED] stroke-[1.75]" /> Deep Work Today
+              <Clock className="w-3.5 h-3.5 text-[#111827] stroke-[1.75]" /> Deep Work Today
             </span>
-            <span className="text-[10px] font-mono text-[#7C3AED] bg-[#7C3AED]/10 px-1.5 py-0.2 rounded font-medium">70% target</span>
+            <span className="text-[10px] font-mono text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-1.5 py-0.2 rounded font-medium">70% target</span>
           </div>
           <div className="flex items-baseline justify-between mt-1">
             <span className="text-2xl font-medium font-mono text-[#111827]">{hours}h {mins}m <span className="text-xs font-sans text-[#6B7280] font-normal">/ 5h goal</span></span>
           </div>
           <div className="mt-3 h-1.5 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/40">
-            <div className="h-full bg-[#7C3AED] transition-all duration-500" style={{ width: `${Math.min(100, (deepWorkMins / 300) * 100)}%` }} />
+            <div className="h-full bg-[#111827] transition-all duration-500" style={{ width: `${Math.min(100, (deepWorkMins / 300) * 100)}%` }} />
           </div>
         </div>
 
@@ -220,11 +220,11 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Projects Card (Category Tile: Projects #4F46E5 Indigo) */}
-        <div onClick={() => navigate('/app/projects')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#D1D5DB] shadow-sm flex flex-col justify-between cursor-pointer group">
+        {/* Projects Card */}
+        <div onClick={() => navigate('/app/projects')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#111827] shadow-sm flex flex-col justify-between cursor-pointer group">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-[12px] bg-[#4F46E5]/10 text-[#4F46E5] flex items-center justify-center shrink-0 group-hover:bg-[#4F46E5] group-hover:text-white transition-colors">
+              <div className="w-10 h-10 rounded-[12px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 group-hover:bg-[#111827] group-hover:text-white transition-all shadow-2xs">
                 <Target className="w-5 h-5 stroke-[1.75]" />
               </div>
               <div>
@@ -236,15 +236,15 @@ export function Dashboard() {
           </div>
           <div className="mt-4 text-[11px] uppercase font-medium tracking-[0.02em] text-[#9CA3AF] flex items-center justify-between">
             <span>+1 this week</span>
-            <span className="text-[#4F46E5] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px]">View projects &rarr;</span>
+            <span className="text-[#111827] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px]">View projects &rarr;</span>
           </div>
         </div>
 
-        {/* To Do Card (Category Tile: Execution #2563EB Blue) */}
-        <div onClick={() => navigate('/app/timeline')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#D1D5DB] shadow-sm flex flex-col justify-between cursor-pointer group">
+        {/* To Do Card */}
+        <div onClick={() => navigate('/app/timeline')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#111827] shadow-sm flex flex-col justify-between cursor-pointer group">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-[12px] bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center shrink-0 group-hover:bg-[#2563EB] group-hover:text-white transition-colors">
+              <div className="w-10 h-10 rounded-[12px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 group-hover:bg-[#111827] group-hover:text-white transition-all shadow-2xs">
                 <ListTodo className="w-5 h-5 stroke-[1.75]" />
               </div>
               <div>
@@ -256,15 +256,15 @@ export function Dashboard() {
           </div>
           <div className="mt-4 text-[11px] uppercase font-medium tracking-[0.02em] text-[#9CA3AF] flex items-center justify-between">
             <span>-2 since yesterday</span>
-            <span className="text-[#2563EB] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px]">Open board &rarr;</span>
+            <span className="text-[#111827] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px]">Open board &rarr;</span>
           </div>
         </div>
 
-        {/* Completed Card (Category Tile: Goals/Done #0D9488 Teal) */}
-        <div onClick={() => navigate('/app/goals')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#D1D5DB] shadow-sm flex flex-col justify-between cursor-pointer group">
+        {/* Completed Card */}
+        <div onClick={() => navigate('/app/goals')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#111827] shadow-sm flex flex-col justify-between cursor-pointer group">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-[12px] bg-[#0D9488]/10 text-[#0D9488] flex items-center justify-center shrink-0 group-hover:bg-[#0D9488] group-hover:text-white transition-colors">
+              <div className="w-10 h-10 rounded-[12px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 group-hover:bg-[#111827] group-hover:text-white transition-all shadow-2xs">
                 <CheckCircle2 className="w-5 h-5 stroke-[1.75]" />
               </div>
               <div>
@@ -275,8 +275,8 @@ export function Dashboard() {
             <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#111827] transition-colors" />
           </div>
           <div className="mt-4 text-[11px] uppercase font-medium tracking-[0.02em] text-[#9CA3AF] flex items-center justify-between">
-            <span>+5 this week</span>
-            <span className="text-[#0D9488] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px]">View history &rarr;</span>
+            <span>92% Sprint Pace</span>
+            <span className="text-[#111827] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px]">View goals &rarr;</span>
           </div>
         </div>
       </div>
@@ -449,7 +449,7 @@ export function Dashboard() {
       {/* Row 4: Quieter Inline Deep Work Tracker */}
       <div className="bg-[#F8F9FB] border border-[#E5E8EC] rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-[12px] bg-[#7C3AED]/10 text-[#7C3AED] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-[12px] bg-white border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 shadow-2xs">
             <Clock className="w-5 h-5 stroke-[1.75]" />
           </div>
           <div>
@@ -461,8 +461,8 @@ export function Dashboard() {
         </div>
         
         <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-          <button onClick={() => navigate('/app/review')} className="h-9 px-4 rounded-md bg-white border border-[#E5E8EC] hover:border-[#7C3AED] text-[#111827] text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm">
-            <Play className="w-3.5 h-3.5 text-[#7C3AED] fill-[#7C3AED]" /> Open Focus Timer &rarr;
+          <button onClick={() => navigate('/app/review')} className="h-9 px-4 rounded-md bg-white border border-[#E5E8EC] hover:border-[#111827] text-[#111827] text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm">
+            <Play className="w-3.5 h-3.5 text-[#111827] stroke-[2]" /> Open Focus Timer &rarr;
           </button>
         </div>
       </div>
