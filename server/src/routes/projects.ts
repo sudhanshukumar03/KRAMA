@@ -6,10 +6,33 @@ const router = express.Router();
 
 router.use(requireAuth);
 
+const projectInclude = {
+  issues: true,
+  sprints: true,
+  roadmapItems: true,
+  docs: true,
+  goal: {
+    include: {
+      snapshots: {
+        orderBy: { date: 'desc' as const },
+        take: 20,
+      },
+    },
+  },
+  _count: {
+    select: {
+      issues: true,
+      sprints: true,
+      roadmapItems: true,
+      docs: true,
+    },
+  },
+};
+
 router.get('/', async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const projects = await prisma.project.findMany({
-      include: { issues: true, sprints: true, roadmapItems: true, docs: true, goal: true },
+      include: projectInclude,
       orderBy: { updatedAt: 'desc' },
     });
     res.json(projects);
@@ -22,7 +45,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
   try {
     const project = await prisma.project.findUnique({
       where: { id: req.params.id },
-      include: { issues: true, sprints: true, roadmapItems: true, docs: true, goal: true },
+      include: projectInclude,
     });
     if (!project) {
       res.status(404).json({ error: 'Project not found' });
@@ -49,7 +72,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
         spaceId: spaceId || null,
         goalId: goalId || null,
       },
-      include: { issues: true, sprints: true, roadmapItems: true, docs: true, goal: true },
+      include: projectInclude,
     });
     res.status(201).json(project);
   } catch (err: any) {
@@ -69,7 +92,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
         ...(spaceId !== undefined && { spaceId }),
         ...(goalId !== undefined && { goalId }),
       },
-      include: { issues: true, sprints: true, roadmapItems: true, docs: true, goal: true },
+      include: projectInclude,
     });
     res.json(project);
   } catch (err: any) {

@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, Sparkles, ArrowRight, Flame } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
+import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
 import type { GoalWithRelations } from '../types/schema';
 import { computeGoalPace } from '../lib/goalUtils';
@@ -170,7 +171,7 @@ export function Goals() {
   const { data: goals = [], isLoading: goalsLoading } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
   const { data: habits = [], isLoading: habitsLoading } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
 
-  if (goalsLoading || habitsLoading) return <div className="p-8 text-[#6B7280]">Loading goals...</div>;
+  if (goalsLoading || habitsLoading) return <LoadingState title="Loading Goals & OKRs..." description="Calculating progress velocities and habit links..." />;
 
   const rootGoals = goals.filter(g => !g.parentGoalId);
 

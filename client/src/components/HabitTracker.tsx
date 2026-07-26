@@ -5,6 +5,7 @@ import { CheckCircle2, Clock, TrendingUp, Flame, Sparkles, Plus, Sun, Moon, Chec
 import { toast } from 'sonner';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
+import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
 import { getIconForString } from '../lib/iconMap';
 
@@ -37,7 +38,7 @@ export function HabitTracker() {
     },
   });
 
-  if (isLoading) return <div className="p-8 text-[#6B7280]">Loading habits...</div>;
+  if (isLoading) return <LoadingState title="Loading Habits..." description="Syncing streak logs and daily routines..." />;
 
   const categoriesMap = new Map<string, number>();
   habits.forEach(h => {

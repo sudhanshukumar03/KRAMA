@@ -23,6 +23,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { IssueWithRelations } from '../types/schema';
 import { BaseButton } from './ui/BaseButton';
+import { LoadingState } from './ui/LoadingState';
 import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks, Search, Filter, Plus, User, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
@@ -263,7 +264,7 @@ export function KanbanBoard() {
     });
   }, [issues, searchQuery, priorityFilter]);
 
-  if (isLoading) return <div className="p-8 text-[#6B7280]">Loading board...</div>;
+  if (isLoading) return <LoadingState title="Loading Kanban Board..." description="Organizing sprint tasks and dependencies..." />;
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;

@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import { Plus, Settings, Check, ChevronLeft, ChevronRight, Play, Search, Clock, CalendarPlus, Flame, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getIconForString } from '../lib/iconMap';
+import { LoadingState } from './ui/LoadingState';
 
 const calendarDays = Array.from({ length: 31 }, (_, i) => i + 1);
 const weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -40,7 +41,7 @@ export function TimelineView() {
     setSearchParams({ date: dateStr });
   };
 
-  if (isLoading) return <div className="p-8 text-[#6B7280]">Loading daily schedule...</div>;
+  if (isLoading) return <LoadingState title="Loading Daily Timeline..." description="Scheduling time-blocked blocks and habit routines..." />;
 
   const targetStart = new Date(new Date(targetDate).setHours(0, 0, 0, 0));
   const targetEnd = new Date(new Date(targetDate).setHours(23, 59, 59, 999));

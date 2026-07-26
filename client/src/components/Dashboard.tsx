@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Target, CheckCircle2, ListTodo, AlertCircle, Play, Plus, Download, Clock, ArrowUpRight, Flame, TrendingUp, Sparkles } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
+import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
 import { BarChart, Bar, ResponsiveContainer, XAxis, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { useNavigate } from 'react-router-dom';
@@ -45,7 +46,7 @@ export function Dashboard() {
   const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
   const { data: dailyLogs = [] } = useQuery({ queryKey: ['dailyLogs'], queryFn: api.dailyLogs.list });
 
-  if (issuesLoading || projectsLoading) return <div className="p-8 text-[#6B7280]">Loading dashboard...</div>;
+  if (issuesLoading || projectsLoading) return <LoadingState title="Loading dashboard..." description="Compiling metrics and workspace activity..." />;
 
   const activeProjects = projects.filter(p => p.status === 'active');
   const todoIssues = issues.filter(i => ['todo', 'backlog'].includes(i.status));

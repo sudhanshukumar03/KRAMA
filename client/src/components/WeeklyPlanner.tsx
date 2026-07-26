@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import type { IssueWithRelations } from '../types/schema';
 import { BaseButton } from './ui/BaseButton';
+import { LoadingState } from './ui/LoadingState';
 
 // Helper for dates of the current week (Monday to Sunday)
 function getWeekDates(referenceDate: Date) {
@@ -143,7 +144,7 @@ export function WeeklyPlanner() {
     return () => clearTimeout(timer);
   }, [weekDays, issues]);
 
-  if (issuesLoading || habitsLoading) return <div className="p-8 text-[#6B7280]">Loading planner...</div>;
+  if (issuesLoading || habitsLoading) return <LoadingState title="Loading Weekly Planner..." description="Mapping issues to weekly timeline and habits..." />;
 
   const navigateWeek = (direction: 'prev' | 'next' | 'today') => {
     if (direction === 'today') {

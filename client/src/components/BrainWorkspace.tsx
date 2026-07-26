@@ -10,6 +10,7 @@ import type { PageWithRelations } from '../types/schema';
 import { cn } from '../lib/utils';
 import { EmptyState } from './ui/EmptyState';
 import { BaseButton } from './ui/BaseButton';
+import { LoadingState } from './ui/LoadingState';
 
 function getIconComponent(iconName: string | null, className?: string) {
   if (iconName === 'landmark') return <Building2 className={cn(className || "w-4 h-4 text-[#6B7280]", "stroke-[1.75]")} />;
@@ -307,7 +308,7 @@ export function BrainWorkspace() {
   const { data: pages = [], isLoading } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
   const [selectedPageId, setSelectedPageId] = useState<string | null>(pages[0]?.id || null);
 
-  if (isLoading) return <div className="p-8 text-[#6B7280]">Loading brain workspace...</div>;
+  if (isLoading) return <LoadingState title="Loading Knowledge Base..." description="Compiling technical specs and documentation trees..." />;
 
   const rootPages = pages.filter(p => !p.parentPageId);
   const selectedPage = pages.find(p => p.id === selectedPageId);

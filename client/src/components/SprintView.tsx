@@ -2,13 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Clock, Play, ListTodo, Flame, CheckCircle2, TrendingDown, Activity, Check } from 'lucide-react';
 import { EmptyState } from './ui/EmptyState';
+import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
 
 export function SprintView() {
   const { data: sprints = [], isLoading: sprintsLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
   const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
 
-  if (sprintsLoading || issuesLoading) return <div className="p-8 text-[#6B7280]">Loading sprint view...</div>;
+  if (sprintsLoading || issuesLoading) return <LoadingState title="Loading Sprint View..." description="Synchronizing sprint burnup and team velocity..." />;
 
   const activeSprint = sprints[0];
 

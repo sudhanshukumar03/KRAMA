@@ -36,17 +36,36 @@ export type {
   GoalProgressSnapshot
 };
 
-// Extended types for relations (how they will look when populated from backend or in our mock data)
-export type PageWithRelations = Page & {
-  childPages?: Page[];
-  linkedProject?: Project | null;
+// Extended types for relations
+export type GoalWithRelations = Goal & {
+  childGoals?: Goal[];
+  linkedProjects?: Project[];
+  habits?: Habit[];
+  snapshots?: GoalProgressSnapshot[];
 };
 
 export type ProjectWithRelations = Project & {
   docs?: Page[];
   issues?: Issue[];
-  goal?: Goal | null;
+  sprints?: Sprint[];
+  roadmapItems?: RoadmapItem[];
+  goal?: GoalWithRelations | null;
   space?: Space | null;
+  _count?: {
+    issues?: number;
+    sprints?: number;
+    roadmapItems?: number;
+    docs?: number;
+  };
+};
+
+export type PageWithRelations = Page & {
+  childPages?: Page[];
+  linkedProject?: (Project & {
+    issues?: Issue[];
+    goal?: Goal | null;
+    sprints?: Sprint[];
+  }) | null;
 };
 
 export type IssueWithRelations = Issue & {
@@ -54,13 +73,8 @@ export type IssueWithRelations = Issue & {
   sprint?: Sprint | null;
   childIssues?: Issue[];
   parentIssue?: Issue | null;
-};
-
-export type GoalWithRelations = Goal & {
-  childGoals?: Goal[];
-  linkedProjects?: Project[];
-  habits?: Habit[];
-  snapshots?: GoalProgressSnapshot[];
+  blockedBy?: Issue[];
+  blocking?: Issue[];
 };
 
 export type SpaceWithRelations = Space & {

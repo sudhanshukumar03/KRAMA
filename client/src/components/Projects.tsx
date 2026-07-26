@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
+import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 
@@ -24,7 +25,7 @@ export function Projects() {
     });
   }, [projects, searchQuery, statusFilter]);
 
-  if (pLoading || iLoading || docLoading || sLoading) return <div className="p-8 text-[#6B7280]">Loading projects...</div>;
+  if (pLoading || iLoading || docLoading || sLoading) return <LoadingState title="Loading Projects..." description="Retrieving engineering milestones and linked docs..." />;
 
   const statuses = statusFilter === 'all' ? ['active', 'idea', 'paused', 'shipped'] : [statusFilter];
 

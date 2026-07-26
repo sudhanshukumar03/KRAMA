@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { CalendarCheck, Save, Brain, Zap, Smile, Play, Pause, RotateCcw, Plus, Sparkles, Check, Clock, Trophy, AlertTriangle, FileText, Activity, AlertCircle } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
+import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
 
 const MOOD_OPTIONS = [
@@ -85,7 +86,7 @@ export function DailyReview() {
     }
   });
 
-  if (isLoading) return <div className="p-8 text-[#6B7280]">Loading daily review...</div>;
+  if (isLoading) return <LoadingState title="Loading Daily Review..." description="Fetching today's execution logs and deep work timers..." />;
 
   const hours = Math.floor(secondsElapsed / 3600);
   const mins = Math.floor((secondsElapsed % 3600) / 60);

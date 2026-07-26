@@ -6,10 +6,21 @@ const router = express.Router();
 
 router.use(requireAuth);
 
+const pageInclude = {
+  childPages: true,
+  linkedProject: {
+    include: {
+      issues: true,
+      goal: true,
+      sprints: true,
+    },
+  },
+};
+
 router.get('/', async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const pages = await prisma.page.findMany({
-      include: { childPages: true, linkedProject: true },
+      include: pageInclude,
       orderBy: { updatedAt: 'desc' },
     });
     res.json(pages);
@@ -22,7 +33,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
   try {
     const page = await prisma.page.findUnique({
       where: { id: req.params.id },
-      include: { childPages: true, linkedProject: true },
+      include: pageInclude,
     });
     if (!page) {
       res.status(404).json({ error: 'Page not found' });
@@ -51,7 +62,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
         tags: tags || [],
         linkedProjectId: linkedProjectId || null,
       },
-      include: { childPages: true, linkedProject: true },
+      include: pageInclude,
     });
     res.status(201).json(page);
   } catch (err: any) {
@@ -72,7 +83,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
         ...(tags !== undefined && { tags }),
         ...(linkedProjectId !== undefined && { linkedProjectId }),
       },
-      include: { childPages: true, linkedProject: true },
+      include: pageInclude,
     });
     res.json(page);
   } catch (err: any) {

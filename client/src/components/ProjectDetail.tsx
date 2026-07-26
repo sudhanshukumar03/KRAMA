@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import { FolderKanban, ArrowLeft, Plus, CheckCircle2, Clock, Target, AlertCircle, XCircle, ArrowUpCircle, FileText, Sparkles, CheckSquare, Building2, Laptop } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
+import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
 import { computeGoalPace } from '../lib/goalUtils';
 import type { GoalWithRelations } from '../types/schema';
@@ -26,7 +27,7 @@ export function ProjectDetail() {
   const { data: roadmapItems = [], isLoading: rmLoading } = useQuery({ queryKey: ['roadmapItems'], queryFn: api.roadmapItems.list });
   const { data: goals = [], isLoading: goalsLoading } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
 
-  if (pLoading || iLoading || docsLoading || rmLoading || goalsLoading) return <div className="p-8 text-[#6B7280]">Loading project details...</div>;
+  if (pLoading || iLoading || docsLoading || rmLoading || goalsLoading) return <LoadingState title="Loading Project Details..." description="Aggregating roadmap milestones, sprint tasks, and documentation..." />;
 
   const project = projects.find(p => p.id === id);
   if (!project) return (
