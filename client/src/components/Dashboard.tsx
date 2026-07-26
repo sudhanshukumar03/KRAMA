@@ -193,7 +193,7 @@ export function Dashboard() {
                 const d = new Date(today.getTime() + offset * 86400000);
                 const dStr = d.toISOString().split('T')[0] || '';
                 const completedOnDay = habits.some(h => 
-                  h.completions?.some(c => c.date.toString().startsWith(dStr) && c.completed) ||
+                  h.completions?.some((c: any) => c.date.toString().startsWith(dStr) && c.completed) ||
                   (offset === 0 && h.lastCompletedAt && new Date(h.lastCompletedAt).toDateString() === d.toDateString())
                 );
                 return (
@@ -512,7 +512,7 @@ export function Dashboard() {
           <div className="divide-y divide-[#E5E8EC]/60">
             {habits.map(habit => {
               const todayStr = new Date().toISOString().split('T')[0] || '';
-              const isCompletedToday = habit.completions?.some(c => c.date.toString().startsWith(todayStr) && c.completed) || 
+              const isCompletedToday = habit.completions?.some((c: any) => c.date.toString().startsWith(todayStr) && c.completed) || 
                 (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
               return (
                 <div 

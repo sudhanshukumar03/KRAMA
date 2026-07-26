@@ -339,7 +339,7 @@ function DecisionCard({
               <div>
                 <h4 className="text-[10px] font-mono font-bold text-[#9CA3AF] uppercase tracking-widest mb-1.5">Alternatives Considered</h4>
                 <div className="flex flex-wrap gap-1.5">
-                  {decision.alternativesConsidered.map((alt, i) => (
+                  {(decision.alternativesConsidered as string[]).map((alt: string, i: number) => (
                     <span
                       key={i}
                       className="px-2 py-0.5 rounded-md bg-[#F8F9FB] border border-[#E5E8EC] text-xs text-[#374151] font-medium"

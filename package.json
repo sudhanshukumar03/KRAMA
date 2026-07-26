@@ -11,8 +11,8 @@
     "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue,cyan\" \"npm run dev:server\" \"npm run dev:client\""
   },
   "dependencies": {
-    "@prisma/client": "^7.9.0",
-    "prisma": "^7.9.0"
+    "@prisma/client": "^6.19.3",
+    "prisma": "^6.19.3"
   },
   "devDependencies": {
     "concurrently": "^10.0.4"
