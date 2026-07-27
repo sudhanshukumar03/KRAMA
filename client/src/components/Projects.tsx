@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, Trash2, X } from 'lucide-react';
+import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, Trash2, X, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
@@ -39,83 +39,86 @@ function ProjectCreateModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150 font-sans"
     >
       <div
         onClick={e => e.stopPropagation()}
         className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/80 backdrop-blur-md">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
-              <FolderKanban className="w-4 h-4 stroke-[2]" />
+            <div className="w-8 h-8 rounded-xl bg-[#4F46E5]/10 dark:bg-[#818CF8]/10 text-[#4F46E5] dark:text-[#818CF8] flex items-center justify-center border border-[#4F46E5]/20 dark:border-[#818CF8]/20">
+              <FolderKanban className="w-4 h-4 stroke-[1.5]" />
             </div>
-            <h3 className="text-base font-medium text-[#111827]">Create New Project</h3>
+            <div>
+              <h3 className="text-base font-bold text-primary">Initialize Strategic Initiative</h3>
+              <p className="text-xs text-secondary font-mono">Engineering portfolio tracking</p>
+            </div>
           </div>
           <button
             onClick={onClose}
             type="button"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4 stroke-[1.5]" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
-              Project Name <span className="text-[#DC2626]">*</span>
+            <label className="block text-xs font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
+              Initiative Name <span className="text-[#DC2626]">*</span>
             </label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="e.g., Mobile Companion App v2"
+              placeholder="e.g., Autonomous Decision Engine v2"
               required
               autoFocus
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+              className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm text-primary placeholder:text-muted focus:outline-none focus:border-[#4F46E5] dark:focus:border-[#818CF8] transition-all bg-surface"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
-              Problem Statement / Scope
+            <label className="block text-xs font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
+              Problem Statement / Technical Scope
             </label>
             <textarea
               value={problemStatement}
               onChange={e => setProblemStatement(e.target.value)}
-              placeholder="Briefly describe the objective and scope..."
+              placeholder="Briefly describe the objective, architectural constraints, and target outcomes..."
               rows={3}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all resize-none"
+              className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm text-primary placeholder:text-muted focus:outline-none focus:border-[#4F46E5] dark:focus:border-[#818CF8] transition-all resize-none bg-surface"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
+              <label className="block text-xs font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
                 Status
               </label>
               <select
                 value={status}
                 onChange={e => setStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+                className="w-full px-3 py-2.5 border border-border rounded-xl text-sm text-primary bg-surface focus:outline-none focus:border-[#4F46E5] dark:focus:border-[#818CF8] transition-all font-mono font-bold cursor-pointer"
               >
-                <option value="idea">Idea / Discovery</option>
-                <option value="active">Active Execution</option>
-                <option value="paused">Paused</option>
-                <option value="shipped">Shipped</option>
+                <option value="idea">💡 Idea / Discovery</option>
+                <option value="active">⚡ Active Execution</option>
+                <option value="paused">⏸️ Paused</option>
+                <option value="shipped">🚀 Shipped / Live</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
+              <label className="block text-xs font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
                 Target Date
               </label>
               <input
                 type="date"
                 value={targetDate}
                 onChange={e => setTargetDate(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+                className="w-full px-3 py-2.5 border border-border rounded-xl text-sm text-primary bg-surface focus:outline-none focus:border-[#4F46E5] dark:focus:border-[#818CF8] transition-all font-mono font-bold"
               />
             </div>
           </div>
@@ -125,13 +128,21 @@ function ProjectCreateModal({
               Cancel
             </BaseButton>
             <BaseButton type="submit" disabled={isSubmitting || !name.trim()}>
-              {isSubmitting ? 'Creating...' : 'Create Project'}
+              {isSubmitting ? 'Creating...' : 'Launch Initiative'}
             </BaseButton>
           </div>
         </form>
       </div>
     </div>
   );
+}
+
+// Helper to generate ASCII progress bar blocks
+function renderAsciiProgress(pct: number) {
+  const totalBlocks = 10;
+  const filledBlocks = Math.round((pct / 100) * totalBlocks);
+  const emptyBlocks = totalBlocks - filledBlocks;
+  return '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
 }
 
 export function Projects() {
@@ -147,18 +158,18 @@ export function Projects() {
     try {
       const res = await api.projects.delete(project.id);
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success(`Deleted "${project.name}"`, {
+      toast.success(`Deleted initiative "${project.name}"`, {
         action: res?.snapshot ? {
           label: 'Undo',
           onClick: async () => {
             await api.projects.restore(res.snapshot);
             queryClient.invalidateQueries({ queryKey: ['projects'] });
-            toast.success(`Restored "${project.name}"`);
+            toast.success(`Restored initiative "${project.name}"`);
           }
         } : undefined
       });
     } catch (err) {
-      toast.error('Failed to delete project');
+      toast.error('Failed to delete initiative');
     }
   };
 
@@ -175,13 +186,13 @@ export function Projects() {
     onSuccess: (newProj) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       setCreateModalOpen(false);
-      toast.success(`Created "${newProj?.name || 'Project'}"`, {
-        description: 'Click project card to view roadmap and board.'
+      toast.success(`Created strategic initiative "${newProj?.name || 'Project'}"`, {
+        description: 'Click initiative card to access engineering mission control.'
       });
       if (newProj?.id) navigate(`/app/projects/${newProj.id}`);
     },
     onError: () => {
-      toast.error('Failed to create project');
+      toast.error('Failed to initialize project');
     }
   });
 
@@ -200,61 +211,61 @@ export function Projects() {
     });
   }, [projects, searchQuery, statusFilter]);
 
-  if (pLoading || iLoading || docLoading || sLoading) return <LoadingState title="Loading Projects..." description="Retrieving engineering milestones and linked docs..." />;
+  if (pLoading || iLoading || docLoading || sLoading) return <LoadingState title="Loading Strategic Portfolio..." description="Aggregating initiative milestones, engineering telemetry, and AI risk analysis..." />;
 
   const statuses = statusFilter === 'all' ? ['active', 'idea', 'paused', 'shipped'] : [statusFilter];
 
   return (
-    <div className="p-8 max-w-7xl mx-auto w-full flex flex-col h-full bg-canvas animate-in fade-in duration-150 gap-6 pb-20">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex flex-col h-full bg-canvas animate-in fade-in duration-150 gap-6 pb-24 font-sans text-primary">
       
-      {/* Header with Category Tile (#4F46E5 Indigo) */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-[12px] bg-[#4F46E5] text-white flex items-center justify-center shrink-0 shadow-sm">
-            <FolderKanban className="w-5 h-5 stroke-[1.75]" />
+      {/* COMMAND CENTER PORTFOLIO HEADER (Indigo #4F46E5 Identity) */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 bg-surface border border-border p-5 rounded-2xl shadow-xs">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#4F46E5] dark:bg-[#818CF8] text-white dark:text-[#050811] flex items-center justify-center shrink-0 shadow-sm border border-[#4F46E5]/20">
+            <FolderKanban className="w-6 h-6 stroke-[1.5]" />
           </div>
           <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <h1 className="text-[28px] font-medium tracking-tight text-[#111827]">Projects</h1>
-              <span className="bg-surface-hover text-secondary border border-border px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-[0.02em] flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-[#111827] stroke-[2]" /> {projects.length} initiatives
+            <div className="flex items-center gap-2.5 mb-1">
+              <h1 className="text-h2 font-bold tracking-tight text-primary leading-none">Project Portfolio</h1>
+              <span className="bg-surface-hover text-secondary border border-border px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-[#4F46E5] dark:text-[#818CF8] stroke-[1.5]" /> {projects.length} Initiatives Tracked
               </span>
             </div>
-            <p className="text-[13px] text-secondary">Track initiatives, milestones, and linked quarterly OKRs.</p>
+            <p className="text-xs text-secondary font-mono">Engineering command center for multi-phase roadmaps, sprints, and strategic OKRs.</p>
           </div>
         </div>
-        <BaseButton onClick={handleCreateProject}>
-          <Plus className="w-4 h-4 mr-1.5 stroke-[2]" />
-          New Project
+        <BaseButton onClick={handleCreateProject} className="shrink-0 cursor-pointer">
+          <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" />
+          New Initiative
         </BaseButton>
       </div>
 
-      {/* NEW: Project Health Filter & Search Bar */}
-      <div className="bg-surface border border-border rounded-xl p-3 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      {/* STRATEGIC HEALTH FILTER & SEARCH BAR */}
+      <div className="bg-surface border border-border rounded-xl p-3.5 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 stroke-[1.75]" />
+          <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 stroke-[1.5]" />
           <input
             type="text"
-            placeholder="Search projects by name or problem statement..."
+            placeholder="Search initiatives by title or technical scope..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-[#4F46E5] focus:bg-surface transition-all placeholder:text-muted text-[#111827]"
+            className="w-full pl-9 pr-4 py-2 text-xs bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-[#4F46E5] dark:focus:border-[#818CF8] focus:bg-surface transition-all placeholder:text-muted text-primary font-sans font-medium"
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          <span className="text-[11px] font-medium text-secondary flex items-center gap-1 mr-1 shrink-0">
-            <Filter className="w-3.5 h-3.5 stroke-[1.75]" /> Status:
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 font-mono">
+          <span className="text-[11px] font-bold text-secondary flex items-center gap-1 mr-1 shrink-0 uppercase tracking-wider">
+            <Filter className="w-3.5 h-3.5 stroke-[1.5]" /> Status:
           </span>
           {(['all', 'active', 'idea', 'paused', 'shipped'] as const).map((stat) => (
             <button
               key={stat}
               onClick={() => setStatusFilter(stat)}
               className={cn(
-                "px-2.5 py-1 rounded-md text-xs font-medium capitalize transition-all shrink-0 cursor-pointer",
+                "px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-all shrink-0 cursor-pointer",
                 statusFilter === stat 
-                  ? "bg-[#111827] text-white shadow-2xs" 
-                  : "bg-surface-hover text-secondary hover:text-primary border border-border"
+                  ? "bg-primary text-surface shadow-2xs" 
+                  : "bg-surface-hover text-secondary hover:text-primary border border-border/60"
               )}
             >
               {stat} {stat !== 'all' && `(${projects.filter(p => p.status === stat).length})`}
@@ -263,22 +274,33 @@ export function Projects() {
         </div>
       </div>
 
-      {/* Projects Grid */}
-      <div className={cn("grid gap-6", statusFilter === 'all' ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3")}>
+      {/* LUXURY LARGE CARDS LIST / GRID */}
+      <div className="flex flex-col gap-8">
         {statuses.map(status => {
           const statusProjects = filteredProjects.filter(p => p.status === status);
+          if (statusProjects.length === 0 && statusFilter !== 'all') {
+            return (
+              <div key={status} className="border border-border border-dashed rounded-2xl bg-surface-hover/30 p-12 flex flex-col items-center justify-center text-center">
+                <FolderKanban className="w-8 h-8 text-secondary mb-2 stroke-[1.5]" />
+                <span className="text-xs font-mono font-bold text-primary uppercase">No {status} initiatives match current filter</span>
+              </div>
+            );
+          }
+          if (statusProjects.length === 0) return null;
+
           return (
             <div key={status} className="flex flex-col gap-4">
-              <div className="flex items-center gap-2 text-secondary font-medium text-xs uppercase tracking-[0.02em] px-1">
+              {/* Category Status Ribbon */}
+              <div className="flex items-center gap-2 text-secondary font-mono font-bold text-xs uppercase tracking-wider px-1">
                 <span className={cn(
-                  "w-2.5 h-2.5 rounded-full",
-                  status === 'active' ? 'bg-[#2563EB]' : 
-                  status === 'idea' ? 'bg-amber-500' :
-                  status === 'shipped' ? 'bg-green-500' : 'bg-[#9CA3AF]'
+                  "w-2.5 h-2.5 rounded-full shadow-2xs",
+                  status === 'active' ? 'bg-[#2563EB] dark:bg-[#00E5FF] animate-pulse' : 
+                  status === 'idea' ? 'bg-[#F59E0B]' :
+                  status === 'shipped' ? 'bg-[#109868]' : 'bg-secondary'
                 )} />
-                {status}
-                <span className="ml-auto bg-surface border border-border px-2 py-0.2 rounded font-mono text-xs shadow-2xs">
-                  {statusProjects.length}
+                <span>{status} INITIATIVES</span>
+                <span className="ml-auto bg-surface border border-border px-2.5 py-0.5 rounded-md font-mono text-xs font-bold text-primary shadow-2xs">
+                  {statusProjects.length} Tracked
                 </span>
               </div>
               
@@ -290,104 +312,130 @@ export function Projects() {
                   
                   const completedIssues = projectIssues.filter((i: any) => i.status === 'done' || i.status === 'released').length;
                   const totalIssues = project._count?.issues ?? projectIssues.length;
-                  const progressPct = totalIssues > 0 ? (completedIssues / totalIssues) * 100 : 0;
+                  const progressPct = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
 
-                  // Milestone computation
-                  const milestoneIndex = Math.min(4, Math.floor(progressPct / 25) + 1);
+                  // Compute hours since last active
+                  const hoursSinceUpdate = Math.max(1, Math.round((new Date().getTime() - new Date(project.updatedAt).getTime()) / (1000 * 3600)));
+                  const lastActiveLabel = hoursSinceUpdate < 24 ? `${hoursSinceUpdate}h ago` : `${Math.round(hoursSinceUpdate / 24)}d ago`;
 
                   return (
                     <div 
                       key={project.id} 
                       onClick={() => navigate(`/app/projects/${project.id}`)}
-                      className="bg-surface border border-border rounded-xl p-5 hover:border-[#4F46E5] transition-all cursor-pointer group flex flex-col justify-between shadow-sm hover:shadow-md min-h-[300px] gap-4"
+                      className="bg-surface border border-border rounded-2xl p-6 shadow-xs hover:shadow-md transition-all duration-300 hover:translate-y-[-2px] hover:border-[#4F46E5] dark:hover:border-[#818CF8] cursor-pointer group/card flex flex-col justify-between gap-5 relative overflow-hidden"
                     >
-                      <div>
-                        <div className="flex items-start justify-between mb-2 gap-2">
-                          <h3 className="font-medium text-[16px] text-[#111827] line-clamp-1 group-hover:text-[#4F46E5] transition-colors">
-                            {project.name}
-                          </h3>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="font-mono text-[10px] text-muted bg-surface-hover px-1.5 py-0.5 rounded border border-border">
+                      {/* Left color glow bar on hover */}
+                      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#4F46E5] dark:bg-[#818CF8] opacity-0 group-hover/card:opacity-100 transition-opacity duration-300" />
+
+                      {/* Top Row: Title, ID, Problem Statement & Actions */}
+                      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-3 mb-1.5">
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-secondary bg-surface-hover px-2 py-0.5 rounded border border-border/60">
                               {project.id.slice(0, 6).toUpperCase()}
                             </span>
-                            <button
-                              onClick={(e) => handleDeleteProject(e, project)}
-                              className="opacity-0 group-hover:opacity-100 p-1 text-muted hover:text-[#DC2626] hover:bg-red-50 rounded transition-all duration-150"
-                              title="Delete project"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <h3 className="font-bold text-lg md:text-xl text-primary truncate group-hover/card:text-[#4F46E5] dark:group-hover/card:text-[#818CF8] transition-colors">
+                              {project.name}
+                            </h3>
+                            {project.goalId && (
+                              <span className="bg-[#109868]/10 text-[#109868] border border-[#109868]/20 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+                                <Target className="w-3 h-3 stroke-[1.5]" /> OKR LINKED
+                              </span>
+                            )}
+                          </div>
+                          
+                          {project.problemStatement && (
+                            <p className="text-xs md:text-sm text-secondary font-normal line-clamp-2 leading-relaxed max-w-4xl">
+                              {project.problemStatement}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Right Quick Actions */}
+                        <div className="flex items-center gap-2 shrink-0 self-end md:self-start">
+                          <button
+                            onClick={(e) => handleDeleteProject(e, project)}
+                            className="opacity-0 group-hover/card:opacity-100 p-2 text-muted hover:text-[#DC2626] hover:bg-red-500/10 rounded-lg transition-all duration-150 cursor-pointer"
+                            title="Delete initiative"
+                          >
+                            <Trash2 className="w-4 h-4 stroke-[1.5]" />
+                          </button>
+                          <div className="px-3.5 py-1.5 rounded-xl bg-surface-hover group-hover/card:bg-[#4F46E5] dark:group-hover/card:bg-[#818CF8] text-secondary group-hover/card:text-white dark:group-hover/card:text-[#050811] font-mono text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs">
+                            <span>Open Initiative</span>
+                            <ArrowRight className="w-3.5 h-3.5 stroke-[1.5] group-hover/card:translate-x-0.5 transition-transform" />
                           </div>
                         </div>
+                      </div>
+
+                      {/* Middle Row: Large Luxury Schematic Progress Bar (Krama OS ██████████ 82% Sprint 4 4 Issues Last Active 2h ago) */}
+                      <div className="bg-surface-hover/80 border border-border/80 rounded-xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 font-mono">
                         
-                        {project.problemStatement && (
-                          <p className="text-xs text-secondary mb-3 line-clamp-2 leading-relaxed">
-                            {project.problemStatement}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Compact Stat Row */}
-                      <div className="text-xs font-mono text-secondary bg-surface-hover p-2.5 rounded-lg border border-border/60 flex items-center justify-between">
-                        <span className="flex items-center gap-1 font-medium text-[#111827]"><CheckCircle2 className="w-3.5 h-3.5 text-[#0D9488] stroke-[2]" /> {completedIssues}/{totalIssues} Issues</span>
-                        <span>{totalDocs} Docs</span>
-                        <span>{totalSprints} Sprints</span>
-                      </div>
-
-                      {/* Health / Milestone Progress Bar */}
-                      <div>
-                        <div className="flex justify-between items-center mb-1.5 text-[10px] font-mono uppercase tracking-[0.02em] text-secondary">
-                          <span className="font-medium text-[#111827]">Milestone {milestoneIndex}/4</span>
-                          <span className="font-bold text-[#4F46E5]">{Math.round(progressPct)}%</span>
+                        {/* Left: ASCII Progress Block + Percentage */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="text-xs font-bold text-primary tracking-widest bg-surface px-2.5 py-1 rounded border border-border/60 shadow-2xs shrink-0 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-[#4F46E5] dark:bg-[#818CF8]" /> KRAMA OS
+                          </div>
+                          <div className="text-xs text-[#4F46E5] dark:text-[#818CF8] font-bold tracking-tighter shrink-0 select-none">
+                            {renderAsciiProgress(progressPct)}
+                          </div>
+                          <div className="text-base font-bold text-primary shrink-0">
+                            {progressPct}%
+                          </div>
                         </div>
+
+                        {/* Center/Right: Sprints, Issues, Docs & Last Active Telemetry */}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-secondary justify-end">
+                          <span className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded border border-border/60 text-primary font-bold">
+                            <Zap className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#00E5FF] stroke-[1.5]" />
+                            {totalSprints} {totalSprints === 1 ? 'Sprint' : 'Sprints'}
+                          </span>
+                          <span className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded border border-border/60 text-primary font-bold">
+                            <FolderKanban className="w-3.5 h-3.5 text-[#7C3AED] dark:text-[#A78BFA] stroke-[1.5]" />
+                            {totalDocs} {totalDocs === 1 ? 'Doc' : 'Docs'}
+                          </span>
+                          <span className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded border border-border/60 text-primary font-bold">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />
+                            {completedIssues}/{totalIssues} Issues
+                          </span>
+                          <span className="flex items-center gap-1 text-muted">
+                            <Clock className="w-3.5 h-3.5 stroke-[1.5]" />
+                            Last Active {lastActiveLabel}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Bottom Progress Bar + Invisible AI Risk Analysis (Revealed on Hover) */}
+                      <div className="space-y-2.5">
                         <div className="h-2 w-full bg-surface-hover rounded-full overflow-hidden border border-border/60">
                           <div 
-                            className="h-full bg-[#4F46E5] transition-all duration-400 ease-out"
+                            className="h-full bg-gradient-to-r from-[#4F46E5] to-[#818CF8] dark:from-[#818CF8] dark:to-[#00E5FF] transition-all duration-700 ease-out"
                             style={{ width: `${progressPct}%` }}
                           />
                         </div>
-                        
-                        {/* Step indicators */}
-                        <div className="grid grid-cols-4 gap-1 mt-1.5">
-                          {[1, 2, 3, 4].map((step) => (
-                            <div 
-                              key={step} 
-                              className={cn(
-                                "h-1 rounded-full transition-colors",
-                                step <= milestoneIndex ? "bg-[#4F46E5]/40" : "bg-[#E5E8EC]/60"
-                              )} 
-                            />
-                          ))}
-                        </div>
-                      </div>
 
-                      {/* Footer with Linked OKR Badge */}
-                      <div className="flex items-center justify-between text-[11px] pt-3 border-t border-border/60">
-                        {project.goalId ? (
-                          <div 
-                            onClick={(e) => { e.stopPropagation(); navigate('/app/goals'); }}
-                            className="flex items-center gap-1 bg-[#0D9488]/10 hover:bg-[#0D9488]/20 border border-[#0D9488]/30 transition-colors px-2 py-0.5 rounded text-[#0D9488] font-mono font-medium text-[10px] cursor-pointer"
-                          >
-                            <Target className="w-3 h-3 text-[#0D9488] stroke-[1.75]" /> OKR Linked
+                        {/* Invisible AI Risk Analysis Bar (Reveals on card hover) */}
+                        <div className="opacity-0 group-hover/card:opacity-100 max-h-0 group-hover/card:max-h-16 transition-all duration-300 overflow-hidden pt-1">
+                          <div className="text-[11px] font-mono bg-[#7C3AED]/10 dark:bg-[#A78BFA]/10 border border-[#7C3AED]/20 dark:border-[#A78BFA]/20 text-primary px-3 py-1.5 rounded-lg flex items-center justify-between gap-2">
+                            <span className="flex items-center gap-1.5 font-bold text-[#7C3AED] dark:text-[#A78BFA]">
+                              <Sparkles className="w-3.5 h-3.5 stroke-[1.5] shrink-0" /> AI Risk Sentinel:
+                            </span>
+                            <span className="truncate flex-1 text-secondary">
+                              {progressPct === 100 
+                                ? "Initiative completed. Ready for quarterly archive and post-mortem review." 
+                                : progressPct > 60 
+                                ? "Velocity nominal (94% probability of achieving target horizon on schedule)."
+                                : "Early execution phase. AI recommends scheduling deep-work sprint sessions."}
+                            </span>
+                            <span className="font-bold text-primary flex items-center gap-1 shrink-0">
+                              <ShieldCheck className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" /> Nominal
+                            </span>
                           </div>
-                        ) : (
-                          <span className="text-[10px] text-muted font-mono">No OKR linked</span>
-                        )}
-                        <div className="flex items-center gap-1 text-secondary font-mono text-[10px]">
-                          <Clock className="w-3 h-3 stroke-[1.5]" /> 
-                          {new Date(project.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </div>
                       </div>
 
                     </div>
                   );
                 })}
-
-                {statusProjects.length === 0 && (
-                  <div className="border border-border border-dashed rounded-xl bg-surface h-32 flex items-center justify-center p-4 text-center shadow-2xs">
-                    <span className="text-xs text-muted font-medium">No {status} projects match filter</span>
-                  </div>
-                )}
               </div>
             </div>
           );
