@@ -55,7 +55,13 @@ export function DailyReview() {
   
   const [activeThemeId, setActiveThemeId] = useState<string>('sprint');
   const [customMins, setCustomMins] = useState<number>(30);
-  const [focusTask, setFocusTask] = useState<string>('Deep System Architecture & Code Execution');
+  const [focusTask, setFocusTask] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paramTask = params.get('focusTask');
+    if (paramTask) return paramTask;
+    const saved = localStorage.getItem('krama_active_focus_task');
+    return saved || 'Deep System Architecture & Code Execution';
+  });
   const [showTaskDropdown, setShowTaskDropdown] = useState(false);
   const [secondsRemaining, setSecondsRemaining] = useState<number>(25 * 60);
   const [sessionSeconds, setSessionSeconds] = useState<number>(0);
