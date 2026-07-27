@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { CheckCircle2, Clock, TrendingUp, Flame, Sparkles, Plus, Sun, Moon, Check, X, Trash2, AlertTriangle, RotateCcw, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, Clock, TrendingUp, Flame, Sparkles, Plus, Sun, Moon, Check, X, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
@@ -64,9 +64,9 @@ function HabitCreateModal({
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-white border border-[#E5E8EC] rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+        className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E8EC] bg-[#F8F9FB]/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#EA580C]/10 text-[#EA580C] flex items-center justify-center">
               <Flame className="w-4 h-4 stroke-[2]" />
@@ -76,7 +76,7 @@ function HabitCreateModal({
           <button
             onClick={onClose}
             type="button"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FB] hover:text-[#111827] transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -84,7 +84,7 @@ function HabitCreateModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+            <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
               Routine Name <span className="text-[#DC2626]">*</span>
             </label>
             <input
@@ -94,19 +94,19 @@ function HabitCreateModal({
               placeholder="e.g., 45m Focused Deep Work"
               required
               autoFocus
-              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Cadence
               </label>
               <select
                 value={cadence}
                 onChange={e => setCadence(e.target.value)}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
               >
                 <option value="daily">Daily Routine</option>
                 <option value="weekly">Weekly Check-in</option>
@@ -114,13 +114,13 @@ function HabitCreateModal({
             </div>
 
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Category
               </label>
               <select
                 value={category}
                 onChange={e => setCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
               >
                 <option value="Execution">Execution</option>
                 <option value="Brain">Brain</option>
@@ -133,13 +133,13 @@ function HabitCreateModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Time of Day
               </label>
               <select
                 value={timeOfDay}
                 onChange={e => setTimeOfDay(e.target.value)}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
               >
                 <option value="morning">Morning</option>
                 <option value="afternoon">Afternoon</option>
@@ -149,7 +149,7 @@ function HabitCreateModal({
             </div>
 
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Duration (mins)
               </label>
               <input
@@ -158,12 +158,12 @@ function HabitCreateModal({
                 max="480"
                 value={duration}
                 onChange={e => setDuration(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
               />
             </div>
           </div>
 
-          <div className="pt-4 border-t border-[#E5E8EC] flex justify-end gap-3">
+          <div className="pt-4 border-t border-border flex justify-end gap-3">
             <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </BaseButton>
@@ -300,7 +300,7 @@ export function HabitTracker() {
     <div className="flex flex-col lg:flex-row h-full w-full bg-canvas animate-in fade-in duration-150 overflow-y-auto lg:overflow-hidden">
       
       {/* LEFT COLUMN: Main Content */}
-      <div className="flex-1 lg:h-full lg:overflow-y-auto p-4 sm:p-6 lg:p-12 relative border-b lg:border-b-0 lg:border-r border-[#E5E8EC]">
+      <div className="flex-1 lg:h-full lg:overflow-y-auto p-4 sm:p-6 lg:p-12 relative border-b lg:border-b-0 lg:border-r border-border">
         
         {/* Header with Category Tile (#EA580C Orange) */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
@@ -315,7 +315,7 @@ export function HabitTracker() {
                   <Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" /> {habits.length} routines
                 </span>
               </div>
-              <p className="text-[13px] text-[#6B7280]">Manage, track, and maintain consistency across your daily routines.</p>
+              <p className="text-[13px] text-secondary">Manage, track, and maintain consistency across your daily routines.</p>
             </div>
           </div>
           <BaseButton onClick={handleCreateHabit}>
@@ -329,7 +329,7 @@ export function HabitTracker() {
             onClick={() => setActiveCategory(null)}
             className={cn(
               "px-3.5 py-1.5 rounded-full text-xs font-medium tracking-[0.02em] transition-all border shadow-2xs cursor-pointer",
-              activeCategory === null ? "bg-[#111827] text-white border-[#111827]" : "bg-white text-[#6B7280] border-[#E5E8EC] hover:border-[#111827] hover:text-[#111827]"
+              activeCategory === null ? "bg-[#111827] text-white border-[#111827]" : "bg-surface text-secondary border-border hover:border-[#111827] hover:text-primary"
             )}
           >
             All ({habits.length})
@@ -340,10 +340,10 @@ export function HabitTracker() {
               onClick={() => setActiveCategory(cat)}
               className={cn(
                 "px-3.5 py-1.5 rounded-full text-xs font-medium tracking-[0.02em] transition-all border flex items-center gap-1.5 shadow-2xs cursor-pointer",
-                activeCategory === cat ? "bg-[#111827] text-white border-[#111827]" : "bg-white text-[#6B7280] border-[#E5E8EC] hover:border-[#111827] hover:text-[#111827]"
+                activeCategory === cat ? "bg-[#111827] text-white border-[#111827]" : "bg-surface text-secondary border-border hover:border-[#111827] hover:text-primary"
               )}
             >
-              {cat} <span className={cn("px-1.5 py-0.2 rounded-full text-[10px] font-mono", activeCategory === cat ? "bg-white/20" : "bg-[#F8F9FB] text-[#6B7280] border border-[#E5E8EC]")}>{count}</span>
+              {cat} <span className={cn("px-1.5 py-0.2 rounded-full text-[10px] font-mono", activeCategory === cat ? "bg-white/20" : "bg-surface-hover text-secondary border border-border")}>{count}</span>
             </button>
           ))}
         </div>
@@ -355,14 +355,14 @@ export function HabitTracker() {
             const heatmap = generate30DayPattern(habit);
 
             return (
-              <div key={habit.id} className="bg-white border border-[#E5E8EC] rounded-xl p-5 hover:border-[#111827] transition-all cursor-pointer group flex flex-col justify-between shadow-sm gap-4">
+              <div key={habit.id} className="bg-surface border border-border rounded-xl p-5 hover:border-[#111827] transition-all cursor-pointer group flex flex-col justify-between shadow-sm gap-4">
                 <div className="flex items-start gap-4">
-                  <div className="w-11 h-11 bg-[#F8F9FB] rounded-xl border border-[#E5E8EC] flex items-center justify-center shrink-0 group-hover:border-[#111827] group-hover:bg-[#111827] transition-all shadow-2xs">
+                  <div className="w-11 h-11 bg-surface-hover rounded-xl border border-border flex items-center justify-center shrink-0 group-hover:border-[#111827] group-hover:bg-[#111827] transition-all shadow-2xs">
                     <Icon className="w-5 h-5 text-[#111827] group-hover:text-white transition-colors stroke-[1.75]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <h3 className="font-medium text-[16px] text-[#111827] truncate group-hover:text-[#111827] transition-colors">{habit.name}</h3>
+                      <h3 className="font-medium text-[16px] text-[#111827] truncate group-hover:text-primary transition-colors">{habit.name}</h3>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[11px] font-bold tracking-tight">
                           <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[2]" /> {habit.streak}d
@@ -373,20 +373,20 @@ export function HabitTracker() {
                             deleteMutation.mutate(habit.id);
                           }}
                           title="Delete Routine"
-                          className="w-7 h-7 rounded-md flex items-center justify-center text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 transition-colors opacity-0 group-hover:opacity-100"
+                          className="w-7 h-7 rounded-md flex items-center justify-center text-muted hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 transition-colors opacity-0 group-hover:opacity-100"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-[#6B7280] font-medium">{habit.category || 'Uncategorized'}</span>
+                      <span className="text-xs text-secondary font-medium">{habit.category || 'Uncategorized'}</span>
                       <span className="text-[#E5E8EC] font-light">•</span>
-                      <span className="text-[10px] font-mono uppercase tracking-[0.02em] text-[#6B7280] border border-[#E5E8EC] bg-[#F8F9FB] px-1.5 py-0.2 rounded">
+                      <span className="text-[10px] font-mono uppercase tracking-[0.02em] text-secondary border border-border bg-surface-hover px-1.5 py-0.2 rounded">
                         {habit.difficulty || 'Medium'}
                       </span>
                       <span className="text-[#E5E8EC] font-light">•</span>
-                      <span className="text-[11px] text-[#6B7280] font-mono flex items-center gap-1">
+                      <span className="text-[11px] text-secondary font-mono flex items-center gap-1">
                         <Clock className="w-3 h-3 stroke-[1.5]" /> {habit.duration || 15}m
                       </span>
                     </div>
@@ -394,8 +394,8 @@ export function HabitTracker() {
                 </div>
 
                 {/* NEW: 30-Day Activity Heatmap Grid */}
-                <div className="pt-3 border-t border-[#E5E8EC]/60">
-                  <div className="flex items-center justify-between text-[10px] text-[#9CA3AF] uppercase font-mono mb-1.5">
+                <div className="pt-3 border-t border-border/60">
+                  <div className="flex items-center justify-between text-[10px] text-muted uppercase font-mono mb-1.5">
                     <span>30-Day Activity Horizon</span>
                     <span>Last 30d</span>
                   </div>
@@ -407,8 +407,8 @@ export function HabitTracker() {
                         className={cn(
                           "w-2 h-4 rounded-xs transition-colors",
                           item.level === 3 ? "bg-[#EA580C]" 
-                          : item.level === -1 ? "bg-[#F3F4F6] border border-[#E5E8EC]/40 opacity-40" 
-                          : "bg-[#F8F9FB] border border-[#E5E8EC]/60"
+                          : item.level === -1 ? "bg-surface-hover border border-border/40 opacity-40" 
+                          : "bg-surface-hover border border-border/60"
                         )} 
                       />
                     ))}
@@ -431,17 +431,17 @@ export function HabitTracker() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* Morning */}
-            <div className="bg-white border border-[#E5E8EC] rounded-xl p-5 shadow-sm">
-              <h3 className="text-xs font-medium text-[#6B7280] uppercase tracking-[0.02em] mb-3 flex items-center justify-between">
+            <div className="bg-surface border border-border rounded-xl p-5 shadow-sm">
+              <h3 className="text-xs font-medium text-secondary uppercase tracking-[0.02em] mb-3 flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-[#111827] font-semibold"><Sun className="w-3.5 h-3.5 text-[#EA580C]" />Morning Routine</span>
-                <span className="font-mono text-[10px] text-[#9CA3AF]">{morningHabits.length} habits</span>
+                <span className="font-mono text-[10px] text-muted">{morningHabits.length} habits</span>
               </h3>
               <div className="space-y-2">
                 {morningHabits.map(habit => (
-                  <div key={habit.id} className="flex justify-between items-center bg-[#F8F9FB] border border-[#E5E8EC] p-3 rounded-lg hover:border-[#111827] transition-colors group">
-                    <span className="text-sm font-medium text-[#111827] group-hover:text-[#111827] transition-colors">{habit.name}</span>
+                  <div key={habit.id} className="flex justify-between items-center bg-surface-hover border border-border p-3 rounded-lg hover:border-[#111827] transition-colors group">
+                    <span className="text-sm font-medium text-[#111827] group-hover:text-primary transition-colors">{habit.name}</span>
                     <div className="flex items-center gap-3">
-                      <span className="text-[11px] text-[#6B7280] font-mono">{habit.duration || 15}m</span>
+                      <span className="text-[11px] text-secondary font-mono">{habit.duration || 15}m</span>
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[10px] font-bold tracking-tight"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" /> {habit.streak}d</span>
                       <button
                         onClick={(e) => {
@@ -449,29 +449,29 @@ export function HabitTracker() {
                           deleteMutation.mutate(habit.id);
                         }}
                         title="Delete Routine"
-                        className="p-1 rounded text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-1 rounded text-muted hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 transition-colors opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
                 ))}
-                {morningHabits.length === 0 && <span className="text-xs text-[#9CA3AF]">No morning habits configured.</span>}
+                {morningHabits.length === 0 && <span className="text-xs text-muted">No morning habits configured.</span>}
               </div>
             </div>
 
             {/* Evening */}
-            <div className="bg-white border border-[#E5E8EC] rounded-xl p-5 shadow-sm">
-              <h3 className="text-xs font-medium text-[#6B7280] uppercase tracking-[0.02em] mb-3 flex items-center justify-between">
+            <div className="bg-surface border border-border rounded-xl p-5 shadow-sm">
+              <h3 className="text-xs font-medium text-secondary uppercase tracking-[0.02em] mb-3 flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-[#111827] font-semibold"><Moon className="w-3.5 h-3.5 text-[#7C3AED]" />Evening Routine</span>
-                <span className="font-mono text-[10px] text-[#9CA3AF]">{eveningHabits.length} habits</span>
+                <span className="font-mono text-[10px] text-muted">{eveningHabits.length} habits</span>
               </h3>
               <div className="space-y-2">
                 {eveningHabits.map(habit => (
-                  <div key={habit.id} className="flex justify-between items-center bg-[#F8F9FB] border border-[#E5E8EC] p-3 rounded-lg hover:border-[#111827] transition-colors group">
-                    <span className="text-sm font-medium text-[#111827] group-hover:text-[#111827] transition-colors">{habit.name}</span>
+                  <div key={habit.id} className="flex justify-between items-center bg-surface-hover border border-border p-3 rounded-lg hover:border-[#111827] transition-colors group">
+                    <span className="text-sm font-medium text-[#111827] group-hover:text-primary transition-colors">{habit.name}</span>
                     <div className="flex items-center gap-3">
-                      <span className="text-[11px] text-[#6B7280] font-mono">{habit.duration || 15}m</span>
+                      <span className="text-[11px] text-secondary font-mono">{habit.duration || 15}m</span>
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[10px] font-bold tracking-tight"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" /> {habit.streak}d</span>
                       <button
                         onClick={(e) => {
@@ -479,14 +479,14 @@ export function HabitTracker() {
                           deleteMutation.mutate(habit.id);
                         }}
                         title="Delete Routine"
-                        className="p-1 rounded text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-1 rounded text-muted hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 transition-colors opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
                 ))}
-                {eveningHabits.length === 0 && <span className="text-xs text-[#9CA3AF]">No evening habits configured.</span>}
+                {eveningHabits.length === 0 && <span className="text-xs text-muted">No evening habits configured.</span>}
               </div>
             </div>
 
@@ -494,28 +494,28 @@ export function HabitTracker() {
         </div>
 
         {/* NEW: Dedicated Delete & Manage Routines Section */}
-        <div className="mt-10 pt-8 border-t border-[#E5E8EC]">
+        <div className="mt-10 pt-8 border-t border-border">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-[18px] font-medium tracking-tight text-[#111827] flex items-center gap-2">
                 <Trash2 className="w-4 h-4 text-[#DC2626]" /> Manage & Delete Routines
               </h2>
-              <p className="text-xs text-[#6B7280] mt-0.5">
+              <p className="text-xs text-secondary mt-0.5">
                 Audit, archive, or permanently remove daily routines. All deletions support transactional 1-click Undo.
               </p>
             </div>
           </div>
 
-          <div className="bg-white border border-[#E5E8EC] rounded-xl overflow-hidden shadow-2xs divide-y divide-[#E5E8EC]/60">
+          <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-2xs divide-y divide-border/60">
             {habits.map(habit => (
-              <div key={habit.id} className="p-4 flex items-center justify-between gap-4 hover:bg-[#F8F9FB]/80 transition-colors">
+              <div key={habit.id} className="p-4 flex items-center justify-between gap-4 hover:bg-surface-hover/80 transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-[#F8F9FB] border border-[#E5E8EC] flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-surface-hover border border-border flex items-center justify-center shrink-0">
                     <Flame className="w-4 h-4 text-[#EA580C]" />
                   </div>
                   <div className="min-w-0">
                     <div className="font-medium text-sm text-[#111827] truncate">{habit.name}</div>
-                    <div className="text-[11px] text-[#6B7280] font-mono flex items-center gap-2 mt-0.5">
+                    <div className="text-[11px] text-secondary font-mono flex items-center gap-2 mt-0.5">
                       <span>{habit.category || 'General'}</span>
                       <span>•</span>
                       <span>{habit.timeOfDay || 'daily'} ({habit.duration || 15}m)</span>
@@ -523,7 +523,7 @@ export function HabitTracker() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-xs font-mono font-medium text-[#6B7280] bg-[#F8F9FB] px-2 py-1 rounded border border-[#E5E8EC]">
+                  <span className="text-xs font-mono font-medium text-secondary bg-surface-hover px-2 py-1 rounded border border-border">
                     {habit.streak}d streak
                   </span>
                   <button
@@ -536,7 +536,7 @@ export function HabitTracker() {
               </div>
             ))}
             {habits.length === 0 && (
-              <div className="p-6 text-center text-xs text-[#9CA3AF] font-mono">
+              <div className="p-6 text-center text-xs text-muted font-mono">
                 No routines configured to delete.
               </div>
             )}
@@ -546,8 +546,8 @@ export function HabitTracker() {
       </div>
 
       {/* RIGHT COLUMN: Daily Checklist Widget (30% on desktop, 100% on mobile) */}
-      <div className="w-full lg:w-[30%] bg-[#F8F9FB] lg:h-full lg:overflow-y-auto p-4 sm:p-6 lg:p-8 border-t lg:border-t-0 lg:border-l border-[#E5E8EC]">
-        <div className="bg-white border border-[#E5E8EC] shadow-sm rounded-xl p-4 sm:p-6 relative overflow-hidden">
+      <div className="w-full lg:w-[30%] bg-surface-hover lg:h-full lg:overflow-y-auto p-4 sm:p-6 lg:p-8 border-t lg:border-t-0 lg:border-l border-border">
+        <div className="bg-surface border border-border shadow-sm rounded-xl p-4 sm:p-6 relative overflow-hidden">
           
           <div className="absolute top-0 left-0 w-full h-1.5 bg-[#EA580C]" />
           
@@ -555,7 +555,7 @@ export function HabitTracker() {
             <span className="text-[11px] font-medium text-[#EA580C] uppercase tracking-[0.02em] flex items-center gap-1 font-mono">
               <Sparkles className="w-3 h-3 fill-[#EA580C]" /> Today's Tracker
             </span>
-            <span className="text-xs font-mono font-bold text-[#111827] bg-[#F8F9FB] px-2 py-0.5 rounded border border-[#E5E8EC]">
+            <span className="text-xs font-mono font-bold text-[#111827] bg-surface-hover px-2 py-0.5 rounded border border-border">
               {completedCount}/{totalHabits} Done
             </span>
           </div>
@@ -571,10 +571,10 @@ export function HabitTracker() {
                   onClick={() => toggleTodayCompletion(habit.id, habit.name, isCompleted)}
                   className={cn(
                     "flex items-center gap-3 group cursor-pointer p-2 rounded-lg transition-all border",
-                    isCompleted ? "bg-[#F8F9FB] border-transparent" : "bg-white border-[#E5E8EC] hover:border-[#111827] shadow-2xs"
+                    isCompleted ? "bg-surface-hover border-transparent" : "bg-surface border-border hover:border-[#111827] shadow-2xs"
                   )}
                 >
-                  <div className="w-5 text-right text-[11px] font-mono text-[#9CA3AF]">
+                  <div className="w-5 text-right text-[11px] font-mono text-muted">
                     {(index + 1).toString().padStart(2, '0')}
                   </div>
                   <button className="focus:outline-none">
@@ -583,29 +583,29 @@ export function HabitTracker() {
                         <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                       </div>
                     ) : (
-                      <div className="w-5 h-5 rounded-md border border-[#D1D5DB] bg-white group-hover:border-[#111827] transition-all flex items-center justify-center shadow-2xs" />
+                      <div className="w-5 h-5 rounded-md border border-[#D1D5DB] bg-surface group-hover:border-[#111827] transition-all flex items-center justify-center shadow-2xs" />
                     )}
                   </button>
                   <div className="min-w-0 flex-1">
                     <span className={cn(
                       "text-sm transition-colors min-w-0 truncate block",
-                      isCompleted ? "text-[#9CA3AF] line-through decoration-[#D1D5DB]" : "text-[#111827] font-medium group-hover:text-[#111827]"
+                      isCompleted ? "text-muted line-through decoration-[#D1D5DB]" : "text-[#111827] font-medium group-hover:text-primary"
                     )}>
                       {habit.name}
                     </span>
-                    <span className="text-[10px] text-[#6B7280] font-mono">{habit.timeOfDay} • {habit.duration || 15}m</span>
+                    <span className="text-[10px] text-secondary font-mono">{habit.timeOfDay} • {habit.duration || 15}m</span>
                   </div>
                 </div>
               );
             })}
           </div>
 
-          <div className="mt-8 pt-4 border-t border-[#E5E8EC] space-y-2">
+          <div className="mt-8 pt-4 border-t border-border space-y-2">
             <div className="flex justify-between items-center text-xs">
-              <span className="text-[#6B7280] font-medium">Daily Completion Rate</span>
+              <span className="text-secondary font-medium">Daily Completion Rate</span>
               <span className="text-sm font-medium text-[#111827] font-mono">{progressPct}%</span>
             </div>
-            <div className="h-2 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/40">
+            <div className="h-2 w-full bg-surface-hover rounded-full overflow-hidden border border-border/40">
               <div className="h-full bg-[#EA580C] transition-all duration-400 ease-out" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
