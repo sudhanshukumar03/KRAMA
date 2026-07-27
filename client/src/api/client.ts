@@ -3,27 +3,39 @@ import type {
 } from '../types/schema';
 
 let cachedToken: string | null = null;
+let authPromise: Promise<string | null> | null = null;
 
 // Ensure authentication against Express backend
 async function ensureAuth(): Promise<string | null> {
   if (cachedToken) return cachedToken;
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'engineer', password: 'secure_password' }),
-    });
-    if (res.ok) {
-      window.dispatchEvent(new CustomEvent('krama:api-online'));
-      const data = await res.json();
-      cachedToken = data.token;
-      return cachedToken;
+  
+  // Prevent concurrent login requests
+  if (authPromise) return authPromise;
+  
+  authPromise = (async () => {
+    if (cachedToken) return cachedToken;
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'engineer', password: 'secure_password' }),
+      });
+      if (res.ok) {
+        window.dispatchEvent(new CustomEvent('krama:api-online'));
+        const data = await res.json();
+        cachedToken = data.token;
+        authPromise = null;
+        return cachedToken;
+      }
+    } catch (err) {
+      window.dispatchEvent(new CustomEvent('krama:api-offline'));
+      console.warn('Auto-auth connection failed (is backend server running?):', err);
     }
-  } catch (err) {
-    window.dispatchEvent(new CustomEvent('krama:api-offline'));
-    console.warn('Auto-auth connection failed (is backend server running?):', err);
-  }
-  return null;
+    authPromise = null;
+    return null;
+  })();
+  
+  return authPromise;
 }
 
 // Universal fetch wrapper with token injection and 401 retry
