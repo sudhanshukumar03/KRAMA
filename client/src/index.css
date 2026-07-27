@@ -2,31 +2,50 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-sans: "Cabinet Grotesk", "General Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "IBM Plex Mono", "Space Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "General Sans", "Inter", "Geist", ui-sans-serif, system-ui, sans-serif;
   
-  /* Definitive Master Tokens (#12 & #4) */
-  --color-canvas: #FFFFFF;
-  --color-surface: #FCFCFD;
-  --color-surface-hover: #FAFAFB;
-  --color-border: #E5E8EC;
-  --color-border-muted: #D1D5DB;
-  --color-primary: #111827;
-  --color-primary-fill: #111827;
-  --color-secondary: #6B7280;
-  --color-muted: #9CA3AF;
+  /* Definitive Master Tokens (Precision Engineering Palette) */
+  --color-canvas: #F8F9FA;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #F1F5F9;
+  --color-border: #E2E8F0;
+  --color-border-muted: #CBD5E1;
+  --color-primary: #0F172A;
+  --color-primary-fill: #0F172A;
+  --color-secondary: #475569;
+  --color-muted: #64748B;
   
-  /* Brand Accent & Categories */
-  --color-accent: #2563EB;
-  --color-accent-hover: #1D4ED8;
-  --color-accent-tint: #EFF4FE;
+  /* Signal Color — Electric Engineering Cobalt / Cyan */
+  --color-signal: #0052FF;
+  --color-signal-hover: #003ECC;
+  --color-signal-tint: #E5F0FF;
+  --color-signal-glow: rgba(0, 82, 255, 0.25);
+  --color-accent: #0052FF;
+  --color-accent-hover: #003ECC;
+  --color-accent-tint: #E5F0FF;
+  
+  /* System Status Indicators (Strict Avionics Palette) */
   --color-urgency: #DC2626;
+  --color-status-active: #0052FF;
+  --color-status-done: #109868;
+  --color-status-stalled: #D97706;
+  
+  /* Semantic Krama Language Module Identities */
+  --color-identity-execution: #2563EB;
+  --color-identity-thinking: #0F172A;
+  --color-identity-ai: #7C3AED;
+  --color-identity-reflection: #F59E0B;
+  --color-identity-decisions: #4F46E5;
+
+  /* Brand Categories */
   --color-brain: #7C3AED;
-  --color-execution: #2563EB;
+  --color-execution: #0052FF;
   --color-goals: #0D9488;
   --color-habits: #EA580C;
   --color-projects: #4F46E5;
 
-  /* Typography Scale Tokens (#1 & #12) */
+  /* Typography Scale Tokens */
   --font-title: 32px;
   --font-h2: 22px;
   --font-card-title: 17px;
@@ -49,13 +68,13 @@
   --text-badge--font-weight: 600;
   --text-badge--letter-spacing: 0.03em;
 
-  /* Corner Radius Tokens (#5 & #12: Standardized 4 values) */
-  --radius-sm: 10px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  /* Corner Radius Tokens (Technical Geometric Bounds) */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
-  /* 8pt Spacing Tokens (#3 & #12) */
+  /* 8pt Spacing Tokens */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -66,7 +85,7 @@
   --space-12: 48px;
   --space-16: 64px;
   
-  /* Required custom transition durations (#7) */
+  /* Required custom transition durations */
   --default-transition-duration: 150ms;
   --transition-duration-100: 100ms;
   --transition-duration-120: 120ms;
@@ -81,18 +100,37 @@
 }
 
 .dark {
-  --color-canvas: #090D16;
-  --color-surface: #111827;
-  --color-surface-hover: #1E293B;
-  --color-border: #263346;
-  --color-border-muted: #374863;
+  --color-canvas: #050811;
+  --color-surface: #0B1220;
+  --color-surface-hover: #111C30;
+  --color-border: #1E293B;
+  --color-border-muted: #334155;
   --color-primary: #F8FAFC;
-  --color-primary-fill: #3B82F6;
+  --color-primary-fill: #38BDF8;
   --color-secondary: #94A3B8;
   --color-muted: #64748B;
-  --color-accent: #3B82F6;
-  --color-accent-hover: #60A5FA;
-  --color-accent-tint: #1E293B;
+  
+  /* Dark Mode Signal — Electric Avionics Cyan (#00E5FF) */
+  --color-signal: #00E5FF;
+  --color-signal-hover: #38BDF8;
+  --color-signal-tint: rgba(0, 229, 255, 0.12);
+  --color-signal-glow: rgba(0, 229, 255, 0.45);
+  --color-accent: #00E5FF;
+  --color-accent-hover: #38BDF8;
+  --color-accent-tint: rgba(0, 229, 255, 0.12);
+  
+  /* Dark Mode Status Indicators */
+  --color-urgency: #EF4444;
+  --color-status-active: #00E5FF;
+  --color-status-done: #34D399;
+  --color-status-stalled: #F59E0B;
+
+  /* Dark Mode Semantic Krama Language Module Identities */
+  --color-identity-execution: #00E5FF;
+  --color-identity-thinking: #F8FAFC;
+  --color-identity-ai: #A78BFA;
+  --color-identity-reflection: #FBBF24;
+  --color-identity-decisions: #818CF8;
 }
 
 @utility progress-fill {
@@ -304,4 +342,118 @@
   .ProseMirror:focus {
     outline: none !important;
   }
+}
+
+/* ==========================================================================
+   MISSION CONTROL / AVIONICS HUD SCHEMATIC TEXTURES
+   ========================================================================== */
+@utility bg-schematic-grid {
+  background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+@utility bg-blueprint-grid {
+  background-image: linear-gradient(to right, var(--color-border) 1px, transparent 1px),
+                    linear-gradient(to bottom, var(--color-border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ==========================================================================
+   HUD CARDS & RETICLE TARGETING BRACKETS (⌐ ⌐ style)
+   ========================================================================== */
+@utility hud-card {
+  position: relative;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@utility hud-card-interactive {
+  position: relative;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.hud-card-interactive:hover {
+  border-color: var(--color-signal);
+  box-shadow: 0 0 18px var(--color-signal-glow);
+  transform: translateY(-2px);
+}
+
+@utility reticle-box {
+  position: relative;
+}
+
+.reticle-box::before,
+.reticle-box::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-color: var(--color-signal);
+  pointer-events: none;
+  transition: all 200ms ease;
+  z-index: 10;
+}
+
+.reticle-box::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--color-signal);
+  border-left: 2px solid var(--color-signal);
+}
+
+.reticle-box::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--color-signal);
+  border-right: 2px solid var(--color-signal);
+}
+
+.reticle-box:hover::before,
+.reticle-box:hover::after {
+  width: 14px;
+  height: 14px;
+  box-shadow: 0 0 8px var(--color-signal-glow);
+}
+
+/* ==========================================================================
+   STRICT ANIMATION BUDGET & KEYFRAMES (Max 1 per screen)
+   ========================================================================== */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(1.15); }
+}
+
+@utility animate-live-pulse {
+  animation: live-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ==========================================================================
+   THE KRAMA MOTION SYSTEM (Linear / Apple / Arc Restraint)
+   ========================================================================== */
+@utility hover-lift-2px {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1), border-color 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hover-lift-2px:hover {
+  transform: translateY(-2px);
+}
+
+@utility transition-motion-200 {
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@utility transition-motion-250 {
+  transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@utility modal-spring {
+  transition: transform 350ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease-out;
+}
+
+@utility nav-slide {
+  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease;
 }
