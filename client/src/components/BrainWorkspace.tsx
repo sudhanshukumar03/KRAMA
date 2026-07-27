@@ -15,10 +15,10 @@ import { ErrorState } from './ui/ErrorState';
 import { toast } from 'sonner';
 
 function getIconComponent(iconName: string | null, className?: string) {
-  if (iconName === 'landmark') return <Building2 className={cn(className || "w-4 h-4 text-[#6B7280]", "stroke-[1.75]")} />;
-  if (iconName === 'laptop') return <Laptop className={cn(className || "w-4 h-4 text-[#6B7280]", "stroke-[1.75]")} />;
+  if (iconName === 'landmark') return <Building2 className={cn(className || "w-4 h-4 text-secondary", "stroke-[1.75]")} />;
+  if (iconName === 'laptop') return <Laptop className={cn(className || "w-4 h-4 text-secondary", "stroke-[1.75]")} />;
   if (iconName) return <span className="text-base leading-none">{iconName}</span>;
-  return <FileText className={cn(className || "w-4 h-4 text-[#9CA3AF]", "stroke-[1.75]")} />;
+  return <FileText className={cn(className || "w-4 h-4 text-muted", "stroke-[1.75]")} />;
 }
 
 function PageTreeNode({ 
@@ -83,8 +83,8 @@ function PageTreeNode({
     <div>
       <div 
         className={cn(
-          "group relative flex items-center gap-2 py-1.5 px-2.5 hover:bg-[#F8F9FB] rounded-lg cursor-pointer text-xs transition-all duration-150 select-none",
-          isSelected ? "bg-[#111827] text-white font-medium shadow-2xs" : "text-[#6B7280] hover:text-[#111827]"
+          "group relative flex items-center gap-2 py-1.5 px-2.5 hover:bg-surface-hover rounded-lg cursor-pointer text-xs transition-all duration-150 select-none",
+          isSelected ? "bg-[#111827] text-white font-medium shadow-2xs" : "text-secondary hover:text-primary"
         )}
         style={{ paddingLeft: `${(level * 14) + 10}px` }}
         onClick={() => onSelect(page.id)}
@@ -93,7 +93,7 @@ function PageTreeNode({
           onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
           className={cn(
             "w-4 h-4 flex items-center justify-center transition-colors duration-150 focus:outline-none rounded-sm",
-            isSelected ? "text-white/70 hover:text-white" : "text-[#9CA3AF] hover:text-[#111827]",
+            isSelected ? "text-white/70 hover:text-white" : "text-muted hover:text-primary",
             !hasChildren && "opacity-0 cursor-default"
           )}
           disabled={!hasChildren}
@@ -109,7 +109,7 @@ function PageTreeNode({
           <div 
             className={cn(
               "absolute border-l border-b rounded-bl-sm pointer-events-none",
-              isSelected ? "border-white/20" : "border-[#E5E8EC]"
+              isSelected ? "border-white/20" : "border-border"
             )}
             style={{
               left: `${((level - 1) * 14) + 26}px`,
@@ -120,7 +120,7 @@ function PageTreeNode({
           />
         )}
         <span className="flex items-center justify-center flex-shrink-0 z-10">
-          {getIconComponent(page.icon, isSelected ? "w-4 h-4 text-white" : "w-4 h-4 text-[#6B7280]")}
+          {getIconComponent(page.icon, isSelected ? "w-4 h-4 text-white" : "w-4 h-4 text-secondary")}
         </span>
         <span className="truncate flex-1 z-10">{page.title}</span>
         <button 
@@ -129,7 +129,7 @@ function PageTreeNode({
             "opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center transition-all duration-150 rounded-md focus:outline-none",
             isSelected 
               ? "text-white hover:bg-white/20" 
-              : "text-[#9CA3AF] hover:text-[#111827] hover:bg-white border border-transparent hover:border-[#E5E8EC]"
+              : "text-muted hover:text-primary hover:bg-surface border border-transparent hover:border-border"
           )}
           title="Add Sub-page"
         >
@@ -141,7 +141,7 @@ function PageTreeNode({
             "opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center transition-all duration-150 rounded-md focus:outline-none",
             isSelected 
               ? "text-white hover:bg-white/20" 
-              : "text-[#9CA3AF] hover:text-[#DC2626] hover:bg-red-50"
+              : "text-muted hover:text-[#DC2626] hover:bg-red-50"
           )}
           title="Delete Page"
         >
@@ -180,18 +180,18 @@ function Breadcrumbs({ page, pages }: { page: PageWithRelations, pages: PageWith
   }
 
   return (
-    <div className="flex items-center gap-1.5 text-caption text-[#6B7280] mb-4 font-mono select-none overflow-x-auto py-2 leading-normal">
-      <span className="flex items-center gap-1.5 hover:text-[#111827] cursor-pointer transition-colors duration-150 shrink-0">
-        <BookOpen className="w-3.5 h-3.5 text-[#9CA3AF] shrink-0" /> Knowledge Base
+    <div className="flex items-center gap-1.5 text-caption text-secondary mb-4 font-mono select-none overflow-x-auto py-2 leading-normal">
+      <span className="flex items-center gap-1.5 hover:text-primary cursor-pointer transition-colors duration-150 shrink-0">
+        <BookOpen className="w-3.5 h-3.5 text-muted shrink-0" /> Knowledge Base
       </span>
       {trail.map((p, idx) => (
         <div key={p.id} className="flex items-center gap-1.5 flex-shrink-0">
           <ChevronRight className="w-3.5 h-3.5 text-[#D1D5DB] shrink-0" />
           <span className={cn(
             "flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors duration-150 leading-none", 
-            idx === trail.length - 1 ? "text-[#111827] font-medium bg-[#F8F9FB] border border-[#E5E8EC]" : "hover:text-[#111827] hover:bg-[#F8F9FB] cursor-pointer"
+            idx === trail.length - 1 ? "text-[#111827] font-medium bg-surface-hover border border-border" : "hover:text-primary hover:bg-surface-hover cursor-pointer"
           )}>
-            {getIconComponent(p.icon, "w-3.5 h-3.5 text-[#6B7280] shrink-0")}
+            {getIconComponent(p.icon, "w-3.5 h-3.5 text-secondary shrink-0")}
             <span>{p.title}</span>
           </span>
         </div>
@@ -250,16 +250,16 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
       <Breadcrumbs page={page} pages={pages} />
       
       {/* Document Intelligence Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-[#E5E8EC]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-border">
         <div className="flex items-center gap-3">
           {getIconComponent(page.icon, "w-8 h-8 text-[#111827]")}
           <div>
             <span className="text-badge text-[#111827] block mb-0.5">
               Live Document • Notion Measure
             </span>
-            <div className="text-caption font-mono text-[#6B7280] flex items-center gap-3">
+            <div className="text-caption font-mono text-secondary flex items-center gap-3">
               <span className="flex items-center gap-1">
-                <AlignLeft className="w-3.5 h-3.5 text-[#9CA3AF]" /> {wordCount} words ({charCount} chars)
+                <AlignLeft className="w-3.5 h-3.5 text-muted" /> {wordCount} words ({charCount} chars)
               </span>
               <span>•</span>
               <span className="flex items-center gap-1 text-[#0D9488] font-medium">
@@ -269,7 +269,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
           </div>
         </div>
         <div className="flex items-center gap-2.5">
-          <span className="text-badge text-[#6B7280] bg-[#F8F9FB] px-2.5 py-1 rounded border border-[#E5E8EC]">
+          <span className="text-badge text-secondary bg-surface-hover px-2.5 py-1 rounded border border-border">
             Auto-saved
           </span>
           <BaseButton onClick={() => toast.success('Document exported to PDF/Markdown')}>
@@ -279,17 +279,17 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
       </div>
 
       {/* Editor Card: Single cohesive Notion-style document container (#11) */}
-      <div className="flex-1 bg-white rounded-xl border border-[#E5E8EC] shadow-2xs flex flex-col max-w-3xl mx-auto w-full overflow-hidden min-h-[580px]">
+      <div className="flex-1 bg-surface rounded-xl border border-border shadow-2xs flex flex-col max-w-3xl mx-auto w-full overflow-hidden min-h-[580px]">
         {/* Toolbar / Slash Command Helper at the top of the container */}
-        <div className="bg-[#F8F9FB] px-4 py-2.5 flex flex-wrap items-center gap-1.5 shrink-0">
-          <span className="text-badge text-[#6B7280] flex items-center gap-1 mr-1 px-1.5 py-1 select-none">
+        <div className="bg-surface-hover px-4 py-2.5 flex flex-wrap items-center gap-1.5 shrink-0">
+          <span className="text-badge text-secondary flex items-center gap-1 mr-1 px-1.5 py-1 select-none">
             <Command className="w-3.5 h-3.5 text-[#111827]" /> Quick Insert:
           </span>
           <button
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
             className={cn(
               "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-              editor.isActive('heading', { level: 1 }) ? "bg-[#111827] text-white shadow-2xs" : "bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+              editor.isActive('heading', { level: 1 }) ? "bg-[#111827] text-white shadow-2xs" : "bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
             )}
             title="/h1 Heading 1"
           >
@@ -299,7 +299,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
             className={cn(
               "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-              editor.isActive('heading', { level: 2 }) ? "bg-[#111827] text-white shadow-2xs" : "bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+              editor.isActive('heading', { level: 2 }) ? "bg-[#111827] text-white shadow-2xs" : "bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
             )}
             title="/h2 Heading 2"
           >
@@ -309,7 +309,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
             onClick={() => editor.chain().focus().toggleBulletList().run()}
             className={cn(
               "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-              editor.isActive('bulletList') ? "bg-[#111827] text-white shadow-2xs" : "bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+              editor.isActive('bulletList') ? "bg-[#111827] text-white shadow-2xs" : "bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
             )}
             title="/bullet Bullet List"
           >
@@ -319,7 +319,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
             className={cn(
               "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-              editor.isActive('orderedList') ? "bg-[#111827] text-white shadow-2xs" : "bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+              editor.isActive('orderedList') ? "bg-[#111827] text-white shadow-2xs" : "bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
             )}
             title="/number Ordered List"
           >
@@ -329,7 +329,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
             onClick={() => editor.chain().focus().toggleCodeBlock().run()}
             className={cn(
               "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-              editor.isActive('codeBlock') ? "bg-[#111827] text-white shadow-2xs" : "bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+              editor.isActive('codeBlock') ? "bg-[#111827] text-white shadow-2xs" : "bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
             )}
             title="/code Code Block"
           >
@@ -339,7 +339,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
             className={cn(
               "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-              editor.isActive('blockquote') ? "bg-[#111827] text-white shadow-2xs" : "bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+              editor.isActive('blockquote') ? "bg-[#111827] text-white shadow-2xs" : "bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
             )}
             title="/quote Callout"
           >
@@ -347,7 +347,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
           </button>
           <button
             onClick={() => editor.chain().focus().setHorizontalRule().run()}
-            className="px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#E5E8EC]/40"
+            className="px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
             title="/divider Horizontal Rule"
           >
             <Minus className="w-3.5 h-3.5" /> Divider
@@ -364,7 +364,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
               type="text"  
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
-              className="text-[32px] sm:text-[40px] font-extrabold bg-transparent border-none outline-none text-[#111827] placeholder:text-[#9CA3AF] w-full mb-6 font-sans tracking-tight focus:ring-0 px-0 leading-tight"
+              className="text-[32px] sm:text-[40px] font-extrabold bg-transparent border-none outline-none text-[#111827] placeholder:text-muted w-full mb-6 font-sans tracking-tight focus:ring-0 px-0 leading-tight"
               placeholder="Untitled Document..."
             />
             <EditorContent editor={editor} className="flex-1" />
@@ -372,19 +372,19 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
 
           {/* Transitive References & Backlinks Panel (#2 Chrome Reduction: Hairline rows instead of boxed cards) */}
           {page.linkedProject && (
-            <div className="mt-12 pt-6 border-t border-[#E5E8EC] font-mono text-xs">
-              <div className="flex items-center gap-1.5 font-bold uppercase tracking-widest text-[#6B7280] mb-3">
+            <div className="mt-12 pt-6 border-t border-border font-mono text-xs">
+              <div className="flex items-center gap-1.5 font-bold uppercase tracking-widest text-secondary mb-3">
                 <Link2 className="w-4 h-4 text-[#7C3AED]" /> Transitive References & Backlinks
               </div>
-              <div className="divide-y divide-[#E5E8EC]/60 -mx-2 px-2">
+              <div className="divide-y divide-border/60 -mx-2 px-2">
                 <div 
                   onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
-                  className="py-3 flex items-center justify-between gap-3 hover:bg-[#F8F9FB] rounded-lg transition-colors cursor-pointer group"
+                  className="py-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-lg transition-colors cursor-pointer group"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <FolderKanban className="w-4 h-4 text-[#4F46E5] shrink-0" />
                     <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#4F46E5] truncate">{page.linkedProject.name}</span>
-                    <span className="text-[10px] text-[#9CA3AF] uppercase font-mono tracking-wider">({page.linkedProject.status})</span>
+                    <span className="text-[10px] text-muted uppercase font-mono tracking-wider">({page.linkedProject.status})</span>
                   </div>
                   <span className="text-[11px] text-[#4F46E5] font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">view initiative &rarr;</span>
                 </div>
@@ -392,7 +392,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
                 {page.linkedProject.goal && (
                   <div 
                     onClick={() => window.location.href = '/app/goals'}
-                    className="py-3 flex items-center justify-between gap-3 hover:bg-[#F8F9FB] rounded-lg transition-colors cursor-pointer group"
+                    className="py-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-lg transition-colors cursor-pointer group"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Target className="w-4 h-4 text-[#0D9488] shrink-0" />
@@ -405,13 +405,13 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
                 {page.linkedProject.issues && (
                   <div 
                     onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
-                    className="py-3 flex items-center justify-between gap-3 hover:bg-[#F8F9FB] rounded-lg transition-colors cursor-pointer group"
+                    className="py-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-lg transition-colors cursor-pointer group"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <CheckCircle2 className="w-4 h-4 text-[#2563EB] shrink-0" />
                       <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#2563EB]">Execution Tickets & Sprints</span>
                     </div>
-                    <span className="text-[11px] text-[#6B7280] font-mono shrink-0">
+                    <span className="text-[11px] text-secondary font-mono shrink-0">
                       {page.linkedProject.issues.filter((i: any) => i.status === 'done' || i.status === 'released').length} / {page.linkedProject.issues.length} Done • {page.linkedProject.sprints?.length || 0} Sprints
                     </span>
                   </div>
@@ -471,19 +471,19 @@ export function BrainWorkspace() {
     <div className="flex flex-col h-full w-full bg-canvas">
       
       {/* Top Header with #6 Icon Sizing: 36x36px container (w-9 h-9) and monochrome badge */}
-      <div className="h-20 border-b border-[#E5E8EC] bg-white px-8 flex items-center justify-between shrink-0">
+      <div className="h-20 border-b border-border bg-surface px-8 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-[10px] bg-[#F8F9FB] border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 shadow-2xs">
+          <div className="w-9 h-9 rounded-[10px] bg-surface-hover border border-border text-[#111827] flex items-center justify-center shrink-0 shadow-2xs">
             <Brain className="w-4 h-4 stroke-[2]" />
           </div>
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <h1 className="text-section-title tracking-tight text-[#111827]">Brain Workspace</h1>
-              <span className="bg-[#F8F9FB] text-[#6B7280] border border-[#E5E8EC] px-2 py-0.5 rounded text-badge flex items-center gap-1">
+              <span className="bg-surface-hover text-secondary border border-border px-2 py-0.5 rounded text-badge flex items-center gap-1">
                 {pages.length} docs
               </span>
             </div>
-            <p className="text-caption text-[#6B7280]">Strategic engineering documentation, specs, and knowledge base tree.</p>
+            <p className="text-caption text-secondary">Strategic engineering documentation, specs, and knowledge base tree.</p>
           </div>
         </div>
         
@@ -493,14 +493,14 @@ export function BrainWorkspace() {
         </BaseButton>
       </div>
 
-      <div className="flex flex-1 overflow-hidden bg-white">
+      <div className="flex flex-1 overflow-hidden bg-surface">
         {/* Page Tree Column */}
-        <div className="w-72 border-r border-[#E5E8EC] bg-[#F8F9FB] flex flex-col h-full shrink-0 select-none">
-          <div className="p-3.5 border-b border-[#E5E8EC] flex justify-between items-center h-12 bg-white/50">
-            <span className="text-[11px] font-mono font-bold text-[#6B7280] uppercase tracking-wider">Page Tree</span>
+        <div className="w-72 border-r border-border bg-surface-hover flex flex-col h-full shrink-0 select-none">
+          <div className="p-3.5 border-b border-border flex justify-between items-center h-12 bg-white/50">
+            <span className="text-[11px] font-mono font-bold text-secondary uppercase tracking-wider">Page Tree</span>
             <button 
               onClick={handleCreateRootPage}
-              className="text-[#6B7280] hover:text-[#111827] hover:bg-white border border-transparent hover:border-[#E5E8EC] transition-all rounded-md p-1"
+              className="text-secondary hover:text-primary hover:bg-surface border border-transparent hover:border-border transition-all rounded-md p-1"
               title="Add Root Page"
             >
               <Plus className="w-4 h-4" />
@@ -520,7 +520,7 @@ export function BrainWorkspace() {
         </div>
 
         {/* Editor Main Area Column */}
-        <div className="flex-1 h-full bg-white relative overflow-hidden">
+        <div className="flex-1 h-full bg-surface relative overflow-hidden">
           {selectedPage ? (
             <Editor key={selectedPage.id} page={selectedPage} pages={pages} />
           ) : (
