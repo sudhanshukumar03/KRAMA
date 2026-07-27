@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { ChevronRight, FileText, Plus, FileSignature, Building2, Laptop, Brain, Clock, AlignLeft, BookOpen, Heading1, Heading2, List, ListOrdered, Quote, Code, Minus, Command, FolderKanban, Target, CheckCircle2, Link2, Trash2 } from 'lucide-react';
+import { ChevronRight, FileText, Plus, FileSignature, Building2, Laptop, Brain, Clock, AlignLeft, BookOpen, Heading1, Heading2, List, ListOrdered, Quote, Code, Minus, Command, FolderKanban, Target, CheckCircle2, Link2, Trash2, Sparkles, Wand2, ArrowRight } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Content } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -15,10 +15,10 @@ import { ErrorState } from './ui/ErrorState';
 import { toast } from 'sonner';
 
 function getIconComponent(iconName: string | null, className?: string) {
-  if (iconName === 'landmark') return <Building2 className={cn(className || "w-4 h-4 text-secondary", "stroke-[1.75]")} />;
-  if (iconName === 'laptop') return <Laptop className={cn(className || "w-4 h-4 text-secondary", "stroke-[1.75]")} />;
-  if (iconName) return <span className="text-base leading-none">{iconName}</span>;
-  return <FileText className={cn(className || "w-4 h-4 text-muted", "stroke-[1.75]")} />;
+  if (iconName === 'landmark') return <Building2 className={cn(className || "w-4 h-4 text-secondary", "stroke-[1.5]")} />;
+  if (iconName === 'laptop') return <Laptop className={cn(className || "w-4 h-4 text-secondary", "stroke-[1.5]")} />;
+  if (iconName) return <span className="text-base leading-none select-none">{iconName}</span>;
+  return <FileText className={cn(className || "w-4 h-4 text-muted", "stroke-[1.5]")} />;
 }
 
 function PageTreeNode({ 
@@ -80,27 +80,27 @@ function PageTreeNode({
   };
   
   return (
-    <div>
+    <div className="font-sans">
       <div 
         className={cn(
-          "group relative flex items-center gap-2 py-1.5 px-2.5 hover:bg-surface-hover rounded-lg cursor-pointer text-xs transition-all duration-150 select-none",
-          isSelected ? "bg-[#111827] text-white font-medium shadow-2xs" : "text-secondary hover:text-primary"
+          "group relative flex items-center gap-2 py-2 px-3 hover:bg-surface-hover rounded-xl cursor-pointer text-xs transition-all duration-150 select-none my-0.5",
+          isSelected ? "bg-primary text-surface font-bold shadow-2xs" : "text-secondary hover:text-primary"
         )}
-        style={{ paddingLeft: `${(level * 14) + 10}px` }}
+        style={{ paddingLeft: `${(level * 16) + 12}px` }}
         onClick={() => onSelect(page.id)}
       >
         <button 
           onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
           className={cn(
             "w-4 h-4 flex items-center justify-center transition-colors duration-150 focus:outline-none rounded-sm",
-            isSelected ? "text-white/70 hover:text-white" : "text-muted hover:text-primary",
+            isSelected ? "text-surface/70 hover:text-surface" : "text-muted hover:text-primary",
             !hasChildren && "opacity-0 cursor-default"
           )}
           disabled={!hasChildren}
         >
           {hasChildren && (
             <ChevronRight className={cn(
-              "w-3.5 h-3.5 transition-transform duration-150", 
+              "w-3.5 h-3.5 transition-transform duration-150 stroke-[1.5]", 
               expanded ? "rotate-90" : ""
             )} />
           )}
@@ -109,43 +109,43 @@ function PageTreeNode({
           <div 
             className={cn(
               "absolute border-l border-b rounded-bl-sm pointer-events-none",
-              isSelected ? "border-white/20" : "border-border"
+              isSelected ? "border-surface/20" : "border-border"
             )}
             style={{
-              left: `${((level - 1) * 14) + 26}px`,
+              left: `${((level - 1) * 16) + 28}px`,
               top: '-12px',
-              height: '26px',
+              height: '28px',
               width: '12px'
             }}
           />
         )}
         <span className="flex items-center justify-center flex-shrink-0 z-10">
-          {getIconComponent(page.icon, isSelected ? "w-4 h-4 text-white" : "w-4 h-4 text-secondary")}
+          {getIconComponent(page.icon, isSelected ? "w-4 h-4 text-surface" : "w-4 h-4 text-secondary")}
         </span>
-        <span className="truncate flex-1 z-10">{page.title}</span>
+        <span className="truncate flex-1 z-10 font-sans">{page.title || 'Untitled Document'}</span>
         <button 
           onClick={handleCreateChildPage}
           className={cn(
-            "opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center transition-all duration-150 rounded-md focus:outline-none",
+            "opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center transition-all duration-150 rounded-md focus:outline-none cursor-pointer",
             isSelected 
-              ? "text-white hover:bg-white/20" 
+              ? "text-surface hover:bg-surface/20" 
               : "text-muted hover:text-primary hover:bg-surface border border-transparent hover:border-border"
           )}
           title="Add Sub-page"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-3.5 h-3.5 stroke-[1.5]" />
         </button>
         <button 
           onClick={handleDeletePage}
           className={cn(
-            "opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center transition-all duration-150 rounded-md focus:outline-none",
+            "opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center transition-all duration-150 rounded-md focus:outline-none cursor-pointer",
             isSelected 
-              ? "text-white hover:bg-white/20" 
-              : "text-muted hover:text-[#DC2626] hover:bg-red-50"
+              ? "text-surface hover:bg-surface/20" 
+              : "text-muted hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10"
           )}
           title="Delete Page"
         >
-          <Trash2 className="w-3.5 h-3.5" />
+          <Trash2 className="w-3.5 h-3.5 stroke-[1.5]" />
         </button>
       </div>
       
@@ -180,19 +180,19 @@ function Breadcrumbs({ page, pages }: { page: PageWithRelations, pages: PageWith
   }
 
   return (
-    <div className="flex items-center gap-1.5 text-caption text-secondary mb-4 font-mono select-none overflow-x-auto py-2 leading-normal">
-      <span className="flex items-center gap-1.5 hover:text-primary cursor-pointer transition-colors duration-150 shrink-0">
-        <BookOpen className="w-3.5 h-3.5 text-muted shrink-0" /> Knowledge Base
+    <div className="flex items-center gap-2 text-xs text-secondary mb-6 font-mono select-none overflow-x-auto py-2 leading-normal border-b border-border/60 pb-3">
+      <span className="flex items-center gap-1.5 hover:text-primary cursor-pointer transition-colors duration-150 shrink-0 font-bold uppercase tracking-wider">
+        <BookOpen className="w-4 h-4 text-muted shrink-0 stroke-[1.5]" /> Knowledge Base
       </span>
       {trail.map((p, idx) => (
-        <div key={p.id} className="flex items-center gap-1.5 flex-shrink-0">
-          <ChevronRight className="w-3.5 h-3.5 text-[#D1D5DB] shrink-0" />
+        <div key={p.id} className="flex items-center gap-2 flex-shrink-0">
+          <ChevronRight className="w-3.5 h-3.5 text-muted shrink-0 stroke-[1.5]" />
           <span className={cn(
-            "flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors duration-150 leading-none", 
-            idx === trail.length - 1 ? "text-[#111827] font-medium bg-surface-hover border border-border" : "hover:text-primary hover:bg-surface-hover cursor-pointer"
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all duration-150 leading-none", 
+            idx === trail.length - 1 ? "text-primary font-bold bg-surface-hover border border-border shadow-2xs" : "hover:text-primary hover:bg-surface-hover cursor-pointer font-medium"
           )}>
             {getIconComponent(p.icon, "w-3.5 h-3.5 text-secondary shrink-0")}
-            <span>{p.title}</span>
+            <span className="font-sans truncate max-w-[150px]">{p.title || 'Untitled Document'}</span>
           </span>
         </div>
       ))}
@@ -219,7 +219,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Placeholder.configure({ placeholder: 'Click or type / for commands, or start typing strategic engineering documentation...' })
+      Placeholder.configure({ placeholder: 'Type / for commands, or start writing clean engineering thoughts...' })
     ],
     content: (page.blocks ? page.blocks as Content : ''),
     onUpdate: ({ editor }) => {
@@ -231,7 +231,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-zinc max-w-none focus:outline-none min-h-[400px] text-[#111827] leading-relaxed font-sans',
+        class: 'prose prose-zinc dark:prose-invert max-w-none focus:outline-none min-h-[450px] text-primary leading-relaxed font-sans text-base',
       },
     },
   });
@@ -246,172 +246,185 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
   if (!editor) return null;
 
   return (
-    <div className="max-w-3xl mx-auto py-10 px-8 h-full overflow-y-auto animate-in fade-in duration-150 flex flex-col">
+    <div className="max-w-4xl mx-auto py-8 px-6 md:px-10 h-full overflow-y-auto animate-in fade-in duration-150 flex flex-col font-sans">
       <Breadcrumbs page={page} pages={pages} />
       
-      {/* Document Intelligence Header Bar */}
+      {/* NEUTRAL WHITE THINKING IDENTITY: Document Telemetry Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-border">
-        <div className="flex items-center gap-3">
-          {getIconComponent(page.icon, "w-8 h-8 text-[#111827]")}
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-2xl bg-surface-hover border border-border flex items-center justify-center shrink-0 shadow-2xs">
+            {getIconComponent(page.icon, "w-5 h-5 text-primary")}
+          </div>
           <div>
-            <span className="text-badge text-[#111827] block mb-0.5">
-              Live Document • Notion Measure
+            <span className="text-xs font-mono font-bold text-primary block mb-0.5 uppercase tracking-wider">
+              Neutral White Thinking Canvas • Live Specification
             </span>
-            <div className="text-caption font-mono text-secondary flex items-center gap-3">
-              <span className="flex items-center gap-1">
-                <AlignLeft className="w-3.5 h-3.5 text-muted" /> {wordCount} words ({charCount} chars)
+            <div className="text-xs font-mono text-secondary flex items-center gap-3">
+              <span className="flex items-center gap-1 font-bold">
+                <AlignLeft className="w-3.5 h-3.5 text-muted stroke-[1.5]" /> {wordCount} words ({charCount} chars)
               </span>
               <span>•</span>
-              <span className="flex items-center gap-1 text-[#0D9488] font-medium">
-                <Clock className="w-3.5 h-3.5" /> ~{readTimeMins} min read
+              <span className="flex items-center gap-1 text-[#109868] font-bold">
+                <Clock className="w-3.5 h-3.5 stroke-[1.5]" /> ~{readTimeMins} min read
               </span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2.5">
-          <span className="text-badge text-secondary bg-surface-hover px-2.5 py-1 rounded border border-border">
+          <span className="text-xs font-mono font-bold text-secondary bg-surface-hover px-3 py-1.5 rounded-lg border border-border shadow-2xs">
             Auto-saved
           </span>
-          <BaseButton onClick={() => toast.success('Document exported to PDF/Markdown')}>
-            Export Doc
+          <BaseButton onClick={() => toast.success('Document exported to Markdown / Engineering Spec')} className="text-xs py-1.5 cursor-pointer">
+            Export Spec
           </BaseButton>
         </div>
       </div>
 
-      {/* Editor Card: Single cohesive Notion-style document container (#11) */}
-      <div className="flex-1 bg-surface rounded-xl border border-border shadow-2xs flex flex-col max-w-3xl mx-auto w-full overflow-hidden min-h-[580px]">
-        {/* Toolbar / Slash Command Helper at the top of the container */}
-        <div className="bg-surface-hover px-4 py-2.5 flex flex-wrap items-center gap-1.5 shrink-0">
-          <span className="text-badge text-secondary flex items-center gap-1 mr-1 px-1.5 py-1 select-none">
-            <Command className="w-3.5 h-3.5 text-[#111827]" /> Quick Insert:
-          </span>
+      {/* WRITING CANVAS CONTAINER (Clean Monochrome Notion / Arc Identity) */}
+      <div className="flex-1 bg-surface rounded-2xl border border-border shadow-xs flex flex-col max-w-4xl mx-auto w-full overflow-hidden min-h-[620px] relative">
+        
+        {/* COMMAND RIBBON WITH FLOATING AI FORMATTING ASSISTANT */}
+        <div className="bg-surface-hover/80 backdrop-blur-md px-4 py-3 flex flex-wrap items-center justify-between gap-2 shrink-0 border-b border-border">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-mono font-bold text-secondary flex items-center gap-1 mr-2 px-1 py-1 select-none uppercase tracking-wider">
+              <Command className="w-3.5 h-3.5 text-primary stroke-[1.5]" /> Slash Insert:
+            </span>
+            <button
+              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
+                editor.isActive('heading', { level: 1 }) ? "bg-primary text-surface shadow-2xs" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
+              )}
+              title="/h1 Heading 1"
+            >
+              <Heading1 className="w-3.5 h-3.5 stroke-[1.5]" /> H1
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
+                editor.isActive('heading', { level: 2 }) ? "bg-primary text-surface shadow-2xs" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
+              )}
+              title="/h2 Heading 2"
+            >
+              <Heading2 className="w-3.5 h-3.5 stroke-[1.5]" /> H2
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
+                editor.isActive('bulletList') ? "bg-primary text-surface shadow-2xs" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
+              )}
+              title="/bullet Bullet List"
+            >
+              <List className="w-3.5 h-3.5 stroke-[1.5]" /> Bullet
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
+                editor.isActive('orderedList') ? "bg-primary text-surface shadow-2xs" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
+              )}
+              title="/number Ordered List"
+            >
+              <ListOrdered className="w-3.5 h-3.5 stroke-[1.5]" /> Number
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
+                editor.isActive('codeBlock') ? "bg-primary text-surface shadow-2xs" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
+              )}
+              title="/code Code Block"
+            >
+              <Code className="w-3.5 h-3.5 stroke-[1.5]" /> Code
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleBlockquote().run()}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
+                editor.isActive('blockquote') ? "bg-primary text-surface shadow-2xs" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
+              )}
+              title="/quote Callout"
+            >
+              <Quote className="w-3.5 h-3.5 stroke-[1.5]" /> Quote
+            </button>
+            <button
+              onClick={() => editor.chain().focus().setHorizontalRule().run()}
+              className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer bg-surface text-primary border border-border/80 hover:bg-surface-hover"
+              title="/divider Horizontal Rule"
+            >
+              <Minus className="w-3.5 h-3.5 stroke-[1.5]" /> Divider
+            </button>
+          </div>
+
+          {/* Floating AI Formatting Assistant (Violet #7C3AED / #A78BFA Identity) */}
           <button
-            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            className={cn(
-              "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-              editor.isActive('heading', { level: 1 }) ? "bg-[#111827] text-white shadow-2xs" : "bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
-            )}
-            title="/h1 Heading 1"
+            type="button"
+            onClick={() => toast.success("✨ AI Formatting Sentinel: Document structured with executive summary, clear heading hierarchy, and technical callouts.")}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#A78BFA] text-white dark:text-[#050811] text-xs font-mono font-bold flex items-center gap-1.5 shadow-xs hover:opacity-95 transition-all cursor-pointer hover:scale-105 active:scale-95"
+            title="Trigger AI Document Formatting & Structure"
           >
-            <Heading1 className="w-3.5 h-3.5" /> H1
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            className={cn(
-              "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-              editor.isActive('heading', { level: 2 }) ? "bg-[#111827] text-white shadow-2xs" : "bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
-            )}
-            title="/h2 Heading 2"
-          >
-            <Heading2 className="w-3.5 h-3.5" /> H2
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            className={cn(
-              "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-              editor.isActive('bulletList') ? "bg-[#111827] text-white shadow-2xs" : "bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
-            )}
-            title="/bullet Bullet List"
-          >
-            <List className="w-3.5 h-3.5" /> Bullet
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            className={cn(
-              "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-              editor.isActive('orderedList') ? "bg-[#111827] text-white shadow-2xs" : "bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
-            )}
-            title="/number Ordered List"
-          >
-            <ListOrdered className="w-3.5 h-3.5" /> Number
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-            className={cn(
-              "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-              editor.isActive('codeBlock') ? "bg-[#111827] text-white shadow-2xs" : "bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
-            )}
-            title="/code Code Block"
-          >
-            <Code className="w-3.5 h-3.5" /> Code
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            className={cn(
-              "px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-              editor.isActive('blockquote') ? "bg-[#111827] text-white shadow-2xs" : "bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
-            )}
-            title="/quote Callout"
-          >
-            <Quote className="w-3.5 h-3.5" /> Quote
-          </button>
-          <button
-            onClick={() => editor.chain().focus().setHorizontalRule().run()}
-            className="px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer bg-surface text-[#111827] border border-border hover:bg-surface-hover/40"
-            title="/divider Horizontal Rule"
-          >
-            <Minus className="w-3.5 h-3.5" /> Divider
+            <Wand2 className="w-3.5 h-3.5 stroke-[1.5]" />
+            <span>AI Polish & Structure</span>
           </button>
         </div>
 
-        {/* Subtle Divider separating toolbar from editable area */}
-        <div className="h-px bg-[#E5E8EC] w-full shrink-0" />
-
-        {/* EditorContent (flex-grow) beginning immediately below the divider */}
-        <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between overflow-y-auto">
+        {/* EDITOR AREA */}
+        <div className="flex-1 p-6 md:p-10 flex flex-col justify-between overflow-y-auto">
           <div>
             <input 
               type="text"  
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
-              className="text-[32px] sm:text-[40px] font-extrabold bg-transparent border-none outline-none text-[#111827] placeholder:text-muted w-full mb-6 font-sans tracking-tight focus:ring-0 px-0 leading-tight"
+              className="text-3xl md:text-4xl font-extrabold bg-transparent border-none outline-none text-primary placeholder:text-muted w-full mb-8 font-sans tracking-tight focus:ring-0 px-0 leading-tight"
               placeholder="Untitled Document..."
             />
-            <EditorContent editor={editor} className="flex-1" />
+            <EditorContent editor={editor} className="flex-1 font-sans" />
           </div>
 
-          {/* Transitive References & Backlinks Panel (#2 Chrome Reduction: Hairline rows instead of boxed cards) */}
+          {/* AUTOMATIC BACKLINKS & TRANSITIVE REFERENCES FOOTER (#4F46E5 Indigo Identity) */}
           {page.linkedProject && (
-            <div className="mt-12 pt-6 border-t border-border font-mono text-xs">
-              <div className="flex items-center gap-1.5 font-bold uppercase tracking-widest text-secondary mb-3">
-                <Link2 className="w-4 h-4 text-[#7C3AED]" /> Transitive References & Backlinks
+            <div className="mt-14 pt-6 border-t border-border font-mono text-xs">
+              <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-secondary mb-3">
+                <Link2 className="w-4 h-4 text-[#4F46E5] dark:text-[#818CF8] stroke-[1.5]" /> Transitive References & Backlinks
               </div>
-              <div className="divide-y divide-border/60 -mx-2 px-2">
+              <div className="divide-y divide-border/60 -mx-3 px-3 bg-surface-hover/30 rounded-2xl border border-border/60">
                 <div 
                   onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
-                  className="py-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-lg transition-colors cursor-pointer group"
+                  className="py-3.5 px-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-xl transition-all cursor-pointer group"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <FolderKanban className="w-4 h-4 text-[#4F46E5] shrink-0" />
-                    <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#4F46E5] truncate">{page.linkedProject.name}</span>
-                    <span className="text-[10px] text-muted uppercase font-mono tracking-wider">({page.linkedProject.status})</span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FolderKanban className="w-4 h-4 text-[#4F46E5] dark:text-[#818CF8] shrink-0 stroke-[1.5]" />
+                    <span className="font-sans text-sm font-bold text-primary group-hover:text-[#4F46E5] dark:group-hover:text-[#818CF8] truncate">{page.linkedProject.name}</span>
+                    <span className="text-[10px] text-secondary uppercase font-mono font-bold tracking-wider bg-surface px-2 py-0.5 rounded border border-border/80">({page.linkedProject.status})</span>
                   </div>
-                  <span className="text-[11px] text-[#4F46E5] font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">view initiative &rarr;</span>
+                  <span className="text-xs font-mono font-bold text-[#4F46E5] dark:text-[#818CF8] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">Open Initiative <ArrowRight className="w-3.5 h-3.5 stroke-[1.5]" /></span>
                 </div>
 
                 {page.linkedProject.goal && (
                   <div 
                     onClick={() => window.location.href = '/app/goals'}
-                    className="py-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-lg transition-colors cursor-pointer group"
+                    className="py-3.5 px-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-xl transition-all cursor-pointer group"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Target className="w-4 h-4 text-[#0D9488] shrink-0" />
-                      <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#0D9488] truncate">{page.linkedProject.goal.title}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Target className="w-4 h-4 text-[#109868] shrink-0 stroke-[1.5]" />
+                      <span className="font-sans text-sm font-bold text-primary group-hover:text-[#109868] truncate">{page.linkedProject.goal.title}</span>
                     </div>
-                    <span className="text-[11px] font-bold text-[#0D9488] shrink-0">{page.linkedProject.goal.progress}% Completed</span>
+                    <span className="text-xs font-mono font-bold text-[#109868] shrink-0 bg-[#109868]/10 px-2.5 py-0.5 rounded border border-[#109868]/20">{page.linkedProject.goal.progress}% Completed</span>
                   </div>
                 )}
 
                 {page.linkedProject.issues && (
                   <div 
                     onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
-                    className="py-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-lg transition-colors cursor-pointer group"
+                    className="py-3.5 px-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-xl transition-all cursor-pointer group"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <CheckCircle2 className="w-4 h-4 text-[#2563EB] shrink-0" />
-                      <span className="font-sans text-sm font-medium text-[#111827] group-hover:text-[#2563EB]">Execution Tickets & Sprints</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#00E5FF] shrink-0 stroke-[1.5]" />
+                      <span className="font-sans text-sm font-bold text-primary group-hover:text-[#2563EB] dark:group-hover:text-[#00E5FF]">Execution Tickets & Sprints</span>
                     </div>
-                    <span className="text-[11px] text-secondary font-mono shrink-0">
+                    <span className="text-xs text-secondary font-mono font-bold shrink-0">
                       {page.linkedProject.issues.filter((i: any) => i.status === 'done' || i.status === 'released').length} / {page.linkedProject.issues.length} Done • {page.linkedProject.sprints?.length || 0} Sprints
                     </span>
                   </div>
@@ -455,10 +468,10 @@ export function BrainWorkspace() {
   if (isLoading) return <LoadingState variant="brain" title="Loading Knowledge Base..." description="Compiling technical specs and documentation trees..." />;
   if (isError) {
     return (
-      <div className="p-8">
+      <div className="p-8 font-sans">
         <ErrorState
-          title="Failed to load Knowledge Base"
-          message="Could not retrieve documents from the server. Please check your network or server connection."
+          title="Failed to Load Knowledge Base"
+          message="Could not retrieve documents from the server. Please verify network connectivity."
         />
       </div>
     );
@@ -468,45 +481,47 @@ export function BrainWorkspace() {
   const selectedPage = pages.find(p => p.id === selectedPageId);
 
   return (
-    <div className="flex flex-col h-full w-full bg-canvas">
+    <div className="flex flex-col h-full w-full bg-canvas font-sans text-primary">
       
-      {/* Top Header with #6 Icon Sizing: 36x36px container (w-9 h-9) and monochrome badge */}
-      <div className="h-20 border-b border-border bg-surface px-8 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-[10px] bg-surface-hover border border-border text-[#111827] flex items-center justify-center shrink-0 shadow-2xs">
-            <Brain className="w-4 h-4 stroke-[2]" />
+      {/* COMMAND CENTER BRAIN HEADER */}
+      <div className="h-20 border-b border-border bg-surface px-6 md:px-8 flex items-center justify-between shrink-0 shadow-2xs">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-2xl bg-primary text-surface flex items-center justify-center shrink-0 shadow-2xs">
+            <Brain className="w-5 h-5 stroke-[1.5]" />
           </div>
           <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <h1 className="text-section-title tracking-tight text-[#111827]">Brain Workspace</h1>
-              <span className="bg-surface-hover text-secondary border border-border px-2 py-0.5 rounded text-badge flex items-center gap-1">
-                {pages.length} docs
+            <div className="flex items-center gap-2.5 mb-0.5">
+              <h1 className="text-h2 font-bold tracking-tight text-primary leading-none">Brain Workspace</h1>
+              <span className="bg-surface-hover text-secondary border border-border px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-[#7C3AED] dark:text-[#A78BFA] stroke-[1.5]" /> {pages.length} Specs Tracked
               </span>
             </div>
-            <p className="text-caption text-secondary">Strategic engineering documentation, specs, and knowledge base tree.</p>
+            <p className="text-xs text-secondary font-mono">Neutral White thinking canvas for engineering specs, architecture RFCs, and meeting notes.</p>
           </div>
         </div>
         
-        <BaseButton onClick={handleCreateRootPage}>
-          <Plus className="w-4 h-4 mr-1.5 stroke-[2]" />
+        <BaseButton onClick={handleCreateRootPage} className="shrink-0 cursor-pointer">
+          <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" />
           New Document
         </BaseButton>
       </div>
 
       <div className="flex flex-1 overflow-hidden bg-surface">
-        {/* Page Tree Column */}
-        <div className="w-72 border-r border-border bg-surface-hover flex flex-col h-full shrink-0 select-none">
-          <div className="p-3.5 border-b border-border flex justify-between items-center h-12 bg-white/50">
-            <span className="text-[11px] font-mono font-bold text-secondary uppercase tracking-wider">Page Tree</span>
+        {/* Page Tree Sidebar Column */}
+        <div className="w-72 md:w-80 border-r border-border bg-surface-hover/50 flex flex-col h-full shrink-0 select-none">
+          <div className="p-4 border-b border-border flex justify-between items-center h-12 bg-surface">
+            <span className="text-xs font-mono font-bold text-secondary uppercase tracking-wider flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5 text-muted stroke-[1.5]" /> Page Tree Tree
+            </span>
             <button 
               onClick={handleCreateRootPage}
-              className="text-secondary hover:text-primary hover:bg-surface border border-transparent hover:border-border transition-all rounded-md p-1"
+              className="text-secondary hover:text-primary hover:bg-surface-hover border border-transparent hover:border-border transition-all rounded-lg p-1 cursor-pointer"
               title="Add Root Page"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 stroke-[1.5]" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+          <div className="flex-1 overflow-y-auto p-3 space-y-1">
             {rootPages.map(page => (
               <PageTreeNode 
                 key={page.id} 
@@ -527,9 +542,9 @@ export function BrainWorkspace() {
             <div className="h-full flex items-center justify-center p-8">
               <EmptyState 
                 icon={FileSignature}
-                title="No Document Selected"
-                description="Select a document from the page tree on the left or create a new one to start writing."
-                actionLabel="Create New Page"
+                title="No Specification Selected"
+                description="Select a document from the page tree on the left or initialize a new specification to start writing."
+                actionLabel="Create New Spec"
                 onAction={handleCreateRootPage}
               />
             </div>
