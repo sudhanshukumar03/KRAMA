@@ -33,11 +33,11 @@ const STATUSES = ['backlog', 'todo', 'in_progress', 'review', 'testing', 'done',
 
 function getStatusIcon(status: string) {
   switch (status) {
-    case 'backlog': return <Circle className="w-4 h-4 text-[#9CA3AF] stroke-[1.75]" />;
-    case 'todo': return <CircleDot className="w-4 h-4 text-[#6B7280] stroke-[1.75]" />;
+    case 'backlog': return <Circle className="w-4 h-4 text-muted stroke-[1.75]" />;
+    case 'todo': return <CircleDot className="w-4 h-4 text-secondary stroke-[1.75]" />;
     case 'in_progress': return <CircleDashed className="w-4 h-4 text-[#2563EB] stroke-[1.75]" />;
     case 'review': return <CheckCircle className="w-4 h-4 text-[#4F46E5] stroke-[1.75]" />;
-    case 'testing': return <CheckCircle className="w-4 h-4 text-[#6B7280] stroke-[1.75]" />;
+    case 'testing': return <CheckCircle className="w-4 h-4 text-secondary stroke-[1.75]" />;
     case 'done': return <CheckCircle2 className="w-4 h-4 text-[#0D9488] stroke-[2]" />;
     case 'released': return <CheckCircle2 className="w-4 h-4 text-[#0D9488] stroke-[2]" />;
     default: return <Circle className="w-4 h-4 stroke-[1.75]" />;
@@ -67,18 +67,18 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
       {...listeners}
       onClick={() => onClick && onClick(issue)}
       className={cn(
-        "p-3 rounded-lg border border-[#E5E8EC] bg-white shadow-sm text-sm cursor-grab active:cursor-grabbing hover:border-[#111827] transition-all duration-150 group",
+        "p-3 rounded-lg border border-border bg-surface shadow-sm text-sm cursor-grab active:cursor-grabbing hover:border-[#111827] transition-all duration-150 group",
         isDragging && "scale-[1.03] shadow-md opacity-90 border-[#111827] ring-2 ring-[#111827] ring-offset-1 z-50 cursor-grabbing"
       )}
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
-        <span className="font-mono text-[10px] text-[#9CA3AF] font-medium">{issue.id}</span>
+        <span className="font-mono text-[10px] text-muted font-medium">{issue.id}</span>
         <div className="flex items-center gap-1">
           <span className={cn(
             "px-1.5 py-0.2 rounded font-mono text-[9px] font-bold uppercase tracking-widest border",
             isUrgent ? "bg-red-50 text-[#DC2626] border-[#DC2626]/20" 
             : isHigh ? "bg-amber-50 text-amber-700 border-amber-200" 
-            : "bg-[#F8F9FB] text-[#6B7280] border-[#E5E8EC]"
+            : "bg-surface-hover text-secondary border-border"
           )}>
             {issue.priority}
           </span>
@@ -89,7 +89,7 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
                 onDelete(issue);
               }}
               title="Delete Issue"
-              className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-50 rounded text-[#9CA3AF] hover:text-[#DC2626] transition-all"
+              className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-50 rounded text-muted hover:text-[#DC2626] transition-all"
             >
               <Trash2 className="w-3 h-3 stroke-[1.75]" />
             </button>
@@ -125,28 +125,28 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
         </div>
       )}
 
-      <div className="flex flex-col gap-2 pt-2 border-t border-[#E5E8EC]/60">
+      <div className="flex flex-col gap-2 pt-2 border-t border-border/60">
         {totalSubtasks > 0 && (
           <div className="space-y-1">
-            <div className="flex items-center justify-between text-[10px] text-[#6B7280] font-mono">
+            <div className="flex items-center justify-between text-[10px] text-secondary font-mono">
               <span>Sub-tasks</span>
               <span>{completedSubtasks}/{totalSubtasks}</span>
             </div>
-            <div className="h-1 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/40">
+            <div className="h-1 w-full bg-surface-hover rounded-full overflow-hidden border border-border/40">
               <div className="h-full bg-[#2563EB] transition-all duration-400 ease-out" style={{ width: `${subtaskPct}%` }} />
             </div>
           </div>
         )}
 
-        <div className="flex items-center justify-between text-[11px] text-[#6B7280]">
+        <div className="flex items-center justify-between text-[11px] text-secondary">
           <div className="flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded-full bg-[#F8F9FB] border border-[#E5E8EC] flex items-center justify-center text-[9px] font-medium text-[#111827]">
+            <div className="w-5 h-5 rounded-full bg-surface-hover border border-border flex items-center justify-center text-[9px] font-medium text-[#111827]">
               <User className="w-2.5 h-2.5 stroke-[2]" />
             </div>
             <span className="text-[11px] font-normal truncate max-w-[120px]">{issue.assignee ? 'Assignee' : 'Unassigned'}</span>
           </div>
           {issue.estimate && (
-            <span className="font-mono text-[10px] bg-[#F8F9FB] px-1.5 py-0.2 rounded border border-[#E5E8EC]/60">{issue.estimate}h</span>
+            <span className="font-mono text-[10px] bg-surface-hover px-1.5 py-0.2 rounded border border-border/60">{issue.estimate}h</span>
           )}
         </div>
       </div>
@@ -157,11 +157,11 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
 function Column({ title, issues, isLast, onDelete, onCreate, onClick }: { id: string, title: string, issues: IssueWithRelations[], isLast: boolean, onDelete?: (issue: IssueWithRelations) => void, onCreate?: (status: string) => void, onClick?: (issue: IssueWithRelations) => void }) {
   return (
     <div className={cn(
-      "flex flex-col w-[300px] flex-shrink-0 bg-white h-full",
-      !isLast && "border-r border-[#E5E8EC]"
+      "flex flex-col w-[300px] flex-shrink-0 bg-surface h-full",
+      !isLast && "border-r border-border"
     )}>
       <div className={cn(
-        "px-4 py-3 font-medium text-sm text-[#111827] flex justify-between items-center bg-[#F8F9FB] border-b border-[#E5E8EC] relative shadow-2xs",
+        "px-4 py-3 font-medium text-sm text-[#111827] flex justify-between items-center bg-surface-hover border-b border-border relative shadow-2xs",
         title === 'todo' && "border-t-2 border-t-[#6B7280]",
         title === 'in_progress' && "border-t-2 border-t-[#2563EB]",
         title === 'blocked' && "border-t-2 border-t-[#DC2626]",
@@ -172,14 +172,14 @@ function Column({ title, issues, isLast, onDelete, onCreate, onClick }: { id: st
           {getStatusIcon(title)}
           <span className="capitalize font-medium text-xs tracking-tight">{title.replace('_', ' ')}</span>
         </div>
-        <span className="bg-white border border-[#E5E8EC] px-2 py-0.2 rounded font-mono text-[11px] text-[#6B7280] font-medium shadow-2xs">{issues.length}</span>
+        <span className="bg-surface border border-border px-2 py-0.2 rounded font-mono text-[11px] text-secondary font-medium shadow-2xs">{issues.length}</span>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5 flex flex-col justify-between">
         <div className="space-y-2.5">
           {issues.length === 0 ? (
             <div className="py-8 text-center flex flex-col items-center justify-center">
-              <ListChecks className="w-5 h-5 text-[#9CA3AF] mb-1.5 stroke-[1.5]" />
-              <span className="text-xs text-[#9CA3AF] font-normal">No issues in {title.replace('_', ' ')}</span>
+              <ListChecks className="w-5 h-5 text-muted mb-1.5 stroke-[1.5]" />
+              <span className="text-xs text-muted font-normal">No issues in {title.replace('_', ' ')}</span>
             </div>
           ) : (
             <SortableContext items={issues.map(i => i.id)} strategy={verticalListSortingStrategy}>
@@ -193,7 +193,7 @@ function Column({ title, issues, isLast, onDelete, onCreate, onClick }: { id: st
         {/* Inline + Quick Add Button */}
         <button 
           onClick={() => onCreate ? onCreate(title) : toast.info(`Quick add task to ${title.replace('_', ' ')}`)}
-          className="w-full mt-2 py-2 border border-dashed border-[#E5E8EC] hover:border-[#111827] hover:bg-[#F8F9FB] rounded-lg text-xs font-medium text-[#9CA3AF] hover:text-[#111827] transition-all flex items-center justify-center gap-1.5 opacity-80 hover:opacity-100"
+          className="w-full mt-2 py-2 border border-dashed border-border hover:border-[#111827] hover:bg-surface-hover rounded-lg text-xs font-medium text-muted hover:text-primary transition-all flex items-center justify-center gap-1.5 opacity-80 hover:opacity-100"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2]" /> Quick Add
         </button>
@@ -243,9 +243,9 @@ function IssueCreateModal({
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-white border border-[#E5E8EC] rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
+        className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E8EC] bg-[#F8F9FB]/50 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
               <ListChecks className="w-4 h-4 stroke-[2]" />
@@ -255,7 +255,7 @@ function IssueCreateModal({
           <button
             onClick={onClose}
             type="button"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FB] hover:text-[#111827] transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -263,7 +263,7 @@ function IssueCreateModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           <div>
-            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+            <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
               Task Title <span className="text-[#DC2626]">*</span>
             </label>
             <input
@@ -273,12 +273,12 @@ function IssueCreateModal({
               placeholder="e.g., Implement OAuth2 Login Flow"
               required
               autoFocus
-              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+            <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
               Description
             </label>
             <textarea
@@ -286,19 +286,19 @@ function IssueCreateModal({
               onChange={e => setDescription(e.target.value)}
               placeholder="Add technical details, acceptance criteria, or context..."
               rows={3}
-              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all resize-none"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all resize-none"
             />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Column / Status
               </label>
               <select
                 value={status}
                 onChange={e => setStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
               >
                 {STATUSES.map(s => (
                   <option key={s} value={s}>{s.replace('_', ' ')}</option>
@@ -307,13 +307,13 @@ function IssueCreateModal({
             </div>
 
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Priority
               </label>
               <select
                 value={priority}
                 onChange={e => setPriority(e.target.value)}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -323,7 +323,7 @@ function IssueCreateModal({
             </div>
 
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Estimate (hrs)
               </label>
               <input
@@ -332,23 +332,23 @@ function IssueCreateModal({
                 max="100"
                 value={estimate}
                 onChange={e => setEstimate(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5 flex items-center gap-1.5">
+            <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5 flex items-center gap-1.5">
               <AlertCircle className="w-3.5 h-3.5 text-[#DC2626]" /> Dependencies (Blocked By)
             </label>
-            <div className="max-h-36 overflow-y-auto border border-[#E5E8EC] rounded-lg p-2.5 space-y-1.5 bg-[#F8F9FB]/50">
+            <div className="max-h-36 overflow-y-auto border border-border rounded-lg p-2.5 space-y-1.5 bg-surface-hover/50">
               {allIssues.length === 0 ? (
-                <div className="text-xs text-[#9CA3AF] italic text-center py-2">No other tasks available to link as dependencies</div>
+                <div className="text-xs text-muted italic text-center py-2">No other tasks available to link as dependencies</div>
               ) : (
                 allIssues.map(other => {
                   const isChecked = blockedByIds.includes(other.id);
                   return (
-                    <label key={other.id} className="flex items-center gap-2 text-xs text-[#111827] cursor-pointer hover:bg-white p-1.5 rounded transition-colors border border-transparent hover:border-[#E5E8EC]">
+                    <label key={other.id} className="flex items-center gap-2 text-xs text-[#111827] cursor-pointer hover:bg-surface p-1.5 rounded transition-colors border border-transparent hover:border-border">
                       <input
                         type="checkbox"
                         checked={isChecked}
@@ -359,20 +359,20 @@ function IssueCreateModal({
                             setBlockedByIds(blockedByIds.filter(id => id !== other.id));
                           }
                         }}
-                        className="rounded border-[#E5E8EC] text-[#2563EB] focus:ring-[#2563EB]"
+                        className="rounded border-border text-[#2563EB] focus:ring-[#2563EB]"
                       />
-                      <span className="font-mono text-[#6B7280] text-[10px] bg-white border border-[#E5E8EC] px-1 py-0.5 rounded">#{other.id.slice(-4)}</span>
+                      <span className="font-mono text-secondary text-[10px] bg-surface border border-border px-1 py-0.5 rounded">#{other.id.slice(-4)}</span>
                       <span className="truncate flex-1 font-medium">{other.title}</span>
-                      <span className="text-[10px] text-[#9CA3AF] uppercase capitalize">{other.status.replace('_', ' ')}</span>
+                      <span className="text-[10px] text-muted uppercase capitalize">{other.status.replace('_', ' ')}</span>
                     </label>
                   );
                 })
               )}
             </div>
-            <p className="text-[11px] text-[#6B7280] mt-1">Select any tasks that must be completed before this task can start.</p>
+            <p className="text-[11px] text-secondary mt-1">Select any tasks that must be completed before this task can start.</p>
           </div>
 
-          <div className="pt-4 border-t border-[#E5E8EC] flex justify-end gap-3 shrink-0">
+          <div className="pt-4 border-t border-border flex justify-end gap-3 shrink-0">
             <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </BaseButton>
@@ -443,9 +443,9 @@ function IssueEditModal({
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-white border border-[#E5E8EC] rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
+        className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E8EC] bg-[#F8F9FB]/50 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
               <ListChecks className="w-4 h-4 stroke-[2]" />
@@ -455,7 +455,7 @@ function IssueEditModal({
           <button
             onClick={onClose}
             type="button"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FB] hover:text-[#111827] transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -463,7 +463,7 @@ function IssueEditModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           <div>
-            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+            <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
               Task Title <span className="text-[#DC2626]">*</span>
             </label>
             <input
@@ -472,31 +472,31 @@ function IssueEditModal({
               onChange={e => setTitle(e.target.value)}
               required
               autoFocus
-              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+            <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
               Description
             </label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all resize-none"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all resize-none"
             />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Column / Status
               </label>
               <select
                 value={status}
                 onChange={e => setStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
               >
                 {STATUSES.map(s => (
                   <option key={s} value={s}>{s.replace('_', ' ')}</option>
@@ -505,13 +505,13 @@ function IssueEditModal({
             </div>
 
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Priority
               </label>
               <select
                 value={priority}
                 onChange={e => setPriority(e.target.value)}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -521,7 +521,7 @@ function IssueEditModal({
             </div>
 
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Estimate (hrs)
               </label>
               <input
@@ -530,23 +530,23 @@ function IssueEditModal({
                 max="100"
                 value={estimate}
                 onChange={e => setEstimate(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5 flex items-center gap-1.5">
+            <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5 flex items-center gap-1.5">
               <AlertCircle className="w-3.5 h-3.5 text-[#DC2626]" /> Dependencies (Blocked By)
             </label>
-            <div className="max-h-36 overflow-y-auto border border-[#E5E8EC] rounded-lg p-2.5 space-y-1.5 bg-[#F8F9FB]/50">
+            <div className="max-h-36 overflow-y-auto border border-border rounded-lg p-2.5 space-y-1.5 bg-surface-hover/50">
               {otherIssues.length === 0 ? (
-                <div className="text-xs text-[#9CA3AF] italic text-center py-2">No other tasks available to link as dependencies</div>
+                <div className="text-xs text-muted italic text-center py-2">No other tasks available to link as dependencies</div>
               ) : (
                 otherIssues.map(other => {
                   const isChecked = blockedByIds.includes(other.id);
                   return (
-                    <label key={other.id} className="flex items-center gap-2 text-xs text-[#111827] cursor-pointer hover:bg-white p-1.5 rounded transition-colors border border-transparent hover:border-[#E5E8EC]">
+                    <label key={other.id} className="flex items-center gap-2 text-xs text-[#111827] cursor-pointer hover:bg-surface p-1.5 rounded transition-colors border border-transparent hover:border-border">
                       <input
                         type="checkbox"
                         checked={isChecked}
@@ -557,20 +557,20 @@ function IssueEditModal({
                             setBlockedByIds(blockedByIds.filter(id => id !== other.id));
                           }
                         }}
-                        className="rounded border-[#E5E8EC] text-[#2563EB] focus:ring-[#2563EB]"
+                        className="rounded border-border text-[#2563EB] focus:ring-[#2563EB]"
                       />
-                      <span className="font-mono text-[#6B7280] text-[10px] bg-white border border-[#E5E8EC] px-1 py-0.5 rounded">#{other.id.slice(-4)}</span>
+                      <span className="font-mono text-secondary text-[10px] bg-surface border border-border px-1 py-0.5 rounded">#{other.id.slice(-4)}</span>
                       <span className="truncate flex-1 font-medium">{other.title}</span>
-                      <span className="text-[10px] text-[#9CA3AF] uppercase capitalize">{other.status.replace('_', ' ')}</span>
+                      <span className="text-[10px] text-muted uppercase capitalize">{other.status.replace('_', ' ')}</span>
                     </label>
                   );
                 })
               )}
             </div>
-            <p className="text-[11px] text-[#6B7280] mt-1">Select any tasks that must be completed before this task can start.</p>
+            <p className="text-[11px] text-secondary mt-1">Select any tasks that must be completed before this task can start.</p>
           </div>
 
-          <div className="pt-4 border-t border-[#E5E8EC] flex justify-end gap-3 shrink-0">
+          <div className="pt-4 border-t border-border flex justify-end gap-3 shrink-0">
             <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </BaseButton>
@@ -756,7 +756,7 @@ export function KanbanBoard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-medium tracking-tight text-[#111827]">Execution Board</h1>
-          <p className="text-[13px] text-[#6B7280]">Drag and drop issues across sprint statuses. Single bounded board view.</p>
+          <p className="text-[13px] text-secondary">Drag and drop issues across sprint statuses. Single bounded board view.</p>
         </div>
         <BaseButton onClick={() => handleCreateIssue('todo')}>
           <Plus className="w-4 h-4 mr-1.5 stroke-[2]" /> New Issue
@@ -764,23 +764,23 @@ export function KanbanBoard() {
       </div>
 
       {/* NEW: Interactive Filter & Search Bar */}
-      <div className="bg-white border border-[#E5E8EC] rounded-xl p-3 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="bg-surface border border-border rounded-xl p-3 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         
         {/* Search Input */}
         <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3 top-1/2 -translate-y-1/2 stroke-[1.75]" />
+          <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 stroke-[1.75]" />
           <input
             type="text"
             placeholder="Search issues by title or ID (e.g. KRA-101)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 text-xs bg-[#F8F9FB] border border-[#E5E8EC] rounded-lg focus:outline-none focus:border-[#2563EB] focus:bg-white transition-all placeholder:text-[#9CA3AF] text-[#111827]"
+            className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-[#2563EB] focus:bg-surface transition-all placeholder:text-muted text-[#111827]"
           />
         </div>
 
         {/* Priority Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          <span className="text-[11px] font-medium text-[#6B7280] flex items-center gap-1 mr-1 shrink-0">
+          <span className="text-[11px] font-medium text-secondary flex items-center gap-1 mr-1 shrink-0">
             <Filter className="w-3.5 h-3.5 stroke-[1.75]" /> Priority:
           </span>
           {(['all', 'urgent', 'high', 'medium', 'low'] as const).map((pri) => (
@@ -791,7 +791,7 @@ export function KanbanBoard() {
                 "px-2.5 py-1 rounded-md text-xs font-medium capitalize transition-all shrink-0",
                 priorityFilter === pri 
                   ? "bg-[#111827] text-white shadow-2xs" 
-                  : "bg-[#F8F9FB] text-[#6B7280] hover:text-[#111827] border border-[#E5E8EC]"
+                  : "bg-surface-hover text-secondary hover:text-primary border border-border"
               )}
             >
               {pri}
@@ -803,7 +803,7 @@ export function KanbanBoard() {
 
       {/* Single Bounded Board Grid */}
       <div className="flex-1 overflow-x-auto pb-4">
-        <div className="min-w-max h-full border border-[#E5E8EC] rounded-xl bg-white shadow-sm flex overflow-hidden">
+        <div className="min-w-max h-full border border-border rounded-xl bg-surface shadow-sm flex overflow-hidden">
           <DndContext 
             sensors={sensors} 
             collisionDetection={closestCorners} 
