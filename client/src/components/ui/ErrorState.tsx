@@ -32,7 +32,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
       {onRetry && (
         <button
           onClick={onRetry}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] hover:border-[#FCA5A5] rounded-lg text-xs font-medium shadow-xs transition-colors duration-150"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface hover:bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] hover:border-[#FCA5A5] rounded-lg text-xs font-medium shadow-xs transition-colors duration-150"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           <span>Try Again</span>
