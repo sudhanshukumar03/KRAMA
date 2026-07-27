@@ -84,8 +84,8 @@
   --color-canvas: #090D16;
   --color-surface: #111827;
   --color-surface-hover: #1E293B;
-  --color-border: #1E293B;
-  --color-border-muted: #334155;
+  --color-border: #263346;
+  --color-border-muted: #374863;
   --color-primary: #F8FAFC;
   --color-primary-fill: #3B82F6;
   --color-secondary: #94A3B8;
@@ -128,29 +128,149 @@
 
 @layer utilities {
   /* Automated reconciliation of legacy arbitrary values to definitive master tokens (#4 & #12) */
-  [class*="bg-white"], [class*="bg-[#FFFFFF]"] { background-color: var(--color-surface) !important; }
-  [class*="bg-[#F8F9FB]"], [class*="hover:bg-[#F8F9FB]"]:hover, [class*="group-hover:bg-[#F8F9FB]"]:hover, [class*="bg-[#FAFAFA]"], [class*="hover:bg-[#FAFAFA]"]:hover { background-color: var(--color-surface-hover) !important; }
-  [class*="border-white"], [class*="border-[#E5E8EC]"], [class*="hover:border-[#E5E8EC]"]:hover, [class*="border-[#E5E7EB]"], [class*="hover:border-[#E5E7EB]"]:hover { border-color: var(--color-border) !important; }
-  [class*="divide-[#E5E8EC]"], [class*="divide-[#E5E7EB]"] { border-color: var(--color-border) !important; }
+  [class*="bg-[#FFFFFF]"], [class*="bg-[#FCFCFD]"], [class*="bg-[#F8F9FA]"], [class*="bg-[#F8F9FB]"], [class*="bg-[#FAFAFA]"], [class*="bg-[#FAFAFB]"] { 
+    background-color: var(--color-surface) !important; 
+  }
+  [class*="hover:bg-[#F8F9FB]"]:hover, [class*="group-hover:bg-[#F8F9FB]"]:hover, [class*="hover:bg-[#FAFAFA]"]:hover, [class*="bg-[#F1F3F4]"], [class*="hover:bg-[#F1F3F4]"]:hover, [class*="group-hover:bg-[#F1F3F4]"]:hover, [class*="bg-[#F3F4F6]"], [class*="hover:bg-[#F3F4F6]"]:hover { 
+    background-color: var(--color-surface-hover) !important; 
+  }
+  [class*="border-[#E5E8EC]"], [class*="hover:border-[#E5E8EC]"]:hover, [class*="border-[#E5E7EB]"], [class*="hover:border-[#E5E7EB]"]:hover, [class*="border-[#DADCE0]"], [class*="hover:border-[#DADCE0]"]:hover { 
+    border-color: var(--color-border) !important; 
+  }
+  [class*="divide-[#E5E8EC]"], [class*="divide-[#E5E7EB]"], [class*="divide-[#DADCE0]"], [class*="divide-gray-200"] { 
+    border-color: var(--color-border) !important; 
+  }
   
-  [class*="text-[#111827]"], [class*="hover:text-[#111827]"]:hover, [class*="group-hover:text-[#111827]"]:hover, [class*="text-[#0A0A0A]"], [class*="hover:text-[#0A0A0A]"]:hover, [class*="group-hover:text-[#0A0A0A]"]:hover { color: var(--color-primary) !important; }
-  [class*="border-[#111827]"], [class*="hover:border-[#111827]"]:hover, [class*="group-hover:border-[#111827]"]:hover, [class*="border-[#0A0A0A]"], [class*="hover:border-[#0A0A0A]"]:hover, [class*="group-hover:border-[#0A0A0A]"]:hover { border-color: var(--color-primary) !important; }
-  [class*="ring-[#111827]"], [class*="focus:ring-[#111827]"]:focus, [class*="focus-visible:ring-[#111827]"]:focus-visible, [class*="ring-[#0A0A0A]"], [class*="focus:ring-[#0A0A0A]"]:focus, [class*="focus-visible:ring-[#0A0A0A]"]:focus-visible { --tw-ring-color: var(--color-primary) !important; }
-  [class*="bg-[#111827]"], [class*="hover:bg-[#111827]"]:hover, [class*="group-hover:bg-[#111827]"]:hover, [class*="bg-[#0A0A0A]"], [class*="hover:bg-[#0A0A0A]"]:hover, [class*="group-hover:bg-[#0A0A0A]"]:hover { background-color: var(--color-primary-fill) !important; }
-  [class*="fill-[#111827]"], [class*="fill-[#0A0A0A]"] { fill: var(--color-primary-fill) !important; }
+  [class*="text-[#111827]"], [class*="hover:text-[#111827]"]:hover, [class*="group-hover:text-[#111827]"]:hover, [class*="text-[#0A0A0A]"], [class*="hover:text-[#0A0A0A]"]:hover, [class*="group-hover:text-[#0A0A0A]"]:hover, [class*="text-[#3C4043]"], [class*="hover:text-[#3C4043]"]:hover, [class*="group-hover:text-[#3C4043]"]:hover { 
+    color: var(--color-primary) !important; 
+  }
+  [class*="fill-[#111827]"], [class*="fill-[#0A0A0A]"] { 
+    fill: var(--color-primary) !important; 
+  }
   
-  [class*="text-[#6B7280]"], [class*="text-[#4B5563]"] { color: var(--color-secondary) !important; }
-  [class*="text-[#9CA3AF]"], [class*="placeholder:text-[#9CA3AF]"]::placeholder { color: var(--color-muted) !important; }
+  [class*="text-[#6B7280]"], [class*="text-[#4B5563]"], [class*="text-[#70757A]"] { 
+    color: var(--color-secondary) !important; 
+  }
+  [class*="text-[#9CA3AF]"], [class*="placeholder:text-[#9CA3AF]"]::placeholder, [class*="text-[#9AA0A6]"], [class*="placeholder:text-[#9AA0A6]"]::placeholder { 
+    color: var(--color-muted) !important; 
+  }
   
   [class*="text-[#DC2626]"] { color: var(--color-urgency) !important; }
   [class*="bg-[#DC2626]"] { background-color: var(--color-urgency) !important; }
   [class*="border-[#DC2626]"] { border-color: var(--color-urgency) !important; }
   
-  [class*="bg-[#F3F4F6]"], [class*="hover:bg-[#F3F4F6]"]:hover { background-color: var(--color-surface-hover) !important; }
   [class*="bg-[#D1D5DB]"], [class*="border-[#D1D5DB]"], [class*="text-[#D1D5DB]"], [class*="hover:border-[#D1D5DB]"]:hover { 
     border-color: var(--color-border-muted) !important; 
     color: var(--color-border-muted) !important;
     background-color: var(--color-border-muted) !important;
+  }
+
+  /* ==========================================================================
+     COMPREHENSIVE DARK MODE TINT, BADGE & EVENT PILL HARMONY
+     Transforms all bright light-mode pastel blocks into sleek, glowing dark badges
+     ========================================================================== */
+  
+  /* Blue Badges, Sprints & Google Calendar Event Pills */
+  .dark [class*="bg-[#E8F0FE]"], .dark [class*="bg-[#EFF4FE]"], .dark [class*="bg-[#EFF6FF]"], .dark [class*="bg-[#DBEAFE]"], .dark [class*="bg-[#BFDBFE]"], .dark [class*="bg-blue-50"], .dark [class*="bg-blue-100"] {
+    background-color: rgba(37, 99, 235, 0.18) !important;
+    border-color: rgba(59, 130, 246, 0.35) !important;
+  }
+  .dark [class*="text-[#1967D2]"], .dark [class*="text-[#2563EB]"], .dark [class*="text-[#1D4ED8]"], .dark [class*="text-[#1E40AF]"], .dark [class*="text-blue-600"], .dark [class*="text-blue-700"], .dark [class*="text-[#1A73E8]"] {
+    color: #60A5FA !important;
+  }
+  .dark [class*="border-[#D2E3FC]"], .dark [class*="border-blue-200"], .dark [class*="border-l-[#1A73E8]"], .dark [class*="border-l-[#2563EB]"], .dark [class*="border-l-blue-600"] {
+    border-color: rgba(59, 130, 246, 0.4) !important;
+  }
+  .dark [class*="border-l-[#1A73E8]"], .dark [class*="border-l-[#2563EB]"], .dark [class*="border-l-blue-600"] {
+    border-left-color: #3B82F6 !important;
+  }
+
+  /* Green Badges & Event Pills */
+  .dark [class*="bg-[#E6F4EA]"], .dark [class*="bg-[#ECFDF5]"], .dark [class*="bg-[#F0FDF4]"], .dark [class*="bg-[#D1FAE5]"], .dark [class*="bg-green-50"], .dark [class*="bg-emerald-50"] {
+    background-color: rgba(16, 185, 129, 0.18) !important;
+    border-color: rgba(52, 211, 153, 0.35) !important;
+  }
+  .dark [class*="text-[#137333]"], .dark [class*="text-[#059669]"], .dark [class*="text-[#047857]"], .dark [class*="text-[#10B981]"], .dark [class*="text-green-700"], .dark [class*="text-emerald-700"] {
+    color: #34D399 !important;
+  }
+  .dark [class*="border-[#CEEAD6]"], .dark [class*="border-green-200"], .dark [class*="border-emerald-200"] {
+    border-color: rgba(52, 211, 153, 0.4) !important;
+  }
+  .dark [class*="border-l-[#1E8E3E]"], .dark [class*="border-l-[#10B981]"], .dark [class*="border-l-[#059669]"] {
+    border-left-color: #10B981 !important;
+  }
+
+  /* Yellow / Amber Badges & Event Pills */
+  .dark [class*="bg-[#FEF7E0]"], .dark [class*="bg-[#FFFBEB]"], .dark [class*="bg-[#FEF3C7]"], .dark [class*="bg-[#FDE68A]"], .dark [class*="bg-amber-50"], .dark [class*="bg-yellow-50"] {
+    background-color: rgba(245, 158, 11, 0.18) !important;
+    border-color: rgba(251, 191, 36, 0.35) !important;
+  }
+  .dark [class*="text-[#B06000]"], .dark [class*="text-[#D97706]"], .dark [class*="text-[#B45309]"], .dark [class*="text-[#92400E]"], .dark [class*="text-[#E37400]"], .dark [class*="text-amber-700"] {
+    color: #FBBF24 !important;
+  }
+  .dark [class*="border-[#FFEDD5]"], .dark [class*="border-amber-200"], .dark [class*="border-yellow-200"] {
+    border-color: rgba(251, 191, 36, 0.4) !important;
+  }
+  .dark [class*="border-l-[#E37400]"], .dark [class*="border-l-[#D97706]"], .dark [class*="border-l-[#F59E0B]"] {
+    border-left-color: #F59E0B !important;
+  }
+
+  /* Orange / Flame Badges (Habit Streaks, Focus) */
+  .dark [class*="bg-[#FFF7ED]"], .dark [class*="bg-[#FFEDD5]"], .dark [class*="bg-[#FED7AA]"], .dark [class*="bg-orange-50"] {
+    background-color: rgba(234, 88, 12, 0.18) !important;
+    border-color: rgba(251, 146, 60, 0.35) !important;
+  }
+  .dark [class*="text-[#C2410C]"], .dark [class*="text-[#EA580C]"], .dark [class*="text-[#9A3412]"], .dark [class*="text-orange-700"] {
+    color: #FB923C !important;
+  }
+
+  /* Purple Badges & Event Pills */
+  .dark [class*="bg-[#F3E8FF]"], .dark [class*="bg-[#FAF5FF]"], .dark [class*="bg-[#E9D5FF]"], .dark [class*="bg-purple-50"] {
+    background-color: rgba(147, 51, 234, 0.18) !important;
+    border-color: rgba(192, 132, 252, 0.35) !important;
+  }
+  .dark [class*="text-[#7E22CE]"], .dark [class*="text-[#6B21A8]"], .dark [class*="text-[#9333EA]"], .dark [class*="text-purple-700"] {
+    color: #C084FC !important;
+  }
+  .dark [class*="border-l-[#9334E6]"], .dark [class*="border-l-[#9333EA]"], .dark [class*="border-l-[#7E22CE]"] {
+    border-left-color: #A855F7 !important;
+  }
+
+  /* Red / Urgency Badges & Delete Buttons */
+  .dark [class*="bg-[#FEE2E2]"], .dark [class*="bg-[#FEF2F2]"], .dark [class*="bg-[#FECACA]"], .dark [class*="bg-[#FFF1F2]"], .dark [class*="bg-red-50"], .dark [class*="bg-rose-50"] {
+    background-color: rgba(239, 68, 68, 0.18) !important;
+    border-color: rgba(248, 113, 113, 0.35) !important;
+  }
+  .dark [class*="text-[#DC2626]"], .dark [class*="text-[#B91C1C]"], .dark [class*="text-[#EF4444]"], .dark [class*="text-[#E11D48]"], .dark [class*="text-red-600"], .dark [class*="text-rose-600"] {
+    color: #F87171 !important;
+  }
+  .dark [class*="border-[#FCA5A5]"], .dark [class*="border-red-200"], .dark [class*="border-rose-200"] {
+    border-color: rgba(248, 113, 113, 0.4) !important;
+  }
+
+  /* Table, Form Input & Polish in Dark Mode */
+  .dark input, .dark select, .dark textarea {
+    background-color: #162032 !important;
+    border-color: var(--color-border-muted) !important;
+    color: var(--color-primary) !important;
+  }
+  .dark input::placeholder, .dark textarea::placeholder {
+    color: var(--color-muted) !important;
+  }
+  .dark table thead tr, .dark table th {
+    background-color: #141D2E !important;
+    border-color: var(--color-border) !important;
+    color: var(--color-secondary) !important;
+  }
+  .dark table tbody tr {
+    border-color: var(--color-border) !important;
+    background-color: var(--color-surface) !important;
+  }
+  .dark table tbody tr:hover, .dark table tbody tr:hover td {
+    background-color: var(--color-surface-hover) !important;
+  }
+  .dark [class*="shadow-sm"], .dark [class*="shadow-md"], .dark [class*="shadow-lg"], .dark [class*="shadow-xl"], .dark [class*="shadow-2xl"] {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65) !important;
   }
 
   /* Automated Typography Scale Enforcement (#1 & #12) */
