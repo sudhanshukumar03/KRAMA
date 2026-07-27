@@ -151,7 +151,7 @@ export function CommandPalette() {
         onClick={(e) => e.stopPropagation()}
         shouldFilter={!hasSearchQuery}
         className={cn(
-          "w-full max-w-2xl bg-white border border-[#E5E8EC] rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-180 ease-out select-none",
+          "w-full max-w-2xl bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-180 ease-out select-none",
           animateIn ? "scale-100 opacity-100" : "scale-[0.98] opacity-0"
         )}
         onKeyDown={(e) => {
@@ -161,26 +161,26 @@ export function CommandPalette() {
           }
         }}
       >
-        <div className="flex items-center border-b border-[#E5E8EC] px-5 bg-[#F8F9FB]/50">
+        <div className="flex items-center border-b border-border px-5 bg-surface-hover/50">
           {isSearching ? (
             <Loader2 className="w-5 h-5 text-[#2563EB] mr-3.5 shrink-0 stroke-[2] animate-spin" />
           ) : (
-            <Search className="w-5 h-5 text-[#9CA3AF] mr-3.5 shrink-0 stroke-[2]" />
+            <Search className="w-5 h-5 text-muted mr-3.5 shrink-0 stroke-[2]" />
           )}
           <Command.Input 
             autoFocus
             value={searchQuery}
             onValueChange={setSearchQuery}
-            className="flex h-14 w-full bg-transparent outline-none text-[#111827] placeholder:text-[#9CA3AF] text-base font-medium" 
+            className="flex h-14 w-full bg-transparent outline-none text-[#111827] placeholder:text-muted text-base font-medium" 
             placeholder="Search docs, issues, projects, goals, decisions..." 
           />
-          <kbd className="text-[10px] font-mono text-[#6B7280] bg-white border border-[#E5E8EC] px-2 py-1 rounded-md shadow-2xs shrink-0">
+          <kbd className="text-[10px] font-mono text-secondary bg-surface border border-border px-2 py-1 rounded-md shadow-2xs shrink-0">
             ESC
           </kbd>
         </div>
         
-        <Command.List className="max-h-[60vh] overflow-y-auto p-3 divide-y divide-[#E5E8EC]/60">
-          <Command.Empty className="p-8 text-center text-[#6B7280] text-sm">
+        <Command.List className="max-h-[60vh] overflow-y-auto p-3 divide-y divide-border/60">
+          <Command.Empty className="p-8 text-center text-secondary text-sm">
             {hasSearchQuery ? 'No matching results found across docs, issues, projects, goals, or decisions.' : 'No matching commands found.'}
           </Command.Empty>
 
@@ -192,7 +192,7 @@ export function CommandPalette() {
                 <div className="flex items-center gap-1.5">
                   {typeIcons[type]}
                   <span className={typeColors[type]?.split(' ')[0]}>{typeLabels[type] || type}</span>
-                  <span className="text-[#9CA3AF] ml-1">({results.length})</span>
+                  <span className="text-muted ml-1">({results.length})</span>
                 </div>
               }
               className="pt-2 pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
@@ -202,7 +202,7 @@ export function CommandPalette() {
                   key={`${result.type}-${result.id}`}
                   value={`${result.title} ${result.snippet}`}
                   onSelect={() => runCommand(() => navigate(result.url))}
-                  className="flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#F8F9FB] aria-selected:text-[#2563EB] transition-colors duration-100 group"
+                  className="flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100 group"
                 >
                   <div className="flex items-start gap-2.5 min-w-0 flex-1">
                     <span className="mt-0.5 shrink-0">{typeIcons[result.type]}</span>
@@ -211,7 +211,7 @@ export function CommandPalette() {
                         <HighlightedSnippet text={result.title} query={debouncedQuery} />
                       </div>
                       {result.snippet && (
-                        <div className="text-[11px] text-[#6B7280] mt-0.5 line-clamp-2 leading-relaxed">
+                        <div className="text-[11px] text-secondary mt-0.5 line-clamp-2 leading-relaxed">
                           <HighlightedSnippet text={result.snippet} query={debouncedQuery} />
                         </div>
                       )}
@@ -220,7 +220,7 @@ export function CommandPalette() {
                   {result.badge && (
                     <span className={cn(
                       "text-[10px] font-mono px-1.5 py-0.5 rounded font-medium shrink-0 ml-2",
-                      typeColors[result.type] || 'text-[#6B7280] bg-[#F8F9FB]'
+                      typeColors[result.type] || 'text-secondary bg-surface-hover'
                     )}>
                       {result.badge}
                     </span>
@@ -243,12 +243,12 @@ export function CommandPalette() {
                   className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#111827] aria-selected:text-white transition-colors group mb-1"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-[#F8F9FB] border border-[#E5E8EC] group-aria-selected:bg-white/20 group-aria-selected:border-transparent text-[#111827] group-aria-selected:text-white flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-lg bg-surface-hover border border-border group-aria-selected:bg-white/20 group-aria-selected:border-transparent text-[#111827] group-aria-selected:text-white flex items-center justify-center">
                       <Brain className="w-4 h-4 stroke-[2]" />
                     </div>
                     <div>
                       <div className="font-semibold leading-tight">Start Deep Work Focus Session</div>
-                      <div className="text-[11px] text-[#6B7280] group-aria-selected:text-white/80">Launch live stopwatch in Daily Review</div>
+                      <div className="text-[11px] text-secondary group-aria-selected:text-white/80">Launch live stopwatch in Daily Review</div>
                     </div>
                   </div>
                   <span className="text-xs font-mono opacity-0 group-aria-selected:opacity-100 flex items-center gap-1">
@@ -261,12 +261,12 @@ export function CommandPalette() {
                   className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#111827] aria-selected:text-white transition-colors group mb-1"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-[#F8F9FB] border border-[#E5E8EC] group-aria-selected:bg-white/20 group-aria-selected:border-transparent text-[#111827] group-aria-selected:text-white flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-lg bg-surface-hover border border-border group-aria-selected:bg-white/20 group-aria-selected:border-transparent text-[#111827] group-aria-selected:text-white flex items-center justify-center">
                       <Plus className="w-4 h-4 stroke-[2]" />
                     </div>
                     <div>
                       <div className="font-semibold leading-tight">Create New Issue or Sub-task</div>
-                      <div className="text-[11px] text-[#6B7280] group-aria-selected:text-white/80">Open Kanban Board quick-add pipeline</div>
+                      <div className="text-[11px] text-secondary group-aria-selected:text-white/80">Open Kanban Board quick-add pipeline</div>
                     </div>
                   </div>
                   <span className="text-xs font-mono opacity-0 group-aria-selected:opacity-100 flex items-center gap-1">
@@ -279,12 +279,12 @@ export function CommandPalette() {
                   className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#111827] aria-selected:text-white transition-colors group"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-[#F8F9FB] border border-[#E5E8EC] group-aria-selected:bg-white/20 group-aria-selected:border-transparent text-[#111827] group-aria-selected:text-white flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-lg bg-surface-hover border border-border group-aria-selected:bg-white/20 group-aria-selected:border-transparent text-[#111827] group-aria-selected:text-white flex items-center justify-center">
                       <Calendar className="w-4 h-4 stroke-[2]" />
                     </div>
                     <div>
                       <div className="font-semibold leading-tight">Time-Block Weekly Planner</div>
-                      <div className="text-[11px] text-[#6B7280] group-aria-selected:text-white/80">Schedule focus hours & meeting buffers</div>
+                      <div className="text-[11px] text-secondary group-aria-selected:text-white/80">Schedule focus hours & meeting buffers</div>
                     </div>
                   </div>
                   <span className="text-xs font-mono opacity-0 group-aria-selected:opacity-100 flex items-center gap-1">
@@ -300,33 +300,33 @@ export function CommandPalette() {
               >
                 <Command.Item 
                   onSelect={() => runCommand(() => navigate('/app/'))}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#F8F9FB] aria-selected:text-[#2563EB] transition-colors duration-100"
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
                 >
-                  <Target className="w-4 h-4 text-[#6B7280]" /> Dashboard Scorecard
+                  <Target className="w-4 h-4 text-secondary" /> Dashboard Scorecard
                 </Command.Item>
                 <Command.Item 
                   onSelect={() => runCommand(() => navigate('/app/board'))}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#F8F9FB] aria-selected:text-[#2563EB] transition-colors duration-100"
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
                 >
-                  <KanbanSquare className="w-4 h-4 text-[#6B7280]" /> Kanban Execution Board
+                  <KanbanSquare className="w-4 h-4 text-secondary" /> Kanban Execution Board
                 </Command.Item>
                 <Command.Item 
                   onSelect={() => runCommand(() => navigate('/app/sprint'))}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#F8F9FB] aria-selected:text-[#2563EB] transition-colors duration-100"
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
                 >
-                  <Clock className="w-4 h-4 text-[#6B7280]" /> Active Sprint Burndown View
+                  <Clock className="w-4 h-4 text-secondary" /> Active Sprint Burndown View
                 </Command.Item>
                 <Command.Item 
                   onSelect={() => runCommand(() => navigate('/app/goals'))}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#F8F9FB] aria-selected:text-[#2563EB] transition-colors duration-100"
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
                 >
-                  <Target className="w-4 h-4 text-[#6B7280]" /> Goals & Quarterly OKRs
+                  <Target className="w-4 h-4 text-secondary" /> Goals & Quarterly OKRs
                 </Command.Item>
                 <Command.Item 
                   onSelect={() => runCommand(() => navigate('/app/decisions'))}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#F8F9FB] aria-selected:text-[#2563EB] transition-colors duration-100"
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
                 >
-                  <Scale className="w-4 h-4 text-[#6B7280]" /> Decision Log
+                  <Scale className="w-4 h-4 text-secondary" /> Decision Log
                 </Command.Item>
               </Command.Group>
 
@@ -339,17 +339,17 @@ export function CommandPalette() {
                   <Command.Item 
                     key={page.id}
                     onSelect={() => runCommand(() => navigate(`/app/brain`))}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#F8F9FB] aria-selected:text-[#2563EB] transition-colors duration-100"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
                   >
                     <div className="flex items-center gap-2.5 truncate">
                       {page.icon ? (
                         <span className="w-4 h-4 flex items-center justify-center text-sm">{page.icon}</span>
                       ) : (
-                        <FileText className="w-4 h-4 text-[#9CA3AF]" />
+                        <FileText className="w-4 h-4 text-muted" />
                       )}
                       <span className="truncate">{page.title}</span>
                     </div>
-                    <span className="text-[10px] font-mono text-[#9CA3AF] bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">
+                    <span className="text-[10px] font-mono text-muted bg-surface-hover px-1.5 py-0.5 rounded border border-border">
                       Doc
                     </span>
                   </Command.Item>
@@ -365,15 +365,15 @@ export function CommandPalette() {
                   <Command.Item 
                     key={issue.id}
                     onSelect={() => runCommand(() => navigate(`/app/board`))}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#F8F9FB] aria-selected:text-[#2563EB] transition-colors duration-100"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
                   >
                     <div className="flex items-center gap-2.5 truncate">
-                      <span className="text-[#9CA3AF] text-xs font-mono font-bold bg-[#F8F9FB] px-1.5 py-0.2 rounded border border-[#E5E8EC] shrink-0">
+                      <span className="text-muted text-xs font-mono font-bold bg-surface-hover px-1.5 py-0.2 rounded border border-border shrink-0">
                         {issue.id.slice(0, 7).toUpperCase()}
                       </span>
                       <span className="truncate">{issue.title}</span>
                     </div>
-                    <span className="text-[10px] font-mono capitalize text-[#6B7280] bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">
+                    <span className="text-[10px] font-mono capitalize text-secondary bg-surface-hover px-1.5 py-0.5 rounded border border-border">
                       {issue.status.replace('_', ' ')}
                     </span>
                   </Command.Item>
@@ -389,7 +389,7 @@ export function CommandPalette() {
                   <Command.Item 
                     key={goal.id}
                     onSelect={() => runCommand(() => navigate(`/app/goals`))}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#F8F9FB] aria-selected:text-[#0D9488] transition-colors duration-100"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-surface-hover aria-selected:text-[#0D9488] transition-colors duration-100"
                   >
                     <div className="flex items-center gap-2.5 truncate">
                       <Target className="w-4 h-4 text-[#0D9488] shrink-0" />
@@ -411,13 +411,13 @@ export function CommandPalette() {
                   <Command.Item 
                     key={proj.id}
                     onSelect={() => runCommand(() => navigate(`/app/projects/${proj.id}`))}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-[#F8F9FB] aria-selected:text-[#4F46E5] transition-colors duration-100"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-sm font-medium text-[#111827] aria-selected:bg-surface-hover aria-selected:text-[#4F46E5] transition-colors duration-100"
                   >
                     <div className="flex items-center gap-2.5 truncate">
                       <FolderKanban className="w-4 h-4 text-[#4F46E5] shrink-0" />
                       <span className="truncate">{proj.name}</span>
                     </div>
-                    <span className="text-[10px] font-mono text-[#6B7280] bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">
+                    <span className="text-[10px] font-mono text-secondary bg-surface-hover px-1.5 py-0.5 rounded border border-border">
                       Project
                     </span>
                   </Command.Item>
@@ -428,14 +428,14 @@ export function CommandPalette() {
 
         </Command.List>
 
-        <div className="bg-[#F8F9FB] border-t border-[#E5E8EC] px-4 py-2 flex items-center justify-between text-[11px] text-[#6B7280] font-mono">
+        <div className="bg-surface-hover border-t border-border px-4 py-2 flex items-center justify-between text-[11px] text-secondary font-mono">
           <span>
             {hasSearchQuery
               ? `${searchResults.length} result${searchResults.length !== 1 ? 's' : ''} • Powered by Postgres full-text search`
-              : <>Tip: Press <kbd className="bg-white border border-[#E5E8EC] px-1 py-0.2 rounded text-[#111827]">↑</kbd> <kbd className="bg-white border border-[#E5E8EC] px-1 py-0.2 rounded text-[#111827]">↓</kbd> to navigate</>
+              : <>Tip: Press <kbd className="bg-surface border border-border px-1 py-0.2 rounded text-[#111827]">↑</kbd> <kbd className="bg-surface border border-border px-1 py-0.2 rounded text-[#111827]">↓</kbd> to navigate</>
             }
           </span>
-          <span>Press <kbd className="bg-white border border-[#E5E8EC] px-1.5 py-0.2 rounded text-[#111827] font-bold">↵</kbd> to execute</span>
+          <span>Press <kbd className="bg-surface border border-border px-1.5 py-0.2 rounded text-[#111827] font-bold">↵</kbd> to execute</span>
         </div>
       </Command>
     </div>
