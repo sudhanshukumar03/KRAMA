@@ -92,10 +92,10 @@ function DecisionModal({
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-white border border-[#E5E8EC] rounded-2xl w-full max-w-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200"
+        className="bg-surface border border-border rounded-2xl w-full max-w-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200"
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E8EC]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#4F46E5]/10 text-[#4F46E5] flex items-center justify-center">
               <Scale className="w-4 h-4 stroke-[2]" />
@@ -106,7 +106,7 @@ function DecisionModal({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FB] hover:text-[#111827] transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -122,7 +122,7 @@ function DecisionModal({
               value={form.title}
               onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
               placeholder="e.g. Adopt tRPC over REST for internal APIs"
-              className="w-full px-3 py-2 text-sm border border-[#E5E8EC] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-[#9CA3AF] transition-all"
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all"
             />
           </div>
 
@@ -134,7 +134,7 @@ function DecisionModal({
               onChange={e => setForm(prev => ({ ...prev, context: e.target.value }))}
               placeholder="What prompted this decision? What's the background?"
               rows={3}
-              className="w-full px-3 py-2 text-sm border border-[#E5E8EC] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-[#9CA3AF] transition-all resize-none"
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all resize-none"
             />
           </div>
 
@@ -146,21 +146,21 @@ function DecisionModal({
               onChange={e => setForm(prev => ({ ...prev, reasoning: e.target.value }))}
               placeholder="Why was this the best option? What trade-offs were considered?"
               rows={3}
-              className="w-full px-3 py-2 text-sm border border-[#E5E8EC] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-[#9CA3AF] transition-all resize-none"
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all resize-none"
             />
           </div>
 
           {/* Alternatives Considered (tag input) */}
           <div>
             <label className="block text-xs font-medium text-[#111827] mb-1.5">Alternatives Considered</label>
-            <div className="flex flex-wrap items-center gap-1.5 min-h-[40px] px-3 py-2 border border-[#E5E8EC] rounded-lg bg-white focus-within:ring-2 focus-within:ring-[#4F46E5]/30 focus-within:border-[#4F46E5] transition-all">
+            <div className="flex flex-wrap items-center gap-1.5 min-h-[40px] px-3 py-2 border border-border rounded-lg bg-surface focus-within:ring-2 focus-within:ring-[#4F46E5]/30 focus-within:border-[#4F46E5] transition-all">
               {form.alternativesConsidered.map(tag => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F8F9FB] border border-[#E5E8EC] text-xs text-[#111827] font-medium"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover border border-border text-xs text-[#111827] font-medium"
                 >
                   {tag}
-                  <button onClick={() => removeTag(tag)} className="text-[#9CA3AF] hover:text-[#DC2626] transition-colors">
+                  <button onClick={() => removeTag(tag)} className="text-muted hover:text-[#DC2626] transition-colors">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -171,7 +171,7 @@ function DecisionModal({
                 onChange={e => setTagInput(e.target.value)}
                 onKeyDown={handleTagKeyDown}
                 placeholder={form.alternativesConsidered.length === 0 ? 'Type and press Enter or comma to add...' : ''}
-                className="flex-1 min-w-[120px] text-sm bg-transparent border-none outline-none placeholder:text-[#9CA3AF]"
+                className="flex-1 min-w-[120px] text-sm bg-transparent border-none outline-none placeholder:text-muted"
               />
             </div>
           </div>
@@ -184,7 +184,7 @@ function DecisionModal({
               value={form.outcome}
               onChange={e => setForm(prev => ({ ...prev, outcome: e.target.value }))}
               placeholder="What was decided? What action was taken?"
-              className="w-full px-3 py-2 text-sm border border-[#E5E8EC] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-[#9CA3AF] transition-all"
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all"
             />
           </div>
 
@@ -196,7 +196,7 @@ function DecisionModal({
                 type="date"
                 value={form.date}
                 onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-[#E5E8EC] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all"
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all"
               />
             </div>
             <div>
@@ -204,7 +204,7 @@ function DecisionModal({
               <select
                 value={form.linkedProjectId}
                 onChange={e => setForm(prev => ({ ...prev, linkedProjectId: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-[#E5E8EC] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all"
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all"
               >
                 <option value="">No project</option>
                 {projects.map(p => (
@@ -216,7 +216,7 @@ function DecisionModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[#E5E8EC] bg-[#F8F9FB]/50 rounded-b-2xl">
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border bg-surface-hover/50 rounded-b-2xl">
           <BaseButton variant="secondary" size="sm" onClick={onClose}>
             Cancel
           </BaseButton>
@@ -256,7 +256,7 @@ function DecisionCard({
   return (
     <div
       className={cn(
-        'bg-white border border-[#E5E8EC] rounded-xl transition-all duration-150 hover:border-[#4F46E5]/40 shadow-sm group',
+        'bg-surface border border-border rounded-xl transition-all duration-150 hover:border-[#4F46E5]/40 shadow-sm group',
         expanded && 'border-[#4F46E5]/30 shadow-md'
       )}
     >
@@ -270,7 +270,7 @@ function DecisionCard({
             {expanded ? (
               <ChevronDown className="w-4 h-4 text-[#4F46E5] stroke-[2]" />
             ) : (
-              <ChevronRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#4F46E5] stroke-[2] transition-colors" />
+              <ChevronRight className="w-4 h-4 text-muted group-hover:text-[#4F46E5] stroke-[2] transition-colors" />
             )}
           </div>
           <div className="min-w-0 flex-1">
@@ -278,7 +278,7 @@ function DecisionCard({
               {decision.title}
             </h3>
             <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
-              <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[#6B7280]">
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono text-secondary">
                 <Calendar className="w-3 h-3 stroke-[1.75]" />
                 {formattedDate}
               </span>
@@ -299,7 +299,7 @@ function DecisionCard({
               e.stopPropagation();
               onEdit(decision);
             }}
-            className="w-7 h-7 rounded-md flex items-center justify-center text-[#6B7280] hover:text-[#4F46E5] hover:bg-[#4F46E5]/10 transition-all"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-secondary hover:text-[#4F46E5] hover:bg-[#4F46E5]/10 transition-all"
             title="Edit"
           >
             <Edit className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -309,7 +309,7 @@ function DecisionCard({
               e.stopPropagation();
               onDelete(decision);
             }}
-            className="w-7 h-7 rounded-md flex items-center justify-center text-[#6B7280] hover:text-[#DC2626] hover:bg-red-50 transition-all"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-secondary hover:text-[#DC2626] hover:bg-red-50 transition-all"
             title="Delete"
           >
             <Trash2 className="w-3.5 h-3.5 stroke-[1.75]" />
@@ -320,29 +320,29 @@ function DecisionCard({
       {/* Expanded Details */}
       {expanded && (
         <div className="px-5 pb-5 pt-0 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150">
-          <div className="border-t border-[#E5E8EC] pt-4 space-y-4">
+          <div className="border-t border-border pt-4 space-y-4">
             {decision.context && (
               <div>
-                <h4 className="text-[10px] font-mono font-bold text-[#9CA3AF] uppercase tracking-widest mb-1.5">Context</h4>
+                <h4 className="text-[10px] font-mono font-bold text-muted uppercase tracking-widest mb-1.5">Context</h4>
                 <p className="text-sm text-[#374151] leading-relaxed whitespace-pre-wrap">{decision.context}</p>
               </div>
             )}
 
             {decision.reasoning && (
               <div>
-                <h4 className="text-[10px] font-mono font-bold text-[#9CA3AF] uppercase tracking-widest mb-1.5">Reasoning</h4>
+                <h4 className="text-[10px] font-mono font-bold text-muted uppercase tracking-widest mb-1.5">Reasoning</h4>
                 <p className="text-sm text-[#374151] leading-relaxed whitespace-pre-wrap">{decision.reasoning}</p>
               </div>
             )}
 
             {decision.alternativesConsidered && decision.alternativesConsidered.length > 0 && (
               <div>
-                <h4 className="text-[10px] font-mono font-bold text-[#9CA3AF] uppercase tracking-widest mb-1.5">Alternatives Considered</h4>
+                <h4 className="text-[10px] font-mono font-bold text-muted uppercase tracking-widest mb-1.5">Alternatives Considered</h4>
                 <div className="flex flex-wrap gap-1.5">
                   {(decision.alternativesConsidered as string[]).map((alt: string, i: number) => (
                     <span
                       key={i}
-                      className="px-2 py-0.5 rounded-md bg-[#F8F9FB] border border-[#E5E8EC] text-xs text-[#374151] font-medium"
+                      className="px-2 py-0.5 rounded-md bg-surface-hover border border-border text-xs text-[#374151] font-medium"
                     >
                       {alt}
                     </span>
@@ -353,7 +353,7 @@ function DecisionCard({
 
             {decision.outcome && (
               <div>
-                <h4 className="text-[10px] font-mono font-bold text-[#9CA3AF] uppercase tracking-widest mb-1.5">Outcome</h4>
+                <h4 className="text-[10px] font-mono font-bold text-muted uppercase tracking-widest mb-1.5">Outcome</h4>
                 <div className="px-3 py-2 rounded-lg bg-[#F0FDF4] border border-[#BBF7D0] text-sm text-[#166534] font-medium">
                   {decision.outcome}
                 </div>
@@ -507,7 +507,7 @@ export function DecisionLog() {
               <Scale className="w-3 h-3 stroke-[2]" /> Architectural Record
             </span>
           </div>
-          <p className="text-[13px] text-[#6B7280]">
+          <p className="text-[13px] text-secondary">
             Track technical decisions, context, and rationale for future reference.
           </p>
         </div>
@@ -520,18 +520,18 @@ export function DecisionLog() {
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] stroke-[2]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted stroke-[2]" />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search decisions..."
-            className="w-full pl-10 pr-4 py-2.5 text-sm border border-[#E5E8EC] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-[#9CA3AF] transition-all shadow-sm"
+            className="w-full pl-10 pr-4 py-2.5 text-sm border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all shadow-sm"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#111827] transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -543,14 +543,14 @@ export function DecisionLog() {
           <select
             value={projectFilter}
             onChange={e => setProjectFilter(e.target.value)}
-            className="appearance-none pl-4 pr-10 py-2.5 text-sm border border-[#E5E8EC] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all shadow-sm min-w-[180px] cursor-pointer"
+            className="appearance-none pl-4 pr-10 py-2.5 text-sm border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all shadow-sm min-w-[180px] cursor-pointer"
           >
             <option value="">All Projects</option>
             {projects.map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
         </div>
       </div>
 
@@ -562,10 +562,10 @@ export function DecisionLog() {
           </div>
           <div>
             <h2 className="text-[18px] font-medium text-[#111827]">Recorded Decisions</h2>
-            <p className="text-xs text-[#6B7280]">Expand a card to view context, reasoning, and alternatives</p>
+            <p className="text-xs text-secondary">Expand a card to view context, reasoning, and alternatives</p>
           </div>
         </div>
-        <span className="text-xs font-mono text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-2.5 py-1 rounded font-medium">
+        <span className="text-xs font-mono text-secondary bg-surface-hover border border-border px-2.5 py-1 rounded font-medium">
           {sortedDecisions.length} {sortedDecisions.length === 1 ? 'decision' : 'decisions'}
         </span>
       </div>
@@ -583,7 +583,7 @@ export function DecisionLog() {
           ))}
         </div>
       ) : (
-        <div className="border border-[#E5E8EC] rounded-xl bg-white h-64 flex items-center justify-center shadow-sm">
+        <div className="border border-border rounded-xl bg-surface h-64 flex items-center justify-center shadow-sm">
           <EmptyState
             icon={Scale}
             description={searchQuery || projectFilter ? 'No decisions match your filters.' : 'No decisions logged yet. Start recording architectural choices.'}
