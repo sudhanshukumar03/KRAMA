@@ -73,8 +73,8 @@ export function ProjectDetail() {
     <div className="flex flex-col h-full bg-canvas animate-in fade-in duration-150 pb-20 overflow-y-auto">
       
       {/* NEW: Top Header with 40x40px Indigo Project Category Tile (#4F46E5) */}
-      <div className="px-8 pt-6 border-b border-[#E5E8EC] bg-white shrink-0 shadow-2xs">
-        <Link to="/app/projects" className="flex items-center gap-1.5 text-xs font-mono text-[#6B7280] hover:text-[#111827] transition-colors mb-4 w-fit font-medium">
+      <div className="px-8 pt-6 border-b border-border bg-surface shrink-0 shadow-2xs">
+        <Link to="/app/projects" className="flex items-center gap-1.5 text-xs font-mono text-secondary hover:text-primary transition-colors mb-4 w-fit font-medium">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Projects Tree
         </Link>
         
@@ -88,16 +88,16 @@ export function ProjectDetail() {
                 <h1 className="text-2xl font-semibold tracking-tight text-[#111827]">{project.name}</h1>
                 <span className={cn(
                   "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-widest border",
-                  project.status === 'active' ? "bg-[#EFF4FE] text-[#2563EB] border-[#2563EB]/20" : "bg-[#F8F9FB] text-[#6B7280] border-[#E5E8EC]"
+                  project.status === 'active' ? "bg-[#EFF4FE] text-[#2563EB] border-[#2563EB]/20" : "bg-surface-hover text-secondary border-border"
                 )}>
                   {project.status}
                 </span>
-                <span className="font-mono text-xs text-[#9CA3AF] bg-[#F8F9FB] px-2 py-0.5 rounded border border-[#E5E8EC]">
+                <span className="font-mono text-xs text-muted bg-surface-hover px-2 py-0.5 rounded border border-border">
                   ID: {project.id.slice(0, 6).toUpperCase()}
                 </span>
               </div>
               {project.problemStatement && (
-                <p className="text-xs text-[#6B7280] font-normal max-w-3xl leading-relaxed">{project.problemStatement}</p>
+                <p className="text-xs text-secondary font-normal max-w-3xl leading-relaxed">{project.problemStatement}</p>
               )}
             </div>
           </div>
@@ -107,20 +107,20 @@ export function ProjectDetail() {
         </div>
         
         {/* Health Strip Scorecard Bar */}
-        <div className="flex flex-wrap items-center gap-6 py-3 border-t border-[#E5E8EC] text-xs font-mono">
-          <div className="flex items-center gap-2 text-[#6B7280]">
+        <div className="flex flex-wrap items-center gap-6 py-3 border-t border-border text-xs font-mono">
+          <div className="flex items-center gap-2 text-secondary">
             <FolderKanban className="w-4 h-4 text-[#4F46E5]" />
             <span>
               <strong className="text-[#111827]">{openIssues.length}</strong> Open / <strong className="text-[#0D9488]">{completedIssues.length}</strong> Done Issues
             </span>
           </div>
-          <div className="flex items-center gap-2 text-[#6B7280]">
+          <div className="flex items-center gap-2 text-secondary">
             <FileText className="w-4 h-4 text-[#2563EB]" />
             <span>
               <strong className="text-[#111827]">{projectDocs.length}</strong> Linked Docs
             </span>
           </div>
-          <div className="flex items-center gap-2 text-[#6B7280]">
+          <div className="flex items-center gap-2 text-secondary">
             <Clock className="w-4 h-4 text-[#EA580C]" />
             <span>
               Updated <strong className="text-[#111827]">{daysSinceUpdate}</strong> days ago
@@ -138,14 +138,14 @@ export function ProjectDetail() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-6 mt-2 border-t border-[#E5E8EC]">
+        <div className="flex gap-6 mt-2 border-t border-border">
           {(['overview', 'board', 'roadmap', 'docs'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={cn(
                 "py-3 text-xs font-mono font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer",
-                activeTab === tab ? "border-[#111827] text-[#111827]" : "border-transparent text-[#6B7280] hover:text-[#111827]"
+                activeTab === tab ? "border-[#111827] text-[#111827]" : "border-transparent text-secondary hover:text-primary"
               )}
             >
               {tab} {tab === 'board' && `(${projectIssues.length})`} {tab === 'docs' && `(${projectDocs.length})`}
@@ -160,8 +160,8 @@ export function ProjectDetail() {
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="max-w-4xl space-y-8 animate-in fade-in duration-150">
-            <div className="bg-white border border-[#E5E8EC] rounded-xl p-6 shadow-sm">
-              <h3 className="text-xs font-mono font-bold text-[#6B7280] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <div className="bg-surface border border-border rounded-xl p-6 shadow-sm">
+              <h3 className="text-xs font-mono font-bold text-secondary uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-[#4F46E5]" /> Problem Statement & Scope
               </h3>
               <p className="text-[#111827] text-base font-normal leading-relaxed">{project.problemStatement || "No problem statement defined for this initiative."}</p>
@@ -170,7 +170,7 @@ export function ProjectDetail() {
             {/* Linked Goal Card */}
             {projectGoal && (
               <div className="space-y-3">
-                <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-[#6B7280]">Strategic Goal Bridge</h3>
+                <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-secondary">Strategic Goal Bridge</h3>
                 <CompactGoalCard goal={projectGoal} />
               </div>
             )}
@@ -179,49 +179,49 @@ export function ProjectDetail() {
               {/* Recent Docs Preview */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-[#6B7280]">Recent Knowledge Docs</h3>
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-secondary">Recent Knowledge Docs</h3>
                   <button onClick={() => setActiveTab('docs')} className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#2563EB] hover:underline">
                     View all ({projectDocs.length})
                   </button>
                 </div>
-                <div className="divide-y divide-[#E5E8EC] border border-[#E5E8EC] rounded-xl bg-white shadow-2xs overflow-hidden">
+                <div className="divide-y divide-border border border-border rounded-xl bg-surface shadow-2xs overflow-hidden">
                   {projectDocs.slice(0, 3).map((doc: any) => (
-                    <div key={doc.id} onClick={() => navigate(`/app/brain`)} className="p-3.5 hover:bg-[#F8F9FB] transition-colors flex items-center gap-3 cursor-pointer group">
+                    <div key={doc.id} onClick={() => navigate(`/app/brain`)} className="p-3.5 hover:bg-surface-hover transition-colors flex items-center gap-3 cursor-pointer group">
                       {getDocIcon(doc.icon, "w-5 h-5 text-[#7C3AED] shrink-0 group-hover:scale-110 transition-transform")}
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium text-sm text-[#111827] truncate group-hover:text-[#2563EB] transition-colors">{doc.title}</span>
-                        <span className="text-[10px] font-mono text-[#9CA3AF] mt-0.5">Updated {new Date(doc.updatedAt).toLocaleDateString()}</span>
+                        <span className="text-[10px] font-mono text-muted mt-0.5">Updated {new Date(doc.updatedAt).toLocaleDateString()}</span>
                       </div>
                     </div>
                   ))}
-                  {projectDocs.length === 0 && <div className="p-6 text-center text-xs text-[#9CA3AF] font-mono italic">No linked knowledge docs</div>}
+                  {projectDocs.length === 0 && <div className="p-6 text-center text-xs text-muted font-mono italic">No linked knowledge docs</div>}
                 </div>
               </div>
 
               {/* Recent Issues Preview */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-[#6B7280]">Recent Execution Issues</h3>
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-secondary">Recent Execution Issues</h3>
                   <button onClick={() => setActiveTab('board')} className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#2563EB] hover:underline">
                     View all ({projectIssues.length})
                   </button>
                 </div>
-                <div className="divide-y divide-[#E5E8EC] border border-[#E5E8EC] rounded-xl bg-white shadow-2xs overflow-hidden">
+                <div className="divide-y divide-border border border-border rounded-xl bg-surface shadow-2xs overflow-hidden">
                   {projectIssues.slice(0, 3).map((issue: any) => (
-                    <div key={issue.id} onClick={() => setActiveTab('board')} className="p-3.5 hover:bg-[#F8F9FB] transition-colors flex items-center justify-between cursor-pointer group">
+                    <div key={issue.id} onClick={() => setActiveTab('board')} className="p-3.5 hover:bg-surface-hover transition-colors flex items-center justify-between cursor-pointer group">
                       <div className="flex flex-col min-w-0 pr-3">
                         <span className="font-medium text-sm text-[#111827] truncate group-hover:text-[#2563EB] transition-colors">{issue.title}</span>
-                        <span className="text-[10px] font-mono text-[#9CA3AF] mt-0.5">{issue.id.slice(0, 7).toUpperCase()}</span>
+                        <span className="text-[10px] font-mono text-muted mt-0.5">{issue.id.slice(0, 7).toUpperCase()}</span>
                       </div>
                       <span className={cn(
                         "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-widest border shrink-0",
-                        issue.priority === 'urgent' ? "bg-red-50 text-[#DC2626] border-[#DC2626]/20" : "bg-[#F8F9FB] text-[#6B7280] border-[#E5E8EC]"
+                        issue.priority === 'urgent' ? "bg-red-50 text-[#DC2626] border-[#DC2626]/20" : "bg-surface-hover text-secondary border-border"
                       )}>
                         {issue.status.replace('_', ' ')}
                       </span>
                     </div>
                   ))}
-                  {projectIssues.length === 0 && <div className="p-6 text-center text-xs text-[#9CA3AF] font-mono italic">No open issues in project</div>}
+                  {projectIssues.length === 0 && <div className="p-6 text-center text-xs text-muted font-mono italic">No open issues in project</div>}
                 </div>
               </div>
             </div>
@@ -231,8 +231,8 @@ export function ProjectDetail() {
         {/* NEW: Enhanced Board Tab (Filtered Kanban with Sub-task Bars & Elevated Priority Badges) */}
         {activeTab === 'board' && (
           <div className="flex flex-col h-full animate-in fade-in duration-150">
-            <div className="flex justify-between items-center mb-4 bg-white p-3 rounded-xl border border-[#E5E8EC] shadow-2xs">
-              <span className="text-xs font-mono text-[#6B7280] font-medium">
+            <div className="flex justify-between items-center mb-4 bg-surface p-3 rounded-xl border border-border shadow-2xs">
+              <span className="text-xs font-mono text-secondary font-medium">
                 Showing <strong className="text-[#111827]">{projectIssues.length}</strong> project execution tickets across 7 columns
               </span>
               <BaseButton onClick={() => navigate('/app/kanban')} className="text-xs py-1.5">
@@ -244,13 +244,13 @@ export function ProjectDetail() {
               {columns.map(status => {
                 const columnIssues = getIssuesByStatus(status);
                 return (
-                  <div key={status} className="w-[300px] flex-shrink-0 flex flex-col bg-white rounded-xl border border-[#E5E8EC] shadow-sm overflow-hidden">
-                    <div className="p-3 border-b border-[#E5E8EC] flex justify-between items-center bg-[#F8F9FB]">
+                  <div key={status} className="w-[300px] flex-shrink-0 flex flex-col bg-surface rounded-xl border border-border shadow-sm overflow-hidden">
+                    <div className="p-3 border-b border-border flex justify-between items-center bg-surface-hover">
                       <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#111827]">{status.replace('_', ' ')}</span>
-                      <span className="text-xs font-mono font-bold bg-white text-[#6B7280] border border-[#E5E8EC] px-2 py-0.2 rounded-md">{columnIssues.length}</span>
+                      <span className="text-xs font-mono font-bold bg-surface text-secondary border border-border px-2 py-0.2 rounded-md">{columnIssues.length}</span>
                     </div>
                     
-                    <div className="flex-1 p-2.5 space-y-2.5 overflow-y-auto bg-[#F8F9FB]/50 min-h-[350px] max-h-[60vh]">
+                    <div className="flex-1 p-2.5 space-y-2.5 overflow-y-auto bg-surface-hover/50 min-h-[350px] max-h-[60vh]">
                       {columnIssues.map((issue: any) => {
                         const subTasks = issue.childIssues || [];
                         const completedSubs = subTasks.filter((c: any) => c.status === 'done' || c.status === 'released').length;
@@ -260,17 +260,17 @@ export function ProjectDetail() {
                           <div 
                             key={issue.id} 
                             onClick={() => navigate('/app/kanban')}
-                            className="bg-white border border-[#E5E8EC] rounded-xl p-3.5 shadow-2xs hover:border-[#2563EB] hover:shadow-md transition-all cursor-pointer group flex flex-col gap-2.5"
+                            className="bg-surface border border-border rounded-xl p-3.5 shadow-2xs hover:border-[#2563EB] hover:shadow-md transition-all cursor-pointer group flex flex-col gap-2.5"
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <span className="text-[10px] font-mono font-bold text-[#9CA3AF] bg-[#F8F9FB] px-1.5 py-0.2 rounded border border-[#E5E8EC]">
+                              <span className="text-[10px] font-mono font-bold text-muted bg-surface-hover px-1.5 py-0.2 rounded border border-border">
                                 {issue.id.slice(0, 7).toUpperCase()}
                               </span>
                               <span className={cn(
                                 "text-[9px] font-mono font-bold uppercase tracking-widest px-1.5 py-0.2 rounded border",
                                 issue.priority === 'urgent' ? "bg-red-50 text-[#DC2626] border-[#DC2626]/20" :
                                 issue.priority === 'high' ? "bg-amber-50 text-amber-600 border-amber-200" :
-                                "bg-[#F8F9FB] text-[#6B7280] border-[#E5E8EC]"
+                                "bg-surface-hover text-secondary border-border"
                               )}>
                                 {issue.priority}
                               </span>
@@ -282,12 +282,12 @@ export function ProjectDetail() {
 
                             {/* Sub-task Progress Bar */}
                             {hasSubs && (
-                              <div className="space-y-1 pt-1 border-t border-[#E5E8EC]/60">
-                                <div className="flex justify-between items-center text-[10px] font-mono text-[#6B7280]">
+                              <div className="space-y-1 pt-1 border-t border-border/60">
+                                <div className="flex justify-between items-center text-[10px] font-mono text-secondary">
                                   <span className="flex items-center gap-1"><CheckSquare className="w-3 h-3 text-[#2563EB]" /> Sub-tasks</span>
                                   <span className="font-bold text-[#111827]">{completedSubs}/{subTasks.length}</span>
                                 </div>
-                                <div className="h-1.5 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/60">
+                                <div className="h-1.5 w-full bg-surface-hover rounded-full overflow-hidden border border-border/60">
                                   <div 
                                     className="h-full bg-[#2563EB] transition-all duration-300"
                                     style={{ width: `${(completedSubs / subTasks.length) * 100}%` }}
@@ -296,15 +296,15 @@ export function ProjectDetail() {
                               </div>
                             )}
 
-                            <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7280] pt-1 border-t border-[#E5E8EC]/60">
+                            <div className="flex items-center justify-between text-[10px] font-mono text-secondary pt-1 border-t border-border/60">
                               <span>{issue.assignee ? 'Assigned' : 'Unassigned'}</span>
-                              {issue.estimate && <span className="bg-[#F8F9FB] px-1.5 py-0.2 rounded border border-[#E5E8EC] font-medium">{issue.estimate}h pt</span>}
+                              {issue.estimate && <span className="bg-surface-hover px-1.5 py-0.2 rounded border border-border font-medium">{issue.estimate}h pt</span>}
                             </div>
                           </div>
                         );
                       })}
                       {columnIssues.length === 0 && (
-                        <div className="h-28 border border-dashed border-[#E5E8EC] rounded-lg flex items-center justify-center text-xs font-mono text-[#9CA3AF] bg-white/50">
+                        <div className="h-28 border border-dashed border-border rounded-lg flex items-center justify-center text-xs font-mono text-muted bg-white/50">
                           Empty
                         </div>
                       )}
@@ -319,10 +319,10 @@ export function ProjectDetail() {
         {/* Roadmap Tab */}
         {activeTab === 'roadmap' && (
           <div className="max-w-3xl animate-in fade-in duration-150">
-            <div className="flex items-center justify-between mb-6 bg-white p-4 rounded-xl border border-[#E5E8EC] shadow-2xs">
+            <div className="flex items-center justify-between mb-6 bg-surface p-4 rounded-xl border border-border shadow-2xs">
               <div>
                 <h2 className="text-lg font-medium text-[#111827]">Project Roadmap Timeline</h2>
-                <p className="text-xs text-[#6B7280]">Phased milestones and release versions for this strategic initiative.</p>
+                <p className="text-xs text-secondary">Phased milestones and release versions for this strategic initiative.</p>
               </div>
               <BaseButton className="text-xs px-3.5 py-1.5"><Plus className="w-3.5 h-3.5 mr-1"/> Add Phase</BaseButton>
             </div>
@@ -332,7 +332,7 @@ export function ProjectDetail() {
                 <div key={item.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
                   
                   {/* Timeline Node */}
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 border border-[#E5E8EC] shadow-sm">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-surface shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 border border-border shadow-sm">
                     <div className={cn(
                       "w-3 h-3 rounded-full transition-colors",
                       item.status === 'completed' ? "bg-[#0D9488]" : item.status === 'in_progress' ? "bg-[#2563EB]" : "bg-[#9CA3AF]"
@@ -341,8 +341,8 @@ export function ProjectDetail() {
 
                   {/* Card */}
                   <div className={cn(
-                    "w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-5 rounded-xl border bg-white transition-all shadow-sm hover:shadow-md",
-                    item.status === 'completed' ? "border-[#E5E8EC] opacity-80" : "border-[#E5E8EC] hover:border-[#4F46E5]"
+                    "w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-5 rounded-xl border bg-surface transition-all shadow-sm hover:shadow-md",
+                    item.status === 'completed' ? "border-border opacity-80" : "border-border hover:border-[#4F46E5]"
                   )}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-mono font-bold uppercase tracking-widest text-[#4F46E5] bg-[#EFF4FE] px-2 py-0.5 rounded border border-[#4F46E5]/20">{item.version}</span>
@@ -350,7 +350,7 @@ export function ProjectDetail() {
                         "text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border",
                         item.status === 'completed' ? "bg-[#0D9488]/10 text-[#0D9488] border-[#0D9488]/20" : 
                         item.status === 'in_progress' ? "bg-[#111827] text-white border-[#111827]" : 
-                        "bg-[#F8F9FB] border-[#E5E8EC] text-[#6B7280]"
+                        "bg-surface-hover border-border text-secondary"
                       )}>
                         {item.status.replace('_', ' ')}
                       </span>
@@ -358,13 +358,13 @@ export function ProjectDetail() {
                     <h3 className={cn("font-medium text-base text-[#111827] mb-1")}>
                       {item.title}
                     </h3>
-                    {item.description && <p className="text-xs text-[#6B7280]">{item.description}</p>}
+                    {item.description && <p className="text-xs text-secondary">{item.description}</p>}
                   </div>
 
                 </div>
               ))}
               {projectRoadmap.length === 0 && (
-                <div className="relative py-12 flex justify-center bg-white z-10 rounded-xl border border-[#E5E8EC] border-dashed">
+                <div className="relative py-12 flex justify-center bg-surface z-10 rounded-xl border border-border border-dashed">
                   <EmptyState icon={Clock} description="No roadmap defined for this project" />
                 </div>
               )}
@@ -379,20 +379,20 @@ export function ProjectDetail() {
               <div 
                 key={doc.id} 
                 onClick={() => navigate(`/app/brain`)}
-                className="bg-white border border-[#E5E8EC] p-5 rounded-xl hover:border-[#2563EB] transition-all cursor-pointer group flex flex-col justify-between shadow-sm hover:shadow-md min-h-[160px] gap-4"
+                className="bg-surface border border-border p-5 rounded-xl hover:border-[#2563EB] transition-all cursor-pointer group flex flex-col justify-between shadow-sm hover:shadow-md min-h-[160px] gap-4"
               >
                 <div>
                   <div className="mb-3 group-hover:scale-110 transition-transform w-fit">{getDocIcon(doc.icon, "w-7 h-7 text-[#7C3AED]")}</div>
                   <div className="font-medium text-base text-[#111827] leading-snug group-hover:text-[#2563EB] transition-colors">{doc.title}</div>
                 </div>
-                <div className="pt-3 border-t border-[#E5E8EC]/60 flex items-center justify-between text-xs font-mono text-[#6B7280]">
+                <div className="pt-3 border-t border-border/60 flex items-center justify-between text-xs font-mono text-secondary">
                   <span>Updated {new Date(doc.updatedAt).toLocaleDateString()}</span>
                   <span className="text-[#2563EB] font-semibold group-hover:underline">Open Doc &rarr;</span>
                 </div>
               </div>
             ))}
             {projectDocs.length === 0 && (
-              <div className="col-span-full py-12 bg-white rounded-xl border border-[#E5E8EC] border-dashed">
+              <div className="col-span-full py-12 bg-surface rounded-xl border border-border border-dashed">
                 <EmptyState icon={FolderKanban} description="No knowledge documents linked to this project" />
               </div>
             )}
@@ -436,7 +436,7 @@ function CompactGoalCard({ goal }: { goal: GoalWithRelations }) {
       </div>
       
       {/* Progress Bar */}
-      <div className="h-2.5 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC] mb-4">
+      <div className="h-2.5 w-full bg-surface-hover rounded-full overflow-hidden border border-border mb-4">
         <div 
           className="h-full bg-[#0D9488] transition-all duration-400 ease-out" 
           style={{ width: `${goal.progress}%` }}
@@ -444,7 +444,7 @@ function CompactGoalCard({ goal }: { goal: GoalWithRelations }) {
       </div>
 
       {/* Pace Panel */}
-      <div className="bg-[#F8F9FB] border border-[#E5E8EC] rounded-lg p-3 flex flex-wrap gap-x-6 gap-y-2 items-center font-mono text-xs">
+      <div className="bg-surface-hover border border-border rounded-lg p-3 flex flex-wrap gap-x-6 gap-y-2 items-center font-mono text-xs">
         <div className="flex items-center gap-1.5 font-bold">
           {['stalled', 'past_due'].includes(pace.status) ? <XCircle className="w-4 h-4 text-[#DC2626]" /> :
            pace.status === 'behind' ? <AlertCircle className="w-4 h-4 text-[#DC2626]" /> :
@@ -458,7 +458,7 @@ function CompactGoalCard({ goal }: { goal: GoalWithRelations }) {
           </span>
         </div>
 
-        <div className="flex items-center gap-4 text-[#6B7280]">
+        <div className="flex items-center gap-4 text-secondary">
           <span>Req: {pace.requiredPace === Infinity ? 'N/A' : pace.requiredPace.toFixed(2)}%/day</span>
           <span>Act: <strong className="text-[#111827]">{pace.actualPace.toFixed(2)}%/day</strong></span>
         </div>
