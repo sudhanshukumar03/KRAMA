@@ -55,8 +55,8 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
     <div className="flex flex-col mb-4 group/goal">
       <div 
         className={cn(
-          "bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:border-[#0D9488] shadow-sm",
-          depth > 0 && "border-l-4 border-l-[#E5E8EC] rounded-l-none bg-[#F8F9FB]/60",
+          "bg-surface border border-border rounded-xl p-5 transition-all duration-150 hover:border-[#0D9488] shadow-sm",
+          depth > 0 && "border-l-4 border-l-[#E5E8EC] rounded-l-none bg-surface-hover/60",
           depth === 0 && "border-l-2 border-l-[#0D9488]"
         )}
       >
@@ -69,12 +69,12 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
               <h3 className="text-[18px] font-medium text-[#111827] group-hover/goal:text-[#0D9488] transition-colors">{goal.title}</h3>
             </div>
             {goal.targetDate && (
-              <div className="flex items-center gap-1.5 text-xs text-[#6B7280] font-mono">
+              <div className="flex items-center gap-1.5 text-xs text-secondary font-mono">
                 <Calendar className="w-3.5 h-3.5 stroke-[1.5]" />
                 Target: {new Date(goal.targetDate).toLocaleDateString()}
                 <span className={cn(
                   "px-1.5 py-0.2 rounded text-[10px]",
-                  pace.daysRemaining > 0 ? "bg-[#F8F9FB] text-[#6B7280]" : "bg-red-50 text-[#DC2626] font-medium"
+                  pace.daysRemaining > 0 ? "bg-surface-hover text-secondary" : "bg-red-50 text-[#DC2626] font-medium"
                 )}>
                   {pace.daysRemaining > 0 ? `${pace.daysRemaining}d left` : "Past due"}
                 </span>
@@ -86,14 +86,14 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
             {/* Interactive Progress Editor Toggle */}
             <button 
               onClick={() => setIsEditingProgress(!isEditingProgress)}
-              className="px-2.5 py-1 rounded-md bg-[#F8F9FB] hover:bg-[#0D9488]/10 text-[#6B7280] hover:text-[#0D9488] border border-[#E5E8EC] text-xs font-medium transition-colors"
+              className="px-2.5 py-1 rounded-md bg-surface-hover hover:bg-[#0D9488]/10 text-secondary hover:text-[#0D9488] border border-border text-xs font-medium transition-colors"
             >
               {isEditingProgress ? 'Done' : 'Update Pace'}
             </button>
             <span className="text-2xl font-medium text-[#111827] font-mono tracking-tight">{goal.progress}%</span>
             <button
               onClick={handleDeleteGoal}
-              className="opacity-0 group-hover/goal:opacity-100 p-1.5 text-[#9CA3AF] hover:text-[#DC2626] hover:bg-red-50 rounded transition-all duration-150 ml-1"
+              className="opacity-0 group-hover/goal:opacity-100 p-1.5 text-muted hover:text-[#DC2626] hover:bg-red-50 rounded transition-all duration-150 ml-1"
               title="Delete goal"
             >
               <Trash2 className="w-4 h-4" />
@@ -103,8 +103,8 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
         
         {/* Progress Bar or Slider */}
         {isEditingProgress ? (
-          <div className="mb-4 p-3 bg-[#F8F9FB] rounded-lg border border-[#0D9488]/30 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between text-xs font-mono text-[#6B7280] mb-2">
+          <div className="mb-4 p-3 bg-surface-hover rounded-lg border border-[#0D9488]/30 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between text-xs font-mono text-secondary mb-2">
               <span>Adjust current completion percentage:</span>
               <span className="font-bold text-[#0D9488] text-sm">{sliderVal}%</span>
             </div>
@@ -119,7 +119,7 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
             <div className="flex justify-end gap-2 mt-2">
               <button 
                 onClick={() => setIsEditingProgress(false)} 
-                className="px-2.5 py-1 text-xs text-[#6B7280] hover:text-[#111827]"
+                className="px-2.5 py-1 text-xs text-secondary hover:text-primary"
               >
                 Cancel
               </button>
@@ -141,7 +141,7 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
         )}
 
         {/* Pace Panel with NEW Mini Trendline */}
-        <div className="bg-[#F8F9FB] border border-[#E5E8EC] rounded-lg p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="bg-surface-hover border border-border rounded-lg p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-1.5">
@@ -157,15 +157,15 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
               </span>
             </div>
 
-            <div className="flex items-center gap-3 text-xs text-[#6B7280] font-mono">
+            <div className="flex items-center gap-3 text-xs text-secondary font-mono">
               <span>Req: {pace.requiredPace === Infinity ? 'N/A' : pace.requiredPace.toFixed(1)}%/d</span>
               <span>Act: {pace.actualPace.toFixed(1)}%/d</span>
             </div>
           </div>
 
           {/* NEW: Mini Trendline Sparkline & Projection */}
-          <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-0 border-[#E5E8EC]/60">
-            <div className="flex items-end gap-1 h-5 px-2 bg-white border border-[#E5E8EC] rounded shadow-2xs" title="Recent 5-step snapshot trend">
+          <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-0 border-border/60">
+            <div className="flex items-end gap-1 h-5 px-2 bg-surface border border-border rounded shadow-2xs" title="Recent 5-step snapshot trend">
               {trendPoints.map((val, i) => (
                 <div key={i} className="w-1.5 bg-[#0D9488] rounded-t-2xs" style={{ height: `${Math.max(15, (val / 100) * 100)}%` }} />
               ))}
@@ -173,7 +173,7 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
 
             <div className="text-xs font-medium text-[#111827]">
               {pace.status === 'stalled' || (pace.status === 'past_due' && pace.actualPace === 0) ? (
-                <span className="text-[#6B7280] font-normal">Stalled progress</span>
+                <span className="text-secondary font-normal">Stalled progress</span>
               ) : pace.projectedDate ? (
                 <span className="font-mono">Est: <b className="font-bold text-[#0D9488]">{pace.projectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</b></span>
               ) : null}
@@ -230,9 +230,9 @@ function GoalCreateModal({
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-white border border-[#E5E8EC] rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+        className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E8EC] bg-[#F8F9FB]/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#0D9488]/10 text-[#0D9488] flex items-center justify-center">
               <Target className="w-4 h-4 stroke-[2]" />
@@ -242,7 +242,7 @@ function GoalCreateModal({
           <button
             onClick={onClose}
             type="button"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FB] hover:text-[#111827] transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -250,7 +250,7 @@ function GoalCreateModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+            <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
               Objective Title <span className="text-[#DC2626]">*</span>
             </label>
             <input
@@ -260,19 +260,19 @@ function GoalCreateModal({
               placeholder="e.g., Ship Krama OS v1.0 Public Beta"
               required
               autoFocus
-              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition-all"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition-all"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Strategic Horizon
               </label>
               <select
                 value={type}
                 onChange={e => setType(e.target.value)}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition-all"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition-all"
               >
                 <option value="quarterly">Quarterly (90 Days)</option>
                 <option value="yearly">Annual Horizon</option>
@@ -281,21 +281,21 @@ function GoalCreateModal({
             </div>
 
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Target Date
               </label>
               <input
                 type="date"
                 value={targetDate}
                 onChange={e => setTargetDate(e.target.value)}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition-all"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition-all"
               />
             </div>
           </div>
 
           <div>
             <div className="flex justify-between items-center mb-1.5">
-              <label className="text-xs font-mono font-medium text-[#6B7280] uppercase">
+              <label className="text-xs font-mono font-medium text-secondary uppercase">
                 Initial Progress
               </label>
               <span className="text-xs font-mono font-bold text-[#0D9488]">{progress}%</span>
@@ -310,7 +310,7 @@ function GoalCreateModal({
             />
           </div>
 
-          <div className="pt-4 border-t border-[#E5E8EC] flex justify-end gap-3">
+          <div className="pt-4 border-t border-border flex justify-end gap-3">
             <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </BaseButton>
@@ -422,7 +422,7 @@ export function Goals() {
               <Sparkles className="w-3 h-3 stroke-[2]" /> Q3 Strategic Horizon
             </span>
           </div>
-          <p className="text-[13px] text-[#6B7280]">Track high-level quarterly objectives, pacing metrics, and linked daily routines.</p>
+          <p className="text-[13px] text-secondary">Track high-level quarterly objectives, pacing metrics, and linked daily routines.</p>
         </div>
         <BaseButton onClick={handleCreateGoal}>
           <Plus className="w-4 h-4 mr-1.5 stroke-[2]" /> New Goal
@@ -440,10 +440,10 @@ export function Goals() {
               </div>
               <div>
                 <h2 className="text-[18px] font-medium text-[#111827]">Active Goals Tree</h2>
-                <p className="text-xs text-[#6B7280]">Interactive snapshots and automatic pacing projections</p>
+                <p className="text-xs text-secondary">Interactive snapshots and automatic pacing projections</p>
               </div>
             </div>
-            <span className="text-xs font-mono text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-2.5 py-1 rounded font-medium">
+            <span className="text-xs font-mono text-secondary bg-surface-hover border border-border px-2.5 py-1 rounded font-medium">
               {rootGoals.length} strategic OKRs
             </span>
           </div>
@@ -453,7 +453,7 @@ export function Goals() {
               <GoalCard key={goal.id} goal={goal} />
             ))}
             {rootGoals.length === 0 && (
-              <div className="border border-[#E5E8EC] rounded-xl bg-white h-64 flex items-center justify-center shadow-sm">
+              <div className="border border-border rounded-xl bg-surface h-64 flex items-center justify-center shadow-sm">
                 <EmptyState 
                   icon={Target}
                   description="No goals set."
@@ -474,7 +474,7 @@ export function Goals() {
               </div>
               <div>
                 <h2 className="text-[18px] font-medium text-[#111827]">Habits Overview</h2>
-                <p className="text-xs text-[#6B7280]">Daily consistency drivers</p>
+                <p className="text-xs text-secondary">Daily consistency drivers</p>
               </div>
             </div>
             <button 
@@ -485,14 +485,14 @@ export function Goals() {
             </button>
           </div>
           
-          <div className="bg-white border border-[#E5E8EC] rounded-xl overflow-hidden shadow-sm pt-1">
-            <div className="divide-y divide-[#E5E8EC]">
+          <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-sm pt-1">
+            <div className="divide-y divide-border">
               {habits.map(habit => {
                 const todayStr = new Date().toISOString().split('T')[0] || '';
                 const isCompletedToday = habit.completions?.some((c: any) => c.date.toString().startsWith(todayStr) && c.completed) || 
                   (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
                 return (
-                  <div key={habit.id} className="py-3 px-4 flex items-center justify-between hover:bg-[#F8F9FB] transition-colors duration-100 group">
+                  <div key={habit.id} className="py-3 px-4 flex items-center justify-between hover:bg-surface-hover transition-colors duration-100 group">
                     <div className="flex items-center gap-3 min-w-0 pr-2">
                       <button 
                         type="button"
@@ -501,7 +501,7 @@ export function Goals() {
                           "w-5 h-5 rounded flex items-center justify-center border transition-all duration-150 shrink-0 cursor-pointer",
                           isCompletedToday 
                             ? "bg-[#2563EB] border-[#2563EB] text-white" 
-                            : "border-[#D1D5DB] bg-white group-hover:border-[#9CA3AF]"
+                            : "border-[#D1D5DB] bg-surface group-hover:border-[#9CA3AF]"
                         )}
                       >
                         {isCompletedToday && <Check className="w-3 h-3 stroke-[2.5]" />}
@@ -509,9 +509,9 @@ export function Goals() {
                       <div className="min-w-0" onClick={() => navigate('/app/habits')} style={{ cursor: 'pointer' }}>
                         <div className={cn(
                           "font-medium text-sm leading-tight truncate transition-colors",
-                          isCompletedToday ? "line-through text-[#9CA3AF]" : "text-[#111827] group-hover:text-[#EA580C]"
+                          isCompletedToday ? "line-through text-muted" : "text-[#111827] group-hover:text-[#EA580C]"
                         )}>{habit.name}</div>
-                        <div className="text-[10px] text-[#6B7280] font-mono uppercase tracking-[0.02em] mt-0.5">{habit.timeOfDay || 'Daily'} • {habit.duration || 15}m</div>
+                        <div className="text-[10px] text-secondary font-mono uppercase tracking-[0.02em] mt-0.5">{habit.timeOfDay || 'Daily'} • {habit.duration || 15}m</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -522,11 +522,11 @@ export function Goals() {
                         type="button"
                         onClick={(e) => { e.stopPropagation(); deleteHabitMutation.mutate(habit.id); }}
                         title="Delete Routine"
-                        className="p-1 rounded text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+                        className="p-1 rounded text-muted hover:text-[#DC2626] hover:bg-[#FEE2E2]/60 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                      <ArrowRight className="w-3.5 h-3.5 text-[#9CA3AF] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={() => navigate('/app/habits')} />
+                      <ArrowRight className="w-3.5 h-3.5 text-muted opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={() => navigate('/app/habits')} />
                     </div>
                   </div>
                 );
@@ -540,7 +540,7 @@ export function Goals() {
                 </div>
               )}
             </div>
-            <div className="p-3 bg-[#F8F9FB] border-t border-[#E5E8EC] text-center">
+            <div className="p-3 bg-surface-hover border-t border-border text-center">
               <button onClick={() => navigate('/app/habits')} className="text-xs font-medium text-[#111827] hover:text-[#EA580C] transition-colors">
                 View 30-Day Heatmap Tracker &rarr;
               </button>
