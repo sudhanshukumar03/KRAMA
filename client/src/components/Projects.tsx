@@ -43,9 +43,9 @@ function ProjectCreateModal({
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-white border border-[#E5E8EC] rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+        className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E8EC] bg-[#F8F9FB]/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
               <FolderKanban className="w-4 h-4 stroke-[2]" />
@@ -55,7 +55,7 @@ function ProjectCreateModal({
           <button
             onClick={onClose}
             type="button"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:bg-[#F8F9FB] hover:text-[#111827] transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -63,7 +63,7 @@ function ProjectCreateModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+            <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
               Project Name <span className="text-[#DC2626]">*</span>
             </label>
             <input
@@ -73,12 +73,12 @@ function ProjectCreateModal({
               placeholder="e.g., Mobile Companion App v2"
               required
               autoFocus
-              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+            <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
               Problem Statement / Scope
             </label>
             <textarea
@@ -86,19 +86,19 @@ function ProjectCreateModal({
               onChange={e => setProblemStatement(e.target.value)}
               placeholder="Briefly describe the objective and scope..."
               rows={3}
-              className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all resize-none"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all resize-none"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Status
               </label>
               <select
                 value={status}
                 onChange={e => setStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
               >
                 <option value="idea">Idea / Discovery</option>
                 <option value="active">Active Execution</option>
@@ -108,19 +108,19 @@ function ProjectCreateModal({
             </div>
 
             <div>
-              <label className="block text-xs font-mono font-medium text-[#6B7280] uppercase mb-1.5">
+              <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
                 Target Date
               </label>
               <input
                 type="date"
                 value={targetDate}
                 onChange={e => setTargetDate(e.target.value)}
-                className="w-full px-3 py-2 border border-[#E5E8EC] rounded-lg text-sm text-[#111827] bg-white focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
               />
             </div>
           </div>
 
-          <div className="pt-4 border-t border-[#E5E8EC] flex justify-end gap-3">
+          <div className="pt-4 border-t border-border flex justify-end gap-3">
             <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </BaseButton>
@@ -216,11 +216,11 @@ export function Projects() {
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <h1 className="text-[28px] font-medium tracking-tight text-[#111827]">Projects</h1>
-              <span className="bg-[#F8F9FB] text-[#6B7280] border border-[#E5E8EC] px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-[0.02em] flex items-center gap-1">
+              <span className="bg-surface-hover text-secondary border border-border px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase tracking-[0.02em] flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-[#111827] stroke-[2]" /> {projects.length} initiatives
               </span>
             </div>
-            <p className="text-[13px] text-[#6B7280]">Track initiatives, milestones, and linked quarterly OKRs.</p>
+            <p className="text-[13px] text-secondary">Track initiatives, milestones, and linked quarterly OKRs.</p>
           </div>
         </div>
         <BaseButton onClick={handleCreateProject}>
@@ -230,20 +230,20 @@ export function Projects() {
       </div>
 
       {/* NEW: Project Health Filter & Search Bar */}
-      <div className="bg-white border border-[#E5E8EC] rounded-xl p-3 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="bg-surface border border-border rounded-xl p-3 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3 top-1/2 -translate-y-1/2 stroke-[1.75]" />
+          <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 stroke-[1.75]" />
           <input
             type="text"
             placeholder="Search projects by name or problem statement..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 text-xs bg-[#F8F9FB] border border-[#E5E8EC] rounded-lg focus:outline-none focus:border-[#4F46E5] focus:bg-white transition-all placeholder:text-[#9CA3AF] text-[#111827]"
+            className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-[#4F46E5] focus:bg-surface transition-all placeholder:text-muted text-[#111827]"
           />
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          <span className="text-[11px] font-medium text-[#6B7280] flex items-center gap-1 mr-1 shrink-0">
+          <span className="text-[11px] font-medium text-secondary flex items-center gap-1 mr-1 shrink-0">
             <Filter className="w-3.5 h-3.5 stroke-[1.75]" /> Status:
           </span>
           {(['all', 'active', 'idea', 'paused', 'shipped'] as const).map((stat) => (
@@ -254,7 +254,7 @@ export function Projects() {
                 "px-2.5 py-1 rounded-md text-xs font-medium capitalize transition-all shrink-0 cursor-pointer",
                 statusFilter === stat 
                   ? "bg-[#111827] text-white shadow-2xs" 
-                  : "bg-[#F8F9FB] text-[#6B7280] hover:text-[#111827] border border-[#E5E8EC]"
+                  : "bg-surface-hover text-secondary hover:text-primary border border-border"
               )}
             >
               {stat} {stat !== 'all' && `(${projects.filter(p => p.status === stat).length})`}
@@ -269,7 +269,7 @@ export function Projects() {
           const statusProjects = filteredProjects.filter(p => p.status === status);
           return (
             <div key={status} className="flex flex-col gap-4">
-              <div className="flex items-center gap-2 text-[#6B7280] font-medium text-xs uppercase tracking-[0.02em] px-1">
+              <div className="flex items-center gap-2 text-secondary font-medium text-xs uppercase tracking-[0.02em] px-1">
                 <span className={cn(
                   "w-2.5 h-2.5 rounded-full",
                   status === 'active' ? 'bg-[#2563EB]' : 
@@ -277,7 +277,7 @@ export function Projects() {
                   status === 'shipped' ? 'bg-green-500' : 'bg-[#9CA3AF]'
                 )} />
                 {status}
-                <span className="ml-auto bg-white border border-[#E5E8EC] px-2 py-0.2 rounded font-mono text-xs shadow-2xs">
+                <span className="ml-auto bg-surface border border-border px-2 py-0.2 rounded font-mono text-xs shadow-2xs">
                   {statusProjects.length}
                 </span>
               </div>
@@ -299,7 +299,7 @@ export function Projects() {
                     <div 
                       key={project.id} 
                       onClick={() => navigate(`/app/projects/${project.id}`)}
-                      className="bg-white border border-[#E5E8EC] rounded-xl p-5 hover:border-[#4F46E5] transition-all cursor-pointer group flex flex-col justify-between shadow-sm hover:shadow-md min-h-[300px] gap-4"
+                      className="bg-surface border border-border rounded-xl p-5 hover:border-[#4F46E5] transition-all cursor-pointer group flex flex-col justify-between shadow-sm hover:shadow-md min-h-[300px] gap-4"
                     >
                       <div>
                         <div className="flex items-start justify-between mb-2 gap-2">
@@ -307,12 +307,12 @@ export function Projects() {
                             {project.name}
                           </h3>
                           <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="font-mono text-[10px] text-[#9CA3AF] bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">
+                            <span className="font-mono text-[10px] text-muted bg-surface-hover px-1.5 py-0.5 rounded border border-border">
                               {project.id.slice(0, 6).toUpperCase()}
                             </span>
                             <button
                               onClick={(e) => handleDeleteProject(e, project)}
-                              className="opacity-0 group-hover:opacity-100 p-1 text-[#9CA3AF] hover:text-[#DC2626] hover:bg-red-50 rounded transition-all duration-150"
+                              className="opacity-0 group-hover:opacity-100 p-1 text-muted hover:text-[#DC2626] hover:bg-red-50 rounded transition-all duration-150"
                               title="Delete project"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -321,14 +321,14 @@ export function Projects() {
                         </div>
                         
                         {project.problemStatement && (
-                          <p className="text-xs text-[#6B7280] mb-3 line-clamp-2 leading-relaxed">
+                          <p className="text-xs text-secondary mb-3 line-clamp-2 leading-relaxed">
                             {project.problemStatement}
                           </p>
                         )}
                       </div>
 
                       {/* Compact Stat Row */}
-                      <div className="text-xs font-mono text-[#6B7280] bg-[#F8F9FB] p-2.5 rounded-lg border border-[#E5E8EC]/60 flex items-center justify-between">
+                      <div className="text-xs font-mono text-secondary bg-surface-hover p-2.5 rounded-lg border border-border/60 flex items-center justify-between">
                         <span className="flex items-center gap-1 font-medium text-[#111827]"><CheckCircle2 className="w-3.5 h-3.5 text-[#0D9488] stroke-[2]" /> {completedIssues}/{totalIssues} Issues</span>
                         <span>{totalDocs} Docs</span>
                         <span>{totalSprints} Sprints</span>
@@ -336,11 +336,11 @@ export function Projects() {
 
                       {/* Health / Milestone Progress Bar */}
                       <div>
-                        <div className="flex justify-between items-center mb-1.5 text-[10px] font-mono uppercase tracking-[0.02em] text-[#6B7280]">
+                        <div className="flex justify-between items-center mb-1.5 text-[10px] font-mono uppercase tracking-[0.02em] text-secondary">
                           <span className="font-medium text-[#111827]">Milestone {milestoneIndex}/4</span>
                           <span className="font-bold text-[#4F46E5]">{Math.round(progressPct)}%</span>
                         </div>
-                        <div className="h-2 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/60">
+                        <div className="h-2 w-full bg-surface-hover rounded-full overflow-hidden border border-border/60">
                           <div 
                             className="h-full bg-[#4F46E5] transition-all duration-400 ease-out"
                             style={{ width: `${progressPct}%` }}
@@ -362,7 +362,7 @@ export function Projects() {
                       </div>
 
                       {/* Footer with Linked OKR Badge */}
-                      <div className="flex items-center justify-between text-[11px] pt-3 border-t border-[#E5E8EC]/60">
+                      <div className="flex items-center justify-between text-[11px] pt-3 border-t border-border/60">
                         {project.goalId ? (
                           <div 
                             onClick={(e) => { e.stopPropagation(); navigate('/app/goals'); }}
@@ -371,9 +371,9 @@ export function Projects() {
                             <Target className="w-3 h-3 text-[#0D9488] stroke-[1.75]" /> OKR Linked
                           </div>
                         ) : (
-                          <span className="text-[10px] text-[#9CA3AF] font-mono">No OKR linked</span>
+                          <span className="text-[10px] text-muted font-mono">No OKR linked</span>
                         )}
-                        <div className="flex items-center gap-1 text-[#6B7280] font-mono text-[10px]">
+                        <div className="flex items-center gap-1 text-secondary font-mono text-[10px]">
                           <Clock className="w-3 h-3 stroke-[1.5]" /> 
                           {new Date(project.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </div>
@@ -384,8 +384,8 @@ export function Projects() {
                 })}
 
                 {statusProjects.length === 0 && (
-                  <div className="border border-[#E5E8EC] border-dashed rounded-xl bg-white h-32 flex items-center justify-center p-4 text-center shadow-2xs">
-                    <span className="text-xs text-[#9CA3AF] font-medium">No {status} projects match filter</span>
+                  <div className="border border-border border-dashed rounded-xl bg-surface h-32 flex items-center justify-center p-4 text-center shadow-2xs">
+                    <span className="text-xs text-muted font-medium">No {status} projects match filter</span>
                   </div>
                 )}
               </div>
