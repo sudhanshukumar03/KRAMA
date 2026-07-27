@@ -1,12 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Plus, ChevronLeft, ChevronRight, Check, Clock, Flame } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Check, Clock, Flame, Calendar as CalendarIcon, X, Briefcase, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import type { IssueWithRelations } from '../types/schema';
-import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 
 // Helper for dates of the current week (Monday to Sunday)
@@ -32,27 +31,234 @@ function getWeekDates(referenceDate: Date) {
   return week;
 }
 
+function ScheduleTaskModal({
+  open,
+  onClose,
+  targetDate,
+  targetDayName,
+  allIssues,
+  onScheduleExisting,
+  onCreateNew,
+  isSubmitting
+}: {
+  open: boolean;
+  onClose: () => void;
+  targetDate: Date | null;
+  targetDayName: string;
+  allIssues: IssueWithRelations[];
+  onScheduleExisting: (issueId: string, dateStr: string) => void;
+  onCreateNew: (data: { title: string; priority: string; estimate: number; dateStr: string }) => void;
+  isSubmitting: boolean;
+}) {
+  const [mode, setMode] = useState<'create' | 'pick'>('create');
+  const [title, setTitle] = useState('');
+  const [priority, setPriority] = useState('medium');
+  const [estimate, setEstimate] = useState(2);
+  const [selectedIssueId, setSelectedIssueId] = useState('');
+
+  if (!open || !targetDate) return null;
+
+  const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+  const formattedDate = targetDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+
+  const unscheduledIssues = allIssues.filter(i => !i.scheduledDate && i.status !== 'done');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mode === 'create') {
+      if (!title.trim()) return;
+      onCreateNew({ title: title.trim(), priority, estimate, dateStr });
+    } else {
+      if (!selectedIssueId) return;
+      onScheduleExisting(selectedIssueId, dateStr);
+    }
+  };
+
+  return (
+    <div onClick={onClose} className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150">
+      <div onClick={e => e.stopPropagation()} className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left font-sans">
+        
+        {/* Google Calendar Style Modal Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-[#1A73E8]/10 text-[#1A73E8] flex items-center justify-center">
+              <CalendarIcon className="w-4 h-4 stroke-[2]" />
+            </div>
+            <div>
+              <h3 className="text-base font-medium text-primary">Schedule Event / Task</h3>
+              <p className="text-xs text-secondary font-mono">{targetDayName} • {formattedDate}</p>
+            </div>
+          </div>
+          <button onClick={onClose} type="button" className="w-8 h-8 rounded-full flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Tab Switcher: Create vs Pick Backlog */}
+        <div className="flex border-b border-border bg-surface-hover px-6">
+          <button
+            type="button"
+            onClick={() => setMode('create')}
+            className={cn(
+              "py-2.5 px-4 text-xs font-medium border-b-2 transition-colors cursor-pointer",
+              mode === 'create' ? "border-[#1A73E8] text-[#1A73E8]" : "border-transparent text-secondary hover:text-primary"
+            )}
+          >
+            + Create New Time Block
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('pick')}
+            className={cn(
+              "py-2.5 px-4 text-xs font-medium border-b-2 transition-colors cursor-pointer flex items-center gap-1.5",
+              mode === 'pick' ? "border-[#1A73E8] text-[#1A73E8]" : "border-transparent text-secondary hover:text-primary"
+            )}
+          >
+            <Briefcase className="w-3.5 h-3.5" /> Pick from Backlog ({unscheduledIssues.length})
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {mode === 'create' ? (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-primary uppercase tracking-wider mb-1.5 font-mono">
+                  Task Title <span className="text-[#D93025]">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  placeholder="e.g., Implement OAuth Google Sign-In"
+                  required
+                  autoFocus
+                  className="w-full px-3.5 py-2.5 border border-border rounded-lg text-sm text-primary placeholder:text-muted focus:outline-none focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all bg-surface"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-primary uppercase tracking-wider mb-1.5 font-mono">Priority</label>
+                  <select
+                    value={priority}
+                    onChange={e => setPriority(e.target.value)}
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm text-primary bg-surface focus:outline-none focus:border-[#1A73E8] cursor-pointer font-sans"
+                  >
+                    <option value="urgent">🔴 Urgent</option>
+                    <option value="high">🟠 High</option>
+                    <option value="medium">🟡 Medium</option>
+                    <option value="low">🟣 Low</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-primary uppercase tracking-wider mb-1.5 font-mono">Estimated Time</label>
+                  <select
+                    value={estimate}
+                    onChange={e => setEstimate(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm text-primary bg-surface focus:outline-none focus:border-[#1A73E8] cursor-pointer font-mono"
+                  >
+                    <option value={0.5}>30m (Quick block)</option>
+                    <option value={1}>1.0h (Standard)</option>
+                    <option value={2}>2.0h (Deep session)</option>
+                    <option value={4}>4.0h (Half day sprint)</option>
+                    <option value={8}>8.0h (Full day milestone)</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div>
+              <label className="block text-xs font-medium text-primary uppercase tracking-wider mb-1.5 font-mono">
+                Select Backlog Issue to Schedule
+              </label>
+              {unscheduledIssues.length === 0 ? (
+                <div className="p-8 text-center bg-surface-hover rounded-lg border border-border text-xs text-secondary">
+                  No unscheduled backlog issues available. Switch to "Create New Time Block" above!
+                </div>
+              ) : (
+                <div className="max-h-60 overflow-y-auto border border-border rounded-lg divide-y divide-border">
+                  {unscheduledIssues.map(issue => (
+                    <div
+                      key={issue.id}
+                      onClick={() => setSelectedIssueId(issue.id)}
+                      className={cn(
+                        "p-3 flex items-center justify-between cursor-pointer transition-colors",
+                        selectedIssueId === issue.id ? "bg-[#E8F0FE] text-[#1A73E8]" : "hover:bg-surface-hover text-primary"
+                      )}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="text-sm font-medium truncate">{issue.title}</div>
+                        <div className="text-[11px] text-secondary font-mono mt-0.5 flex items-center gap-2">
+                          <span className="uppercase">{issue.priority}</span>
+                          <span>•</span>
+                          <span>{issue.estimate || 1}h</span>
+                        </div>
+                      </div>
+                      <div className={cn(
+                        "w-5 h-5 rounded-full border flex items-center justify-center shrink-0",
+                        selectedIssueId === issue.id ? "bg-[#1A73E8] border-[#1A73E8] text-white" : "border-[#70757A] bg-surface"
+                      )}>
+                        {selectedIssueId === issue.id && <Check className="w-3 h-3 stroke-[2.5]" />}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="pt-4 border-t border-border flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="px-4 py-2 text-xs font-medium text-secondary hover:bg-surface-hover rounded-lg transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || (mode === 'create' ? !title.trim() : !selectedIssueId)}
+              className="px-5 py-2 text-xs font-medium text-white bg-[#1A73E8] hover:bg-[#1557B0] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <CalendarIcon className="w-3.5 h-3.5" /> Schedule Block
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  );
+}
+
 function DayColumn({ 
   date, 
   dayName, 
   isToday, 
   issues, 
+  habits,
   isLast,
-  onAddTask
+  onAddTask,
+  onToggleHabit,
+  onToggleIssue
 }: { 
   date: Date; 
   dayName: string; 
   isToday: boolean; 
   issues: IssueWithRelations[]; 
+  habits: any[];
   isLast: boolean; 
-  onAddTask: (dayName: string) => void;
+  onAddTask: (date: Date, dayName: string) => void;
+  onToggleHabit: (habitId: string, date: Date) => void;
+  onToggleIssue: (issueId: string, currentStatus: string) => void;
 }) {
   const navigate = useNavigate();
   const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
   const handleColumnClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (!target.closest('.group\\/card') && !target.closest('button') && !target.closest('tr')) {
+    if (!target.closest('.no-column-nav') && !target.closest('button')) {
       navigate(`/app/timeline?date=${dateStr}`);
     }
   };
@@ -61,66 +267,158 @@ function DayColumn({
     <div 
       id={isToday ? "today-column" : undefined}
       onClick={handleColumnClick}
-      title={`Click to open Daily Schedule for ${dayName}, ${date.toLocaleDateString()}`}
+      title={`Click empty space to open Daily Schedule for ${dayName}, ${date.toLocaleDateString()}`}
       className={cn(
-        "flex flex-col min-w-[230px] flex-1 bg-white relative group/col cursor-pointer hover:bg-[#EFF4FE]/10 transition-colors",
-        !isLast && "border-r border-[#E5E8EC]",
-        isToday && "border-t-2 border-t-[#2563EB] bg-[#EFF4FE]/5"
+        "flex flex-col min-w-[240px] flex-1 bg-surface relative group/col cursor-pointer transition-colors font-sans",
+        !isLast && "border-r border-border",
+        isToday ? "bg-[#E8F0FE]/15" : "hover:bg-surface-hover/40"
       )}
     >
-      {/* Day Header */}
+      {/* Sticky Google Calendar Day Header (Number Pill / Circle) */}
       <div className={cn(
-        "px-4 py-3 flex items-center justify-between border-b border-[#E5E8EC] group-hover/col:bg-[#EFF4FE]/30 transition-colors",
-        isToday ? "bg-[#EFF4FE]/30" : "bg-[#F8F9FB]"
+        "px-4 py-3 flex flex-col items-center justify-center border-b border-border sticky top-0 z-10 transition-colors",
+        isToday ? "bg-[#E8F0FE]/80 backdrop-blur-md" : "bg-surface/90 backdrop-blur-md group-hover/col:bg-surface-hover/80"
       )}>
-        <div className="flex items-center gap-2">
-          <span className={cn("text-xs font-medium uppercase tracking-[0.02em] group-hover/col:text-[#2563EB] transition-colors", isToday ? "text-[#2563EB] font-bold" : "text-[#6B7280]")}>
-            {dayName}
-          </span>
-          <span className={cn(
-            "text-sm font-medium font-mono",
-            isToday ? "w-6 h-6 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-xs font-bold shadow-sm" : "text-[#111827]"
-          )}>
-            {date.getDate()}
-          </span>
-        </div>
-        <span className="text-[11px] font-mono text-[#6B7280] bg-white px-1.5 py-0.2 rounded border border-[#E5E8EC]">
-          {issues.length}
+        <span className={cn(
+          "text-[11px] uppercase tracking-wider font-semibold mb-1 transition-colors font-mono", 
+          isToday ? "text-[#1A73E8]" : "text-secondary"
+        )}>
+          {dayName}
         </span>
+        <div className={cn(
+          "w-10 h-10 rounded-full flex items-center justify-center text-xl transition-all shadow-2xs font-sans",
+          isToday 
+            ? "bg-[#1A73E8] text-white font-medium shadow-md scale-105" 
+            : "text-primary font-normal group-hover/col:bg-surface-hover"
+        )}>
+          {date.getDate()}
+        </div>
       </div>
 
-      {/* Day Content */}
-      <div className="p-3 space-y-2.5 flex-1 flex flex-col justify-between">
-        <div className="space-y-2.5">
-          {issues.length === 0 ? (
-            <div className="py-6 text-center flex flex-col items-center justify-center">
-              <span className="text-xs text-[#9CA3AF] font-normal">No scheduled tasks</span>
-            </div>
-          ) : (
-            issues.map(issue => (
-              <div 
-                key={issue.id} 
-                className="p-3 rounded-xl bg-white border border-[#E5E8EC] hover:border-[#2563EB] shadow-sm transition-all flex flex-col gap-1.5 cursor-pointer group/card"
-              >
-                <div className="font-medium text-xs text-[#111827] line-clamp-2 group-hover/card:text-[#2563EB] transition-colors">{issue.title}</div>
-                <div className="flex items-center justify-between text-[11px] text-[#6B7280] pt-1.5 border-t border-[#E5E8EC]/40">
-                  <span className="flex items-center gap-1 font-mono text-[10px]">
-                    <Clock className="w-3 h-3 stroke-[1.5]" /> {issue.estimate ? `${issue.estimate}h` : '1h'}
-                  </span>
-                  <span className="px-1.5 py-0.2 rounded bg-[#F8F9FB] border border-[#E5E8EC]/60 text-[#6B7280] font-mono text-[9px] uppercase tracking-wider font-medium">{issue.priority}</span>
-                </div>
+      {/* Day Content Container */}
+      <div className="p-2.5 space-y-3 flex-1 flex flex-col justify-between">
+        
+        <div className="space-y-3">
+          {/* Section 1: Google Tasks (Daily Routines Checklist) */}
+          {habits.length > 0 && (
+            <div className="bg-surface-hover border border-border rounded-xl p-2 space-y-1.5 no-column-nav shadow-2xs">
+              <div className="flex items-center justify-between px-1 text-[10px] uppercase font-mono tracking-wider font-semibold text-secondary">
+                <span className="flex items-center gap-1">
+                  <Flame className="w-3 h-3 text-[#EA580C] fill-[#EA580C]" /> Routines
+                </span>
+                <span>
+                  {habits.filter(h => {
+                    const isChecked = h.completions?.some((c: any) => c.date.toString().startsWith(dateStr) && c.completed) ||
+                      (isToday && h.lastCompletedAt && new Date(h.lastCompletedAt).toDateString() === new Date().toDateString());
+                    return isChecked;
+                  }).length}/{habits.length}
+                </span>
               </div>
-            ))
+              
+              <div className="space-y-1">
+                {habits.map(habit => {
+                  const isChecked = habit.completions?.some((c: any) => c.date.toString().startsWith(dateStr) && c.completed) ||
+                    (isToday && habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
+
+                  return (
+                    <div 
+                      key={habit.id}
+                      onClick={(e) => { e.stopPropagation(); onToggleHabit(habit.id, date); }}
+                      className={cn(
+                        "flex items-center gap-2 p-1.5 rounded-lg border text-xs transition-all cursor-pointer",
+                        isChecked 
+                          ? "bg-[#E6F4EA]/60 border-[#CEEAD6] text-[#137333]" 
+                          : "bg-surface border-border hover:border-[#1A73E8] text-primary shadow-2xs hover:shadow-sm"
+                      )}
+                    >
+                      <button type="button" className="focus:outline-none shrink-0">
+                        <div className={cn(
+                          "w-4 h-4 rounded flex items-center justify-center border transition-all",
+                          isChecked ? "bg-[#1E8E3E] border-[#1E8E3E] text-white" : "border-[#70757A] bg-surface hover:border-[#1A73E8]"
+                        )}>
+                          {isChecked && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        </div>
+                      </button>
+                      <span className={cn("truncate flex-1 font-medium", isChecked && "line-through opacity-75")}>
+                        {habit.name}
+                      </span>
+                      <span className="text-[10px] font-mono opacity-70 shrink-0">{habit.duration || 15}m</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
+
+          {/* Section 2: Scheduled Event Pills (Google Calendar Time Blocks) */}
+          <div className="space-y-2 no-column-nav">
+            {issues.length === 0 ? (
+              <div className="py-6 text-center flex flex-col items-center justify-center">
+                <span className="text-xs text-muted font-normal">No scheduled events</span>
+              </div>
+            ) : (
+              issues.map(issue => {
+                const isDone = issue.status === 'done';
+                const isUrgent = issue.priority === 'urgent' || issue.priority === 'high';
+                const isMedium = issue.priority === 'medium';
+                
+                // Google Calendar event styling by priority / status
+                const cardStyle = isDone
+                  ? "border-l-[#1E8E3E] bg-[#E6F4EA] hover:bg-[#CEEAD6] text-[#137333]"
+                  : isUrgent
+                  ? "border-l-[#1A73E8] bg-[#E8F0FE] hover:bg-[#D2E3FC] text-[#1967D2]"
+                  : isMedium
+                  ? "border-l-[#E37400] bg-[#FEF7E0] hover:bg-[#FEEFC3] text-[#B06000]"
+                  : "border-l-[#9334E6] bg-[#F3E8FF] hover:bg-[#E9D5FF] text-[#7E22CE]";
+
+                return (
+                  <div 
+                    key={issue.id} 
+                    onClick={(e) => { e.stopPropagation(); onToggleIssue(issue.id, issue.status); }}
+                    title="Click to toggle Done status or view ticket"
+                    className={cn(
+                      "p-2.5 rounded-r-lg border-l-4 border-y border-r border-border/60 shadow-2xs hover:shadow-md transition-all flex flex-col gap-1.5 cursor-pointer group/card",
+                      cardStyle
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <span className={cn("font-medium text-xs leading-snug line-clamp-2", isDone && "line-through opacity-75")}>
+                        {issue.title}
+                      </span>
+                      <button 
+                        type="button" 
+                        onClick={(e) => { e.stopPropagation(); onToggleIssue(issue.id, issue.status); }}
+                        className={cn(
+                          "w-4 h-4 rounded flex items-center justify-center border shrink-0 transition-colors mt-0.5",
+                          isDone ? "bg-[#1E8E3E] border-[#1E8E3E] text-white" : "border-current/40 bg-surface/60 hover:bg-surface"
+                        )}
+                      >
+                        {isDone && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                      </button>
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-[10px] font-mono opacity-85 pt-1 border-t border-current/15">
+                      <span className="flex items-center gap-1 font-semibold">
+                        <Clock className="w-3 h-3 stroke-[2]" /> {issue.estimate ? `${issue.estimate}h` : '1h'} block
+                      </span>
+                      <span className="uppercase tracking-wider font-bold px-1 rounded bg-surface/50">{issue.priority}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
 
-        {/* Inline "+ Add Task" button at the bottom of each day column */}
+        {/* Section 3: "+ Add time block" Google hover button at bottom */}
         <button 
-          onClick={() => onAddTask(dayName)}
-          className="w-full mt-2 py-2 border border-dashed border-[#E5E8EC] hover:border-[#2563EB] hover:bg-[#EFF4FE]/20 rounded-lg text-xs font-medium text-[#9CA3AF] hover:text-[#2563EB] transition-all flex items-center justify-center gap-1.5 opacity-80 hover:opacity-100"
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onAddTask(date, dayName); }}
+          className="w-full mt-2 py-2 border border-dashed border-border hover:border-[#1A73E8] hover:bg-[#E8F0FE]/50 rounded-lg text-xs font-medium text-secondary hover:text-[#1A73E8] transition-all flex items-center justify-center gap-1.5 opacity-90 hover:opacity-100 cursor-pointer no-column-nav shadow-2xs"
         >
-          <Plus className="w-3.5 h-3.5 stroke-[2]" /> Add Task
+          <Plus className="w-3.5 h-3.5 stroke-[2.5]" /> Add time block
         </button>
+
       </div>
     </div>
   );
@@ -128,9 +426,13 @@ function DayColumn({
 
 export function WeeklyPlanner() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [modalTargetDate, setModalTargetDate] = useState<Date | null>(null);
+  const [modalTargetDayName, setModalTargetDayName] = useState<string>('');
   
   const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
   const { data: habits = [], isLoading: habitsLoading } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
+  const { data: sprints = [] } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
 
   const queryClient = useQueryClient();
   const toggleHabitMutation = useMutation({
@@ -140,6 +442,38 @@ export function WeeklyPlanner() {
       queryClient.invalidateQueries({ queryKey: ['snapshots'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
     }
+  });
+
+  const createIssueMutation = useMutation({
+    mutationFn: (data: { title: string; priority: string; estimate: number; scheduledDate: string; dueDate: string }) =>
+      api.issues.create({
+        title: data.title,
+        priority: data.priority,
+        estimate: data.estimate,
+        scheduledDate: data.scheduledDate,
+        dueDate: data.dueDate,
+        status: 'todo'
+      }),
+    onSuccess: (newIssue) => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      setScheduleModalOpen(false);
+      toast.success(`Scheduled "${newIssue.title}" onto calendar!`);
+    },
+    onError: () => toast.error('Failed to schedule time block')
+  });
+
+  const updateIssueMutation = useMutation({
+    mutationFn: ({ id, scheduledDate, dueDate, status }: { id: string; scheduledDate?: string; dueDate?: string; status?: string }) =>
+      api.issues.update(id, {
+        ...(scheduledDate !== undefined && { scheduledDate }),
+        ...(dueDate !== undefined && { dueDate }),
+        ...(status !== undefined && { status }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      setScheduleModalOpen(false);
+    },
+    onError: () => toast.error('Failed to update issue')
   });
 
   const weekDays = useMemo(() => getWeekDates(currentDate), [currentDate]);
@@ -154,7 +488,7 @@ export function WeeklyPlanner() {
     return () => clearTimeout(timer);
   }, [weekDays, issues]);
 
-  if (issuesLoading || habitsLoading) return <LoadingState title="Loading Weekly Planner..." description="Mapping issues to weekly timeline and habits..." />;
+  if (issuesLoading || habitsLoading) return <LoadingState title="Loading Google Planner..." description="Mapping time blocks and daily routines..." />;
 
   const navigateWeek = (direction: 'prev' | 'next' | 'today') => {
     if (direction === 'today') {
@@ -171,7 +505,19 @@ export function WeeklyPlanner() {
     toggleHabitMutation.mutate({ id: habitId, date: dStr });
   };
 
+  const handleToggleIssueStatus = (issueId: string, currentStatus: string) => {
+    const nextStatus = currentStatus === 'done' ? 'todo' : 'done';
+    updateIssueMutation.mutate({ id: issueId, status: nextStatus });
+  };
+
+  const handleOpenScheduleModal = (date: Date, dayName: string) => {
+    setModalTargetDate(date);
+    setModalTargetDayName(dayName);
+    setScheduleModalOpen(true);
+  };
+
   const weekRangeLabel = `${weekDays[0].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekDays[6].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  const currentMonthYear = weekDays[0].date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   // Compute Time Block Summary for the week
   const totalEstimate = issues.reduce((sum, i) => sum + (i.estimate || 1), 0);
@@ -180,82 +526,100 @@ export function WeeklyPlanner() {
   const bufferHours = Math.max(0, 40 - totalEstimate);
 
   return (
-    <div className="p-6 md:p-8 h-full flex flex-col bg-canvas animate-in fade-in duration-150 gap-6 overflow-y-auto pb-20">
+    <div className="p-4 md:p-6 h-full flex flex-col bg-surface-hover animate-in fade-in duration-150 gap-4 overflow-y-auto pb-20 font-sans text-primary">
       
-      {/* Header Row with Time Block Summary */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-[28px] font-medium tracking-tight text-[#111827]">Weekly Planner</h1>
-            <span className="text-xs font-medium text-[#6B7280] bg-white px-3 py-1 rounded-full border border-[#E5E8EC] shadow-sm font-mono">
+      {/* GOOGLE CALENDAR / PLANNER TOP NAVIGATION BAR */}
+      <div className="bg-surface border border-border rounded-2xl p-4 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        
+        {/* Left Nav: Today pill, < > arrows, and Date Range Header */}
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full bg-[#1A73E8] text-white flex items-center justify-center shadow-sm">
+              <CalendarIcon className="w-5 h-5 stroke-[2]" />
+            </div>
+            <h1 className="text-xl sm:text-2xl font-normal text-primary tracking-tight">{currentMonthYear}</h1>
+          </div>
+
+          <div className="h-6 w-px bg-border hidden sm:block mx-1" />
+
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => navigateWeek('today')}
+              className="px-4 py-1.5 text-xs font-medium text-primary bg-surface border border-border rounded-md hover:bg-surface-hover transition-colors shadow-2xs cursor-pointer"
+            >
+              Today
+            </button>
+            <div className="flex items-center bg-surface border border-border rounded-md p-0.5 shadow-2xs">
+              <button 
+                onClick={() => navigateWeek('prev')} 
+                className="p-1.5 rounded hover:bg-surface-hover text-secondary hover:text-primary transition-colors cursor-pointer"
+                title="Previous week"
+              >
+                <ChevronLeft className="w-4 h-4 stroke-[2]" />
+              </button>
+              <button 
+                onClick={() => navigateWeek('next')} 
+                className="p-1.5 rounded hover:bg-surface-hover text-secondary hover:text-primary transition-colors cursor-pointer"
+                title="Next week"
+              >
+                <ChevronRight className="w-4 h-4 stroke-[2]" />
+              </button>
+            </div>
+            <span className="text-xs font-mono font-medium text-secondary bg-surface-hover px-2.5 py-1 rounded-md border border-border">
               {weekRangeLabel}
             </span>
           </div>
-          <p className="text-[13px] text-[#6B7280]">7-Day Horizon · Single bounded grid view with integrated habit consistency tracking.</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Right Nav: Time Allocation & Schedule Button */}
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className="flex items-center gap-3 text-xs bg-surface-hover px-3.5 py-1.5 rounded-full border border-border font-mono">
+            <span className="flex items-center gap-1.5 text-[#1A73E8] font-bold"><span className="w-2 h-2 rounded-full bg-[#1A73E8]" />{focusHours}h Focus</span>
+            <span className="text-border-muted">•</span>
+            <span className="flex items-center gap-1.5 text-[#E37400] font-bold"><span className="w-2 h-2 rounded-full bg-[#E37400]" />{meetingHours}h Sync</span>
+            <span className="text-border-muted">•</span>
+            <span className="flex items-center gap-1.5 text-secondary font-bold"><span className="w-2 h-2 rounded-full bg-[#70757A]" />{bufferHours}h Free</span>
+          </div>
+
           <button 
-            onClick={() => navigateWeek('today')}
-            className="px-3.5 py-1.5 text-xs font-medium text-[#111827] bg-white border border-[#E5E8EC] rounded-full hover:bg-[#F8F9FB] transition-colors shadow-sm"
+            type="button"
+            onClick={() => handleOpenScheduleModal(new Date(), 'Today')}
+            className="px-4 py-2 bg-[#1A73E8] hover:bg-[#1557B0] text-white rounded-full font-medium shadow-sm transition-all flex items-center gap-1.5 text-xs cursor-pointer"
           >
-            Today
+            <Plus className="w-4 h-4 stroke-[2.5]" /> Schedule Time Block
           </button>
-          <div className="flex items-center bg-white border border-[#E5E8EC] rounded-full p-0.5 shadow-sm">
-            <button 
-              onClick={() => navigateWeek('prev')} 
-              className="p-1 rounded-full hover:bg-[#F8F9FB] text-[#6B7280] hover:text-[#111827] transition-colors"
-              title="Previous week"
-            >
-              <ChevronLeft className="w-4 h-4 stroke-[1.75]" />
-            </button>
-            <button 
-              onClick={() => navigateWeek('next')} 
-              className="p-1 rounded-full hover:bg-[#F8F9FB] text-[#6B7280] hover:text-[#111827] transition-colors"
-              title="Next week"
-            >
-              <ChevronRight className="w-4 h-4 stroke-[1.75]" />
-            </button>
+        </div>
+
+      </div>
+
+      {/* GOOGLE CALENDAR ALL-DAY & SPRINTS BANNER BAR */}
+      <div className="bg-surface border border-border rounded-xl p-3 shadow-2xs flex items-center justify-between gap-4 font-sans">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-xs font-mono font-bold uppercase tracking-wider text-secondary bg-surface-hover px-2.5 py-1 rounded-md border border-border flex items-center gap-1.5 shrink-0">
+            <Layers className="w-3.5 h-3.5 text-[#1A73E8]" /> All-Day / Milestones
+          </span>
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            {sprints.length === 0 ? (
+              <span className="text-xs text-secondary font-medium truncate">No active sprints spanning this week. Create a sprint in Projects to render horizontal timeline badges.</span>
+            ) : (
+              sprints.slice(0, 2).map(sprint => (
+                <div key={sprint.id} className="bg-[#E8F0FE] border border-[#D2E3FC] text-[#1967D2] px-3 py-1 rounded-full text-xs font-medium flex items-center gap-2 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-[#1A73E8] animate-pulse" />
+                  <span><strong>Sprint:</strong> {sprint.name}</span>
+                  <span className="text-[10px] font-mono bg-surface/80 px-1.5 py-0.2 rounded text-[#1A73E8] uppercase font-bold">Active</span>
+                </div>
+              ))
+            )}
           </div>
-          <BaseButton onClick={() => toast.info('Click a day column below to schedule a task block')}>
-            <Plus className="w-4 h-4 mr-1.5 stroke-[2]" /> Schedule Task
-          </BaseButton>
+        </div>
+        <div className="text-xs font-mono text-secondary hidden md:block shrink-0">
+          Spans across 7-day grid horizon
         </div>
       </div>
 
-      {/* Time Block Summary Bar */}
-      <div className="bg-white border border-[#E5E8EC] rounded-xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center shrink-0">
-            <Clock className="w-4 h-4 stroke-[1.75]" />
-          </div>
-          <div>
-            <div className="text-[11px] font-medium uppercase tracking-[0.02em] text-[#6B7280]">Weekly Time Allocation</div>
-            <div className="text-sm font-medium text-[#111827] font-mono mt-0.5">
-              {totalEstimate}h Planned <span className="text-[#6B7280] font-normal font-sans">/ 40h capacity</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-6 text-xs text-[#6B7280]">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[#2563EB]" />
-            <span>Focus: <strong className="text-[#111827] font-mono">{focusHours}h</strong></span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[#7C3AED]" />
-            <span>Meetings/Sync: <strong className="text-[#111827] font-mono">{meetingHours}h</strong></span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[#E5E8EC]" />
-            <span>Free Buffer: <strong className="text-[#111827] font-mono">{bufferHours}h</strong></span>
-          </div>
-        </div>
-      </div>
-
-      {/* SINGLE BOUNDED GRID (Hairline column dividers, content-governed height, NEVER individually boxed columns) */}
+      {/* 7-DAY GOOGLE CALENDAR GRID (7 columns with sticky number circles & integrated task pills) */}
       <div className="overflow-x-auto pb-2">
-        <div className="min-w-max border border-[#E5E8EC] rounded-xl bg-white shadow-sm flex overflow-hidden">
+        <div className="min-w-max border border-border rounded-2xl bg-surface shadow-sm flex overflow-hidden">
           {weekDays.map((day, index) => {
             const dayStart = new Date(day.date).setHours(0, 0, 0, 0);
             const dayEnd = new Date(day.date).setHours(23, 59, 59, 999);
@@ -272,56 +636,60 @@ export function WeeklyPlanner() {
                 dayName={day.dayName}
                 isToday={day.isToday}
                 issues={dayIssues}
+                habits={habits}
                 isLast={index === weekDays.length - 1}
-                onAddTask={(dayName) => toast.info(`Select time slot on ${dayName} to schedule task`)}
+                onAddTask={handleOpenScheduleModal}
+                onToggleHabit={toggleHabitDay}
+                onToggleIssue={handleToggleIssueStatus}
               />
             );
           })}
         </div>
       </div>
 
-      {/* NEW: Inline 7-Day Habit Consistency Grid (Keeps Habit Tracker in Planner while keeping it distinct from Habits tab) */}
-      <div className="bg-white border border-[#E5E8EC] rounded-xl overflow-hidden shadow-sm">
-        <div className="px-5 py-4 border-b border-[#E5E8EC] bg-[#F8F9FB] flex items-center justify-between">
+      {/* WEEKLY HABIT CONSISTENCY MATRIX (Google Material Styled Accordion Card) */}
+      <div className="bg-surface border border-border rounded-2xl overflow-hidden shadow-xs font-sans">
+        <div className="px-5 py-4 border-b border-border bg-surface-hover flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#EA580C]/10 text-[#EA580C] flex items-center justify-center shrink-0">
-              <Flame className="w-4 h-4 stroke-[1.75]" />
+            <div className="w-8 h-8 rounded-full bg-[#EA580C]/10 text-[#EA580C] flex items-center justify-center shrink-0">
+              <Flame className="w-4 h-4 stroke-[2]" />
             </div>
             <div>
-              <h2 className="text-[16px] font-medium text-[#111827]">Weekly Habit Consistency</h2>
-              <p className="text-xs text-[#6B7280]">Check off routines directly from your planner schedule.</p>
+              <h2 className="text-base font-medium text-primary">Habit & Routine Consistency Matrix</h2>
+              <p className="text-xs text-secondary">Google Tasks 7-day synchronization table. Toggle daily checkmarks directly across the week.</p>
             </div>
           </div>
-          <span className="text-xs font-mono text-[#EA580C] bg-[#EA580C]/10 px-2 py-1 rounded font-medium">
-            {habits.length || 3} routines tracked
+          <span className="text-xs font-mono text-[#EA580C] bg-[#EA580C]/10 px-2.5 py-1 rounded-md font-medium border border-[#FFEDD5]">
+            {habits.length || 0} routines tracked
           </span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[700px]">
+          <table className="w-full text-left border-collapse min-w-[750px]">
             <thead>
-              <tr className="border-b border-[#E5E8EC] text-[11px] font-medium uppercase tracking-[0.02em] text-[#6B7280]">
-                <th className="py-3 px-5 w-1/4">Habit Name</th>
-                <th className="py-3 px-3">Streak</th>
+              <tr className="border-b border-border text-[11px] font-semibold uppercase tracking-wider text-secondary font-mono bg-surface">
+                <th className="py-3.5 px-5 w-1/4">Routine Name</th>
+                <th className="py-3.5 px-3 text-center">Streak</th>
                 {weekDays.map(day => (
-                  <th key={day.dayName} className={cn("py-3 px-3 text-center", day.isToday ? "text-[#2563EB] font-bold bg-[#EFF4FE]/20" : "")}>
-                    {day.dayName}
+                  <th key={day.dayName} className={cn("py-3.5 px-3 text-center", day.isToday ? "text-[#1A73E8] font-bold bg-[#E8F0FE]/40" : "")}>
+                    <div>{day.dayName}</div>
+                    <div className={cn("text-xs font-normal mt-0.5 font-sans", day.isToday ? "text-[#1A73E8] font-bold" : "text-primary")}>{day.date.getDate()}</div>
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E5E8EC]">
+            <tbody className="divide-y divide-border">
               {habits.map((habit) => (
-                <tr key={habit.id} className="hover:bg-[#F8F9FB] transition-colors">
-                  <td className="py-3.5 px-5 font-medium text-sm text-[#111827]">
+                <tr key={habit.id} className="hover:bg-surface-hover/50 transition-colors">
+                  <td className="py-3.5 px-5 font-medium text-sm text-primary">
                     <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#EA580C]" />
-                      {habit.name}
+                      <span className="w-2 h-2 rounded-full bg-[#EA580C] shrink-0" />
+                      <span className="truncate">{habit.name}</span>
                     </div>
-                    <div className="text-[11px] text-[#6B7280] ml-3.5">{habit.timeOfDay} • {habit.duration || 15}m</div>
+                    <div className="text-[11px] text-secondary ml-4 font-mono mt-0.5">{habit.timeOfDay || 'daily'} • {habit.duration || 15}m block</div>
                   </td>
-                  <td className="py-3.5 px-3 font-mono text-xs font-medium text-[#111827]">
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[10px] font-bold"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" />{habit.streak}d</span>
+                  <td className="py-3.5 px-3 text-center font-mono text-xs font-medium text-primary">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[11px] font-bold"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" />{habit.streak}d</span>
                   </td>
                   {weekDays.map((day, dayIdx) => {
                     const dStr = day.date.toISOString().split('T')[0] || '';
@@ -329,17 +697,18 @@ export function WeeklyPlanner() {
                       (day.isToday && habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
 
                     return (
-                      <td key={dayIdx} className={cn("py-3.5 px-3 text-center", day.isToday ? "bg-[#EFF4FE]/10" : "")}>
+                      <td key={dayIdx} className={cn("py-3.5 px-3 text-center", day.isToday ? "bg-[#E8F0FE]/20" : "")}>
                         <button 
+                          type="button"
                           onClick={() => toggleHabitDay(habit.id, day.date)}
-                          className="p-1 focus:outline-none hover:scale-105 transition-transform block mx-auto cursor-pointer"
+                          className="p-1 focus:outline-none hover:scale-110 transition-transform block mx-auto cursor-pointer"
                         >
                           {isChecked ? (
-                            <div className="w-5 h-5 mx-auto rounded-md bg-[#111827] text-white flex items-center justify-center shadow-2xs transition-all animate-in zoom-in-50 duration-150">
-                              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <div className="w-5 h-5 mx-auto rounded bg-[#1E8E3E] text-white flex items-center justify-center shadow-2xs transition-all animate-in zoom-in-50 duration-150">
+                              <Check className="w-3.5 h-3.5 stroke-[3]" />
                             </div>
                           ) : (
-                            <div className="w-5 h-5 mx-auto rounded-md border border-[#D1D5DB] bg-white hover:border-[#111827] transition-all flex items-center justify-center shadow-2xs" />
+                            <div className="w-5 h-5 mx-auto rounded border border-border bg-surface hover:border-[#1A73E8] transition-all flex items-center justify-center shadow-2xs" />
                           )}
                         </button>
                       </td>
@@ -349,13 +718,25 @@ export function WeeklyPlanner() {
               ))}
               {habits.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-xs text-[#9CA3AF]">No habits configured. Add habits in the Goals & Habits tab.</td>
+                  <td colSpan={9} className="py-8 text-center text-xs text-secondary font-mono">No routines configured. Create a routine in the Habit Tracker to synchronize here.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* SCHEDULE TASK / TIME BLOCK MODAL */}
+      <ScheduleTaskModal
+        open={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        targetDate={modalTargetDate}
+        targetDayName={modalTargetDayName}
+        allIssues={issues}
+        onScheduleExisting={(issueId, dateStr) => updateIssueMutation.mutate({ id: issueId, scheduledDate: dateStr, dueDate: dateStr })}
+        onCreateNew={(data) => createIssueMutation.mutate({ ...data, scheduledDate: data.dateStr, dueDate: data.dateStr })}
+        isSubmitting={createIssueMutation.isPending || updateIssueMutation.isPending}
+      />
 
     </div>
   );
