@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copy package files and install all dependencies (including tsx and Prisma)
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Copy Prisma schema and generate client
 COPY prisma ./prisma/
