@@ -1,13 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Clock, Play, ListTodo, Flame, CheckCircle2, TrendingDown, Activity, Check } from 'lucide-react';
+import { Clock, Play, ListTodo, Flame, CheckCircle2, TrendingDown, Activity, Check, Award, ArrowRight, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmptyState } from './ui/EmptyState';
 import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 export function SprintView() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { data: sprints = [], isLoading: sprintsLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
   const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
@@ -34,7 +36,7 @@ export function SprintView() {
     }
   };
 
-  if (sprintsLoading || issuesLoading) return <LoadingState title="Loading Sprint View..." description="Synchronizing sprint burnup and team velocity..." />;
+  if (sprintsLoading || issuesLoading) return <LoadingState title="Loading Sprint Telemetry..." description="Synchronizing sprint burndown curve and execution velocity..." />;
 
   const activeSprint = sprints[0];
 
@@ -44,7 +46,7 @@ export function SprintView() {
         <EmptyState 
           icon={Clock}
           title="No Active Sprint"
-          description="Plan a sprint to focus your execution."
+          description="Plan a 14-day execution cycle to focus your engineering velocity."
           actionLabel="Start Sprint"
           onAction={handleStartSprint}
         />
@@ -72,155 +74,226 @@ export function SprintView() {
   const velocityPacing = (completedPoints / Math.max(1, dayOfSprint)) * 7;
 
   return (
-    <div className="p-8 max-w-6xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 pb-20">
+    <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 pb-24">
       
-      {/* Main Sprint Banner */}
-      <div className="mb-6 bg-surface border border-border rounded-xl p-8 relative overflow-hidden shadow-sm">
-        {/* Progress Background */}
-        <div className="absolute top-0 left-0 h-1.5 bg-[#E5E8EC] w-full" />
-        <div className="absolute top-0 left-0 h-1.5 bg-[#2563EB] transition-all duration-400 ease-out" style={{ width: `${progress}%` }} />
+      {/* SPRINT HERO MOMENT — Blueprint Schematics Banner with Live Burndown Curve */}
+      <div className="mb-8 bg-surface border-2 border-border hover:border-primary/40 rounded-2xl p-6 md:p-8 relative overflow-hidden shadow-sm transition-all duration-200">
+        <div className="absolute -right-12 -top-12 w-64 h-64 bg-gradient-to-br from-[#2563EB]/10 dark:from-[#00E5FF]/10 to-transparent rounded-full pointer-events-none" />
+        
+        {/* Progress Background Track & Glowing Bar */}
+        <div className="absolute top-0 left-0 h-1.5 bg-surface-hover w-full" />
+        <div 
+          className="absolute top-0 left-0 h-1.5 bg-[#2563EB] dark:bg-[#00E5FF] transition-all duration-700 ease-out" 
+          style={{ 
+            width: `${progress}%`,
+            filter: 'drop-shadow(0 0 6px var(--color-signal-glow))'
+          }} 
+        />
 
+        {/* Top Header Row */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
           <div>
-            <div className="flex items-center gap-2.5 mb-3">
-              <span className="bg-[#111827] text-white px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-[0.02em] uppercase">
-                Active Sprint
+            <div className="flex flex-wrap items-center gap-2.5 mb-3">
+              <span className="bg-primary text-surface px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-wider uppercase shadow-2xs">
+                ACTIVE SPRINT
               </span>
-              <span className="bg-[#EFF4FE] text-[#2563EB] border border-[#2563EB]/20 px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-[0.02em] uppercase">
-                {totalIssues} issues
+              <span className="bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 text-[#2563EB] dark:text-[#00E5FF] border border-[#2563EB]/20 dark:border-[#00E5FF]/20 px-2.5 py-1 rounded-md text-[10px] font-mono font-bold tracking-wider uppercase">
+                {totalIssues} DIRECTIVES
               </span>
-              <span className="text-secondary text-xs font-medium flex items-center gap-1.5 ml-1">
-                <Clock className="w-3.5 h-3.5 stroke-[1.75]" /> Day {dayOfSprint} of {totalDays} ({daysRemaining} days remaining)
+              <span className="text-secondary text-xs font-mono font-medium flex items-center gap-1.5 ml-1">
+                <Clock className="w-3.5 h-3.5 stroke-[1.5]" /> Day {dayOfSprint} of {totalDays} ({daysRemaining}d remaining)
               </span>
             </div>
-            <h1 className="text-[32px] font-medium tracking-tight text-[#111827] mb-1">{activeSprint.name}</h1>
-            <p className="text-sm text-secondary">Focused execution cycle for strategic engineering milestones.</p>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-primary mb-2">{activeSprint.name}</h1>
+            <p className="text-body text-secondary max-w-xl">
+              Focused 14-day engineering execution cycle. Sprint velocity targets zero-blocker milestone deployment.
+            </p>
           </div>
-          <div className="sm:text-right bg-surface-hover p-3 rounded-xl border border-border shrink-0">
-            <div className="text-4xl font-medium text-[#2563EB] mb-0.5 font-mono">{progress}%</div>
-            <div className="text-[11px] font-mono font-medium text-secondary uppercase tracking-[0.02em]">Sprint Burndown</div>
+
+          <div className="sm:text-right bg-surface-hover/80 p-4 rounded-xl border border-border shrink-0 flex flex-col justify-center">
+            <div className="text-4xl font-bold text-[#2563EB] dark:text-[#00E5FF] mb-0.5 font-mono leading-none">{progress}%</div>
+            <div className="text-[10px] font-mono font-bold text-secondary uppercase tracking-widest mt-1">BURNDOWN VELOCITY</div>
           </div>
         </div>
 
-        {/* NEW: Burndown & Velocity Summary Header Scorecard */}
+        {/* Celebratory Milestone Ribbon (Appears when ahead or near completion) */}
+        {progress >= 50 && (
+          <div className="mb-6 bg-gradient-to-r from-[#2563EB]/10 dark:from-[#00E5FF]/10 via-surface to-transparent border-l-4 border-l-[#2563EB] dark:border-l-[#00E5FF] p-3.5 rounded-r-xl flex items-center justify-between gap-4 animate-in fade-in duration-300">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#2563EB] dark:bg-[#00E5FF] text-white dark:text-[#050811] flex items-center justify-center shrink-0 shadow-sm">
+                <Award className="w-4 h-4 stroke-[1.5]" />
+              </div>
+              <div className="text-xs font-mono">
+                <strong className="text-primary block font-bold">Milestone Pace: High-Velocity Execution</strong>
+                <span className="text-secondary">Team output is tracking ahead of nominal schedule. All core deliverables on target.</span>
+              </div>
+            </div>
+            <button 
+              onClick={() => navigate('/app/board')} 
+              className="text-xs font-mono font-bold text-[#2563EB] dark:text-[#00E5FF] hover:underline flex items-center gap-1 shrink-0 cursor-pointer"
+            >
+              Open Kanban <ArrowRight className="w-3.5 h-3.5 stroke-[1.5]" />
+            </button>
+          </div>
+        )}
+
+        {/* Burndown & Velocity Summary Header Scorecard — Minimalist Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 border-t border-border">
-          <div className="bg-surface-hover p-3.5 rounded-lg border border-border/60">
-            <div className="text-[11px] font-mono text-secondary uppercase tracking-[0.02em] mb-1 flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-[#2563EB]" /> Total Story Points
+          <div className="bg-surface-hover/50 p-3.5 rounded-xl border border-border/60 hover:border-border transition-all">
+            <div className="text-[10px] font-mono font-bold text-secondary uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#00E5FF] stroke-[1.5]" /> Total Story Points
             </div>
-            <div className="text-xl font-mono font-bold text-[#111827]">{totalPoints} pts</div>
-            <div className="text-[10px] text-secondary mt-0.5">Across {totalIssues} tickets</div>
+            <div className="text-xl font-mono font-bold text-primary">{totalPoints} pts</div>
+            <div className="text-[10px] text-muted font-mono mt-0.5">Across {totalIssues} tickets</div>
           </div>
 
-          <div className="bg-surface-hover p-3.5 rounded-lg border border-border/60">
-            <div className="text-[11px] font-mono text-secondary uppercase tracking-[0.02em] mb-1 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#0D9488]" /> Burned Down
+          <div className="bg-surface-hover/50 p-3.5 rounded-xl border border-border/60 hover:border-border transition-all">
+            <div className="text-[10px] font-mono font-bold text-secondary uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" /> Burned Down
             </div>
-            <div className="text-xl font-mono font-bold text-[#0D9488]">{completedPoints} pts</div>
-            <div className="text-[10px] text-secondary mt-0.5">{remainingPoints} pts remaining</div>
+            <div className="text-xl font-mono font-bold text-[#109868]">{completedPoints} pts</div>
+            <div className="text-[10px] text-muted font-mono mt-0.5">{remainingPoints} pts remaining</div>
           </div>
 
-          <div className="bg-surface-hover p-3.5 rounded-lg border border-border/60">
-            <div className="text-[11px] font-mono text-secondary uppercase tracking-[0.02em] mb-1 flex items-center gap-1.5">
-              <Flame className="w-3.5 h-3.5 text-[#EA580C]" /> Velocity Pacing
+          <div className="bg-surface-hover/50 p-3.5 rounded-xl border border-border/60 hover:border-border transition-all">
+            <div className="text-[10px] font-mono font-bold text-secondary uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[1.5]" /> Velocity Pacing
             </div>
-            <div className="text-xl font-mono font-bold text-[#111827]">{Math.round(velocityPacing)} pts/wk</div>
-            <div className="text-[10px] text-secondary mt-0.5">Projected weekly output</div>
+            <div className="text-xl font-mono font-bold text-primary">{Math.round(velocityPacing)} pts/wk</div>
+            <div className="text-[10px] text-muted font-mono mt-0.5">Projected weekly output</div>
           </div>
 
-          <div className="bg-surface-hover p-3.5 rounded-lg border border-border/60">
-            <div className="text-[11px] font-mono text-secondary uppercase tracking-[0.02em] mb-1 flex items-center gap-1.5">
-              <TrendingDown className="w-3.5 h-3.5 text-[#2563EB]" /> Trajectory
+          <div className="bg-surface-hover/50 p-3.5 rounded-xl border border-border/60 hover:border-border transition-all">
+            <div className="text-[10px] font-mono font-bold text-secondary uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <TrendingDown className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#00E5FF] stroke-[1.5]" /> Trajectory
             </div>
-            <div className="text-xl font-mono font-bold text-[#2563EB]">On Track</div>
-            <div className="text-[10px] text-secondary mt-0.5">Est. finish 1d before close</div>
+            <div className="text-xl font-mono font-bold text-[#2563EB] dark:text-[#00E5FF]">On Track</div>
+            <div className="text-[10px] text-muted font-mono mt-0.5">Est. close 1d before cutoff</div>
           </div>
         </div>
 
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+      {/* TWO COLUMN UNBOXED DIRECTIVE STREAMS — Zero Cards, 100% Whitespace & 1px Dividers */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
         
-        {/* Current Focus (Backlog & In Progress) */}
+        {/* Left Column: Current Focus (Backlog & In Progress) — Unboxed Stream */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#2563EB]/10 flex items-center justify-center text-[#2563EB]">
-                <Play className="w-4 h-4 stroke-[1.75] fill-[#2563EB]" />
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 flex items-center justify-center text-[#2563EB] dark:text-[#00E5FF]">
+                <Play className="w-4 h-4 stroke-[1.5] fill-current" />
               </div>
-              <h2 className="text-[18px] font-medium text-[#111827]">Current Focus</h2>
+              <div>
+                <h2 className="text-h2 font-bold tracking-tight text-primary">Current Directives</h2>
+                <span className="text-[11px] font-mono text-secondary">Active backlog & in-progress tasks</span>
+              </div>
             </div>
-            <span className="text-xs font-mono text-secondary bg-surface-hover px-2 py-0.5 rounded border border-border">
-              {sprintIssues.length} open
+            <span className="text-xs font-mono font-bold text-primary bg-surface-hover px-2.5 py-1 rounded-md border border-border">
+              {sprintIssues.length} ACTIVE
             </span>
           </div>
 
-          <div className="bg-surface border border-border rounded-xl overflow-hidden divide-y divide-border shadow-sm">
-            {sprintIssues.map(issue => (
-              <div key={issue.id} className="p-4 hover:bg-surface-hover transition-colors duration-150 flex gap-3.5 items-start cursor-pointer group">
-                <div className="mt-1">
-                  <div className="w-4 h-4 rounded border-2 border-[#D1D5DB] group-hover:border-[#2563EB] transition-colors" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-[#111827] mb-1.5 leading-tight group-hover:text-[#2563EB] transition-colors truncate">{issue.title}</div>
-                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-secondary font-mono">
-                    <span className="capitalize bg-surface-hover px-1.5 py-0.2 rounded border border-border">{issue.status.replace('_', ' ')}</span>
-                    <span>•</span>
-                    <span className={cn(
-                      "px-1.5 py-0.2 rounded uppercase font-bold text-[9px] border",
-                      issue.priority === 'urgent' ? "bg-red-50 text-[#DC2626] border-[#DC2626]/20" : "bg-surface-hover text-secondary border-border"
-                    )}>{issue.priority}</span>
-                    <span>•</span>
-                    <span className="text-[#111827] font-medium">{issue.estimate || 3}h pt</span>
-                    {issue.childIssues && issue.childIssues.length > 0 && (
-                      <>
-                        <span>•</span>
-                        <span className="text-[#2563EB]">
-                          {issue.childIssues.filter((c: any) => c.status === 'done' || c.status === 'released').length}/{issue.childIssues.length} sub-tasks
-                        </span>
-                      </>
-                    )}
+          <div className="divide-y divide-border/60">
+            {sprintIssues.map(issue => {
+              const completedSubs = issue.childIssues?.filter((c: any) => c.status === 'done' || c.status === 'released').length || 0;
+              const totalSubs = issue.childIssues?.length || 0;
+              return (
+                <div 
+                  key={issue.id} 
+                  onClick={() => navigate('/app/board')}
+                  className="py-3.5 hover:bg-surface-hover/50 -mx-2 px-3 rounded-xl transition-all duration-150 flex gap-3.5 items-start cursor-pointer group"
+                >
+                  <div className="mt-1 shrink-0">
+                    <div className="w-4 h-4 rounded border-2 border-border group-hover:border-[#2563EB] dark:group-hover:border-[#00E5FF] transition-colors" />
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="font-mono text-[10px] text-muted font-bold tracking-wider group-hover:text-primary transition-colors">{issue.id}</span>
+                      <span className={cn(
+                        "px-1.5 py-0.5 rounded font-mono text-[9px] font-bold uppercase tracking-widest border",
+                        issue.priority === 'urgent' ? "bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/30 animate-pulse" 
+                        : issue.priority === 'high' ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30" 
+                        : "bg-surface-hover text-secondary border-border"
+                      )}>{issue.priority}</span>
+                    </div>
+
+                    <div className="font-medium text-sm text-primary mb-1 leading-snug group-hover:text-[#2563EB] dark:group-hover:text-[#00E5FF] transition-colors">
+                      {issue.title}
+                    </div>
+                    
+                    {/* Hover Reveal Metadata (Linear Minimal Style) */}
+                    <div className="max-h-0 opacity-0 group-hover:max-h-20 group-hover:opacity-100 group-hover:mt-2 group-hover:pt-2 group-hover:border-t group-hover:border-border/40 transition-all duration-200 overflow-hidden flex flex-wrap items-center gap-3 text-[11px] text-secondary font-mono">
+                      <span className="capitalize text-primary font-bold">{issue.status.replace('_', ' ')}</span>
+                      <span>•</span>
+                      <span className="text-primary font-bold">{issue.estimate || 3}h pt est</span>
+                      {totalSubs > 0 && (
+                        <>
+                          <span>•</span>
+                          <span className="text-[#2563EB] dark:text-[#00E5FF] font-bold flex items-center gap-1">
+                            <Layers className="w-3 h-3 inline stroke-[1.5]" /> {completedSubs}/{totalSubs} subtasks
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {sprintIssues.length === 0 && (
-              <div className="h-48 flex items-center justify-center">
+              <div className="py-12 flex items-center justify-center">
                 <EmptyState 
                   icon={Play}
-                  description="No active issues in this sprint."
+                  description="No active directives in current sprint."
                 />
               </div>
             )}
           </div>
         </div>
 
-        {/* Done */}
+        {/* Right Column: Completed Directives — Unboxed Stream */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#0D9488]/10 flex items-center justify-center text-[#0D9488]">
-                <ListTodo className="w-4 h-4 stroke-[1.75]" />
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-[#109868]/10 flex items-center justify-center text-[#109868]">
+                <ListTodo className="w-4 h-4 stroke-[1.5]" />
               </div>
-              <h2 className="text-[18px] font-medium text-[#111827]">Completed</h2>
+              <div>
+                <h2 className="text-h2 font-bold tracking-tight text-primary">Completed Directives</h2>
+                <span className="text-[11px] font-mono text-secondary">Verified & deployed sprint deliverables</span>
+              </div>
             </div>
-            <span className="text-xs font-mono text-[#0D9488] bg-[#0D9488]/10 px-2 py-0.5 rounded font-medium">
-              {doneIssues.length} done
+            <span className="text-xs font-mono font-bold text-[#109868] bg-[#109868]/10 border border-[#109868]/20 px-2.5 py-1 rounded-md">
+              {doneIssues.length} RESOLVED
             </span>
           </div>
 
-          <div className="bg-surface-hover border border-border rounded-xl overflow-hidden divide-y divide-border opacity-90 shadow-2xs">
+          <div className="divide-y divide-border/40">
             {doneIssues.map(issue => (
-              <div key={issue.id} className="p-4 flex gap-3.5 items-start text-muted group hover:bg-surface transition-colors">
-                <div className="mt-1">
-                  <div className="w-4 h-4 rounded bg-[#0D9488] flex items-center justify-center shadow-2xs">
-                    <Check className="w-3 h-3 text-white stroke-[3]" />
+              <div 
+                key={issue.id} 
+                onClick={() => navigate('/app/board')}
+                className="py-3.5 hover:bg-surface-hover/50 -mx-2 px-3 rounded-xl transition-all duration-150 flex gap-3.5 items-start text-muted group cursor-pointer"
+              >
+                <div className="mt-1 shrink-0">
+                  <div className="w-4 h-4 rounded bg-[#109868] flex items-center justify-center shadow-2xs">
+                    <Check className="w-3 h-3 text-white dark:text-[#050811] stroke-[3]" />
                   </div>
                 </div>
+                
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm mb-1 leading-tight line-through text-secondary group-hover:text-primary transition-colors truncate">{issue.title}</div>
-                  <div className="text-[11px] font-mono text-muted flex items-center gap-2">
-                    <span>Released & Done</span>
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <span className="font-mono text-[10px] text-muted">{issue.id}</span>
+                    <span className="text-[10px] font-mono text-[#109868] font-bold">COMPLETED</span>
+                  </div>
+
+                  <div className="font-medium text-sm mb-1 leading-snug line-through text-secondary group-hover:text-primary transition-colors truncate">
+                    {issue.title}
+                  </div>
+                  
+                  <div className="text-[10px] font-mono text-muted flex items-center gap-2">
+                    <span className="text-secondary">Verified Release</span>
                     <span>•</span>
                     <span>{issue.estimate || 3}h pt logged</span>
                   </div>
@@ -228,10 +301,10 @@ export function SprintView() {
               </div>
             ))}
             {doneIssues.length === 0 && (
-              <div className="h-48 flex items-center justify-center">
+              <div className="py-12 flex items-center justify-center">
                 <EmptyState 
                   icon={ListTodo}
-                  description="No completed issues yet."
+                  description="No completed directives logged yet."
                 />
               </div>
             )}
