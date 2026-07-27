@@ -120,7 +120,7 @@ export function AppShell() {
             </div>
             <button
               onClick={() => window.location.reload()}
-              className="px-2.5 py-1 bg-white hover:bg-[#FEE2E2] text-[#DC2626] rounded border border-[#FECACA] font-medium transition-colors shrink-0"
+              className="px-2.5 py-1 bg-surface hover:bg-[#FEE2E2] text-[#DC2626] rounded border border-[#FECACA] font-medium transition-colors shrink-0"
             >
               Retry Now
             </button>
@@ -128,11 +128,11 @@ export function AppShell() {
         )}
 
         {/* Mobile Top Header */}
-        <div className="md:hidden flex items-center justify-between p-3 bg-white border-b border-[#E5E8EC] z-40 shrink-0">
+        <div className="md:hidden flex items-center justify-between p-3 bg-surface border-b border-border z-40 shrink-0">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="p-1.5 rounded-lg text-[#4B5563] hover:text-[#111827] hover:bg-[#F8F9FB] transition-colors"
+              className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover transition-colors"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -141,10 +141,10 @@ export function AppShell() {
           <div className="flex items-center gap-2">
             <button
               onClick={toggleTheme}
-              className="p-1.5 rounded-lg text-[#4B5563] hover:text-[#111827] hover:bg-[#F8F9FB] transition-colors border border-[#E5E8EC]"
+              className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover transition-colors border border-border"
               title="Toggle Theme"
             >
-              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-[#6B7280]" />}
+              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-secondary" />}
             </button>
             <div className="text-[10px] font-mono text-[#0D9488] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0] flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" /> Online
@@ -177,12 +177,12 @@ export function AppShell() {
             <Terminal className="w-3.5 h-3.5" />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[#9CA3AF]">Chord:</span>
+            <span className="text-muted">Chord:</span>
             <kbd className="bg-white/20 text-white px-2 py-0.5 rounded font-bold uppercase">{activePrefix}</kbd>
-            <ArrowRight className="w-3 h-3 text-[#9CA3AF]" />
+            <ArrowRight className="w-3 h-3 text-muted" />
             <span className="text-white font-medium animate-pulse">Waiting for key...</span>
           </div>
-          <div className="text-[10px] text-[#9CA3AF] pl-2 border-l border-white/10">
+          <div className="text-[10px] text-muted pl-2 border-l border-white/10">
             {activePrefix === 'g' ? 'D (Dash), B (Brain), G (Goals), P (Proj)' : 'W (Plan), T (Time), K (Board), S (Sprint), R (Rev), H (Habit)'}
           </div>
         </div>
@@ -196,19 +196,19 @@ export function AppShell() {
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white border border-[#E5E8EC] rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-5 relative"
+            className="bg-surface border border-border rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-5 relative"
           >
-            <div className="flex items-center justify-between border-b border-[#E5E8EC] pb-3">
+            <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center font-mono font-bold text-sm">?</div>
                 <div>
                   <h3 className="font-medium text-[16px] text-[#111827]">Keyboard Shortcuts</h3>
-                  <p className="text-xs text-[#6B7280]">Two-key chord navigation & commands</p>
+                  <p className="text-xs text-secondary">Two-key chord navigation & commands</p>
                 </div>
               </div>
               <button 
                 onClick={() => setShowCheatsheet(false)}
-                className="text-xs font-mono text-[#6B7280] bg-[#F8F9FB] px-2 py-1 rounded hover:bg-[#E5E8EC] transition-colors"
+                className="text-xs font-mono text-secondary bg-surface-hover px-2 py-1 rounded hover:bg-border transition-colors"
               >
                 ESC
               </button>
@@ -216,29 +216,29 @@ export function AppShell() {
 
             <div className="grid grid-cols-2 gap-6 text-sm">
               <div className="space-y-2.5">
-                <h4 className="font-mono text-[11px] font-bold text-[#6B7280] uppercase tracking-wider mb-2">Go To (G Chords)</h4>
-                <div className="flex items-center justify-between"><span className="text-[#111827]">Dashboard</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">G D</span></div>
-                <div className="flex items-center justify-between"><span className="text-[#111827]">Knowledge Brain</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">G B</span></div>
-                <div className="flex items-center justify-between"><span className="text-[#111827]">Execution Kanban</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">G E</span></div>
-                <div className="flex items-center justify-between"><span className="text-[#111827]">Projects & Sprints</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">G P</span></div>
-                <div className="flex items-center justify-between"><span className="text-[#111827]">Goals & OKRs</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">G G</span></div>
+                <h4 className="font-mono text-[11px] font-bold text-secondary uppercase tracking-wider mb-2">Go To (G Chords)</h4>
+                <div className="flex items-center justify-between"><span className="text-[#111827]">Dashboard</span><span className="font-mono text-xs bg-surface-hover px-1.5 py-0.5 rounded border border-border">G D</span></div>
+                <div className="flex items-center justify-between"><span className="text-[#111827]">Knowledge Brain</span><span className="font-mono text-xs bg-surface-hover px-1.5 py-0.5 rounded border border-border">G B</span></div>
+                <div className="flex items-center justify-between"><span className="text-[#111827]">Execution Kanban</span><span className="font-mono text-xs bg-surface-hover px-1.5 py-0.5 rounded border border-border">G E</span></div>
+                <div className="flex items-center justify-between"><span className="text-[#111827]">Projects & Sprints</span><span className="font-mono text-xs bg-surface-hover px-1.5 py-0.5 rounded border border-border">G P</span></div>
+                <div className="flex items-center justify-between"><span className="text-[#111827]">Goals & OKRs</span><span className="font-mono text-xs bg-surface-hover px-1.5 py-0.5 rounded border border-border">G G</span></div>
               </div>
 
               <div className="space-y-2.5">
-                <h4 className="font-mono text-[11px] font-bold text-[#6B7280] uppercase tracking-wider mb-2">Execute (E Chords)</h4>
-                <div className="flex items-center justify-between"><span className="text-[#111827]">Weekly Planner</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">E W</span></div>
-                <div className="flex items-center justify-between"><span className="text-[#111827]">Daily Timeline</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">E T</span></div>
-                <div className="flex items-center justify-between"><span className="text-[#111827]">Kanban Board</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">E K</span></div>
-                <div className="flex items-center justify-between"><span className="text-[#111827]">Sprint View</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">E S</span></div>
-                <div className="flex items-center justify-between"><span className="text-[#111827]">Daily Review</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">E R</span></div>
-                <div className="flex items-center justify-between"><span className="text-[#111827]">Habit Tracker</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">E H</span></div>
-                <div className="flex items-center justify-between"><span className="text-[#111827]">Toggle Theme</span><span className="font-mono text-xs bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">T T</span></div>
+                <h4 className="font-mono text-[11px] font-bold text-secondary uppercase tracking-wider mb-2">Execute (E Chords)</h4>
+                <div className="flex items-center justify-between"><span className="text-[#111827]">Weekly Planner</span><span className="font-mono text-xs bg-surface-hover px-1.5 py-0.5 rounded border border-border">E W</span></div>
+                <div className="flex items-center justify-between"><span className="text-[#111827]">Daily Timeline</span><span className="font-mono text-xs bg-surface-hover px-1.5 py-0.5 rounded border border-border">E T</span></div>
+                <div className="flex items-center justify-between"><span className="text-[#111827]">Kanban Board</span><span className="font-mono text-xs bg-surface-hover px-1.5 py-0.5 rounded border border-border">E K</span></div>
+                <div className="flex items-center justify-between"><span className="text-[#111827]">Sprint View</span><span className="font-mono text-xs bg-surface-hover px-1.5 py-0.5 rounded border border-border">E S</span></div>
+                <div className="flex items-center justify-between"><span className="text-[#111827]">Daily Review</span><span className="font-mono text-xs bg-surface-hover px-1.5 py-0.5 rounded border border-border">E R</span></div>
+                <div className="flex items-center justify-between"><span className="text-[#111827]">Habit Tracker</span><span className="font-mono text-xs bg-surface-hover px-1.5 py-0.5 rounded border border-border">E H</span></div>
+                <div className="flex items-center justify-between"><span className="text-[#111827]">Toggle Theme</span><span className="font-mono text-xs bg-surface-hover px-1.5 py-0.5 rounded border border-border">T T</span></div>
               </div>
             </div>
 
-            <div className="border-t border-[#E5E8EC] pt-3 flex items-center justify-between text-xs text-[#6B7280]">
+            <div className="border-t border-border pt-3 flex items-center justify-between text-xs text-secondary">
               <span>Command Palette</span>
-              <span className="font-mono bg-[#F8F9FB] px-1.5 py-0.5 rounded border border-[#E5E8EC]">CMD / CTRL + K</span>
+              <span className="font-mono bg-surface-hover px-1.5 py-0.5 rounded border border-border">CMD / CTRL + K</span>
             </div>
           </div>
         </div>
