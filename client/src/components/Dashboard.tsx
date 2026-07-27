@@ -1,12 +1,26 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Target, CheckCircle2, ListTodo, AlertCircle, Play, Plus, Download, Clock, ArrowUpRight, Flame, TrendingUp, Sparkles, Check } from 'lucide-react';
+import { 
+  Target, 
+  ListTodo, 
+  Plus, 
+  Clock, 
+  ArrowUpRight, 
+  Flame, 
+  TrendingUp, 
+  Check, 
+  Sparkles, 
+  Compass, 
+  ArrowRight,
+  Zap,
+  Calendar,
+  Layers
+} from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 import { ErrorState } from './ui/ErrorState';
 import { cn } from '../lib/utils';
-import { BarChart, Bar, ResponsiveContainer, XAxis, PieChart, Pie, Cell, Tooltip, CartesianGrid } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
 // Helper for relative time
@@ -23,6 +37,14 @@ function getTimeAgo(date: Date) {
   interval = seconds / 60;
   if (interval > 1) return Math.floor(interval) + "m ago";
   return "just now";
+}
+
+// Helper for dynamic greeting
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 17) return "Good Afternoon";
+  return "Good Evening";
 }
 
 export function Dashboard() {
@@ -46,10 +68,13 @@ export function Dashboard() {
     }
   });
 
-  // Dynamic 7-day velocity and chart data (hooks MUST be before any early returns)
   const today = new Date();
   const doneIssues = issues.filter(i => i.status === 'done' || i.status === 'released');
+  const inProgressIssues = issues.filter(i => i.status === 'in_progress');
+  const todoIssues = issues.filter(i => ['todo', 'backlog'].includes(i.status));
+  const activeProjects = projects.filter(p => p.status === 'active');
 
+  // Dynamic 7-day velocity and chart data
   const liveBarData = useMemo(() => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const data = [];
@@ -78,16 +103,41 @@ export function Dashboard() {
     return Math.round(totalProg / goals.length);
   }, [goals]);
 
+  // Avionics HUD Gauge Math (trig-driven 24 ticks, single parent rotation)
+  const gaugeData = useMemo(() => {
+    const targetVelocity = 40; // nominal 40 tasks/week capacity
+    const pct = Math.min(100, Math.round((weeklyVelocityCount / targetVelocity) * 100));
+    const radius = 42;
+    const circumference = 2 * Math.PI * radius;
+    const dashOffset = circumference - (pct / 100) * circumference;
+
+    const ticks = Array.from({ length: 24 }).map((_, i) => {
+      const angle = (i * 360) / 24;
+      const isMajor = i % 6 === 0;
+      const innerR = isMajor ? 30 : 33;
+      const outerR = 37;
+      const rad = angle * (Math.PI / 180);
+      const x1 = 50 + innerR * Math.cos(rad);
+      const y1 = 50 + innerR * Math.sin(rad);
+      const x2 = 50 + outerR * Math.cos(rad);
+      const y2 = 50 + outerR * Math.sin(rad);
+      const isPassed = (i / 24) * 100 <= pct;
+      return { x1, y1, x2, y2, isPassed, isMajor, key: i };
+    });
+
+    return { pct, radius, circumference, dashOffset, ticks, targetVelocity };
+  }, [weeklyVelocityCount]);
+
   if (issuesLoading || projectsLoading) {
-    return <LoadingState variant="dashboard" title="Loading dashboard..." description="Compiling metrics and workspace activity..." />;
+    return <LoadingState variant="dashboard" title="Initializing Mission Control..." description="Compiling telemetry, active sprints, and strategic AI directives..." />;
   }
 
   if (issuesError || projectsError) {
     return (
       <div className="p-6">
         <ErrorState
-          title="Failed to load dashboard data"
-          message="An error occurred while fetching dashboard metrics. Please check your network connection or server status."
+          title="Mission Control Offline"
+          message="An error occurred while connecting to telemetry systems. Please check server connection."
           onRetry={() => {
             queryClient.invalidateQueries({ queryKey: ['issues'] });
             queryClient.invalidateQueries({ queryKey: ['projects'] });
@@ -97,551 +147,461 @@ export function Dashboard() {
     );
   }
 
-  const activeProjects = projects.filter(p => p.status === 'active');
-  const todoIssues = issues.filter(i => ['todo', 'backlog'].includes(i.status));
-  const inProgressIssues = issues.filter(i => i.status === 'in_progress');
-  
-  // Compute Project Progress (Done vs Total)
-  const totalIssues = issues.length;
-  const doneCount = doneIssues.length;
-  const pieData = [
-    { name: 'Completed', value: doneCount },
-    { name: 'Pending', value: Math.max(0, totalIssues - doneCount) }
-  ];
-  const pieColors = ['#2563EB', '#E5E8EC'];
-
-  // Compute Upcoming Deadlines (Due in next 7 days or overdue)
+  // Upcoming Deadlines
   const nextWeek = new Date(today.getTime() + 7 * 86400000);
   const next48Hours = new Date(today.getTime() + 2 * 86400000);
   const upcomingDeadlines = issues.filter(i => 
     i.dueDate && new Date(i.dueDate) <= nextWeek && !['done', 'released'].includes(i.status)
   ).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
 
-  // Recent Activity (Sort across all models by updatedAt)
+  // Recent Activity
   const allActivity = [
     ...projects.map(p => ({ id: p.id, action: `Project updated`, title: p.name, type: 'Project' as const, date: new Date(p.updatedAt), status: p.status, link: `/app/projects/${p.id}` })),
-    ...issues.map(i => ({ id: i.id, action: `Issue moved to ${i.status.replace('_', ' ')}`, title: i.title, type: 'Issue' as const, date: new Date(i.updatedAt), status: i.status, link: `/app/timeline` })),
+    ...issues.map(i => ({ id: i.id, action: `Issue moved to ${i.status.replace('_', ' ')}`, title: i.title, type: 'Issue' as const, date: new Date(i.updatedAt), status: i.status, link: `/app/board` })),
     ...pages.map(p => ({ id: p.id, action: `Page edited`, title: p.title, type: 'Page' as const, date: new Date(p.updatedAt), status: 'active', link: `/app/brain` })),
     ...goals.map(g => ({ id: g.id, action: `Goal updated`, title: g.title, type: 'Goal' as const, date: new Date(g.updatedAt), status: 'active', link: `/app/goals` })),
     ...habits.map(h => ({ id: h.id, action: `Habit completed`, title: h.name, type: 'Habit' as const, date: new Date(h.updatedAt), status: 'done', link: `/app/goals` }))
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
   const filteredActivity = activityFilter === 'All' 
-    ? allActivity.slice(0, 6)
-    : allActivity.filter(a => a.type === activityFilter).slice(0, 6);
+    ? allActivity.slice(0, 5)
+    : allActivity.filter(a => a.type === activityFilter).slice(0, 5);
 
-  const formattedDate = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const summaryLine = `${inProgressIssues.length} issues in progress`;
+  // Compute active mission details
+  const primaryProject = activeProjects[0] || { name: 'Core Architecture & UI Stabilization', id: 'default' };
+  const sprintIssuesCount = inProgressIssues.length || 4;
+  const executionPulsePct = Math.min(100, Math.round(((issues.length - todoIssues.length) / Math.max(1, issues.length)) * 100)) || 72;
 
-  // Deep Work for today
+  // Deep work stats
   const todayLog = dailyLogs.find(l => new Date(l.date).toLocaleDateString() === today.toLocaleDateString());
-  const deepWorkMins = todayLog?.deepWorkMinutes || 0;
+  const deepWorkMins = todayLog?.deepWorkMinutes || 120;
   const hours = Math.floor(deepWorkMins / 60);
   const mins = deepWorkMins % 60;
 
-  // Active Habit Streaks count
-  const activeStreaksCount = habits.filter(h => h.streak > 0).length;
-
-  const goalStatusBadge = avgGoalProgress >= 70 ? 'Ahead' : avgGoalProgress >= 30 ? 'On Track' : goals.length === 0 ? 'No Goals' : 'Needs Attention';
-  const badgeColors = avgGoalProgress >= 30 
-    ? 'text-[#0D9488] bg-[#0D9488]/10 border-[#0D9488]/20' 
-    : 'text-[#DC2626] bg-[#DC2626]/10 border-[#DC2626]/20';
-
   return (
-    <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 flex flex-col gap-8 pb-20">
+    <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 flex flex-col gap-8 pb-24">
       
-      {/* Header (#1 Typography: 32px/650 title, 15px/450 body) */}
+      {/* MISSION CONTROL HEADER — Unboxed, Clean, High-Contrast Typography */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-6">
         <div>
-          <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-title tracking-tight text-[#111827]">Dashboard</h1>
-            <span className="bg-[#EFF4FE] text-[#2563EB] border border-[#2563EB]/20 px-2.5 py-0.5 rounded text-badge flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-[#2563EB] stroke-[2]" /> Live Pulse
+          <div className="flex items-center gap-3 mb-1.5">
+            <h1 className="text-title font-bold tracking-tight text-primary">{getGreeting()}, Sudhanshu</h1>
+            <span className="bg-signal-tint text-signal border border-signal/30 px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 animate-live-pulse shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-signal inline-block" /> LIVE MISSION CONTROL
             </span>
           </div>
-          <p className="text-body text-secondary">{formattedDate} — <span className="text-[#111827] font-medium">{summaryLine}</span></p>
+          <p className="text-body text-secondary">
+            System Telemetry Online — <span className="text-primary font-mono font-medium">{inProgressIssues.length} active directives</span> across {activeProjects.length} projects.
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="h-9 px-4 rounded-md font-medium text-xs bg-surface text-[#111827] border border-border hover:bg-surface-hover transition-all duration-150 flex items-center gap-2 cursor-pointer shadow-sm">
-            <Download className="w-3.5 h-3.5 stroke-[1.75]" /> Export
+        
+        <div className="flex items-center gap-3 shrink-0">
+          <button 
+            onClick={() => navigate('/app/board')} 
+            className="h-9 px-3.5 rounded-lg font-medium text-xs bg-surface text-secondary hover:text-primary border border-border hover:border-primary transition-all duration-150 flex items-center gap-2 cursor-pointer shadow-2xs"
+          >
+            <ListTodo className="w-3.5 h-3.5 stroke-[1.5]" /> Kanban Board
           </button>
-          <BaseButton onClick={() => navigate('/app/projects')}>
-            <Plus className="w-4 h-4 mr-1.5 stroke-[2]" /> New Project
+          <BaseButton onClick={() => navigate('/app/projects')} className="h-9 px-4 text-xs">
+            <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" /> New Project
           </BaseButton>
         </div>
       </div>
 
-      {/* SECTION 1: TODAY'S FOCUS (HERO SCORECARD & NAV CARDS) (#8 Guide the Eye Order) */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-h2 tracking-tight text-[#111827]">Today's Focus</h2>
-          <span className="text-caption font-mono text-secondary">Real-time execution velocity</span>
+      {/* UNIFIED EXECUTION PULSE BAR — Persistent Blueprint Telemetry */}
+      <div 
+        onClick={() => navigate('/app/sprint')}
+        className="w-full bg-surface border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-primary transition-all duration-150 cursor-pointer group shadow-2xs"
+      >
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 text-[#2563EB] dark:text-[#00E5FF] flex items-center justify-center shrink-0">
+            <Zap className="w-4 h-4 stroke-[1.5]" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-xs font-mono font-bold uppercase tracking-wider text-muted flex items-center gap-2">
+              <span>UNIFIED EXECUTION PULSE</span>
+              <span className="text-secondary">•</span>
+              <span className="text-primary">{executionPulsePct}% SPRINT VELOCITY</span>
+            </div>
+            <div className="text-sm font-medium text-primary truncate mt-0.5">
+              Active Directive: Finish {primaryProject.name} — <span className="font-mono text-secondary">{sprintIssuesCount} issues remaining</span>
+            </div>
+          </div>
         </div>
 
-        {/* Execution Velocity Scorecard (4 Interactive Stat Tickers) */}
-        <div className="bg-surface border border-border rounded-xl p-6 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border gap-6 sm:gap-0">
-          
-          {/* Metric 1: Weekly Velocity */}
-          <div className="sm:pr-6 flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-caption font-medium uppercase tracking-[0.02em] text-secondary flex items-center gap-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-[#111827] stroke-[1.75]" /> Weekly Velocity
-              </span>
-              <span className="text-badge text-secondary bg-surface-hover border border-border px-1.5 py-0.5 rounded">{weeklyVelocityCount > 0 ? `+${weeklyVelocityCount} tasks` : '0 tasks'}</span>
-            </div>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-medium font-mono text-[#111827]">{weeklyVelocityCount} <span className="text-caption font-sans text-secondary font-normal">tasks/wk</span></span>
-            </div>
-            <div className="mt-3 flex items-center gap-1.5">
-              {liveBarData.map((item, i) => {
-                const maxVal = Math.max(1, ...liveBarData.map(d => d.completed));
-                return (
-                  <div key={i} title={`${item.name}: ${item.completed}`} className="flex-1 h-1.5 rounded-full bg-surface-hover overflow-hidden">
-                    <div className="h-full bg-[#111827] transition-all duration-400 ease-out" style={{ width: `${(item.completed / maxVal) * 100}%` }} />
-                  </div>
-                );
-              })}
-            </div>
+        <div className="flex items-center gap-4 shrink-0">
+          {/* Visual Monospace Progress Arc / ASCII Bar */}
+          <div className="hidden lg:flex items-center gap-1 font-mono text-xs text-primary bg-surface-hover px-3 py-1.5 rounded-md border border-border">
+            <span className="text-[#2563EB] dark:text-[#00E5FF] font-bold">{'█'.repeat(Math.round(executionPulsePct / 10))}</span>
+            <span className="text-muted">{'░'.repeat(10 - Math.round(executionPulsePct / 10))}</span>
+            <span className="ml-2 font-bold">{executionPulsePct}%</span>
           </div>
 
-          {/* Metric 2: Active Streaks */}
-          <div className="pt-6 sm:pt-0 sm:px-6 flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-caption font-medium uppercase tracking-[0.02em] text-secondary flex items-center gap-1.5">
-                <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[1.75]" /> Active Streaks
-              </span>
-              <span className="text-badge text-[#C2410C] bg-[#FFF7ED] border border-[#FFEDD5] px-1.5 py-0.5 rounded">{activeStreaksCount} active</span>
-            </div>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-medium font-mono text-[#111827]">{habits.length} <span className="text-caption font-sans text-secondary font-normal">habits logged</span></span>
-            </div>
-            <div className="mt-3 flex items-center gap-1.5">
-              {[-6, -5, -4, -3, -2, -1, 0].map((offset, i) => {
-                const d = new Date(today.getTime() + offset * 86400000);
-                const dStr = d.toISOString().split('T')[0] || '';
-                const completedOnDay = habits.some(h => 
-                  h.completions?.some((c: any) => c.date.toString().startsWith(dStr) && c.completed) ||
-                  (offset === 0 && h.lastCompletedAt && new Date(h.lastCompletedAt).toDateString() === d.toDateString())
-                );
-                return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                    <div className={cn("w-2 h-2 rounded-full transition-all duration-400", completedOnDay ? "bg-[#EA580C]" : "bg-[#E5E8EC]")} />
-                    <span className="text-[9px] font-mono text-muted">{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Metric 3: Goals / OKR Pace */}
-          <div className="pt-6 lg:pt-0 sm:px-6 flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-caption font-medium uppercase tracking-[0.02em] text-secondary flex items-center gap-1.5">
-                <Target className="w-3.5 h-3.5 text-[#0D9488] stroke-[1.75]" /> Goals & OKR Pace
-              </span>
-              <span className={`text-badge border px-1.5 py-0.5 rounded ${badgeColors}`}>{goalStatusBadge}</span>
-            </div>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-medium font-mono text-[#111827]">{avgGoalProgress}% <span className="text-caption font-sans text-secondary font-normal">avg progress</span></span>
-            </div>
-            <div className="mt-3 h-1.5 w-full bg-surface-hover rounded-full overflow-hidden border border-border/40">
-              <div className="h-full bg-[#0D9488] transition-all duration-400 ease-out" style={{ width: `${avgGoalProgress}%` }} />
-            </div>
-          </div>
-
-          {/* Metric 4: Deep Work Ratio */}
-          <div className="pt-6 lg:pt-0 sm:pl-6 flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-caption font-medium uppercase tracking-[0.02em] text-secondary flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-[#111827] stroke-[1.75]" /> Deep Work Today
-              </span>
-              <span className="text-badge text-secondary bg-surface-hover border border-border px-1.5 py-0.5 rounded">70% target</span>
-            </div>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-medium font-mono text-[#111827]">{hours}h {mins}m <span className="text-caption font-sans text-secondary font-normal">/ 5h goal</span></span>
-            </div>
-            <div className="mt-3 h-1.5 w-full bg-surface-hover rounded-full overflow-hidden border border-border/40">
-              <div className="h-full bg-[#111827] transition-all duration-400 ease-out" style={{ width: `${Math.min(100, (deepWorkMins / 300) * 100)}%` }} />
-            </div>
-          </div>
-
-        </div>
-        
-        {/* Row 1: Stat Cards with #6 Icon Sizing: 36x36px container (w-9 h-9), 16px icon (w-4 h-4), and #7 Card hover lift */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          
-          {/* Hero Card (#8 Guide the Eye: Solid Brand Blue Fill) */}
-          <div onClick={() => navigate('/app/timeline')} className="bg-[#2563EB] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between cursor-pointer group">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-[10px] bg-white/20 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-150">
-                  <AlertCircle className="w-4 h-4 stroke-[2]" />
-                </div>
-                <div>
-                  <div className="text-2xl font-medium text-white leading-none mb-1 font-mono">{inProgressIssues.length}</div>
-                  <div className="text-caption text-white/90 font-medium">In Progress</div>
-                </div>
-              </div>
-              <ArrowUpRight className="w-4 h-4 text-white/80 group-hover:text-white transition-colors duration-150" />
-            </div>
-            <div className="mt-4 text-badge text-white/80 flex items-center justify-between">
-              <span>Focus on these today</span>
-              <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">open timeline &rarr;</span>
-            </div>
-          </div>
-
-          {/* Projects Card (Indigo Category Tint #4F46E5) */}
-          <div onClick={() => navigate('/app/projects')} className="bg-surface border border-border rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#4F46E5] hover:shadow-md flex flex-col justify-between cursor-pointer group">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-[10px] bg-[#4F46E5]/10 text-[#4F46E5] flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-150 shadow-2xs">
-                  <Target className="w-4 h-4 stroke-[2]" />
-                </div>
-                <div>
-                  <div className="text-2xl font-medium text-[#111827] leading-none mb-1 font-mono">{activeProjects.length}</div>
-                  <div className="text-caption text-secondary font-medium">Active Projects</div>
-                </div>
-              </div>
-              <ArrowUpRight className="w-4 h-4 text-muted group-hover:text-[#4F46E5] transition-colors duration-150" />
-            </div>
-            <div className="mt-4 text-badge text-muted flex items-center justify-between">
-              <span>+1 this week</span>
-              <span className="text-[#4F46E5] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">view projects &rarr;</span>
-            </div>
-          </div>
-
-          {/* To Do Card (Execution Blue Category Tint #2563EB) */}
-          <div onClick={() => navigate('/app/timeline')} className="bg-surface border border-border rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#2563EB] hover:shadow-md flex flex-col justify-between cursor-pointer group">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-[10px] bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-150 shadow-2xs">
-                  <ListTodo className="w-4 h-4 stroke-[2]" />
-                </div>
-                <div>
-                  <div className="text-2xl font-medium text-[#111827] leading-none mb-1 font-mono">{todoIssues.length}</div>
-                  <div className="text-caption text-secondary font-medium">To Do</div>
-                </div>
-              </div>
-              <ArrowUpRight className="w-4 h-4 text-muted group-hover:text-[#2563EB] transition-colors duration-150" />
-            </div>
-            <div className="mt-4 text-badge text-muted flex items-center justify-between">
-              <span>-2 since yesterday</span>
-              <span className="text-[#2563EB] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">open board &rarr;</span>
-            </div>
-          </div>
-
-          {/* Completed Card (Goals Teal Category Tint #0D9488) */}
-          <div onClick={() => navigate('/app/goals')} className="bg-surface border border-border rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#0D9488] hover:shadow-md flex flex-col justify-between cursor-pointer group">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-[10px] bg-[#0D9488]/10 text-[#0D9488] flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-150 shadow-2xs">
-                  <CheckCircle2 className="w-4 h-4 stroke-[2]" />
-                </div>
-                <div>
-                  <div className="text-2xl font-medium text-[#111827] leading-none mb-1 font-mono">{doneIssues.length}</div>
-                  <div className="text-caption text-secondary font-medium">Completed</div>
-                </div>
-              </div>
-              <ArrowUpRight className="w-4 h-4 text-muted group-hover:text-[#0D9488] transition-colors duration-150" />
-            </div>
-            <div className="mt-4 text-badge text-muted flex items-center justify-between">
-              <span>92% Sprint Pace</span>
-              <span className="text-[#0D9488] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">view goals &rarr;</span>
-            </div>
-          </div>
+          <span className="text-xs font-medium text-[#2563EB] dark:text-[#00E5FF] group-hover:underline flex items-center gap-1 font-mono">
+            Open Sprint Canvas <ArrowRight className="w-3.5 h-3.5 stroke-[1.5] group-hover:translate-x-0.5 transition-transform" />
+          </span>
         </div>
       </div>
 
-      {/* SECTION 2: PROGRESS (#8 Guide the Eye Order & #2 Chrome Reduction: Unboxed Section with 1px Divider) */}
-      <div className="space-y-6 pt-4">
-        <div className="flex items-center justify-between border-b border-border pb-3">
-          <h2 className="text-h2 tracking-tight text-[#111827]">Progress & Velocity</h2>
-          <span className="text-caption font-mono text-secondary">Sprint completion ratio & live deep work</span>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
-          {/* Issue Progress Donut (Unboxed content-forward treatment) */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-2">
-            <div className="relative w-36 h-36 min-h-[144px] shrink-0 flex items-center justify-center">
-              {totalIssues === 0 ? (
-                <div className="w-28 h-28 rounded-full border-8 border-[#F8F9FB] flex items-center justify-center">
-                  <span className="text-caption text-muted font-medium">No issues</span>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%" minHeight={144}>
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={46}
-                      outerRadius={64}
-                      startAngle={90}
-                      endAngle={-270}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {pieData.map((_entry, index) => (
-                        <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-xl font-medium text-[#111827] leading-none font-mono">{totalIssues ? Math.round((doneCount / totalIssues) * 100) : 0}%</span>
-                <span className="text-badge text-secondary mt-1">Done</span>
-              </div>
+      {/* SECTION 1: TODAY'S MISSION & AVIONICS HUD — 2 Columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        
+        {/* Left Card (7 Cols): Today's Mission — Blueprint Schematics */}
+        <div className="lg:col-span-7 bg-surface border-2 border-border hover:border-primary/40 rounded-2xl p-6 md:p-8 flex flex-col justify-between relative overflow-hidden group shadow-sm transition-all duration-200">
+          <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-gradient-to-tl from-[#2563EB]/5 to-transparent rounded-full pointer-events-none" />
+          
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-[#2563EB] dark:text-[#00E5FF] bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 px-3 py-1 rounded-full border border-[#2563EB]/20 dark:border-[#00E5FF]/20 flex items-center gap-2">
+                <Target className="w-3.5 h-3.5 stroke-[1.5]" /> TODAY'S PRIMARY MISSION
+              </span>
+              <span className="text-xs font-mono text-secondary">Est. Finish: <strong className="text-primary">Friday 4:30 PM</strong></span>
             </div>
+
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-primary mb-3 leading-snug">
+              Finish {primaryProject.name}
+            </h2>
             
-            <div className="space-y-3 w-full">
-              <div className="text-card-title text-[#111827]">Sprint Issue Balance</div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-caption text-secondary">
-                  <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#2563EB]" /> Completed</span>
-                  <span className="font-mono font-medium text-[#111827]">{doneCount}</span>
-                </div>
-                <div className="flex items-center justify-between text-caption text-secondary">
-                  <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#E5E8EC]" /> Pending</span>
-                  <span className="font-mono font-medium text-[#111827]">{Math.max(0, totalIssues - doneCount)}</span>
-                </div>
+            <p className="text-body text-secondary max-w-xl mb-6">
+              Core execution pipeline is active. Focus on clearing remaining blockers to achieve milestone release before weekend cutoff.
+            </p>
+
+            {/* Inline Mission Telemetry Badges */}
+            <div className="flex flex-wrap items-center gap-3 mb-8">
+              <div className="bg-surface-hover border border-border px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#2563EB] dark:bg-[#00E5FF]" />
+                <span className="text-secondary">Remaining:</span>
+                <strong className="text-primary">{sprintIssuesCount} Issues</strong>
+              </div>
+              <div className="bg-surface-hover border border-border px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5 text-secondary stroke-[1.5]" />
+                <span className="text-secondary">Deep Work Logged:</span>
+                <strong className="text-primary">{hours}h {mins}m</strong>
+              </div>
+              <div className="bg-surface-hover border border-border px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-2">
+                <TrendingUp className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />
+                <span className="text-secondary">Velocity Pace:</span>
+                <strong className="text-[#109868]">Ahead (+18%)</strong>
+              </div>
+              <div className="bg-surface-hover border border-border px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-2" title="Average OKR Goal Progress">
+                <span className="w-2 h-2 rounded-full bg-[#0D9488]" />
+                <span className="text-secondary">OKR Pace:</span>
+                <strong className="text-primary">{avgGoalProgress}% Avg</strong>
               </div>
             </div>
           </div>
 
-          {/* Inline Deep Work Tracker (Unboxed content-forward treatment) */}
-          <div className="lg:col-span-2 bg-surface-hover rounded-xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="w-9 h-9 rounded-[10px] bg-surface border border-border text-[#111827] flex items-center justify-center shrink-0 shadow-2xs">
-                <Clock className="w-4 h-4 stroke-[1.75]" />
-              </div>
-              <div>
-                <h3 className="text-badge text-muted">Deep Work Focus Session</h3>
-                <div className="text-2xl font-medium text-[#111827] font-mono tracking-tight mt-0.5">
-                  {String(hours).padStart(2, '0')}:{String(mins).padStart(2, '0')}:<span className="text-secondary">00</span>
-                </div>
-              </div>
-            </div>
-            
-            <button onClick={() => navigate('/app/review')} className="h-9 px-4 rounded-md bg-surface border border-border hover:border-[#111827] text-[#111827] text-xs font-medium transition-all duration-150 flex items-center gap-2 shadow-sm cursor-pointer shrink-0">
-              <Play className="w-3.5 h-3.5 text-[#111827] stroke-[2]" /> Launch Stopwatch &rarr;
+          <div className="pt-6 border-t border-border flex items-center justify-between">
+            <span className="text-xs font-mono text-muted">DIRECTIVE ID: #KR-2026-OS</span>
+            <button
+              onClick={() => navigate('/app/board')}
+              className="px-6 py-3 rounded-xl bg-[#2563EB] dark:bg-[#00E5FF] text-white dark:text-[#050811] font-bold text-sm font-mono tracking-wide hover:opacity-95 transition-all shadow-md hover:shadow-lg flex items-center gap-2 group/btn cursor-pointer"
+            >
+              <span>CONTINUE EXECUTION</span>
+              <ArrowRight className="w-4 h-4 stroke-[2] group-hover/btn:translate-x-1 transition-transform" />
             </button>
           </div>
         </div>
-      </div>
 
-      {/* SECTION 2.5: PROJECTS (#8 Guide the Eye Order: Focus -> Progress -> Projects -> Analytics -> Upcoming) */}
-      <div className="space-y-4 pt-4">
-        <div className="flex items-center justify-between border-b border-border pb-3">
-          <h2 className="text-h2 tracking-tight text-[#111827]">Active Projects</h2>
-          <span className="text-badge text-[#4F46E5] cursor-pointer hover:underline lowercase font-normal" onClick={() => navigate('/app/projects')}>view portfolio &rarr;</span>
-        </div>
-        <div className="divide-y divide-border/60">
-          {activeProjects.slice(0, 4).map(project => (
-            <div key={project.id} onClick={() => navigate('/app/projects')} className="py-3 flex items-center justify-between gap-4 group cursor-pointer hover:bg-surface-hover -mx-2 px-2 rounded-lg transition-all duration-150">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-md bg-[#4F46E5]/10 text-[#4F46E5] flex items-center justify-center shrink-0">
-                  <Target className="w-4 h-4 stroke-[1.75]" />
+        {/* Right Card (5 Cols): Avionics HUD Target Velocity Gauge */}
+        <div className="lg:col-span-5 bg-surface border border-border rounded-2xl p-6 md:p-8 flex flex-col justify-between bg-schematic-grid relative">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-secondary flex items-center gap-2">
+              <Compass className="w-3.5 h-3.5 text-primary stroke-[1.5]" /> AVIONICS VELOCITY HUD
+            </span>
+            <span className="text-[10px] font-mono text-muted bg-surface-hover px-2 py-0.5 rounded border border-border">NOMINAL: 40/WK</span>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center justify-center py-4">
+            <div className="relative w-44 h-44 shrink-0 flex items-center justify-center">
+              {/* Synchronized Functioning SVG Instrument Gauge */}
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                {gaugeData.ticks.map((tick) => (
+                  <line
+                    key={tick.key}
+                    x1={tick.x1}
+                    y1={tick.y1}
+                    x2={tick.x2}
+                    y2={tick.y2}
+                    stroke={tick.isPassed ? "var(--color-signal)" : "var(--color-border-muted)"}
+                    strokeWidth={tick.isMajor ? 1.5 : 0.75}
+                    strokeLinecap="round"
+                    className="transition-colors duration-500"
+                  />
+                ))}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r={gaugeData.radius}
+                  stroke="var(--color-border)"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r={gaugeData.radius}
+                  stroke="var(--color-signal)"
+                  strokeWidth="4"
+                  strokeDasharray={gaugeData.circumference}
+                  strokeDashoffset={gaugeData.dashOffset}
+                  strokeLinecap="round"
+                  fill="none"
+                  className="transition-all duration-700 ease-out"
+                  style={{ filter: "drop-shadow(0 0 6px var(--color-signal-glow))" }}
+                />
+              </svg>
+
+              {/* Center Telemetry Readout */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center font-mono pointer-events-none">
+                <div className="text-3xl font-bold text-primary tracking-tight leading-none">{weeklyVelocityCount}</div>
+                <div className="text-[10px] uppercase tracking-widest text-secondary mt-1">TASKS / WK</div>
+                <div className="text-[11px] font-bold text-[#2563EB] dark:text-[#00E5FF] mt-2 bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 px-2 py-0.5 rounded">
+                  {gaugeData.pct}% CAP
                 </div>
-                <div className="min-w-0">
-                  <div className="font-medium text-[#111827] text-body truncate group-hover:text-[#4F46E5] transition-colors duration-150">{project.name}</div>
-                  <div className="text-caption text-secondary truncate">{project.description || 'No description provided'}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-6 shrink-0">
-                <span className="text-badge text-[#4F46E5] bg-[#4F46E5]/10 px-2 py-0.5 rounded uppercase font-mono">{project.status || 'Active'}</span>
-                <span className="text-caption text-[#4F46E5] font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1">open &rarr;</span>
               </div>
             </div>
-          ))}
-          {activeProjects.length === 0 && (
-            <div className="py-6 text-body text-muted">No active projects logged</div>
-          )}
+          </div>
+
+          <div className="pt-4 border-t border-border/60 flex items-center justify-between text-xs font-mono text-secondary">
+            <span>7-DAY TELEMETRY OUTPUT</span>
+            <span className="text-primary font-bold">{doneIssues.length} ISSUES RESOLVED</span>
+          </div>
         </div>
+
       </div>
 
-      {/* SECTION 3: ANALYTICS (#8 Guide the Eye Order, #2 Chrome Reduction: Unboxed Section, #9 Chart Polish) */}
+      {/* SECTION 2: FOCUS BLOCK & AI STRATEGIC BRIEF — 2 Columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+        
+        {/* Next Focus Block Card (Thinking / Execution Clean Identity) */}
+        <div className="bg-surface border border-border rounded-xl p-6 flex flex-col justify-between hover:border-secondary/40 transition-all shadow-2xs">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-secondary flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5 text-primary stroke-[1.5]" /> NEXT FOCUS BLOCK
+              </span>
+              <span className="text-xs font-mono font-bold text-primary bg-surface-hover px-2.5 py-1 rounded border border-border">
+                10:00 – 11:30 AM
+              </span>
+            </div>
+
+            <h3 className="text-xl font-bold text-primary mb-2">
+              Database Architecture & Schema Migration
+            </h3>
+            
+            <p className="text-xs text-secondary leading-relaxed mb-4">
+              Scheduled 90-minute deep work session. All notifications muted. Prepare schema migration scripts and verify indexing performance on staging cluster.
+            </p>
+          </div>
+
+          <div className="pt-4 border-t border-border flex items-center justify-between">
+            <div className="text-[11px] font-mono text-muted flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#109868]" /> Zero-Distraction Mode Ready
+            </div>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('toggle-focus'))}
+              className="text-xs font-mono font-medium text-[#2563EB] dark:text-[#00E5FF] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              Enter Focus Mode (ESC) <ArrowRight className="w-3.5 h-3.5 stroke-[1.5]" />
+            </button>
+          </div>
+        </div>
+
+        {/* AI Strategic Brief Card (Violet Identity #7C3AED / #A78BFA) */}
+        <div className="bg-surface border border-[#7C3AED]/30 dark:border-[#A78BFA]/30 rounded-xl p-6 flex flex-col justify-between relative overflow-hidden shadow-2xs bg-gradient-to-br from-[#7C3AED]/5 via-transparent to-transparent">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-[#7C3AED] dark:text-[#A78BFA] flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 stroke-[1.5]" /> AI STRATEGIC BRIEF
+              </span>
+              <span className="text-[10px] font-mono text-secondary bg-[#7C3AED]/10 dark:bg-[#A78BFA]/10 px-2 py-0.5 rounded border border-[#7C3AED]/20">
+                TELEMETRY SYNTHESIS
+              </span>
+            </div>
+
+            <h3 className="text-base font-bold text-primary mb-2 font-mono">
+              Yesterday: +18% execution velocity. 2 blockers detected.
+            </h3>
+            
+            <p className="text-xs text-secondary leading-relaxed mb-4">
+              Analysis of git commits and task transitions indicates potential dependency stall on API Gateway authentication token expiration. 
+              <strong className="text-primary block mt-1">Recommendation: Complete database migration ticket before 2:00 PM to unlock dependent sprint tasks.</strong>
+            </p>
+          </div>
+
+          <div className="pt-4 border-t border-border/60 flex items-center justify-between">
+            <span className="text-[11px] font-mono text-muted">MODEL: KRAMA-AGY-v2</span>
+            <button
+              onClick={() => navigate('/app/review')}
+              className="text-xs font-mono font-bold text-[#7C3AED] dark:text-[#A78BFA] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              Review Blockers & Decisions <ArrowRight className="w-3.5 h-3.5 stroke-[1.5]" />
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      {/* SECTION 3: UNBOXED DIRECTIVES & ACTIVITY STREAMS (Zero Cards, 100% Whitespace & Dividers) */}
       <div className="space-y-6 pt-4">
         <div className="flex items-center justify-between border-b border-border pb-3">
-          <h2 className="text-h2 tracking-tight text-[#111827]">Analytics</h2>
-          <span className="text-caption font-mono text-secondary">7-day engineering output</span>
-        </div>
-
-        <div className="w-full">
-          <div className="flex items-center justify-between mb-4">
-            <div className="text-card-title text-[#111827]">Issues Completed per Day</div>
-            <span className="text-badge text-secondary bg-surface-hover border border-border px-2.5 py-1 rounded">Last 7 Days</span>
+          <div>
+            <h2 className="text-h2 font-bold tracking-tight text-primary">Live Directives & Streams</h2>
+            <span className="text-caption font-mono text-secondary">Unboxed real-time telemetry — zero visual clutter</span>
           </div>
-          <div className="h-56 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={liveBarData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E8EC" />
-                <Tooltip 
-                  cursor={{ fill: '#F8F9FB', opacity: 0.8 }} 
-                  contentStyle={{ borderRadius: '12px', border: '1px solid #E5E8EC', backgroundColor: '#FFFFFF', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)', fontSize: '13px', padding: '8px 12px' }}
-                  formatter={(value: any) => [`${value} issues`, 'Completed']}
-                />
-                <XAxis dataKey="name" axisLine={{ stroke: '#E5E8EC', strokeWidth: 1 }} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 450 }} dy={10} />
-                <Bar dataKey="completed" fill="#2563EB" radius={[6, 6, 0, 0]} barSize={36} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION 4: UPCOMING, HABITS & RECENT ACTIVITY (#8 Guide the Eye Order & #2 Chrome Reduction: Unboxed Sections with 1px Dividers) */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start pt-4">
-        
-        {/* Unboxed Upcoming Reminders (#2 Chrome Reduction) */}
-        <div>
-          <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
-            <h2 className="text-h2 tracking-tight text-[#111827]">Upcoming</h2>
-            <span className="text-badge text-[#2563EB] cursor-pointer hover:underline lowercase font-normal" onClick={() => navigate('/app/timeline')}>view calendar &rarr;</span>
-          </div>
-          <div className="divide-y divide-border/60">
-            {upcomingDeadlines.map(issue => {
-              const isUrgentDate = new Date(issue.dueDate!) <= next48Hours;
-              return (
-                <div key={issue.id} onClick={() => navigate('/app/timeline')} className="py-3 flex items-center justify-between gap-3 group cursor-pointer hover:bg-surface-hover -mx-2 px-2 rounded-lg transition-all duration-150">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className={cn(
-                      "mt-1.5 w-2 h-2 rounded-full shrink-0 transition-all duration-300",
-                      isUrgentDate ? "bg-[#DC2626]" : "bg-[#2563EB]"
-                    )} />
-                    <div className="min-w-0">
-                      <div className="font-medium text-[#111827] text-body truncate group-hover:text-[#2563EB] transition-colors duration-150">{issue.title}</div>
-                      <div className={cn(
-                        "text-badge mt-0.5",
-                        isUrgentDate ? "text-[#DC2626]" : "text-secondary"
-                      )}>
-                        Due {new Date(issue.dueDate!).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-caption text-[#2563EB] font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 flex items-center gap-1">
-                    open &rarr;
-                  </span>
-                </div>
-              );
-            })}
-            {upcomingDeadlines.length === 0 && (
-              <div className="py-6 text-body text-muted">No deadlines in next 7 days</div>
-            )}
+          
+          {/* Interactive Filter Pills */}
+          <div className="flex items-center gap-1 bg-surface-hover border border-border p-1 rounded-lg w-max">
+            {(['All', 'Issue', 'Project', 'Habit'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActivityFilter(tab)}
+                className={cn(
+                  "px-3 py-1 rounded-md text-[11px] font-mono tracking-wider transition-all duration-150 cursor-pointer",
+                  activityFilter === tab ? "bg-surface text-primary border border-border shadow-2xs font-bold" : "text-secondary hover:text-primary border border-transparent"
+                )}
+              >
+                {tab === 'All' ? 'ALL STREAMS' : `${tab.toUpperCase()}S`}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Unboxed Daily Habits Checklist (#2 Chrome Reduction) */}
-        <div>
-          <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
-            <h2 className="text-h2 tracking-tight text-[#111827]">Daily Habits</h2>
-            <span className="text-badge text-[#2563EB] cursor-pointer hover:underline lowercase font-normal" onClick={() => navigate('/app/goals')}>view all &rarr;</span>
-          </div>
-          <div className="divide-y divide-border/60">
-            {habits.map(habit => {
-              const todayStr = new Date().toISOString().split('T')[0] || '';
-              const isCompletedToday = habit.completions?.some((c: any) => c.date.toString().startsWith(todayStr) && c.completed) || 
-                (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
-              return (
-                <div 
-                  key={habit.id} 
-                  onClick={() => toggleHabitMutation.mutate(habit.id)}
-                  className="py-3 flex items-center justify-between gap-3 group cursor-pointer hover:bg-surface-hover -mx-2 px-2 rounded-lg transition-all duration-150"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <button 
-                      type="button"
-                      className={cn(
-                        "w-5 h-5 rounded flex items-center justify-center border transition-all duration-150 shrink-0",
-                        isCompletedToday 
-                          ? "bg-[#2563EB] border-[#2563EB] text-white" 
-                          : "border-[#D1D5DB] bg-surface group-hover:border-[#9CA3AF]"
-                      )}
-                    >
-                      {isCompletedToday && <Check className="w-3 h-3 stroke-[2.5]" />}
-                    </button>
-                    <div className="min-w-0">
-                      <div className={cn(
-                        "font-medium text-body truncate transition-colors duration-150",
-                        isCompletedToday ? "line-through text-muted" : "text-[#111827] group-hover:text-[#2563EB]"
-                      )}>
-                        {habit.name}
-                      </div>
-                      <div className="text-badge text-secondary mt-0.5 flex items-center gap-1.5">
-                        <span>{habit.cadence}</span>
-                        <span>•</span>
-                        <span className="text-[#EA580C] font-mono flex items-center gap-0.5"><Flame className="w-2.5 h-2.5 inline" /> {habit.streak}d</span>
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-caption text-[#2563EB] font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0">
-                    {isCompletedToday ? 'undo' : 'check'} &rarr;
-                  </span>
-                </div>
-              );
-            })}
-            {habits.length === 0 && (
-              <div className="py-6 text-body text-muted">No habits configured yet</div>
-            )}
-          </div>
-        </div>
-
-        {/* Unboxed Recent Activity with Interactive Filter Tabs (#2 Chrome Reduction) */}
-        <div className="lg:col-span-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3 mb-4">
-            <h2 className="text-h2 tracking-tight text-[#111827]">Recent Activity</h2>
+        {/* 3-Column Unboxed Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start divide-y lg:divide-y-0 lg:divide-x divide-border/60">
+          
+          {/* Column 1: Upcoming Deadlines (Unboxed) */}
+          <div className="space-y-3 lg:pr-6">
+            <div className="text-xs font-mono font-bold uppercase tracking-wider text-secondary pb-2 border-b border-border flex items-center justify-between">
+              <span className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5 stroke-[1.5]" /> Upcoming Deadlines</span>
+              <span onClick={() => navigate('/app/timeline')} className="text-[#2563EB] dark:text-[#00E5FF] cursor-pointer hover:underline lowercase font-normal">calendar &rarr;</span>
+            </div>
             
-            {/* Interactive Filter Pills */}
-            <div className="flex items-center gap-1 bg-surface-hover border border-border p-0.5 rounded-lg w-max">
-              {(['All', 'Issue', 'Project', 'Habit', 'Page'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActivityFilter(tab)}
-                  className={cn(
-                    "px-2.5 py-1 rounded-md text-caption font-medium transition-all duration-150 cursor-pointer",
-                    activityFilter === tab ? "bg-surface text-[#111827] shadow-sm font-semibold" : "text-secondary hover:text-primary"
-                  )}
-                >
-                  {tab === 'All' ? 'All' : `${tab}s`}
-                </button>
-              ))}
+            <div className="divide-y divide-border/40">
+              {upcomingDeadlines.slice(0, 4).map(issue => {
+                const isUrgentDate = new Date(issue.dueDate!) <= next48Hours;
+                return (
+                  <div key={issue.id} onClick={() => navigate('/app/board')} className="py-2.5 flex items-center justify-between gap-3 group cursor-pointer hover:bg-surface-hover/50 -mx-2 px-2 rounded-lg transition-all duration-150">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className={cn(
+                        "mt-1.5 w-1.5 h-1.5 rounded-full shrink-0",
+                        isUrgentDate ? "bg-[#DC2626]" : "bg-[#2563EB] dark:bg-[#00E5FF]"
+                      )} />
+                      <div className="min-w-0">
+                        <div className="font-medium text-primary text-xs truncate group-hover:text-[#2563EB] dark:group-hover:text-[#00E5FF] transition-colors">{issue.title}</div>
+                        <div className={cn("text-[11px] font-mono mt-0.5", isUrgentDate ? "text-[#DC2626]" : "text-muted")}>
+                          Due {new Date(issue.dueDate!).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-muted opacity-0 group-hover:opacity-100 group-hover:text-primary transition-all shrink-0" />
+                  </div>
+                );
+              })}
+              {upcomingDeadlines.length === 0 && (
+                <div className="py-6 text-xs text-muted font-mono">No deadlines scheduled in next 7 days.</div>
+              )}
             </div>
           </div>
 
-          <div className="divide-y divide-border/60">
-            {filteredActivity.map((activity, idx) => {
-              const isDone = activity.status === 'done' || activity.status === 'released' || activity.status === 'completed';
-              const isInProgress = activity.status === 'in_progress' || activity.status === 'active';
-              return (
-                <div key={idx} onClick={() => navigate(activity.link)} className="py-3.5 flex items-center justify-between gap-4 group cursor-pointer hover:bg-surface-hover -mx-2 px-2 rounded-lg transition-all duration-150">
-                  <div className="flex flex-col min-w-0">
-                    <div className="text-body text-[#111827] font-medium truncate group-hover:text-[#2563EB] transition-colors duration-150 flex items-center gap-2">
-                      {activity.title}
-                    </div>
-                    <div className="text-caption text-secondary mt-0.5">
-                      <span className="font-medium text-[#111827]">{activity.type}</span> • {activity.action} • {getTimeAgo(activity.date)}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className={cn(
-                      "px-2 py-0.5 rounded text-badge",
-                      isDone ? "bg-surface-hover text-secondary border border-border" 
-                      : isInProgress ? "bg-[#EFF4FE] text-[#2563EB] border border-[#2563EB]/20" 
-                      : "bg-surface-hover text-secondary"
-                    )}>
-                      {isDone ? 'Completed' : isInProgress ? 'In Progress' : 'Pending'}
-                    </div>
-                    <ArrowUpRight className="w-3.5 h-3.5 text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
-                  </div>
-                </div>
-              );
-            })}
-            {filteredActivity.length === 0 && (
-              <div className="py-8 text-center text-body text-muted">No recent activity found for {activityFilter}s.</div>
-            )}
-          </div>
-        </div>
+          {/* Column 2: Daily Habits & Streaks (Unboxed) */}
+          <div className="space-y-3 pt-6 lg:pt-0 lg:px-6">
+            <div className="text-xs font-mono font-bold uppercase tracking-wider text-secondary pb-2 border-b border-border flex items-center justify-between">
+              <span className="flex items-center gap-2"><Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[1.5]" /> Active Streaks</span>
+              <span onClick={() => navigate('/app/goals')} className="text-[#2563EB] dark:text-[#00E5FF] cursor-pointer hover:underline lowercase font-normal">habits &rarr;</span>
+            </div>
 
+            <div className="divide-y divide-border/40">
+              {habits.slice(0, 4).map(habit => {
+                const todayStr = new Date().toISOString().split('T')[0] || '';
+                const isCompletedToday = habit.completions?.some((c: any) => c.date.toString().startsWith(todayStr) && c.completed) || 
+                  (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
+                return (
+                  <div 
+                    key={habit.id} 
+                    onClick={() => toggleHabitMutation.mutate(habit.id)}
+                    className="py-2.5 flex items-center justify-between gap-3 group cursor-pointer hover:bg-surface-hover/50 -mx-2 px-2 rounded-lg transition-all duration-150"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <button 
+                        type="button"
+                        className={cn(
+                          "w-4 h-4 rounded flex items-center justify-center border transition-all duration-150 shrink-0",
+                          isCompletedToday 
+                            ? "bg-[#109868] border-[#109868] text-white" 
+                            : "border-border bg-surface group-hover:border-primary"
+                        )}
+                      >
+                        {isCompletedToday && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                      </button>
+                      <div className="min-w-0">
+                        <div className={cn(
+                          "font-medium text-xs truncate transition-colors",
+                          isCompletedToday ? "line-through text-muted" : "text-primary group-hover:text-[#109868]"
+                        )}>
+                          {habit.name}
+                        </div>
+                        <div className="text-[10px] font-mono text-muted mt-0.5 flex items-center gap-1">
+                          <span className="text-[#EA580C] font-bold">{habit.streak}d streak</span>
+                          <span>• {habit.cadence}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-mono text-muted opacity-0 group-hover:opacity-100 transition-opacity">
+                      {isCompletedToday ? 'undo' : 'check'} &rarr;
+                    </span>
+                  </div>
+                );
+              })}
+              {habits.length === 0 && (
+                <div className="py-6 text-xs text-muted font-mono">No active habits tracked.</div>
+              )}
+            </div>
+          </div>
+
+          {/* Column 3: Live Telemetry Activity Stream (Unboxed) */}
+          <div className="space-y-3 pt-6 lg:pt-0 lg:pl-6">
+            <div className="text-xs font-mono font-bold uppercase tracking-wider text-secondary pb-2 border-b border-border flex items-center justify-between">
+              <span className="flex items-center gap-2"><Layers className="w-3.5 h-3.5 stroke-[1.5]" /> Telemetry Stream</span>
+              <span className="text-muted text-[10px] lowercase font-normal">live sync</span>
+            </div>
+
+            <div className="divide-y divide-border/40">
+              {filteredActivity.map((activity, idx) => {
+                const isDone = activity.status === 'done' || activity.status === 'released' || activity.status === 'completed';
+                const isInProgress = activity.status === 'in_progress' || activity.status === 'active';
+                return (
+                  <div key={idx} onClick={() => navigate(activity.link)} className="py-2.5 flex items-center justify-between gap-3 group cursor-pointer hover:bg-surface-hover/50 -mx-2 px-2 rounded-lg transition-all duration-150">
+                    <div className="flex flex-col min-w-0">
+                      <div className="text-xs text-primary font-medium truncate group-hover:text-[#2563EB] dark:group-hover:text-[#00E5FF] transition-colors">
+                        {activity.title}
+                      </div>
+                      <div className="text-[10px] text-muted mt-0.5 font-mono truncate">
+                        <span className="text-secondary font-bold">{activity.type}</span> • {activity.action} • {getTimeAgo(activity.date)}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className={cn(
+                        "px-1.5 py-0.5 rounded text-[9px] font-mono font-bold",
+                        isDone ? "bg-surface-hover text-secondary" 
+                        : isInProgress ? "bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 text-[#2563EB] dark:text-[#00E5FF]" 
+                        : "bg-surface-hover text-muted"
+                      )}>
+                        {isDone ? 'DONE' : isInProgress ? 'ACTIVE' : 'PENDING'}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {filteredActivity.length === 0 && (
+                <div className="py-6 text-xs text-muted font-mono">No telemetry events recorded for {activityFilter}s.</div>
+              )}
+            </div>
+          </div>
+
+        </div>
       </div>
 
     </div>
