@@ -24,15 +24,19 @@ export function AppShell() {
   const [showCheatsheet, setShowCheatsheet] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
 
   useEffect(() => {
     const handleOffline = () => setIsOffline(true);
     const handleOnline = () => setIsOffline(false);
+    const handleToggleFocus = () => setFocusMode(prev => !prev);
     window.addEventListener('krama:api-offline', handleOffline);
     window.addEventListener('krama:api-online', handleOnline);
+    window.addEventListener('toggle-focus', handleToggleFocus);
     return () => {
       window.removeEventListener('krama:api-offline', handleOffline);
       window.removeEventListener('krama:api-online', handleOnline);
+      window.removeEventListener('toggle-focus', handleToggleFocus);
     };
   }, []);
 
@@ -60,8 +64,16 @@ export function AppShell() {
         setShowCheatsheet(prev => !prev);
         return;
       }
-      if (e.key === 'Escape' && showCheatsheet) {
-        setShowCheatsheet(false);
+      if (e.key === 'Escape') {
+        if (showCheatsheet) {
+          setShowCheatsheet(false);
+          return;
+        }
+        if (activePrefix) {
+          setActivePrefix(null);
+          return;
+        }
+        setFocusMode(prev => !prev);
         return;
       }
 
@@ -108,9 +120,28 @@ export function AppShell() {
   return (
     <div className="flex flex-col md:flex-row h-screen w-full bg-canvas text-primary overflow-hidden font-sans select-none">
       <CommandPalette />
-      <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
+      {!focusMode && (
+        <Sidebar 
+          mobileOpen={mobileMenuOpen} 
+          onMobileClose={() => setMobileMenuOpen(false)} 
+          onToggleFocus={() => setFocusMode(prev => !prev)} 
+        />
+      )}
       
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+        {/* Focus Mode Floating Badge */}
+        {focusMode && (
+          <button
+            onClick={() => setFocusMode(false)}
+            className="absolute top-4 right-4 z-50 px-3 py-1.5 rounded-full bg-surface/90 backdrop-blur-md border border-border text-xs font-mono text-secondary hover:text-primary hover:border-primary transition-all shadow-lg flex items-center gap-2 group cursor-pointer animate-in fade-in zoom-in-95 duration-200"
+            title="Exit Focus Mode (Press ESC)"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#2563EB] animate-pulse" />
+            <span>Focus Mode Active</span>
+            <kbd className="bg-surface-hover px-1.5 py-0.5 rounded border border-border text-[9px] group-hover:text-primary">ESC</kbd>
+          </button>
+        )}
+
         {/* Offline Mode Warning Banner */}
         {isOffline && (
           <div className="w-full bg-[#FEF2F2] border-b border-[#FECACA] px-4 py-2 flex items-center justify-between text-xs text-[#991B1B] z-50 shrink-0 animate-in fade-in slide-in-from-top duration-200">
@@ -128,9 +159,10 @@ export function AppShell() {
         )}
 
         {/* Mobile Top Header */}
-        <div className="md:hidden flex items-center justify-between p-3 bg-surface border-b border-border z-40 shrink-0">
-          <div className="flex items-center gap-2">
-            <button
+        {!focusMode && (
+          <div className="md:hidden flex items-center justify-between p-3 bg-surface border-b border-border z-40 shrink-0">
+            <div className="flex items-center gap-2">
+              <button
               onClick={() => setMobileMenuOpen(true)}
               className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover transition-colors"
             >
@@ -151,6 +183,7 @@ export function AppShell() {
             </div>
           </div>
         </div>
+        )}
 
         <main className="flex-1 overflow-y-auto bg-canvas relative animate-in fade-in duration-150">
           <Routes>
