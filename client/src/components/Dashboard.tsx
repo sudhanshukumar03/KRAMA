@@ -46,6 +46,38 @@ export function Dashboard() {
     }
   });
 
+  // Dynamic 7-day velocity and chart data (hooks MUST be before any early returns)
+  const today = new Date();
+  const doneIssues = issues.filter(i => i.status === 'done' || i.status === 'released');
+
+  const liveBarData = useMemo(() => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const data = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 86400000);
+      const dayStr = d.toISOString().split('T')[0];
+      const completedCount = doneIssues.filter(issue => {
+        const dateToUse = issue.completedAt ? new Date(issue.completedAt) : new Date(issue.updatedAt);
+        return dateToUse.toISOString().split('T')[0] === dayStr;
+      }).length;
+      data.push({
+        name: days[d.getDay()] || '',
+        completed: completedCount
+      });
+    }
+    return data;
+  }, [doneIssues, today]);
+
+  const weeklyVelocityCount = useMemo(() => {
+    return liveBarData.reduce((sum, item) => sum + item.completed, 0);
+  }, [liveBarData]);
+
+  const avgGoalProgress = useMemo(() => {
+    if (goals.length === 0) return 0;
+    const totalProg = goals.reduce((sum, g) => sum + (g.progress || 0), 0);
+    return Math.round(totalProg / goals.length);
+  }, [goals]);
+
   if (issuesLoading || projectsLoading) {
     return <LoadingState variant="dashboard" title="Loading dashboard..." description="Compiling metrics and workspace activity..." />;
   }
@@ -68,7 +100,6 @@ export function Dashboard() {
   const activeProjects = projects.filter(p => p.status === 'active');
   const todoIssues = issues.filter(i => ['todo', 'backlog'].includes(i.status));
   const inProgressIssues = issues.filter(i => i.status === 'in_progress');
-  const doneIssues = issues.filter(i => i.status === 'done' || i.status === 'released');
   
   // Compute Project Progress (Done vs Total)
   const totalIssues = issues.length;
@@ -80,7 +111,6 @@ export function Dashboard() {
   const pieColors = ['#2563EB', '#E5E8EC'];
 
   // Compute Upcoming Deadlines (Due in next 7 days or overdue)
-  const today = new Date();
   const nextWeek = new Date(today.getTime() + 7 * 86400000);
   const next48Hours = new Date(today.getTime() + 2 * 86400000);
   const upcomingDeadlines = issues.filter(i => 
@@ -112,35 +142,6 @@ export function Dashboard() {
   // Active Habit Streaks count
   const activeStreaksCount = habits.filter(h => h.streak > 0).length;
 
-  // Dynamic 7-day velocity and chart data
-  const liveBarData = useMemo(() => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const data = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today.getTime() - i * 86400000);
-      const dayStr = d.toISOString().split('T')[0];
-      const completedCount = doneIssues.filter(issue => {
-        const dateToUse = issue.completedAt ? new Date(issue.completedAt) : new Date(issue.updatedAt);
-        return dateToUse.toISOString().split('T')[0] === dayStr;
-      }).length;
-      data.push({
-        name: days[d.getDay()] || '',
-        completed: completedCount
-      });
-    }
-    return data;
-  }, [doneIssues, today]);
-
-  const weeklyVelocityCount = useMemo(() => {
-    return liveBarData.reduce((sum, item) => sum + item.completed, 0);
-  }, [liveBarData]);
-
-  const avgGoalProgress = useMemo(() => {
-    if (goals.length === 0) return 0;
-    const totalProg = goals.reduce((sum, g) => sum + (g.progress || 0), 0);
-    return Math.round(totalProg / goals.length);
-  }, [goals]);
-
   const goalStatusBadge = avgGoalProgress >= 70 ? 'Ahead' : avgGoalProgress >= 30 ? 'On Track' : goals.length === 0 ? 'No Goals' : 'Needs Attention';
   const badgeColors = avgGoalProgress >= 30 
     ? 'text-[#0D9488] bg-[#0D9488]/10 border-[#0D9488]/20' 
@@ -150,7 +151,7 @@ export function Dashboard() {
     <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 flex flex-col gap-8 pb-20">
       
       {/* Header (#1 Typography: 32px/650 title, 15px/450 body) */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#E5E8EC] pb-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-title tracking-tight text-[#111827]">Dashboard</h1>
@@ -158,10 +159,10 @@ export function Dashboard() {
               <Sparkles className="w-3 h-3 text-[#2563EB] stroke-[2]" /> Live Pulse
             </span>
           </div>
-          <p className="text-body text-[#6B7280]">{formattedDate} — <span className="text-[#111827] font-medium">{summaryLine}</span></p>
+          <p className="text-body text-secondary">{formattedDate} — <span className="text-[#111827] font-medium">{summaryLine}</span></p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="h-9 px-4 rounded-md font-medium text-xs bg-white text-[#111827] border border-[#E5E8EC] hover:bg-[#F8F9FB] transition-all duration-150 flex items-center gap-2 cursor-pointer shadow-sm">
+          <button className="h-9 px-4 rounded-md font-medium text-xs bg-surface text-[#111827] border border-border hover:bg-surface-hover transition-all duration-150 flex items-center gap-2 cursor-pointer shadow-sm">
             <Download className="w-3.5 h-3.5 stroke-[1.75]" /> Export
           </button>
           <BaseButton onClick={() => navigate('/app/projects')}>
@@ -174,28 +175,28 @@ export function Dashboard() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-h2 tracking-tight text-[#111827]">Today's Focus</h2>
-          <span className="text-caption font-mono text-[#6B7280]">Real-time execution velocity</span>
+          <span className="text-caption font-mono text-secondary">Real-time execution velocity</span>
         </div>
 
         {/* Execution Velocity Scorecard (4 Interactive Stat Tickers) */}
-        <div className="bg-white border border-[#E5E8EC] rounded-xl p-6 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#E5E8EC] gap-6 sm:gap-0">
+        <div className="bg-surface border border-border rounded-xl p-6 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border gap-6 sm:gap-0">
           
           {/* Metric 1: Weekly Velocity */}
           <div className="sm:pr-6 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-caption font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
+              <span className="text-caption font-medium uppercase tracking-[0.02em] text-secondary flex items-center gap-1.5">
                 <TrendingUp className="w-3.5 h-3.5 text-[#111827] stroke-[1.75]" /> Weekly Velocity
               </span>
-              <span className="text-badge text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-1.5 py-0.5 rounded">{weeklyVelocityCount > 0 ? `+${weeklyVelocityCount} tasks` : '0 tasks'}</span>
+              <span className="text-badge text-secondary bg-surface-hover border border-border px-1.5 py-0.5 rounded">{weeklyVelocityCount > 0 ? `+${weeklyVelocityCount} tasks` : '0 tasks'}</span>
             </div>
             <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-medium font-mono text-[#111827]">{weeklyVelocityCount} <span className="text-caption font-sans text-[#6B7280] font-normal">tasks/wk</span></span>
+              <span className="text-2xl font-medium font-mono text-[#111827]">{weeklyVelocityCount} <span className="text-caption font-sans text-secondary font-normal">tasks/wk</span></span>
             </div>
             <div className="mt-3 flex items-center gap-1.5">
               {liveBarData.map((item, i) => {
                 const maxVal = Math.max(1, ...liveBarData.map(d => d.completed));
                 return (
-                  <div key={i} title={`${item.name}: ${item.completed}`} className="flex-1 h-1.5 rounded-full bg-[#F8F9FB] overflow-hidden">
+                  <div key={i} title={`${item.name}: ${item.completed}`} className="flex-1 h-1.5 rounded-full bg-surface-hover overflow-hidden">
                     <div className="h-full bg-[#111827] transition-all duration-400 ease-out" style={{ width: `${(item.completed / maxVal) * 100}%` }} />
                   </div>
                 );
@@ -206,13 +207,13 @@ export function Dashboard() {
           {/* Metric 2: Active Streaks */}
           <div className="pt-6 sm:pt-0 sm:px-6 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-caption font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
+              <span className="text-caption font-medium uppercase tracking-[0.02em] text-secondary flex items-center gap-1.5">
                 <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[1.75]" /> Active Streaks
               </span>
               <span className="text-badge text-[#C2410C] bg-[#FFF7ED] border border-[#FFEDD5] px-1.5 py-0.5 rounded">{activeStreaksCount} active</span>
             </div>
             <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-medium font-mono text-[#111827]">{habits.length} <span className="text-caption font-sans text-[#6B7280] font-normal">habits logged</span></span>
+              <span className="text-2xl font-medium font-mono text-[#111827]">{habits.length} <span className="text-caption font-sans text-secondary font-normal">habits logged</span></span>
             </div>
             <div className="mt-3 flex items-center gap-1.5">
               {[-6, -5, -4, -3, -2, -1, 0].map((offset, i) => {
@@ -225,7 +226,7 @@ export function Dashboard() {
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
                     <div className={cn("w-2 h-2 rounded-full transition-all duration-400", completedOnDay ? "bg-[#EA580C]" : "bg-[#E5E8EC]")} />
-                    <span className="text-[9px] font-mono text-[#9CA3AF]">{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
+                    <span className="text-[9px] font-mono text-muted">{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
                   </div>
                 );
               })}
@@ -235,15 +236,15 @@ export function Dashboard() {
           {/* Metric 3: Goals / OKR Pace */}
           <div className="pt-6 lg:pt-0 sm:px-6 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-caption font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
+              <span className="text-caption font-medium uppercase tracking-[0.02em] text-secondary flex items-center gap-1.5">
                 <Target className="w-3.5 h-3.5 text-[#0D9488] stroke-[1.75]" /> Goals & OKR Pace
               </span>
               <span className={`text-badge border px-1.5 py-0.5 rounded ${badgeColors}`}>{goalStatusBadge}</span>
             </div>
             <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-medium font-mono text-[#111827]">{avgGoalProgress}% <span className="text-caption font-sans text-[#6B7280] font-normal">avg progress</span></span>
+              <span className="text-2xl font-medium font-mono text-[#111827]">{avgGoalProgress}% <span className="text-caption font-sans text-secondary font-normal">avg progress</span></span>
             </div>
-            <div className="mt-3 h-1.5 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/40">
+            <div className="mt-3 h-1.5 w-full bg-surface-hover rounded-full overflow-hidden border border-border/40">
               <div className="h-full bg-[#0D9488] transition-all duration-400 ease-out" style={{ width: `${avgGoalProgress}%` }} />
             </div>
           </div>
@@ -251,15 +252,15 @@ export function Dashboard() {
           {/* Metric 4: Deep Work Ratio */}
           <div className="pt-6 lg:pt-0 sm:pl-6 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-caption font-medium uppercase tracking-[0.02em] text-[#6B7280] flex items-center gap-1.5">
+              <span className="text-caption font-medium uppercase tracking-[0.02em] text-secondary flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-[#111827] stroke-[1.75]" /> Deep Work Today
               </span>
-              <span className="text-badge text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-1.5 py-0.5 rounded">70% target</span>
+              <span className="text-badge text-secondary bg-surface-hover border border-border px-1.5 py-0.5 rounded">70% target</span>
             </div>
             <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-medium font-mono text-[#111827]">{hours}h {mins}m <span className="text-caption font-sans text-[#6B7280] font-normal">/ 5h goal</span></span>
+              <span className="text-2xl font-medium font-mono text-[#111827]">{hours}h {mins}m <span className="text-caption font-sans text-secondary font-normal">/ 5h goal</span></span>
             </div>
-            <div className="mt-3 h-1.5 w-full bg-[#F8F9FB] rounded-full overflow-hidden border border-[#E5E8EC]/40">
+            <div className="mt-3 h-1.5 w-full bg-surface-hover rounded-full overflow-hidden border border-border/40">
               <div className="h-full bg-[#111827] transition-all duration-400 ease-out" style={{ width: `${Math.min(100, (deepWorkMins / 300) * 100)}%` }} />
             </div>
           </div>
@@ -290,7 +291,7 @@ export function Dashboard() {
           </div>
 
           {/* Projects Card (Indigo Category Tint #4F46E5) */}
-          <div onClick={() => navigate('/app/projects')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#4F46E5] hover:shadow-md flex flex-col justify-between cursor-pointer group">
+          <div onClick={() => navigate('/app/projects')} className="bg-surface border border-border rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#4F46E5] hover:shadow-md flex flex-col justify-between cursor-pointer group">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-[10px] bg-[#4F46E5]/10 text-[#4F46E5] flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-150 shadow-2xs">
@@ -298,19 +299,19 @@ export function Dashboard() {
                 </div>
                 <div>
                   <div className="text-2xl font-medium text-[#111827] leading-none mb-1 font-mono">{activeProjects.length}</div>
-                  <div className="text-caption text-[#6B7280] font-medium">Active Projects</div>
+                  <div className="text-caption text-secondary font-medium">Active Projects</div>
                 </div>
               </div>
-              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#4F46E5] transition-colors duration-150" />
+              <ArrowUpRight className="w-4 h-4 text-muted group-hover:text-[#4F46E5] transition-colors duration-150" />
             </div>
-            <div className="mt-4 text-badge text-[#9CA3AF] flex items-center justify-between">
+            <div className="mt-4 text-badge text-muted flex items-center justify-between">
               <span>+1 this week</span>
               <span className="text-[#4F46E5] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">view projects &rarr;</span>
             </div>
           </div>
 
           {/* To Do Card (Execution Blue Category Tint #2563EB) */}
-          <div onClick={() => navigate('/app/timeline')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#2563EB] hover:shadow-md flex flex-col justify-between cursor-pointer group">
+          <div onClick={() => navigate('/app/timeline')} className="bg-surface border border-border rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#2563EB] hover:shadow-md flex flex-col justify-between cursor-pointer group">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-[10px] bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-150 shadow-2xs">
@@ -318,19 +319,19 @@ export function Dashboard() {
                 </div>
                 <div>
                   <div className="text-2xl font-medium text-[#111827] leading-none mb-1 font-mono">{todoIssues.length}</div>
-                  <div className="text-caption text-[#6B7280] font-medium">To Do</div>
+                  <div className="text-caption text-secondary font-medium">To Do</div>
                 </div>
               </div>
-              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#2563EB] transition-colors duration-150" />
+              <ArrowUpRight className="w-4 h-4 text-muted group-hover:text-[#2563EB] transition-colors duration-150" />
             </div>
-            <div className="mt-4 text-badge text-[#9CA3AF] flex items-center justify-between">
+            <div className="mt-4 text-badge text-muted flex items-center justify-between">
               <span>-2 since yesterday</span>
               <span className="text-[#2563EB] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">open board &rarr;</span>
             </div>
           </div>
 
           {/* Completed Card (Goals Teal Category Tint #0D9488) */}
-          <div onClick={() => navigate('/app/goals')} className="bg-white border border-[#E5E8EC] rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#0D9488] hover:shadow-md flex flex-col justify-between cursor-pointer group">
+          <div onClick={() => navigate('/app/goals')} className="bg-surface border border-border rounded-xl p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#0D9488] hover:shadow-md flex flex-col justify-between cursor-pointer group">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-[10px] bg-[#0D9488]/10 text-[#0D9488] flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-150 shadow-2xs">
@@ -338,12 +339,12 @@ export function Dashboard() {
                 </div>
                 <div>
                   <div className="text-2xl font-medium text-[#111827] leading-none mb-1 font-mono">{doneIssues.length}</div>
-                  <div className="text-caption text-[#6B7280] font-medium">Completed</div>
+                  <div className="text-caption text-secondary font-medium">Completed</div>
                 </div>
               </div>
-              <ArrowUpRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#0D9488] transition-colors duration-150" />
+              <ArrowUpRight className="w-4 h-4 text-muted group-hover:text-[#0D9488] transition-colors duration-150" />
             </div>
-            <div className="mt-4 text-badge text-[#9CA3AF] flex items-center justify-between">
+            <div className="mt-4 text-badge text-muted flex items-center justify-between">
               <span>92% Sprint Pace</span>
               <span className="text-[#0D9488] opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1 text-[10px] lowercase font-normal">view goals &rarr;</span>
             </div>
@@ -353,9 +354,9 @@ export function Dashboard() {
 
       {/* SECTION 2: PROGRESS (#8 Guide the Eye Order & #2 Chrome Reduction: Unboxed Section with 1px Divider) */}
       <div className="space-y-6 pt-4">
-        <div className="flex items-center justify-between border-b border-[#E5E8EC] pb-3">
+        <div className="flex items-center justify-between border-b border-border pb-3">
           <h2 className="text-h2 tracking-tight text-[#111827]">Progress & Velocity</h2>
-          <span className="text-caption font-mono text-[#6B7280]">Sprint completion ratio & live deep work</span>
+          <span className="text-caption font-mono text-secondary">Sprint completion ratio & live deep work</span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
@@ -364,7 +365,7 @@ export function Dashboard() {
             <div className="relative w-36 h-36 min-h-[144px] shrink-0 flex items-center justify-center">
               {totalIssues === 0 ? (
                 <div className="w-28 h-28 rounded-full border-8 border-[#F8F9FB] flex items-center justify-center">
-                  <span className="text-caption text-[#9CA3AF] font-medium">No issues</span>
+                  <span className="text-caption text-muted font-medium">No issues</span>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%" minHeight={144}>
@@ -389,18 +390,18 @@ export function Dashboard() {
               )}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-xl font-medium text-[#111827] leading-none font-mono">{totalIssues ? Math.round((doneCount / totalIssues) * 100) : 0}%</span>
-                <span className="text-badge text-[#6B7280] mt-1">Done</span>
+                <span className="text-badge text-secondary mt-1">Done</span>
               </div>
             </div>
             
             <div className="space-y-3 w-full">
               <div className="text-card-title text-[#111827]">Sprint Issue Balance</div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-caption text-[#6B7280]">
+                <div className="flex items-center justify-between text-caption text-secondary">
                   <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#2563EB]" /> Completed</span>
                   <span className="font-mono font-medium text-[#111827]">{doneCount}</span>
                 </div>
-                <div className="flex items-center justify-between text-caption text-[#6B7280]">
+                <div className="flex items-center justify-between text-caption text-secondary">
                   <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#E5E8EC]" /> Pending</span>
                   <span className="font-mono font-medium text-[#111827]">{Math.max(0, totalIssues - doneCount)}</span>
                 </div>
@@ -409,20 +410,20 @@ export function Dashboard() {
           </div>
 
           {/* Inline Deep Work Tracker (Unboxed content-forward treatment) */}
-          <div className="lg:col-span-2 bg-[#F8F9FB] rounded-xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div className="lg:col-span-2 bg-surface-hover rounded-xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="w-9 h-9 rounded-[10px] bg-white border border-[#E5E8EC] text-[#111827] flex items-center justify-center shrink-0 shadow-2xs">
+              <div className="w-9 h-9 rounded-[10px] bg-surface border border-border text-[#111827] flex items-center justify-center shrink-0 shadow-2xs">
                 <Clock className="w-4 h-4 stroke-[1.75]" />
               </div>
               <div>
-                <h3 className="text-badge text-[#9CA3AF]">Deep Work Focus Session</h3>
+                <h3 className="text-badge text-muted">Deep Work Focus Session</h3>
                 <div className="text-2xl font-medium text-[#111827] font-mono tracking-tight mt-0.5">
-                  {String(hours).padStart(2, '0')}:{String(mins).padStart(2, '0')}:<span className="text-[#6B7280]">00</span>
+                  {String(hours).padStart(2, '0')}:{String(mins).padStart(2, '0')}:<span className="text-secondary">00</span>
                 </div>
               </div>
             </div>
             
-            <button onClick={() => navigate('/app/review')} className="h-9 px-4 rounded-md bg-white border border-[#E5E8EC] hover:border-[#111827] text-[#111827] text-xs font-medium transition-all duration-150 flex items-center gap-2 shadow-sm cursor-pointer shrink-0">
+            <button onClick={() => navigate('/app/review')} className="h-9 px-4 rounded-md bg-surface border border-border hover:border-[#111827] text-[#111827] text-xs font-medium transition-all duration-150 flex items-center gap-2 shadow-sm cursor-pointer shrink-0">
               <Play className="w-3.5 h-3.5 text-[#111827] stroke-[2]" /> Launch Stopwatch &rarr;
             </button>
           </div>
@@ -431,20 +432,20 @@ export function Dashboard() {
 
       {/* SECTION 2.5: PROJECTS (#8 Guide the Eye Order: Focus -> Progress -> Projects -> Analytics -> Upcoming) */}
       <div className="space-y-4 pt-4">
-        <div className="flex items-center justify-between border-b border-[#E5E8EC] pb-3">
+        <div className="flex items-center justify-between border-b border-border pb-3">
           <h2 className="text-h2 tracking-tight text-[#111827]">Active Projects</h2>
           <span className="text-badge text-[#4F46E5] cursor-pointer hover:underline lowercase font-normal" onClick={() => navigate('/app/projects')}>view portfolio &rarr;</span>
         </div>
-        <div className="divide-y divide-[#E5E8EC]/60">
+        <div className="divide-y divide-border/60">
           {activeProjects.slice(0, 4).map(project => (
-            <div key={project.id} onClick={() => navigate('/app/projects')} className="py-3 flex items-center justify-between gap-4 group cursor-pointer hover:bg-[#F8F9FB] -mx-2 px-2 rounded-lg transition-all duration-150">
+            <div key={project.id} onClick={() => navigate('/app/projects')} className="py-3 flex items-center justify-between gap-4 group cursor-pointer hover:bg-surface-hover -mx-2 px-2 rounded-lg transition-all duration-150">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-md bg-[#4F46E5]/10 text-[#4F46E5] flex items-center justify-center shrink-0">
                   <Target className="w-4 h-4 stroke-[1.75]" />
                 </div>
                 <div className="min-w-0">
                   <div className="font-medium text-[#111827] text-body truncate group-hover:text-[#4F46E5] transition-colors duration-150">{project.name}</div>
-                  <div className="text-caption text-[#6B7280] truncate">{project.description || 'No description provided'}</div>
+                  <div className="text-caption text-secondary truncate">{project.description || 'No description provided'}</div>
                 </div>
               </div>
               <div className="flex items-center gap-6 shrink-0">
@@ -454,22 +455,22 @@ export function Dashboard() {
             </div>
           ))}
           {activeProjects.length === 0 && (
-            <div className="py-6 text-body text-[#9CA3AF]">No active projects logged</div>
+            <div className="py-6 text-body text-muted">No active projects logged</div>
           )}
         </div>
       </div>
 
       {/* SECTION 3: ANALYTICS (#8 Guide the Eye Order, #2 Chrome Reduction: Unboxed Section, #9 Chart Polish) */}
       <div className="space-y-6 pt-4">
-        <div className="flex items-center justify-between border-b border-[#E5E8EC] pb-3">
+        <div className="flex items-center justify-between border-b border-border pb-3">
           <h2 className="text-h2 tracking-tight text-[#111827]">Analytics</h2>
-          <span className="text-caption font-mono text-[#6B7280]">7-day engineering output</span>
+          <span className="text-caption font-mono text-secondary">7-day engineering output</span>
         </div>
 
         <div className="w-full">
           <div className="flex items-center justify-between mb-4">
             <div className="text-card-title text-[#111827]">Issues Completed per Day</div>
-            <span className="text-badge text-[#6B7280] bg-[#F8F9FB] border border-[#E5E8EC] px-2.5 py-1 rounded">Last 7 Days</span>
+            <span className="text-badge text-secondary bg-surface-hover border border-border px-2.5 py-1 rounded">Last 7 Days</span>
           </div>
           <div className="h-56 w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
@@ -493,15 +494,15 @@ export function Dashboard() {
         
         {/* Unboxed Upcoming Reminders (#2 Chrome Reduction) */}
         <div>
-          <div className="flex items-center justify-between border-b border-[#E5E8EC] pb-3 mb-4">
+          <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
             <h2 className="text-h2 tracking-tight text-[#111827]">Upcoming</h2>
             <span className="text-badge text-[#2563EB] cursor-pointer hover:underline lowercase font-normal" onClick={() => navigate('/app/timeline')}>view calendar &rarr;</span>
           </div>
-          <div className="divide-y divide-[#E5E8EC]/60">
+          <div className="divide-y divide-border/60">
             {upcomingDeadlines.map(issue => {
               const isUrgentDate = new Date(issue.dueDate!) <= next48Hours;
               return (
-                <div key={issue.id} onClick={() => navigate('/app/timeline')} className="py-3 flex items-center justify-between gap-3 group cursor-pointer hover:bg-[#F8F9FB] -mx-2 px-2 rounded-lg transition-all duration-150">
+                <div key={issue.id} onClick={() => navigate('/app/timeline')} className="py-3 flex items-center justify-between gap-3 group cursor-pointer hover:bg-surface-hover -mx-2 px-2 rounded-lg transition-all duration-150">
                   <div className="flex items-start gap-3 min-w-0">
                     <div className={cn(
                       "mt-1.5 w-2 h-2 rounded-full shrink-0 transition-all duration-300",
@@ -511,7 +512,7 @@ export function Dashboard() {
                       <div className="font-medium text-[#111827] text-body truncate group-hover:text-[#2563EB] transition-colors duration-150">{issue.title}</div>
                       <div className={cn(
                         "text-badge mt-0.5",
-                        isUrgentDate ? "text-[#DC2626]" : "text-[#6B7280]"
+                        isUrgentDate ? "text-[#DC2626]" : "text-secondary"
                       )}>
                         Due {new Date(issue.dueDate!).toLocaleDateString()}
                       </div>
@@ -524,18 +525,18 @@ export function Dashboard() {
               );
             })}
             {upcomingDeadlines.length === 0 && (
-              <div className="py-6 text-body text-[#9CA3AF]">No deadlines in next 7 days</div>
+              <div className="py-6 text-body text-muted">No deadlines in next 7 days</div>
             )}
           </div>
         </div>
 
         {/* Unboxed Daily Habits Checklist (#2 Chrome Reduction) */}
         <div>
-          <div className="flex items-center justify-between border-b border-[#E5E8EC] pb-3 mb-4">
+          <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
             <h2 className="text-h2 tracking-tight text-[#111827]">Daily Habits</h2>
             <span className="text-badge text-[#2563EB] cursor-pointer hover:underline lowercase font-normal" onClick={() => navigate('/app/goals')}>view all &rarr;</span>
           </div>
-          <div className="divide-y divide-[#E5E8EC]/60">
+          <div className="divide-y divide-border/60">
             {habits.map(habit => {
               const todayStr = new Date().toISOString().split('T')[0] || '';
               const isCompletedToday = habit.completions?.some((c: any) => c.date.toString().startsWith(todayStr) && c.completed) || 
@@ -544,7 +545,7 @@ export function Dashboard() {
                 <div 
                   key={habit.id} 
                   onClick={() => toggleHabitMutation.mutate(habit.id)}
-                  className="py-3 flex items-center justify-between gap-3 group cursor-pointer hover:bg-[#F8F9FB] -mx-2 px-2 rounded-lg transition-all duration-150"
+                  className="py-3 flex items-center justify-between gap-3 group cursor-pointer hover:bg-surface-hover -mx-2 px-2 rounded-lg transition-all duration-150"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <button 
@@ -553,7 +554,7 @@ export function Dashboard() {
                         "w-5 h-5 rounded flex items-center justify-center border transition-all duration-150 shrink-0",
                         isCompletedToday 
                           ? "bg-[#2563EB] border-[#2563EB] text-white" 
-                          : "border-[#D1D5DB] bg-white group-hover:border-[#9CA3AF]"
+                          : "border-[#D1D5DB] bg-surface group-hover:border-[#9CA3AF]"
                       )}
                     >
                       {isCompletedToday && <Check className="w-3 h-3 stroke-[2.5]" />}
@@ -561,11 +562,11 @@ export function Dashboard() {
                     <div className="min-w-0">
                       <div className={cn(
                         "font-medium text-body truncate transition-colors duration-150",
-                        isCompletedToday ? "line-through text-[#9CA3AF]" : "text-[#111827] group-hover:text-[#2563EB]"
+                        isCompletedToday ? "line-through text-muted" : "text-[#111827] group-hover:text-[#2563EB]"
                       )}>
                         {habit.name}
                       </div>
-                      <div className="text-badge text-[#6B7280] mt-0.5 flex items-center gap-1.5">
+                      <div className="text-badge text-secondary mt-0.5 flex items-center gap-1.5">
                         <span>{habit.cadence}</span>
                         <span>•</span>
                         <span className="text-[#EA580C] font-mono flex items-center gap-0.5"><Flame className="w-2.5 h-2.5 inline" /> {habit.streak}d</span>
@@ -579,25 +580,25 @@ export function Dashboard() {
               );
             })}
             {habits.length === 0 && (
-              <div className="py-6 text-body text-[#9CA3AF]">No habits configured yet</div>
+              <div className="py-6 text-body text-muted">No habits configured yet</div>
             )}
           </div>
         </div>
 
         {/* Unboxed Recent Activity with Interactive Filter Tabs (#2 Chrome Reduction) */}
         <div className="lg:col-span-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E8EC] pb-3 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3 mb-4">
             <h2 className="text-h2 tracking-tight text-[#111827]">Recent Activity</h2>
             
             {/* Interactive Filter Pills */}
-            <div className="flex items-center gap-1 bg-[#F8F9FB] border border-[#E5E8EC] p-0.5 rounded-lg w-max">
+            <div className="flex items-center gap-1 bg-surface-hover border border-border p-0.5 rounded-lg w-max">
               {(['All', 'Issue', 'Project', 'Habit', 'Page'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setActivityFilter(tab)}
                   className={cn(
                     "px-2.5 py-1 rounded-md text-caption font-medium transition-all duration-150 cursor-pointer",
-                    activityFilter === tab ? "bg-white text-[#111827] shadow-sm font-semibold" : "text-[#6B7280] hover:text-[#111827]"
+                    activityFilter === tab ? "bg-surface text-[#111827] shadow-sm font-semibold" : "text-secondary hover:text-primary"
                   )}
                 >
                   {tab === 'All' ? 'All' : `${tab}s`}
@@ -606,17 +607,17 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="divide-y divide-[#E5E8EC]/60">
+          <div className="divide-y divide-border/60">
             {filteredActivity.map((activity, idx) => {
               const isDone = activity.status === 'done' || activity.status === 'released' || activity.status === 'completed';
               const isInProgress = activity.status === 'in_progress' || activity.status === 'active';
               return (
-                <div key={idx} onClick={() => navigate(activity.link)} className="py-3.5 flex items-center justify-between gap-4 group cursor-pointer hover:bg-[#F8F9FB] -mx-2 px-2 rounded-lg transition-all duration-150">
+                <div key={idx} onClick={() => navigate(activity.link)} className="py-3.5 flex items-center justify-between gap-4 group cursor-pointer hover:bg-surface-hover -mx-2 px-2 rounded-lg transition-all duration-150">
                   <div className="flex flex-col min-w-0">
                     <div className="text-body text-[#111827] font-medium truncate group-hover:text-[#2563EB] transition-colors duration-150 flex items-center gap-2">
                       {activity.title}
                     </div>
-                    <div className="text-caption text-[#6B7280] mt-0.5">
+                    <div className="text-caption text-secondary mt-0.5">
                       <span className="font-medium text-[#111827]">{activity.type}</span> • {activity.action} • {getTimeAgo(activity.date)}
                     </div>
                   </div>
@@ -624,19 +625,19 @@ export function Dashboard() {
                   <div className="flex items-center gap-3 shrink-0">
                     <div className={cn(
                       "px-2 py-0.5 rounded text-badge",
-                      isDone ? "bg-[#F8F9FB] text-[#6B7280] border border-[#E5E8EC]" 
+                      isDone ? "bg-surface-hover text-secondary border border-border" 
                       : isInProgress ? "bg-[#EFF4FE] text-[#2563EB] border border-[#2563EB]/20" 
-                      : "bg-[#F8F9FB] text-[#6B7280]"
+                      : "bg-surface-hover text-secondary"
                     )}>
                       {isDone ? 'Completed' : isInProgress ? 'In Progress' : 'Pending'}
                     </div>
-                    <ArrowUpRight className="w-3.5 h-3.5 text-[#9CA3AF] opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
+                    <ArrowUpRight className="w-3.5 h-3.5 text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
                   </div>
                 </div>
               );
             })}
             {filteredActivity.length === 0 && (
-              <div className="py-8 text-center text-body text-[#9CA3AF]">No recent activity found for {activityFilter}s.</div>
+              <div className="py-8 text-center text-body text-muted">No recent activity found for {activityFilter}s.</div>
             )}
           </div>
         </div>
