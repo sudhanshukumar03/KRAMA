@@ -33,14 +33,14 @@ const STATUSES = ['backlog', 'todo', 'in_progress', 'review', 'testing', 'done',
 
 function getStatusIcon(status: string) {
   switch (status) {
-    case 'backlog': return <Circle className="w-4 h-4 text-muted stroke-[1.75]" />;
-    case 'todo': return <CircleDot className="w-4 h-4 text-secondary stroke-[1.75]" />;
-    case 'in_progress': return <CircleDashed className="w-4 h-4 text-[#2563EB] stroke-[1.75]" />;
-    case 'review': return <CheckCircle className="w-4 h-4 text-[#4F46E5] stroke-[1.75]" />;
-    case 'testing': return <CheckCircle className="w-4 h-4 text-secondary stroke-[1.75]" />;
-    case 'done': return <CheckCircle2 className="w-4 h-4 text-[#0D9488] stroke-[2]" />;
-    case 'released': return <CheckCircle2 className="w-4 h-4 text-[#0D9488] stroke-[2]" />;
-    default: return <Circle className="w-4 h-4 stroke-[1.75]" />;
+    case 'backlog': return <Circle className="w-3.5 h-3.5 text-muted stroke-[1.5]" />;
+    case 'todo': return <CircleDot className="w-3.5 h-3.5 text-secondary stroke-[1.5]" />;
+    case 'in_progress': return <CircleDashed className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#00E5FF] stroke-[1.5] animate-spin-slow" />;
+    case 'review': return <CheckCircle className="w-3.5 h-3.5 text-[#7C3AED] dark:text-[#A78BFA] stroke-[1.5]" />;
+    case 'testing': return <CheckCircle className="w-3.5 h-3.5 text-secondary stroke-[1.5]" />;
+    case 'done': return <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />;
+    case 'released': return <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />;
+    default: return <Circle className="w-3.5 h-3.5 stroke-[1.5]" />;
   }
 }
 
@@ -49,7 +49,7 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition: transition || 'transform 120ms ease-out',
+    transition: transition || 'transform 150ms cubic-bezier(0.16, 1, 0.3, 1)',
   };
 
   const isUrgent = issue.priority === 'urgent';
@@ -58,6 +58,7 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
   const completedSubtasks = issue.childIssues?.filter((c: { status: string }) => c.status === 'done').length || 0;
   const totalSubtasks = issue.childIssues?.length || 0;
   const subtaskPct = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
+  const hasDependencies = (issue.blockedBy && issue.blockedBy.length > 0) || (issue.blocking && issue.blocking.length > 0);
 
   return (
     <div 
@@ -67,17 +68,22 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
       {...listeners}
       onClick={() => onClick && onClick(issue)}
       className={cn(
-        "p-3 rounded-lg border border-border bg-surface shadow-sm text-sm cursor-grab active:cursor-grabbing hover:border-[#111827] transition-all duration-150 group",
-        isDragging && "scale-[1.03] shadow-md opacity-90 border-[#111827] ring-2 ring-[#111827] ring-offset-1 z-50 cursor-grabbing"
+        "p-3 rounded-xl border border-border bg-surface text-sm cursor-grab active:cursor-grabbing hover:border-[#2563EB]/60 dark:hover:border-[#00E5FF]/60 transition-all duration-200 group relative hover:shadow-sm",
+        isDragging && "scale-[1.02] shadow-md opacity-95 border-[#2563EB] dark:border-[#00E5FF] ring-1 ring-[#2563EB] dark:ring-[#00E5FF] z-50 cursor-grabbing bg-surface-hover"
       )}
     >
-      <div className="flex items-start justify-between gap-2 mb-1.5">
-        <span className="font-mono text-[10px] text-muted font-medium">{issue.id}</span>
-        <div className="flex items-center gap-1">
+      {/* Top Bar: Always visible minimal header */}
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <span className="font-mono text-[10px] text-muted font-bold tracking-wider group-hover:text-primary transition-colors">{issue.id}</span>
+        <div className="flex items-center gap-1.5">
+          {/* Show Blocked warning dot by default if blocked */}
+          {issue.blockedBy && issue.blockedBy.length > 0 && (
+            <span title="Blocked by dependencies" className="w-2 h-2 rounded-full bg-[#DC2626] animate-pulse" />
+          )}
           <span className={cn(
-            "px-1.5 py-0.2 rounded font-mono text-[9px] font-bold uppercase tracking-widest border",
-            isUrgent ? "bg-red-50 text-[#DC2626] border-[#DC2626]/20" 
-            : isHigh ? "bg-amber-50 text-amber-700 border-amber-200" 
+            "px-1.5 py-0.5 rounded font-mono text-[9px] font-bold uppercase tracking-widest border",
+            isUrgent ? "bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/30 animate-pulse" 
+            : isHigh ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30" 
             : "bg-surface-hover text-secondary border-border"
           )}>
             {issue.priority}
@@ -88,67 +94,73 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
                 e.stopPropagation();
                 onDelete(issue);
               }}
-              title="Delete Issue"
-              className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-50 rounded text-muted hover:text-[#DC2626] transition-all"
+              title="Delete Directive"
+              className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-[#DC2626]/10 rounded text-muted hover:text-[#DC2626] transition-all cursor-pointer"
             >
-              <Trash2 className="w-3 h-3 stroke-[1.75]" />
+              <Trash2 className="w-3 h-3 stroke-[1.5]" />
             </button>
           )}
         </div>
       </div>
 
-      <div className="font-medium text-[#111827] mb-2.5 line-clamp-2 group-hover:text-[#2563EB] transition-colors">
+      {/* Task Title: Clean high-contrast typography */}
+      <div className="font-medium text-primary line-clamp-2 group-hover:text-[#2563EB] dark:group-hover:text-[#00E5FF] transition-colors leading-snug">
         {issue.title}
       </div>
 
-      {/* Real Dependency Badges (#4 Dependency Labels: text-caption / 11px with color coding) */}
-      {((issue.blockedBy && issue.blockedBy.length > 0) || (issue.blocking && issue.blocking.length > 0)) && (
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {issue.blockedBy && issue.blockedBy.length > 0 && (
-            <span 
-              title={`Blocked by: ${issue.blockedBy.map((b: any) => b.title).join(', ')}`}
-              className="px-2 py-0.5 rounded bg-red-50 text-[#DC2626] border border-[#DC2626]/20 font-mono text-caption font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full shadow-2xs"
-            >
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              Blocked by: {issue.blockedBy.map((b: any) => b.id.slice(0, 6).toUpperCase()).join(', ')}
-            </span>
-          )}
-          {issue.blocking && issue.blocking.length > 0 && (
-            <span 
-              title={`Blocking: ${issue.blocking.map((b: any) => b.title).join(', ')}`}
-              className="px-2 py-0.5 rounded bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 font-mono text-caption font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full shadow-2xs"
-            >
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              Blocking: {issue.blocking.length} {issue.blocking.length === 1 ? 'ticket' : 'tickets'}
-            </span>
-          )}
-        </div>
-      )}
+      {/* HOVER REVEAL SECTION: Linear-style progressive disclosure (hidden by default, slides down on hover) */}
+      <div className="max-h-0 opacity-0 group-hover:max-h-48 group-hover:opacity-100 group-hover:mt-3 group-hover:pt-3 group-hover:border-t group-hover:border-border/60 transition-all duration-200 overflow-hidden space-y-2.5">
+        
+        {/* Dependency Badges */}
+        {hasDependencies && (
+          <div className="flex flex-wrap gap-1.5">
+            {issue.blockedBy && issue.blockedBy.length > 0 && (
+              <span 
+                title={`Blocked by: ${issue.blockedBy.map((b: any) => b.title).join(', ')}`}
+                className="px-2 py-0.5 rounded bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+              >
+                <AlertCircle className="w-3 h-3 shrink-0 stroke-[1.5]" />
+                Blocked: {issue.blockedBy.map((b: any) => b.id.slice(0, 6).toUpperCase()).join(', ')}
+              </span>
+            )}
+            {issue.blocking && issue.blocking.length > 0 && (
+              <span 
+                title={`Blocking: ${issue.blocking.map((b: any) => b.title).join(', ')}`}
+                className="px-2 py-0.5 rounded bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+              >
+                <AlertCircle className="w-3 h-3 shrink-0 stroke-[1.5]" />
+                Blocking: {issue.blocking.length} {issue.blocking.length === 1 ? 'task' : 'tasks'}
+              </span>
+            )}
+          </div>
+        )}
 
-      <div className="flex flex-col gap-2 pt-2 border-t border-border/60">
+        {/* Subtask Telemetry Bar */}
         {totalSubtasks > 0 && (
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[10px] text-secondary font-mono">
               <span>Sub-tasks</span>
-              <span>{completedSubtasks}/{totalSubtasks}</span>
+              <span className="text-primary font-bold">{completedSubtasks}/{totalSubtasks}</span>
             </div>
             <div className="h-1 w-full bg-surface-hover rounded-full overflow-hidden border border-border/40">
-              <div className="h-full bg-[#2563EB] transition-all duration-400 ease-out" style={{ width: `${subtaskPct}%` }} />
+              <div className="h-full bg-[#2563EB] dark:bg-[#00E5FF] transition-all duration-300 ease-out" style={{ width: `${subtaskPct}%` }} />
             </div>
           </div>
         )}
 
-        <div className="flex items-center justify-between text-[11px] text-secondary">
+        {/* Assignee Avatar & Estimate Row */}
+        <div className="flex items-center justify-between text-xs text-secondary font-mono pt-0.5">
           <div className="flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded-full bg-surface-hover border border-border flex items-center justify-center text-[9px] font-medium text-[#111827]">
-              <User className="w-2.5 h-2.5 stroke-[2]" />
+            <div className="w-4 h-4 rounded-full bg-surface-hover border border-border flex items-center justify-center text-[9px] font-bold text-primary">
+              <User className="w-2.5 h-2.5 stroke-[1.5]" />
             </div>
-            <span className="text-[11px] font-normal truncate max-w-[120px]">{issue.assignee ? 'Assignee' : 'Unassigned'}</span>
+            <span className="text-[11px] font-normal truncate max-w-[120px] text-muted">{issue.assignee ? 'Assignee' : 'Solo Builder'}</span>
           </div>
           {issue.estimate && (
-            <span className="font-mono text-[10px] bg-surface-hover px-1.5 py-0.2 rounded border border-border/60">{issue.estimate}h</span>
+            <span className="text-[10px] bg-surface-hover px-1.5 py-0.5 rounded border border-border text-primary font-bold">{issue.estimate}h est</span>
           )}
         </div>
+
       </div>
     </div>
   );
@@ -161,18 +173,18 @@ function Column({ title, issues, isLast, onDelete, onCreate, onClick }: { id: st
       !isLast && "border-r border-border"
     )}>
       <div className={cn(
-        "px-4 py-3 font-medium text-sm text-[#111827] flex justify-between items-center bg-surface-hover border-b border-border relative shadow-2xs",
+        "px-4 py-3 font-medium text-sm text-primary flex justify-between items-center bg-surface-hover/50 border-b border-border relative",
         title === 'todo' && "border-t-2 border-t-[#6B7280]",
-        title === 'in_progress' && "border-t-2 border-t-[#2563EB]",
+        title === 'in_progress' && "border-t-2 border-t-[#2563EB] dark:border-t-[#00E5FF]",
         title === 'blocked' && "border-t-2 border-t-[#DC2626]",
-        title === 'review' && "border-t-2 border-t-[#7C3AED]",
-        title === 'done' && "border-t-2 border-t-[#0D9488]"
+        title === 'review' && "border-t-2 border-t-[#7C3AED] dark:border-t-[#A78BFA]",
+        title === 'done' && "border-t-2 border-t-[#109868]"
       )}>
         <div className="flex items-center gap-2">
           {getStatusIcon(title)}
-          <span className="capitalize font-medium text-xs tracking-tight">{title.replace('_', ' ')}</span>
+          <span className="capitalize font-mono font-bold text-xs tracking-wider text-primary">{title.replace('_', ' ')}</span>
         </div>
-        <span className="bg-surface border border-border px-2 py-0.2 rounded font-mono text-[11px] text-secondary font-medium shadow-2xs">{issues.length}</span>
+        <span className="bg-surface border border-border px-2 py-0.5 rounded font-mono text-[10px] text-secondary font-bold shadow-2xs">{issues.length}</span>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5 flex flex-col justify-between">
         <div className="space-y-2.5">
@@ -755,42 +767,42 @@ export function KanbanBoard() {
       {/* Top Bar with Title and Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-medium tracking-tight text-[#111827]">Execution Board</h1>
-          <p className="text-[13px] text-secondary">Drag and drop issues across sprint statuses. Single bounded board view.</p>
+          <h1 className="text-title font-bold tracking-tight text-primary">Execution Board</h1>
+          <p className="text-body text-secondary">Drag and drop directives across sprint stages. Bounded mission execution canvas.</p>
         </div>
         <BaseButton onClick={() => handleCreateIssue('todo')}>
-          <Plus className="w-4 h-4 mr-1.5 stroke-[2]" /> New Issue
+          <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" /> New Directive
         </BaseButton>
       </div>
 
-      {/* NEW: Interactive Filter & Search Bar */}
-      <div className="bg-surface border border-border rounded-xl p-3 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      {/* Interactive Filter & Search Bar */}
+      <div className="bg-surface border border-border rounded-xl p-3 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         
         {/* Search Input */}
         <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 stroke-[1.75]" />
+          <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 stroke-[1.5]" />
           <input
             type="text"
-            placeholder="Search issues by title or ID (e.g. KRA-101)..."
+            placeholder="Search directives by title or ID (e.g. KR-101)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-[#2563EB] focus:bg-surface transition-all placeholder:text-muted text-[#111827]"
+            className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-[#2563EB] dark:focus:border-[#00E5FF] focus:bg-surface transition-all placeholder:text-muted text-primary"
           />
         </div>
 
         {/* Priority Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          <span className="text-[11px] font-medium text-secondary flex items-center gap-1 mr-1 shrink-0">
-            <Filter className="w-3.5 h-3.5 stroke-[1.75]" /> Priority:
+          <span className="text-[11px] font-mono font-medium text-secondary flex items-center gap-1 mr-1 shrink-0 uppercase tracking-wider">
+            <Filter className="w-3.5 h-3.5 stroke-[1.5]" /> Priority:
           </span>
           {(['all', 'urgent', 'high', 'medium', 'low'] as const).map((pri) => (
             <button
               key={pri}
               onClick={() => setPriorityFilter(pri)}
               className={cn(
-                "px-2.5 py-1 rounded-md text-xs font-medium capitalize transition-all shrink-0",
+                "px-3 py-1 rounded-md text-xs font-mono font-bold capitalize transition-all shrink-0 cursor-pointer",
                 priorityFilter === pri 
-                  ? "bg-[#111827] text-white shadow-2xs" 
+                  ? "bg-primary text-surface shadow-2xs" 
                   : "bg-surface-hover text-secondary hover:text-primary border border-border"
               )}
             >
