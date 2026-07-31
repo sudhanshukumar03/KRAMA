@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { CreateTaskSchema, UpdateTaskSchema, ReorderSchema } from '@krama/validation';
+import { notificationsQueue } from '../queues';
 
 const prisma = new PrismaClient();
 
@@ -199,8 +200,12 @@ export const completeTask = async (req: Request, res: Response) => {
       },
     });
 
-    // TODO: Stage 4 event emission
-    // EventDispatcher.emit('TaskCompleted', task);
+    // Enqueue event asynchronously
+    await notificationsQueue.add('task-completed', {
+      taskId: task.id,
+      workspaceId: task.workspaceId,
+      userId: req.user!.id,
+    });
 
     return res.status(200).json(task);
   } catch (error) {

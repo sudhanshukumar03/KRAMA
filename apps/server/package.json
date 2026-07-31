@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "concurrently \"tsx watch src/index.ts\" \"tsx watch src/worker.ts\"",
     "start": "tsx src/index.ts",
+    "worker": "tsx src/worker.ts",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "tsx src/seed.ts"
@@ -22,12 +23,14 @@
     "@krama/validation": "workspace:*",
     "@prisma/client": "^6.19.3",
     "bcrypt": "^6.0.0",
+    "bullmq": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.1",
     "helmet": "^8.3.0",
+    "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
     "jwt-simple": "^0.5.6",
     "prisma": "^6.19.3",
@@ -42,6 +45,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/jwt-simple": "^0.5.36",
     "@types/node": "^24.13.3",
+    "concurrently": "^8.2.2",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.1",
     "typescript": "^6.0.3"

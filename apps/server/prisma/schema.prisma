@@ -25,6 +25,7 @@ model User {
   memberships      WorkspaceMember[]
   sessions         Session[]
   dailyLogs        DailyLog[]
+  notifications    Notification[]
 }
 
 model Session {
@@ -49,6 +50,7 @@ model Workspace {
   createdBy      String?
   updatedBy      String?
   version        Int       @default(1)
+  productivityScore Int    @default(0)
 
   members        WorkspaceMember[]
   projects       Project[]
@@ -58,6 +60,9 @@ model Workspace {
   tasks          Task[]
   sprints        Sprint[]
   dailyLogs      DailyLog[]
+  sprintReports  SprintReport[]
+  analytics      WorkspaceAnalytics[]
+  notifications  Notification[]
 }
 
 model WorkspaceMember {
@@ -219,6 +224,7 @@ model Sprint {
   version        Int       @default(1)
 
   tasks          Task[]
+  report         SprintReport?
 }
 
 model DailyLog {
@@ -242,4 +248,46 @@ model DailyLog {
   version         Int       @default(1)
 
   @@unique([userId, workspaceId, date])
+}
+
+// -----------------------------------------------------------------------------
+// ANALYTICS & NOTIFICATIONS
+// -----------------------------------------------------------------------------
+
+model SprintReport {
+  id              String    @id @default(uuid())
+  sprintId        String
+  sprint          Sprint    @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  generatedAt     DateTime  @default(now())
+  tasksCompleted  Int
+  tasksPlanned    Int
+
+  @@unique([sprintId]) // 1 report per sprint
+}
+
+model WorkspaceAnalytics {
+  id              String    @id @default(uuid())
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  date            DateTime
+  weeklyVelocity  Int
+  activeStreaks   Int
+  okrPace         Float
+  deepWorkLogged  Int
+
+  @@unique([workspaceId, date])
+}
+
+model Notification {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title           String
+  message         String
+  read            Boolean   @default(false)
+  createdAt       DateTime  @default(now())
 }
