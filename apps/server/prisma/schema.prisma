@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// CORE & MULTI-TENANCY
+// -----------------------------------------------------------------------------
+
+model User {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  name             String?
+  passwordHash     String
+  emailVerifiedAt  DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+  version          Int       @default(1)
+
+  memberships      WorkspaceMember[]
+  sessions         Session[]
+  dailyLogs        DailyLog[]
+}
+
+model Session {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @unique
+  expiresAt        DateTime
+  userAgent        String?
+  ip               String?
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Workspace {
+  id             String    @id @default(uuid())
+  name           String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+  version        Int       @default(1)
+
+  members        WorkspaceMember[]
+  projects       Project[]
+  goals          Goal[]
+  habits         Habit[]
+  pages          Page[]
+  tasks          Task[]
+  sprints        Sprint[]
+  dailyLogs      DailyLog[]
+}
+
+model WorkspaceMember {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role         Role      @default(MEMBER)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, workspaceId])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+  GUEST
+}
+
+// -----------------------------------------------------------------------------
+// EXECUTION LAYER (PROJECTS & TASKS)
+// -----------------------------------------------------------------------------
+
+model Project {
+  id               String    @id @default(uuid())
+  name             String
+  problemStatement String?
+  status           String    @default("active")
+  workspaceId      String
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  goalId           String?
+  goal             Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+  createdBy        String?
+  updatedBy        String?
+  version          Int       @default(1)
+  position         Float     @default(0)
+
+  tasks            Task[]
+  pages            Page[]    @relation("ProjectPages")
+  sprints          Sprint[]
+}
+
+model Task {
+  id             String    @id @default(uuid())
+  title          String
+  description    String?
+  status         String    @default("todo") // todo, in_progress, done
+  priority       String    @default("medium")
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  sprintId       String?
+  sprint         Sprint?   @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  assigneeId     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+  version        Int       @default(1)
+  position       Float     @default(0)
+}
+
+// -----------------------------------------------------------------------------
+// STRATEGY & HABITS
+// -----------------------------------------------------------------------------
+
+model Goal {
+  id             String    @id @default(uuid())
+  title          String
+  type           String    // yearly, quarterly
+  progress       Float     @default(0)
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+  version        Int       @default(1)
+
+  projects       Project[]
+}
+
+model Habit {
+  id             String    @id @default(uuid())
+  name           String
+  streak         Int       @default(0)
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+  version        Int       @default(1)
+
+  logs           HabitLog[]
+}
+
+model HabitLog {
+  id             String    @id @default(uuid())
+  habitId        String
+  habit          Habit     @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  completedAt    DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+}
+
+// -----------------------------------------------------------------------------
+// KNOWLEDGE (BRAIN WORKSPACE)
+// -----------------------------------------------------------------------------
+
+model Page {
+  id             String    @id @default(uuid())
+  title          String
+  blocks         Json?     // Editor JSON
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parentPageId   String?
+  parentPage     Page?     @relation("PageHierarchy", fields: [parentPageId], references: [id])
+  childPages     Page[]    @relation("PageHierarchy")
+  linkedProjectId String?
+  linkedProject  Project?  @relation("ProjectPages", fields: [linkedProjectId], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+  version        Int       @default(1)
+}
+
+// -----------------------------------------------------------------------------
+// SPRINT & DAILY LOGS
+// -----------------------------------------------------------------------------
+
+model Sprint {
+  id             String    @id @default(uuid())
+  name           String
+  startDate      DateTime
+  endDate        DateTime
+  status         String    @default("planning") // planning, active, completed
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+  version        Int       @default(1)
+
+  tasks          Task[]
+}
+
+model DailyLog {
+  id              String    @id @default(uuid())
+  date            DateTime
+  wins            String[]
+  blockers        String[]
+  mood            String?
+  energy          String?
+  deepWorkMinutes Int?
+  notes           String?
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  createdBy       String?
+  updatedBy       String?
+  version         Int       @default(1)
+
+  @@unique([userId, workspaceId, date])
+}

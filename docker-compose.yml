@@ -3,33 +3,37 @@ version: '3.8'
 services:
   db:
     image: postgres:15-alpine
-    container_name: krama_db
+    container_name: krama-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: krama
+      POSTGRES_USER: krama_user
+      POSTGRES_PASSWORD: krama_password
+      POSTGRES_DB: krama_os
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U krama_user -d krama_os"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  api:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    container_name: krama_api
-    environment:
-      NODE_ENV: production
-      PORT: 3001
-      DATABASE_URL: "postgresql://postgres:password@db:5432/krama?schema=public"
-      JWT_SECRET: "krama-os-secret-jwt-key-2026-prod-docker-secure"
-      CORS_ORIGIN: "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
+  redis:
+    image: redis:7-alpine
+    container_name: krama-redis
+    command: redis-server --requirepass krama_redis_secret
     ports:
-      - "3001:3001"
-    depends_on:
-      - db
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "krama_redis_secret", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
+  redis_data:
