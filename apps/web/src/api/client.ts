@@ -85,11 +85,25 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
         id: 'd1',
         title: 'Adopt God-Level UI Scale',
         context: 'The UI felt cramped and lacked premium spacing.',
-        reasoning: 'Increased typography scale by 20% and padding to 24px/32px creates a more breathable layout.',
-        alternativesConsidered: ['Keep Tailwind Defaults'],
-        outcome: 'Adopted God-Level typography.',
+        reasoning: 'Increased typography scale by 20% and padding to 24px/32px creates a more breathable layout. Soft noise and ambient glow elevate the experience.',
+        alternativesConsidered: ['Keep Tailwind Defaults', 'Use Dark Mode Only'],
+        outcome: 'Adopted God-Level typography and spacing scale globally.',
         status: 'accepted',
         date: new Date().toISOString(),
+        linkedProjectId: 'p1',
+        linkedProject: { id: 'p1', name: 'Core Architecture' }
+      },
+      {
+        id: 'd2',
+        title: 'Deprecate Neon Glows for Flat Avionics',
+        context: 'We had too many glowing borders making it look like a gaming site.',
+        reasoning: 'Avionics interfaces rely on flat, high-contrast, crisp elements.',
+        alternativesConsidered: ['Retain subtle glows'],
+        outcome: 'Removed heavy glows, kept 1px borders.',
+        status: 'deprecated',
+        date: new Date(Date.now() - 86400000).toISOString(),
+        linkedProjectId: 'p1',
+        linkedProject: { id: 'p1', name: 'Core Architecture' }
       }
     ] as any;
   }
