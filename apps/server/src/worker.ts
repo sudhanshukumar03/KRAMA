@@ -10,18 +10,24 @@ const scheduleJobs = async () => {
   console.log('Scheduling repeatable jobs...');
   
   // Nightly at midnight UTC
-  await habitStreakQueue.add('recalculate-streaks', {}, {
-    repeat: { pattern: '0 0 * * *' }
+  await habitStreakQueue.upsertJobScheduler('recalculate-streaks-job', {
+    pattern: '0 0 * * *'
+  }, {
+    name: 'recalculate-streaks'
   });
 
   // Nightly at 1 AM UTC
-  await analyticsQueue.add('aggregate-analytics', {}, {
-    repeat: { pattern: '0 1 * * *' }
+  await analyticsQueue.upsertJobScheduler('aggregate-analytics-job', {
+    pattern: '0 1 * * *'
+  }, {
+    name: 'aggregate-analytics'
   });
 
   // Weekly on Sunday at 2 AM UTC
-  await sprintReportQueue.add('generate-sprint-reports', {}, {
-    repeat: { pattern: '0 2 * * 0' }
+  await sprintReportQueue.upsertJobScheduler('generate-sprint-reports-job', {
+    pattern: '0 2 * * 0'
+  }, {
+    name: 'generate-sprint-reports'
   });
 
   console.log('Jobs scheduled successfully.');
