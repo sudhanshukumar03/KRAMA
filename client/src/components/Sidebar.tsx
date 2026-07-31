@@ -78,7 +78,7 @@ export function Sidebar({
         )}
       >
         <div className="flex items-center gap-3.5 min-w-0">
-          <Icon className={cn("w-5 h-5 shrink-0 stroke-[1.5] transition-colors", isActive ? "text-[#2563EB]" : "text-muted group-hover:text-primary")} />
+          <Icon className={cn("w-5 h-5 shrink-0 stroke-[1.5] transition-colors", isActive ? "text-primary" : "text-muted group-hover:text-primary")} />
           <span className="truncate">{item.name}</span>
         </div>
 

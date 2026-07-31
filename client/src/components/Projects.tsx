@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, Trash2, X, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { FolderKanban, Plus, Clock, Search, Filter, CheckCircle2, Sparkles, Trash2, X, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
@@ -322,7 +322,7 @@ export function Projects() {
                     <div 
                       key={project.id} 
                       onClick={() => navigate(`/app/projects/${project.id}`)}
-                      className="bg-surface border border-border rounded-2xl p-6 shadow-xs hover:shadow-md transition-all duration-300 hover:translate-y-[-2px] hover:border-[#4F46E5] dark:hover:border-[#818CF8] cursor-pointer group/card flex flex-col justify-between gap-5 relative overflow-hidden"
+                      className="bg-surface border border-border rounded-2xl p-6 md:p-8 shadow-xs hover-lift-soft cursor-pointer group/card flex flex-col justify-between gap-5 relative overflow-hidden"
                     >
                       {/* Left color glow bar on hover */}
                       <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#4F46E5] dark:bg-[#818CF8] opacity-0 group-hover/card:opacity-100 transition-opacity duration-300" />
@@ -338,8 +338,8 @@ export function Projects() {
                               {project.name}
                             </h3>
                             {project.goalId && (
-                              <span className="bg-[#109868]/10 text-[#109868] border border-[#109868]/20 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
-                                <Target className="w-3 h-3 stroke-[1.5]" /> OKR LINKED
+                              <span className="bg-surface-hover text-primary border border-border px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#109868]" /> OKR LINKED
                               </span>
                             )}
                           </div>
@@ -360,7 +360,7 @@ export function Projects() {
                           >
                             <Trash2 className="w-4 h-4 stroke-[1.5]" />
                           </button>
-                          <div className="px-3.5 py-1.5 rounded-xl bg-surface-hover group-hover/card:bg-[#4F46E5] dark:group-hover/card:bg-[#818CF8] text-secondary group-hover/card:text-white dark:group-hover/card:text-[#050811] font-mono text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs">
+                          <div className="px-3.5 py-1.5 rounded-xl bg-surface-hover group-hover/card:bg-surface text-secondary group-hover/card:text-primary font-mono text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs group-hover/card:border-border border border-transparent">
                             <span>Open Initiative</span>
                             <ArrowRight className="w-3.5 h-3.5 stroke-[1.5] group-hover/card:translate-x-0.5 transition-transform" />
                           </div>

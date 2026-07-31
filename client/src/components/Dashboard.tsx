@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { 
-  Target, 
   ListTodo, 
   Plus, 
   Clock, 
@@ -173,7 +172,7 @@ export function Dashboard() {
   const mins = deepWorkMins % 60;
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 flex flex-col gap-8 pb-24">
+    <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 flex flex-col gap-12 pb-24">
       
       {/* MISSION CONTROL HEADER — God-Level UI */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border pb-8">
@@ -207,10 +206,10 @@ export function Dashboard() {
       {/* UNIFIED EXECUTION PULSE BAR — Persistent Blueprint Telemetry */}
       <div 
         onClick={() => navigate('/app/sprint')}
-        className="w-full bg-surface border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-primary transition-all duration-150 cursor-pointer group shadow-2xs"
+        className="w-full bg-surface border border-border rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover-lift-soft cursor-pointer group"
       >
         <div className="flex items-center gap-4 min-w-0">
-          <div className="w-9 h-9 rounded-lg bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 text-[#2563EB] dark:text-[#00E5FF] flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-surface-hover text-primary border border-border flex items-center justify-center shrink-0">
             <Zap className="w-4 h-4 stroke-[1.5]" />
           </div>
           <div className="min-w-0">
@@ -240,16 +239,16 @@ export function Dashboard() {
       </div>
 
       {/* SECTION 1: TODAY'S MISSION & AVIONICS HUD — 2 Columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-stretch">
         
         {/* Left Card (7 Cols): Today's Mission — Blueprint Schematics */}
-        <div className="lg:col-span-7 bg-surface border-2 border-border hover:border-primary/40 rounded-2xl p-6 md:p-8 flex flex-col justify-between relative overflow-hidden group shadow-sm transition-all duration-200">
+        <div className="lg:col-span-7 bg-surface border border-border hover-lift-soft rounded-2xl p-6 md:p-8 flex flex-col justify-between relative overflow-hidden group">
           <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-gradient-to-tl from-[#2563EB]/5 to-transparent rounded-full pointer-events-none" />
           
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-[#2563EB] dark:text-[#00E5FF] bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 px-3 py-1 rounded-full border border-[#2563EB]/20 dark:border-[#00E5FF]/20 flex items-center gap-2">
-                <Target className="w-3.5 h-3.5 stroke-[1.5]" /> TODAY'S PRIMARY MISSION
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-primary bg-surface-hover px-3 py-1 rounded-full border border-border flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] dark:bg-[#00E5FF]" /> TODAY'S PRIMARY MISSION
               </span>
               <span className="text-xs font-mono text-secondary">Est. Finish: <strong className="text-primary">Friday 4:30 PM</strong></span>
             </div>
@@ -299,8 +298,8 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Right Card (5 Cols): Avionics HUD Target Velocity Gauge */}
-        <div className="lg:col-span-5 bg-surface border border-border rounded-2xl p-6 md:p-8 flex flex-col justify-between bg-schematic-grid relative">
+        {/* Right Card (5 Cols): Avionics HUD Gauge */}
+        <div className="lg:col-span-5 bg-surface border border-border hover-lift-soft rounded-2xl p-6 md:p-8 flex flex-col justify-between bg-schematic-grid relative">
           <div className="flex items-center justify-between mb-4">
             <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-secondary flex items-center gap-2">
               <Compass className="w-3.5 h-3.5 text-primary stroke-[1.5]" /> AVIONICS VELOCITY HUD

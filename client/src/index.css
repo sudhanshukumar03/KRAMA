@@ -56,7 +56,8 @@
   --font-badge: 11px;
 
   --text-title: 42px;
-  --text-title--font-weight: 650;
+  --text-title--font-weight: 500;
+  --text-title--font-family: var(--font-serif);
   --text-h2: 30px;
   --text-h2--font-weight: 600;
   --text-card-title: 20px;
@@ -68,7 +69,10 @@
   --text-caption--font-weight: 450;
   --text-badge: 11px;
   --text-badge--font-weight: 600;
-  --text-badge--letter-spacing: 0.03em;
+  --text-badge--letter-spacing: 0.05em;
+
+  /* Premium Soft Elevation */
+  --shadow-soft: 0 1px 2px rgba(17, 24, 39, 0.04), 0 4px 12px rgba(17, 24, 39, 0.04), 0 12px 32px rgba(17, 24, 39, 0.03);
 
   /* Corner Radius Tokens (Technical Geometric Bounds) */
   --radius-sm: 6px;
@@ -323,13 +327,17 @@
   }
 
   /* Automated Typography Scale Enforcement (#1 & #12) */
-  .text-hero, [class*="text-[48px]"], [class*="text-[52px]"] { font-size: var(--font-hero) !important; font-weight: 700 !important; line-height: 1.15 !important; letter-spacing: -0.02em !important; }
-  .text-title, [class*="text-[36px]"], [class*="text-[42px]"], [class*="text-[32px]"], [class*="text-3xl"], [class*="text-4xl"] { font-size: var(--font-title) !important; font-weight: 650 !important; line-height: 1.15 !important; letter-spacing: -0.02em !important; }
+  .text-hero, [class*="text-[48px]"], [class*="text-[52px]"] { font-family: var(--font-serif) !important; font-size: var(--font-hero) !important; font-weight: 500 !important; line-height: 1.15 !important; letter-spacing: -0.02em !important; }
+  .text-title, [class*="text-[36px]"], [class*="text-[42px]"], [class*="text-[32px]"], [class*="text-3xl"], [class*="text-4xl"] { font-family: var(--font-serif) !important; font-size: var(--font-title) !important; font-weight: 500 !important; line-height: 1.15 !important; letter-spacing: -0.02em !important; }
   .text-h2, [class*="text-[28px]"], [class*="text-[30px]"], [class*="text-[24px]"], [class*="text-2xl"] { font-size: var(--font-h2) !important; font-weight: 600 !important; line-height: 1.15 !important; letter-spacing: -0.01em !important; }
   .text-card-title, [class*="text-[20px]"], [class*="text-[18px]"], [class*="text-[17px]"], [class*="text-[16px] font-semibold"], [class*="text-xl font-medium"], [class*="text-xl font-semibold"], [class*="text-lg font-bold"] { font-size: var(--font-card-title) !important; font-weight: 600 !important; }
   .text-body, [class*="text-[17px]"], [class*="text-[15px]"], [class*="text-[14px]"], [class*="text-sm font-normal"] { font-size: var(--font-body) !important; font-weight: 450 !important; line-height: 1.6 !important; }
   .text-caption, [class*="text-[15px] text-[#6B7280]"], [class*="text-[13px]"], [class*="text-[12px]"], [class*="text-xs text-[#6B7280]"], [class*="text-xs text-[#9CA3AF]"] { font-size: var(--font-caption) !important; font-weight: 450 !important; line-height: 1.5 !important; }
-  .text-badge, [class*="text-[11px] uppercase"], [class*="text-[10px] uppercase"], [class*="text-xs font-mono uppercase"] { font-size: var(--font-badge) !important; font-weight: 600 !important; text-transform: uppercase !important; letter-spacing: 0.03em !important; }
+  .text-badge, [class*="text-[11px] uppercase"], [class*="text-[10px] uppercase"], [class*="text-xs font-mono uppercase"] { font-size: var(--font-badge) !important; font-weight: 600 !important; text-transform: uppercase !important; letter-spacing: 0.05em !important; }
+
+  [class*="shadow-sm"], [class*="shadow-md"] {
+    box-shadow: var(--shadow-soft) !important;
+  }
 
   /* Corner Radius Standardization (#5 & #12) */
   button:not([class*="rounded-full"]):not([class*="rounded-none"]), [role="button"]:not([class*="rounded-full"]):not([class*="rounded-none"]) { border-radius: var(--radius-sm) !important; }
@@ -452,6 +460,15 @@
 
 .hover-lift-2px:hover {
   transform: translateY(-2px);
+}
+
+@utility hover-lift-soft {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hover-lift-soft:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft) !important;
 }
 
 @utility transition-motion-200 {
