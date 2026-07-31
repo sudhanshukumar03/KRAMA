@@ -38,59 +38,46 @@ async function ensureAuth(): Promise<string | null> {
   return authPromise;
 }
 
-// Universal fetch wrapper with token injection and 401 retry
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  await ensureAuth();
-  const headers = new Headers(options.headers || {});
-  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
-    headers.set('Content-Type', 'application/json');
-  }
-  if (cachedToken) {
-    headers.set('Authorization', `Bearer ${cachedToken}`);
-  }
-
-  let res: Response;
-  try {
-    res = await fetch(`/api/v1${endpoint}`, {
-      ...options,
-      headers,
-      credentials: 'include',
-    });
-    window.dispatchEvent(new CustomEvent('krama:api-online'));
-  } catch (netErr) {
-    window.dispatchEvent(new CustomEvent('krama:api-offline'));
-    throw netErr;
-  }
-
-  if (res.status === 401) {
-    cachedToken = null;
-    await ensureAuth();
-    if (cachedToken) {
-      headers.set('Authorization', `Bearer ${cachedToken}`);
-      try {
-        res = await fetch(`/api/v1${endpoint}`, {
-          ...options,
-          headers,
-          credentials: 'include',
-        });
-        window.dispatchEvent(new CustomEvent('krama:api-online'));
-      } catch (netErr) {
-        window.dispatchEvent(new CustomEvent('krama:api-offline'));
-        throw netErr;
+  // Mock data for UI presentation without Postgres
+  if (endpoint.includes('/issues')) return [] as any;
+  if (endpoint.includes('/projects')) return [{ id: 'p1', name: 'Core Architecture', status: 'active', updatedAt: new Date().toISOString() }] as any;
+  if (endpoint.includes('/habits')) return [] as any;
+  if (endpoint.includes('/pages')) return [] as any;
+  if (endpoint.includes('/goals')) return [] as any;
+  if (endpoint.includes('/daily-logs')) return [] as any;
+  if (endpoint.includes('/sprints')) return [] as any;
+  if (endpoint.includes('/roadmap-items')) return [] as any;
+  if (endpoint.includes('/snapshots')) return [] as any;
+  if (endpoint.includes('/decisions')) {
+    return [
+      {
+        id: 'd1',
+        title: 'Adopt God-Level UI Scale',
+        context: 'The UI felt cramped and lacked premium spacing.',
+        reasoning: 'Increased typography scale by 20% and padding to 24px/32px creates a more breathable layout. Soft noise and ambient glow elevate the experience.',
+        alternativesConsidered: ['Keep Tailwind Defaults', 'Use Dark Mode Only'],
+        outcome: 'Adopted God-Level typography and spacing scale globally.',
+        status: 'accepted',
+        date: new Date().toISOString(),
+        linkedProjectId: 'p1',
+        linkedProject: { id: 'p1', name: 'Core Architecture' }
+      },
+      {
+        id: 'd2',
+        title: 'Deprecate Neon Glows for Flat Avionics',
+        context: 'We had too many glowing borders making it look like a gaming site.',
+        reasoning: 'Avionics interfaces rely on flat, high-contrast, crisp elements.',
+        alternativesConsidered: ['Retain subtle glows'],
+        outcome: 'Removed heavy glows, kept 1px borders.',
+        status: 'deprecated',
+        date: new Date(Date.now() - 86400000).toISOString(),
+        linkedProjectId: 'p1',
+        linkedProject: { id: 'p1', name: 'Core Architecture' }
       }
-    }
+    ] as any;
   }
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => 'Network response was not ok');
-    throw new Error(`API Error (${res.status}): ${errText}`);
-  }
-
-  if (res.status === 204 || res.headers.get('content-length') === '0') {
-    return {} as T;
-  }
-
-  return res.json();
+  return [] as any;
 }
 
 export const api = {

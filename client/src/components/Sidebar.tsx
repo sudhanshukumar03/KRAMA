@@ -71,14 +71,14 @@ export function Sidebar({
         to={item.path}
         onClick={onMobileClose}
         className={cn(
-          "group flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 outline-none select-none",
+          "group flex items-center justify-between px-4 py-3.5 rounded-xl text-[16px] font-[550] transition-all duration-150 outline-none select-none",
           isActive 
-            ? "bg-surface text-primary font-semibold shadow-2xs border border-border" 
-            : "text-secondary hover:text-primary hover:bg-surface/60 border border-transparent"
+            ? "bg-surface text-primary font-[650] shadow-sm border border-border" 
+            : "text-secondary hover:text-primary hover:bg-surface-hover/80 border border-transparent"
         )}
       >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <Icon className={cn("w-4 h-4 shrink-0 stroke-[1.5] transition-colors", isActive ? "text-[#2563EB]" : "text-muted group-hover:text-primary")} />
+        <div className="flex items-center gap-3.5 min-w-0">
+          <Icon className={cn("w-5 h-5 shrink-0 stroke-[1.5] transition-colors", isActive ? "text-[#2563EB]" : "text-muted group-hover:text-primary")} />
           <span className="truncate">{item.name}</span>
         </div>
 
@@ -92,32 +92,32 @@ export function Sidebar({
   };
 
   const sidebarContent = (
-    <div className="w-60 border-r border-border bg-surface-hover flex flex-col h-full flex-shrink-0 select-none">
+    <div className="w-72 border-r border-border bg-surface-hover flex flex-col h-full flex-shrink-0 select-none">
       {/* Header / Brand — Linear / Apple Restraint */}
-      <div className="h-14 flex items-center justify-between px-4 border-b border-border bg-surface">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-[#111827] dark:bg-white text-white dark:text-[#111827] flex items-center justify-center font-mono font-bold text-xs shadow-sm">
+      <div className="h-16 flex items-center justify-between px-5 border-b border-border bg-surface">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-[#111827] dark:bg-white text-white dark:text-[#111827] flex items-center justify-center font-mono font-bold text-sm shadow-sm">
             K
           </div>
           <div>
-            <span className="font-bold tracking-tight text-primary text-sm leading-none block">KRAMA OS</span>
-            <span className="text-[9px] font-mono text-muted uppercase tracking-widest">Builder OS</span>
+            <span className="font-bold tracking-tight text-primary text-[16px] leading-none block mb-0.5">KRAMA OS</span>
+            <span className="text-[10px] font-mono text-muted uppercase tracking-widest font-bold">Builder OS</span>
           </div>
         </div>
         <div className="w-1.5 h-1.5 rounded-full bg-[#109868]" title="System Online & Executing" />
       </div>
 
       {/* Search / Command Palette Trigger (⌘K) */}
-      <div className="p-3 border-b border-border bg-surface/50">
+      <div className="p-4 border-b border-border bg-surface/50">
         <button 
           onClick={() => {
             onMobileClose?.();
             window.dispatchEvent(new CustomEvent('open-cmdk'));
           }}
-          className="w-full flex items-center justify-between px-3 py-2 text-xs text-secondary bg-surface border border-border rounded-lg hover:border-primary hover:text-primary transition-all shadow-2xs outline-none cursor-pointer group"
+          className="w-full flex items-center justify-between px-4 py-3 text-[15px] font-[550] text-secondary bg-surface border border-border rounded-xl hover:border-primary/50 hover:text-primary transition-all shadow-sm outline-none cursor-pointer group"
         >
-          <div className="flex items-center gap-2">
-            <Search className="w-3.5 h-3.5 text-muted group-hover:text-primary stroke-[1.5] transition-colors" />
+          <div className="flex items-center gap-3">
+            <Search className="w-4 h-4 text-muted group-hover:text-primary stroke-[1.5] transition-colors" />
             <span className="font-medium">Search workspace...</span>
           </div>
           <kbd className="text-[10px] font-medium font-mono border border-border text-secondary bg-surface-hover px-1.5 py-0.5 rounded shadow-2xs group-hover:border-primary/40 group-hover:text-primary transition-colors">
@@ -127,21 +127,21 @@ export function Sidebar({
       </div>
 
       {/* Primary Navigation — Clean Linear 6-Item Loop */}
-      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+      <div className="flex-1 overflow-y-auto py-5 px-4 space-y-1.5">
         {navItems.map(renderLink)}
       </div>
 
       {/* Horizontal Divider & Secondary Controls */}
-      <div className="px-3 py-2 border-t border-border space-y-1">
+      <div className="px-4 py-3 border-t border-border space-y-1.5">
         {/* Focus Mode Trigger */}
         {onToggleFocus && (
           <button
             onClick={onToggleFocus}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-secondary hover:text-primary hover:bg-surface-hover transition-colors border border-transparent hover:border-border group cursor-pointer"
+            className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[15px] font-[550] text-secondary hover:text-primary hover:bg-surface-hover transition-colors border border-transparent hover:border-border group cursor-pointer"
             title="Enter Zero-Distraction Focus Mode"
           >
-            <span className="flex items-center gap-2">
-              <Maximize2 className="w-3.5 h-3.5 text-secondary group-hover:text-[#2563EB] stroke-[1.5] transition-colors" />
+            <span className="flex items-center gap-3.5">
+              <Maximize2 className="w-5 h-5 text-secondary group-hover:text-[#2563EB] stroke-[1.5] transition-colors" />
               <span>Focus Mode</span>
             </span>
             <span className="text-[9px] font-mono text-muted group-hover:text-secondary uppercase">ESC</span>
@@ -151,14 +151,14 @@ export function Sidebar({
         {/* Theme Toggle Action */}
         <button
           onClick={toggleTheme}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-secondary hover:text-primary hover:bg-surface-hover transition-colors border border-transparent hover:border-border group cursor-pointer"
+          className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[15px] font-[550] text-secondary hover:text-primary hover:bg-surface-hover transition-colors border border-transparent hover:border-border group cursor-pointer"
           title="Toggle Dark / Bright Mode"
         >
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-3.5">
             {theme === 'dark' ? (
-              <Sun className="w-3.5 h-3.5 text-amber-500 group-hover:text-amber-600 stroke-[1.5] transition-colors" />
+              <Sun className="w-5 h-5 text-amber-500 group-hover:text-amber-600 stroke-[1.5] transition-colors" />
             ) : (
-              <Moon className="w-3.5 h-3.5 text-secondary group-hover:text-[#2563EB] stroke-[1.5] transition-colors" />
+              <Moon className="w-5 h-5 text-secondary group-hover:text-[#2563EB] stroke-[1.5] transition-colors" />
             )}
             <span>{theme === 'dark' ? 'Bright Mode' : 'Dark Mode'}</span>
           </span>
@@ -170,11 +170,11 @@ export function Sidebar({
         {/* Export Backup Action */}
         <button
           onClick={handleExport}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-secondary hover:text-primary hover:bg-surface-hover transition-colors border border-transparent hover:border-border group cursor-pointer"
+          className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[15px] font-[550] text-secondary hover:text-primary hover:bg-surface-hover transition-colors border border-transparent hover:border-border group cursor-pointer"
           title="Export workspace backup as JSON"
         >
-          <span className="flex items-center gap-2">
-            <Download className="w-3.5 h-3.5 text-secondary group-hover:text-[#2563EB] stroke-[1.5] transition-colors" />
+          <span className="flex items-center gap-3.5">
+            <Download className="w-5 h-5 text-secondary group-hover:text-[#2563EB] stroke-[1.5] transition-colors" />
             <span>Export Data</span>
           </span>
           <span className="text-[9px] font-mono text-muted group-hover:text-secondary uppercase">JSON</span>
@@ -182,15 +182,15 @@ export function Sidebar({
       </div>
 
       {/* Footer Profile Strip — Clean & Restrained */}
-      <div className="p-3 border-t border-border bg-surface flex items-center justify-between">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-7 h-7 rounded-full bg-[#2563EB]/10 border border-[#2563EB]/20 flex items-center justify-center text-[#2563EB] font-mono font-bold text-xs shrink-0">
+      <div className="p-4 border-t border-border bg-surface flex items-center justify-between">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="w-9 h-9 rounded-full bg-[#2563EB]/10 border border-[#2563EB]/20 flex items-center justify-center text-[#2563EB] font-mono font-bold text-sm shrink-0">
             SK
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-primary truncate">Sudhanshu K.</div>
-            <div className="text-[10px] text-muted font-mono flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#109868]" /> Pro Builder
+            <div className="text-[15px] font-bold text-primary truncate">Sudhanshu K.</div>
+            <div className="text-[11px] text-muted font-mono flex items-center gap-1.5 font-bold mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-[#109868]" /> Pro Builder
             </div>
           </div>
         </div>

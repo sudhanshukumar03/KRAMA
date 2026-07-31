@@ -6,11 +6,11 @@
   --font-sans: "General Sans", "Inter", "Geist", ui-sans-serif, system-ui, sans-serif;
   
   /* Definitive Master Tokens (Precision Engineering Palette) */
-  --color-canvas: #F8F9FA;
-  --color-surface: #FFFFFF;
+  --color-canvas: #F8F9FB; /* Soft canvas */
+  --color-surface: #FCFCFD; /* Softer white for cards */
   --color-surface-hover: #F1F5F9;
-  --color-border: #E2E8F0;
-  --color-border-muted: #CBD5E1;
+  --color-border: rgba(17,17,17,0.06); /* Ultra subtle borders */
+  --color-border-muted: rgba(17,17,17,0.04);
   --color-primary: #0F172A;
   --color-primary-fill: #0F172A;
   --color-secondary: #475569;
@@ -45,23 +45,25 @@
   --color-habits: #EA580C;
   --color-projects: #4F46E5;
 
-  /* Typography Scale Tokens */
-  --font-title: 32px;
-  --font-h2: 22px;
-  --font-card-title: 17px;
-  --font-body: 15px;
+  /* Typography Scale Tokens (God-Level UI) */
+  --font-hero: 52px;
+  --font-title: 42px;
+  --font-h2: 30px;
+  --font-card-title: 20px;
+  --font-body: 17px;
+  --font-secondary: 15px;
   --font-caption: 13px;
   --font-badge: 11px;
 
-  --text-title: 32px;
+  --text-title: 42px;
   --text-title--font-weight: 650;
-  --text-h2: 22px;
+  --text-h2: 30px;
   --text-h2--font-weight: 600;
-  --text-card-title: 17px;
+  --text-card-title: 20px;
   --text-card-title--font-weight: 600;
-  --text-body: 15px;
+  --text-body: 17px;
   --text-body--font-weight: 450;
-  --text-body--line-height: 1.55;
+  --text-body--line-height: 1.6;
   --text-caption: 13px;
   --text-caption--font-weight: 450;
   --text-badge: 11px;
@@ -160,7 +162,16 @@
 
 @layer base {
   body {
-    @apply bg-canvas text-primary font-sans antialiased selection:bg-accent/10 selection:text-accent relative text-[15px] font-[450] leading-[1.55];
+    @apply text-primary font-sans antialiased selection:bg-accent/10 selection:text-accent relative text-[17px] font-[450] leading-[1.6];
+    background-color: var(--color-canvas);
+    background-image: 
+      /* Ultra-fine paper grain */
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E"),
+      /* Soft blue ambient light (top-left) */
+      radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.05) 0%, transparent 40%),
+      /* Soft white ambient light (bottom-right) */
+      radial-gradient(circle at 100% 100%, rgba(255, 255, 255, 0.6) 0%, transparent 40%);
+    background-attachment: fixed;
   }
 }
 
@@ -312,11 +323,12 @@
   }
 
   /* Automated Typography Scale Enforcement (#1 & #12) */
-  .text-title, [class*="text-[28px]"], [class*="text-[32px]"], [class*="text-3xl"] { font-size: var(--font-title) !important; font-weight: 650 !important; line-height: 1.2 !important; }
-  .text-h2, [class*="text-[22px]"], [class*="text-[20px]"], [class*="text-[18px]"], [class*="text-xl"] { font-size: var(--font-h2) !important; font-weight: 600 !important; line-height: 1.3 !important; }
-  .text-card-title, [class*="text-[17px]"], [class*="text-[16px] font-medium"], [class*="text-[16px] font-semibold"], [class*="text-base font-medium"], [class*="text-base font-semibold"] { font-size: var(--font-card-title) !important; font-weight: 600 !important; }
-  .text-body, [class*="text-[15px]"], [class*="text-[14px]"], [class*="text-sm font-normal"], [class*="text-sm text-[#6B7280]"] { font-size: var(--font-body) !important; font-weight: 450 !important; line-height: 1.55 !important; }
-  .text-caption, [class*="text-[13px]"], [class*="text-[12px]"], [class*="text-xs text-[#6B7280]"], [class*="text-xs text-[#9CA3AF]"] { font-size: var(--font-caption) !important; font-weight: 450 !important; }
+  .text-hero, [class*="text-[48px]"], [class*="text-[52px]"] { font-size: var(--font-hero) !important; font-weight: 700 !important; line-height: 1.15 !important; letter-spacing: -0.02em !important; }
+  .text-title, [class*="text-[36px]"], [class*="text-[42px]"], [class*="text-[32px]"], [class*="text-3xl"], [class*="text-4xl"] { font-size: var(--font-title) !important; font-weight: 650 !important; line-height: 1.15 !important; letter-spacing: -0.02em !important; }
+  .text-h2, [class*="text-[28px]"], [class*="text-[30px]"], [class*="text-[24px]"], [class*="text-2xl"] { font-size: var(--font-h2) !important; font-weight: 600 !important; line-height: 1.15 !important; letter-spacing: -0.01em !important; }
+  .text-card-title, [class*="text-[20px]"], [class*="text-[18px]"], [class*="text-[17px]"], [class*="text-[16px] font-semibold"], [class*="text-xl font-medium"], [class*="text-xl font-semibold"], [class*="text-lg font-bold"] { font-size: var(--font-card-title) !important; font-weight: 600 !important; }
+  .text-body, [class*="text-[17px]"], [class*="text-[15px]"], [class*="text-[14px]"], [class*="text-sm font-normal"] { font-size: var(--font-body) !important; font-weight: 450 !important; line-height: 1.6 !important; }
+  .text-caption, [class*="text-[15px] text-[#6B7280]"], [class*="text-[13px]"], [class*="text-[12px]"], [class*="text-xs text-[#6B7280]"], [class*="text-xs text-[#9CA3AF]"] { font-size: var(--font-caption) !important; font-weight: 450 !important; line-height: 1.5 !important; }
   .text-badge, [class*="text-[11px] uppercase"], [class*="text-[10px] uppercase"], [class*="text-xs font-mono uppercase"] { font-size: var(--font-badge) !important; font-weight: 600 !important; text-transform: uppercase !important; letter-spacing: 0.03em !important; }
 
   /* Corner Radius Standardization (#5 & #12) */

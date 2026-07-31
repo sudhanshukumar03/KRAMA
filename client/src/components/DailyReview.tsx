@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { CalendarCheck, Save, Brain, Zap, Smile, Play, Pause, RotateCcw, Plus, Sparkles, Check, Clock, Trophy, AlertTriangle, FileText, Activity, AlertCircle, Maximize2, Minimize2, Rocket, Target, Settings, ListTodo, CheckCircle2, ChevronDown, FolderKanban, Moon, Wand2, Sunset } from 'lucide-react';
+import { Save, Brain, Zap, Smile, Play, Pause, RotateCcw, Plus, Sparkles, Check, Clock, Trophy, AlertTriangle, FileText, Activity, AlertCircle, Maximize2, Minimize2, Rocket, Target, Settings, ListTodo, CheckCircle2, ChevronDown, FolderKanban, Moon, Wand2, Sunset } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 import { toast } from 'sonner';
@@ -213,7 +213,7 @@ export function DailyReview() {
     toast.success(`🌙 Evening Shutdown Complete! Logged ${wins.length} wins and banked ${Math.floor(secondsElapsed / 60)}m of deep work. All systems archived for tomorrow.`);
   };
 
-  if (isLoading) return <LoadingState variant="daily-review" title="Loading Evening Debrief..." description="Aggregating today's execution logs and Pomodoro timers..." />;
+  if (isLoading) return <LoadingState title="Preparing Evening Shutdown..." description="Compiling telemetry from your focus sessions and daily execution..." />;
 
   const formatTimer = (secs: number) => {
     const hrs = Math.floor(secs / 3600);

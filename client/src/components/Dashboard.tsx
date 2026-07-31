@@ -39,13 +39,7 @@ function getTimeAgo(date: Date) {
   return "just now";
 }
 
-// Helper for dynamic greeting
-function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good Morning";
-  if (hour < 17) return "Good Afternoon";
-  return "Good Evening";
-}
+
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -181,29 +175,31 @@ export function Dashboard() {
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 flex flex-col gap-8 pb-24">
       
-      {/* MISSION CONTROL HEADER — Unboxed, Clean, High-Contrast Typography */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-6">
+      {/* MISSION CONTROL HEADER — God-Level UI */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border pb-8">
         <div>
-          <div className="flex items-center gap-3 mb-1.5">
-            <h1 className="text-title font-bold tracking-tight text-primary">{getGreeting()}, Sudhanshu</h1>
-            <span className="bg-signal-tint text-signal border border-signal/30 px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 animate-live-pulse shadow-2xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-signal inline-block" /> LIVE MISSION CONTROL
-            </span>
-          </div>
-          <p className="text-body text-secondary">
-            System Telemetry Online — <span className="text-primary font-mono font-medium">{inProgressIssues.length} active directives</span> across {activeProjects.length} projects.
+          <h1 className="text-title font-bold tracking-tight text-primary mb-1">Dashboard</h1>
+          <p className="text-body text-secondary mb-4">
+            Your execution command center.
           </p>
+          <div className="text-secondary text-[15px] flex items-center gap-2.5">
+            <span>{today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+            <span>•</span>
+            <span className="text-primary font-medium">Sprint 4</span>
+            <span>•</span>
+            <span className="text-primary font-medium">{inProgressIssues.length} priorities</span>
+          </div>
         </div>
         
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-4 shrink-0">
           <button 
             onClick={() => navigate('/app/board')} 
-            className="h-9 px-3.5 rounded-lg font-medium text-xs bg-surface text-secondary hover:text-primary border border-border hover:border-primary transition-all duration-150 flex items-center gap-2 cursor-pointer shadow-2xs"
+            className="h-12 px-6 rounded-xl font-semibold text-[16px] bg-surface text-secondary hover:text-primary border border-border hover:border-primary transition-all duration-150 flex items-center gap-2.5 cursor-pointer shadow-sm hover:shadow-md"
           >
-            <ListTodo className="w-3.5 h-3.5 stroke-[1.5]" /> Kanban Board
+            <ListTodo className="w-5 h-5 stroke-[1.5]" /> Kanban Board
           </button>
-          <BaseButton onClick={() => navigate('/app/projects')} className="h-9 px-4 text-xs">
-            <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" /> New Project
+          <BaseButton onClick={() => navigate('/app/projects')} className="h-12 px-6 text-[16px] font-semibold">
+            <Plus className="w-5 h-5 mr-2 stroke-[1.5]" /> New Project
           </BaseButton>
         </div>
       </div>
