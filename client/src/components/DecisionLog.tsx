@@ -109,11 +109,11 @@ function DecisionModal({
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-surface border border-border rounded-2xl w-full max-w-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200"
+        className="bg-surface border border-border rounded-2xl w-full max-w-2xl shadow-hover animate-in fade-in slide-in-from-bottom-2 duration-200"
       >
         <div className="flex items-center justify-between px-8 py-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#4F46E5]/10 text-[#4F46E5] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-[#4F46E5]/10 text-[#4F46E5] flex items-center justify-center">
               <GitPullRequest className="w-5 h-5 stroke-[1.5]" />
             </div>
             <h3 className="text-[20px] font-bold text-primary tracking-tight">
@@ -122,7 +122,7 @@ function DecisionModal({
           </div>
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
+            className="w-10 h-10 rounded-2xl flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
           >
             <X className="w-5 h-5 stroke-[1.5]" />
           </button>
@@ -130,13 +130,13 @@ function DecisionModal({
 
         <div className="px-8 py-6 space-y-6 max-h-[65vh] overflow-y-auto font-sans">
           <div>
-            <label className="block text-[13px] font-bold text-primary mb-2 uppercase tracking-wider">Title <span className="text-[#DC2626]">*</span></label>
+            <label className="block text-[13px] font-bold text-primary mb-2 uppercase tracking-wider">Title <span className="text-status-danger">*</span></label>
             <input
               type="text"
               value={form.title}
               onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
               placeholder="e.g. Adopt tRPC over REST for internal APIs"
-              className="w-full px-4 py-3 text-[15px] font-semibold border border-border rounded-xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all"
+              className="w-full px-4 py-3 text-[15px] font-semibold border border-border rounded-2xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all"
             />
           </div>
 
@@ -146,7 +146,7 @@ function DecisionModal({
               <select
                 value={form.status}
                 onChange={e => setForm(prev => ({ ...prev, status: e.target.value as any }))}
-                className="w-full px-4 py-3 text-[15px] font-semibold border border-border rounded-xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all cursor-pointer"
+                className="w-full px-4 py-3 text-[15px] font-semibold border border-border rounded-2xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all cursor-pointer"
               >
                 <option value="accepted">Accepted (Active)</option>
                 <option value="rejected">Rejected</option>
@@ -159,7 +159,7 @@ function DecisionModal({
               <select
                 value={form.linkedProjectId}
                 onChange={e => setForm(prev => ({ ...prev, linkedProjectId: e.target.value }))}
-                className="w-full px-4 py-3 text-[15px] font-semibold border border-border rounded-xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all cursor-pointer"
+                className="w-full px-4 py-3 text-[15px] font-semibold border border-border rounded-2xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all cursor-pointer"
               >
                 <option value="">No linked project</option>
                 {projects.map(p => (
@@ -176,7 +176,7 @@ function DecisionModal({
               onChange={e => setForm(prev => ({ ...prev, context: e.target.value }))}
               placeholder="What prompted this decision? What's the background?"
               rows={3}
-              className="w-full px-4 py-3 text-[15px] border border-border rounded-xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all resize-none font-mono"
+              className="w-full px-4 py-3 text-[15px] border border-border rounded-2xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all resize-none font-mono"
             />
           </div>
 
@@ -187,20 +187,20 @@ function DecisionModal({
               onChange={e => setForm(prev => ({ ...prev, reasoning: e.target.value }))}
               placeholder="Why was this the best option? What trade-offs were considered?"
               rows={3}
-              className="w-full px-4 py-3 text-[15px] border border-border rounded-xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all resize-none font-mono"
+              className="w-full px-4 py-3 text-[15px] border border-border rounded-2xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all resize-none font-mono"
             />
           </div>
 
           <div>
             <label className="block text-[13px] font-bold text-primary mb-2 uppercase tracking-wider">Alternatives Considered</label>
-            <div className="flex flex-wrap items-center gap-2 min-h-[50px] px-4 py-2 border border-border rounded-xl bg-surface-hover/50 focus-within:ring-2 focus-within:ring-[#4F46E5]/30 focus-within:border-[#4F46E5] transition-all">
+            <div className="flex flex-wrap items-center gap-2 min-h-[50px] px-4 py-2 border border-border rounded-2xl bg-surface-hover/50 focus-within:ring-2 focus-within:ring-[#4F46E5]/30 focus-within:border-[#4F46E5] transition-all">
               {form.alternativesConsidered.map(tag => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-surface border border-border text-[13px] text-primary font-bold shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-surface border border-border text-[13px] text-primary font-bold shadow-resting"
                 >
                   {tag}
-                  <button onClick={() => removeTag(tag)} className="text-muted hover:text-[#DC2626] transition-colors cursor-pointer">
+                  <button onClick={() => removeTag(tag)} className="text-muted hover:text-status-danger transition-colors cursor-pointer">
                     <X className="w-3.5 h-3.5 stroke-[2]" />
                   </button>
                 </span>
@@ -223,7 +223,7 @@ function DecisionModal({
               value={form.outcome}
               onChange={e => setForm(prev => ({ ...prev, outcome: e.target.value }))}
               placeholder="What was decided? What action was taken?"
-              className="w-full px-4 py-3 text-[15px] font-semibold border border-border rounded-xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all"
+              className="w-full px-4 py-3 text-[15px] font-semibold border border-border rounded-2xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all"
             />
           </div>
           
@@ -233,7 +233,7 @@ function DecisionModal({
               type="date"
               value={form.date}
               onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))}
-              className="w-full sm:w-1/2 px-4 py-3 text-[15px] font-mono border border-border rounded-xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all cursor-pointer"
+              className="w-full sm:w-1/2 px-4 py-3 text-[15px] font-mono border border-border rounded-2xl bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all cursor-pointer"
             />
           </div>
         </div>
@@ -260,11 +260,11 @@ function DecisionModal({
 
 const getStatusConfig = (status: string | undefined) => {
   switch (status) {
-    case 'accepted': return { color: 'text-[#109868]', bg: 'bg-[#109868]/10', border: 'border-[#109868]/20', icon: CheckCircle2, label: 'ACCEPTED', diffColor: 'text-[#109868] bg-[#F0FDF4] border-[#BBF7D0]' };
-    case 'rejected': return { color: 'text-[#DC2626]', bg: 'bg-[#DC2626]/10', border: 'border-[#DC2626]/20', icon: XCircle, label: 'REJECTED', diffColor: 'text-[#DC2626] bg-[#FEF2F2] border-[#FECACA]' };
-    case 'superseded': return { color: 'text-[#F59E0B]', bg: 'bg-[#F59E0B]/10', border: 'border-[#F59E0B]/20', icon: GitBranch, label: 'SUPERSEDED', diffColor: 'text-[#D97706] bg-[#FFFBEB] border-[#FDE68A]' };
+    case 'accepted': return { color: 'text-status-success', bg: 'bg-status-success/10', border: 'border-status-success/20', icon: CheckCircle2, label: 'ACCEPTED', diffColor: 'text-status-success bg-[#F0FDF4] border-[#BBF7D0]' };
+    case 'rejected': return { color: 'text-status-danger', bg: 'bg-status-danger/10', border: 'border-status-danger/20', icon: XCircle, label: 'REJECTED', diffColor: 'text-status-danger bg-[#FEF2F2] border-[#FECACA]' };
+    case 'superseded': return { color: 'text-[#F59E0B]', bg: 'bg-[#F59E0B]/10', border: 'border-[#F59E0B]/20', icon: GitBranch, label: 'SUPERSEDED', diffColor: 'text-status-warning bg-[#FFFBEB] border-[#FDE68A]' };
     case 'deprecated': return { color: 'text-muted', bg: 'bg-surface-hover', border: 'border-border', icon: Archive, label: 'DEPRECATED', diffColor: 'text-muted bg-surface-hover border-border' };
-    default: return { color: 'text-[#109868]', bg: 'bg-[#109868]/10', border: 'border-[#109868]/20', icon: CheckCircle2, label: 'ACCEPTED', diffColor: 'text-[#109868] bg-[#F0FDF4] border-[#BBF7D0]' };
+    default: return { color: 'text-status-success', bg: 'bg-status-success/10', border: 'border-status-success/20', icon: CheckCircle2, label: 'ACCEPTED', diffColor: 'text-status-success bg-[#F0FDF4] border-[#BBF7D0]' };
   }
 };
 
@@ -302,8 +302,8 @@ function DecisionTimelineCard({
 
       <div
         className={cn(
-          'bg-surface border border-border rounded-2xl transition-all duration-200 shadow-sm cursor-pointer relative z-10 hover:shadow-md',
-          expanded ? 'border-[#4F46E5]/50 shadow-md ring-1 ring-[#4F46E5]/10' : 'hover:border-[#4F46E5]/30'
+          'bg-surface border border-border rounded-2xl transition-all duration-200 shadow-resting cursor-pointer relative z-10 hover:shadow-resting',
+          expanded ? 'border-[#4F46E5]/50 shadow-resting ring-1 ring-[#4F46E5]/10' : 'hover:border-[#4F46E5]/30'
         )}
         onClick={() => setExpanded(!expanded)}
       >
@@ -333,7 +333,7 @@ function DecisionTimelineCard({
                 {decision.linkedProject && (
                   <>
                     <span className="text-border-muted">•</span>
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-[#4F46E5] bg-[#4F46E5]/10 border border-[#4F46E5]/20 px-2 py-0.5 rounded shadow-2xs">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-[#4F46E5] bg-[#4F46E5]/10 border border-[#4F46E5]/20 px-2 py-0.5 rounded shadow-resting">
                       <FolderKanban className="w-3 h-3 stroke-[1.5]" />
                       {decision.linkedProject.name}
                     </span>
@@ -347,13 +347,13 @@ function DecisionTimelineCard({
           <div className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity self-end sm:self-center">
             <button
               onClick={e => { e.stopPropagation(); onEdit(decision); }}
-              className="px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-[12px] font-bold text-secondary hover:text-[#4F46E5] hover:bg-[#4F46E5]/10 border border-transparent hover:border-[#4F46E5]/20 transition-all cursor-pointer shadow-2xs"
+              className="px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-[12px] font-bold text-secondary hover:text-[#4F46E5] hover:bg-[#4F46E5]/10 border border-transparent hover:border-[#4F46E5]/20 transition-all cursor-pointer shadow-resting"
             >
               <Edit className="w-3.5 h-3.5 stroke-[1.5]" /> Amend
             </button>
             <button
               onClick={e => { e.stopPropagation(); onDelete(decision); }}
-              className="px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-[12px] font-bold text-secondary hover:text-[#DC2626] hover:bg-red-50 border border-transparent hover:border-red-200 transition-all cursor-pointer shadow-2xs"
+              className="px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-[12px] font-bold text-secondary hover:text-status-danger hover:bg-red-50 border border-transparent hover:border-red-200 transition-all cursor-pointer shadow-resting"
             >
               <Trash2 className="w-3.5 h-3.5 stroke-[1.5]" /> Revert
             </button>
@@ -366,7 +366,7 @@ function DecisionTimelineCard({
             <div className="border-t border-border pt-5 space-y-5">
               
               {decision.context && (
-                <div className="bg-surface-hover/50 p-4 rounded-xl border border-border/80">
+                <div className="bg-surface-hover/50 p-4 rounded-2xl border border-border/80">
                   <h4 className="text-[11px] font-mono font-bold text-secondary uppercase tracking-widest mb-2 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-secondary" /> Context & Problem
                   </h4>
@@ -375,7 +375,7 @@ function DecisionTimelineCard({
               )}
 
               {decision.reasoning && (
-                <div className="bg-[#4F46E5]/5 p-4 rounded-xl border border-[#4F46E5]/20">
+                <div className="bg-[#4F46E5]/5 p-4 rounded-2xl border border-[#4F46E5]/20">
                   <h4 className="text-[11px] font-mono font-bold text-[#4F46E5] uppercase tracking-widest mb-2 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#4F46E5]" /> Reasoning & Trade-offs
                   </h4>
@@ -384,13 +384,13 @@ function DecisionTimelineCard({
               )}
 
               {decision.alternativesConsidered && decision.alternativesConsidered.length > 0 && (
-                <div className="bg-surface-hover/50 p-4 rounded-xl border border-border/80">
-                  <h4 className="text-[11px] font-mono font-bold text-[#DC2626] uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
+                <div className="bg-surface-hover/50 p-4 rounded-2xl border border-border/80">
+                  <h4 className="text-[11px] font-mono font-bold text-status-danger uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
                     <span className="text-[14px] leading-none">-</span> Alternatives Rejected
                   </h4>
                   <div className="flex flex-wrap gap-2 pl-3">
                     {(decision.alternativesConsidered as string[]).map((alt: string, i: number) => (
-                      <span key={i} className="px-2.5 py-1 rounded-md bg-[#FEF2F2] border border-[#FECACA] text-[13px] text-[#DC2626] font-mono font-medium line-through decoration-[#DC2626]/40 shadow-2xs">
+                      <span key={i} className="px-2.5 py-1 rounded-md bg-[#FEF2F2] border border-[#FECACA] text-[13px] text-status-danger font-mono font-medium line-through decoration-status-danger/40 shadow-resting">
                         {alt}
                       </span>
                     ))}
@@ -399,7 +399,7 @@ function DecisionTimelineCard({
               )}
 
               {decision.outcome && (
-                <div className={cn("p-4 rounded-xl border", statusCfg.diffColor)}>
+                <div className={cn("p-4 rounded-2xl border", statusCfg.diffColor)}>
                   <h4 className="text-[11px] font-mono font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
                     <span className="text-[14px] leading-none">+</span> Final Outcome / Action
                   </h4>
@@ -512,26 +512,26 @@ export function DecisionLog() {
     <div className="p-6 md:p-8 max-w-6xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 pb-24 font-sans text-primary">
       
       {/* Page Header (God-Level UI: Indigo Decisions Identity) */}
-      <div className="mb-10 flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border pb-8 bg-surface p-8 rounded-2xl shadow-sm border-l-4 border-l-[#4F46E5] relative overflow-hidden">
+      <div className="mb-10 flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border pb-8 bg-surface p-8 rounded-2xl shadow-resting border-l-4 border-l-[#4F46E5] relative overflow-hidden">
         <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-[#4F46E5]/5 rounded-full blur-3xl pointer-events-none" />
         <div className="flex items-start gap-5 relative z-10">
-          <div className="w-14 h-14 rounded-2xl bg-[#4F46E5] text-white flex items-center justify-center shrink-0 shadow-md border border-[#4F46E5]/20">
+          <div className="w-14 h-14 rounded-2xl bg-[#4F46E5] text-white flex items-center justify-center shrink-0 shadow-resting border border-[#4F46E5]/20">
             <GitCommit className="w-7 h-7 stroke-[1.5]" />
           </div>
           <div>
             <div className="flex items-center gap-3 mb-1.5">
-              <h1 className="text-title font-bold tracking-tight text-primary leading-none">Architecture Decision Log</h1>
-              <span className="bg-[#4F46E5]/10 text-[#4F46E5] border border-[#4F46E5]/20 px-2.5 py-0.5 rounded text-[11px] font-mono font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-2xs">
+              <h1 className="text-page-title font-bold tracking-tight text-primary leading-none">Architecture Decision Log</h1>
+              <span className="bg-[#4F46E5]/10 text-[#4F46E5] border border-[#4F46E5]/20 px-2.5 py-0.5 rounded text-[11px] font-mono font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-resting">
                 <Scale className="w-3.5 h-3.5 stroke-[2]" /> Git History
               </span>
             </div>
-            <p className="text-body text-secondary max-w-2xl mt-3">
+            <p className="text-body text-secondary text-secondary max-w-2xl mt-3">
               An immutable ledger of critical architecture choices, trade-offs, and outcomes. Designed for engineering context preservation.
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3 self-start sm:self-auto shrink-0 relative z-10 mt-4 sm:mt-0">
-          <BaseButton onClick={handleCreate} className="h-12 px-6 text-[16px] font-bold bg-[#4F46E5] hover:bg-[#4338CA] text-white shadow-md">
+          <BaseButton onClick={handleCreate} className="h-12 px-6 text-[16px] font-bold bg-[#4F46E5] hover:bg-[#4338CA] text-white shadow-resting">
             <GitPullRequest className="w-5 h-5 mr-2 stroke-[1.5]" /> Commit Decision
           </BaseButton>
         </div>
@@ -546,7 +546,7 @@ export function DecisionLog() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search commits and context..."
-            className="w-full pl-12 pr-4 py-3.5 text-[15px] font-medium border border-border rounded-xl bg-surface focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all shadow-sm"
+            className="w-full pl-12 pr-4 py-3.5 text-[15px] font-medium border border-border rounded-2xl bg-surface focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] placeholder:text-muted transition-all shadow-resting"
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-primary transition-colors">
@@ -558,7 +558,7 @@ export function DecisionLog() {
           <select
             value={projectFilter}
             onChange={e => setProjectFilter(e.target.value)}
-            className="appearance-none pl-4 pr-12 py-3.5 text-[15px] font-bold border border-border rounded-xl bg-surface focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all shadow-sm min-w-[220px] cursor-pointer"
+            className="appearance-none pl-4 pr-12 py-3.5 text-[15px] font-bold border border-border rounded-2xl bg-surface focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] transition-all shadow-resting min-w-[220px] cursor-pointer"
           >
             <option value="">All Repositories</option>
             {projects.map(p => (
@@ -575,7 +575,7 @@ export function DecisionLog() {
           <h2 className="text-[20px] font-bold text-primary flex items-center gap-2">
             <GitBranch className="w-5 h-5 text-[#4F46E5] stroke-[1.5]" /> main branch history
           </h2>
-          <span className="text-[13px] font-mono text-secondary bg-surface-hover border border-border px-3 py-1.5 rounded-lg font-bold shadow-2xs">
+          <span className="text-[13px] font-mono text-secondary bg-surface-hover border border-border px-3 py-1.5 rounded-lg font-bold shadow-resting">
             {sortedDecisions.length} commits
           </span>
         </div>
@@ -593,7 +593,7 @@ export function DecisionLog() {
             ))}
           </div>
         ) : (
-          <div className="border border-border rounded-2xl bg-surface h-72 flex items-center justify-center shadow-sm mx-4 sm:mx-12 lg:mx-24">
+          <div className="border border-border rounded-2xl bg-surface h-72 flex items-center justify-center shadow-resting mx-4 sm:mx-12 lg:mx-24">
             <EmptyState
               icon={GitCommit}
               description={searchQuery || projectFilter ? 'No commits match your filters.' : 'Repository is empty. Make your first architectural commit.'}

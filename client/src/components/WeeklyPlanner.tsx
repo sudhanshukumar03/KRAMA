@@ -76,12 +76,12 @@ function ScheduleTaskModal({
 
   return (
     <div onClick={onClose} className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div onClick={e => e.stopPropagation()} className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left font-sans">
+      <div onClick={e => e.stopPropagation()} className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-hover animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left font-sans">
         
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 text-[#2563EB] dark:text-[#00E5FF] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-accent-primary/10  text-accent-primary  flex items-center justify-center">
               <CalendarIcon className="w-4 h-4 stroke-[1.5]" />
             </div>
             <div>
@@ -101,7 +101,7 @@ function ScheduleTaskModal({
             onClick={() => setMode('create')}
             className={cn(
               "py-2.5 px-4 text-xs font-mono font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer",
-              mode === 'create' ? "border-[#2563EB] dark:border-[#00E5FF] text-[#2563EB] dark:text-[#00E5FF]" : "border-transparent text-secondary hover:text-primary"
+              mode === 'create' ? "border-accent-primary  text-accent-primary " : "border-transparent text-secondary hover:text-primary"
             )}
           >
             + New Time Block
@@ -111,7 +111,7 @@ function ScheduleTaskModal({
             onClick={() => setMode('pick')}
             className={cn(
               "py-2.5 px-4 text-xs font-mono font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer flex items-center gap-1.5",
-              mode === 'pick' ? "border-[#2563EB] dark:border-[#00E5FF] text-[#2563EB] dark:text-[#00E5FF]" : "border-transparent text-secondary hover:text-primary"
+              mode === 'pick' ? "border-accent-primary  text-accent-primary " : "border-transparent text-secondary hover:text-primary"
             )}
           >
             <Briefcase className="w-3.5 h-3.5 stroke-[1.5]" /> Backlog Directives ({unscheduledIssues.length})
@@ -123,7 +123,7 @@ function ScheduleTaskModal({
             <>
               <div>
                 <label className="block text-xs font-bold text-primary uppercase tracking-wider mb-1.5 font-mono">
-                  Directive Title <span className="text-[#DC2626]">*</span>
+                  Directive Title <span className="text-status-danger">*</span>
                 </label>
                 <input
                   type="text"
@@ -132,7 +132,7 @@ function ScheduleTaskModal({
                   placeholder="e.g., Architect Authentication Pipeline"
                   required
                   autoFocus
-                  className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm text-primary placeholder:text-muted focus:outline-none focus:border-[#2563EB] dark:focus:border-[#00E5FF] transition-all bg-surface"
+                  className="w-full px-3.5 py-2.5 border border-border rounded-2xl text-sm text-primary placeholder:text-muted focus:outline-none focus:border-accent-primary  transition-all bg-surface"
                 />
               </div>
 
@@ -142,7 +142,7 @@ function ScheduleTaskModal({
                   <select
                     value={priority}
                     onChange={e => setPriority(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-xl text-sm text-primary bg-surface focus:outline-none focus:border-[#2563EB] dark:focus:border-[#00E5FF] cursor-pointer font-mono font-bold"
+                    className="w-full px-3 py-2 border border-border rounded-2xl text-sm text-primary bg-surface focus:outline-none focus:border-accent-primary  cursor-pointer font-mono font-bold"
                   >
                     <option value="urgent">🔴 Urgent</option>
                     <option value="high">🟠 High</option>
@@ -156,7 +156,7 @@ function ScheduleTaskModal({
                   <select
                     value={estimate}
                     onChange={e => setEstimate(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-border rounded-xl text-sm text-primary bg-surface focus:outline-none focus:border-[#2563EB] dark:focus:border-[#00E5FF] cursor-pointer font-mono font-bold"
+                    className="w-full px-3 py-2 border border-border rounded-2xl text-sm text-primary bg-surface focus:outline-none focus:border-accent-primary  cursor-pointer font-mono font-bold"
                   >
                     <option value={0.5}>30m (Quick block)</option>
                     <option value={1}>1.0h (Standard)</option>
@@ -173,18 +173,18 @@ function ScheduleTaskModal({
                 Select Backlog Directive
               </label>
               {unscheduledIssues.length === 0 ? (
-                <div className="p-8 text-center bg-surface-hover rounded-xl border border-border text-xs text-secondary font-mono">
+                <div className="p-8 text-center bg-surface-hover rounded-2xl border border-border text-xs text-secondary font-mono">
                   No unscheduled backlog directives available. Switch to "New Time Block" above!
                 </div>
               ) : (
-                <div className="max-h-60 overflow-y-auto border border-border rounded-xl divide-y divide-border/60">
+                <div className="max-h-60 overflow-y-auto border border-border rounded-2xl divide-y divide-border/60">
                   {unscheduledIssues.map(issue => (
                     <div
                       key={issue.id}
                       onClick={() => setSelectedIssueId(issue.id)}
                       className={cn(
                         "p-3 flex items-center justify-between cursor-pointer transition-colors",
-                        selectedIssueId === issue.id ? "bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 text-[#2563EB] dark:text-[#00E5FF]" : "hover:bg-surface-hover text-primary"
+                        selectedIssueId === issue.id ? "bg-accent-primary/10  text-accent-primary " : "hover:bg-surface-hover text-primary"
                       )}
                     >
                       <div className="min-w-0 pr-2">
@@ -197,7 +197,7 @@ function ScheduleTaskModal({
                       </div>
                       <div className={cn(
                         "w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-all",
-                        selectedIssueId === issue.id ? "bg-[#2563EB] dark:bg-[#00E5FF] border-[#2563EB] dark:border-[#00E5FF] text-white dark:text-[#050811]" : "border-border bg-surface"
+                        selectedIssueId === issue.id ? "bg-accent-primary  border-accent-primary  text-white " : "border-border bg-surface"
                       )}>
                         {selectedIssueId === issue.id && <Check className="w-3 h-3 stroke-[2.5]" />}
                       </div>
@@ -213,14 +213,14 @@ function ScheduleTaskModal({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-mono font-bold text-secondary hover:bg-surface-hover rounded-xl transition-colors cursor-pointer"
+              className="px-4 py-2 text-xs font-mono font-bold text-secondary hover:bg-surface-hover rounded-2xl transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting || (mode === 'create' ? !title.trim() : !selectedIssueId)}
-              className="px-5 py-2 text-xs font-mono font-bold text-surface bg-primary hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+              className="px-5 py-2 text-xs font-mono font-bold text-surface bg-primary hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl shadow-resting transition-all cursor-pointer flex items-center gap-1.5"
             >
               <CalendarIcon className="w-3.5 h-3.5 stroke-[1.5]" /> Schedule Block
             </button>
@@ -273,24 +273,24 @@ function DayColumn({
       className={cn(
         "flex flex-col min-w-[240px] flex-1 bg-surface relative group/col cursor-pointer transition-colors font-sans",
         !isLast && "border-r border-border",
-        isToday ? "bg-[#2563EB]/5 dark:bg-[#00E5FF]/5" : "hover:bg-surface-hover/40"
+        isToday ? "bg-accent-primary/5 " : "hover:bg-surface-hover/40"
       )}
     >
       {/* Sticky Day Header */}
       <div className={cn(
         "px-4 py-3 flex flex-col items-center justify-center border-b border-border sticky top-0 z-10 transition-colors",
-        isToday ? "bg-surface-hover/90 backdrop-blur-md border-b-2 border-b-[#2563EB] dark:border-b-[#00E5FF]" : "bg-surface/90 backdrop-blur-md group-hover/col:bg-surface-hover/80"
+        isToday ? "bg-surface-hover/90 backdrop-blur-md border-b-2 border-b-accent-primary " : "bg-surface/90 backdrop-blur-md group-hover/col:bg-surface-hover/80"
       )}>
         <span className={cn(
           "text-[10px] uppercase tracking-wider font-bold mb-1 transition-colors font-mono", 
-          isToday ? "text-[#2563EB] dark:text-[#00E5FF]" : "text-secondary"
+          isToday ? "text-accent-primary " : "text-secondary"
         )}>
           {dayName}
         </span>
         <div className={cn(
-          "w-9 h-9 rounded-full flex items-center justify-center text-lg font-mono transition-all shadow-2xs",
+          "w-9 h-9 rounded-full flex items-center justify-center text-lg font-mono transition-all shadow-resting",
           isToday 
-            ? "bg-[#2563EB] dark:bg-[#00E5FF] text-white dark:text-[#050811] font-bold shadow-md scale-105" 
+            ? "bg-accent-primary  text-white  font-bold shadow-resting scale-105" 
             : "text-primary font-bold group-hover/col:bg-surface-hover"
         )}>
           {date.getDate()}
@@ -303,7 +303,7 @@ function DayColumn({
         <div className="space-y-3">
           {/* Section 1: Routines Checklist */}
           {habits.length > 0 && (
-            <div className="bg-surface-hover/60 border border-border/60 rounded-xl p-2 space-y-1.5 no-column-nav">
+            <div className="bg-surface-hover/60 border border-border/60 rounded-2xl p-2 space-y-1.5 no-column-nav">
               <div className="flex items-center justify-between px-1 text-[10px] uppercase font-mono tracking-wider font-bold text-secondary">
                 <span className="flex items-center gap-1">
                   <Flame className="w-3 h-3 text-[#F59E0B] fill-[#F59E0B]" /> Routines
@@ -329,14 +329,14 @@ function DayColumn({
                       className={cn(
                         "flex items-center gap-2 p-1.5 rounded-lg border text-xs transition-all cursor-pointer font-mono",
                         isChecked 
-                          ? "bg-[#109868]/10 border-[#109868]/30 text-[#109868]" 
-                          : "bg-surface border-border hover:border-[#2563EB] dark:hover:border-[#00E5FF] text-primary"
+                          ? "bg-status-success/10 border-status-success/30 text-status-success" 
+                          : "bg-surface border-border hover:border-accent-primary  text-primary"
                       )}
                     >
                       <button type="button" className="focus:outline-none shrink-0">
                         <div className={cn(
                           "w-4 h-4 rounded flex items-center justify-center border transition-all",
-                          isChecked ? "bg-[#109868] border-[#109868] text-white dark:text-[#050811]" : "border-border bg-surface hover:border-primary"
+                          isChecked ? "bg-status-success border-status-success text-white " : "border-border bg-surface hover:border-primary"
                         )}>
                           {isChecked && <Check className="w-2.5 h-2.5 stroke-[2.5]" />}
                         </div>
@@ -366,12 +366,12 @@ function DayColumn({
                 
                 // Motion AI meets Apple Calendar time block styling
                 const cardStyle = isDone
-                  ? "border-l-[#109868] bg-[#109868]/10 hover:bg-[#109868]/15 text-[#109868]"
+                  ? "border-l-status-success bg-status-success/10 hover:bg-status-success/15 text-status-success"
                   : isUrgent
-                  ? "border-l-[#2563EB] dark:border-l-[#00E5FF] bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 hover:bg-[#2563EB]/15 dark:hover:bg-[#00E5FF]/15 text-[#2563EB] dark:text-[#00E5FF]"
+                  ? "border-l-accent-primary  bg-accent-primary/10  hover:bg-accent-primary/15  text-accent-primary "
                   : isMedium
-                  ? "border-l-[#4F46E5] dark:border-l-[#818CF8] bg-[#4F46E5]/10 dark:bg-[#818CF8]/10 hover:bg-[#4F46E5]/15 dark:hover:bg-[#818CF8]/15 text-[#4F46E5] dark:text-[#818CF8]"
-                  : "border-l-[#7C3AED] dark:border-l-[#A78BFA] bg-[#7C3AED]/10 dark:bg-[#A78BFA]/10 hover:bg-[#7C3AED]/15 dark:hover:bg-[#A78BFA]/15 text-[#7C3AED] dark:text-[#A78BFA]";
+                  ? "border-l-[#4F46E5]  bg-[#4F46E5]/10  hover:bg-[#4F46E5]/15  text-[#4F46E5] "
+                  : "border-l-accent-ai  bg-accent-ai/10  hover:bg-accent-ai/15  text-accent-ai ";
 
                 return (
                   <div 
@@ -379,7 +379,7 @@ function DayColumn({
                     onClick={(e) => { e.stopPropagation(); onToggleIssue(issue.id, issue.status); }}
                     title="Click to toggle Done status or view ticket"
                     className={cn(
-                      "p-3 rounded-xl border-l-4 border-y border-r border-border/60 shadow-2xs hover:shadow-sm transition-all flex flex-col gap-2 cursor-pointer group/card",
+                      "p-3 rounded-2xl border-l-4 border-y border-r border-border/60 shadow-resting hover:shadow-resting transition-all flex flex-col gap-2 cursor-pointer group/card",
                       cardStyle
                     )}
                   >
@@ -392,7 +392,7 @@ function DayColumn({
                         onClick={(e) => { e.stopPropagation(); onToggleIssue(issue.id, issue.status); }}
                         className={cn(
                           "w-4 h-4 rounded flex items-center justify-center border shrink-0 transition-colors mt-0.5",
-                          isDone ? "bg-[#109868] border-[#109868] text-white dark:text-[#050811]" : "border-border bg-surface hover:border-primary"
+                          isDone ? "bg-status-success border-status-success text-white " : "border-border bg-surface hover:border-primary"
                         )}
                       >
                         {isDone && <Check className="w-2.5 h-2.5 stroke-[2.5]" />}
@@ -413,7 +413,7 @@ function DayColumn({
                         e.stopPropagation();
                         onLaunchTimer(`[Issue] ${issue.title}`);
                       }}
-                      className="mt-1 w-full py-1 px-2 rounded-lg bg-primary hover:opacity-90 text-surface font-mono text-[10px] font-bold flex items-center justify-center gap-1 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                      className="mt-1 w-full py-1 px-2 rounded-lg bg-primary hover:opacity-90 text-surface font-mono text-[10px] font-bold flex items-center justify-center gap-1 shadow-resting transition-all active:scale-95 cursor-pointer"
                       title="Launch Focus Sprint on this directive"
                     >
                       <Rocket className="w-3 h-3 stroke-[1.5]" /> Focus Sprint
@@ -428,7 +428,7 @@ function DayColumn({
         <button 
           type="button"
           onClick={(e) => { e.stopPropagation(); onAddTask(date, dayName); }}
-          className="w-full mt-2 py-2 border border-dashed border-border hover:border-[#2563EB] dark:hover:border-[#00E5FF] hover:bg-surface-hover rounded-xl text-xs font-mono font-bold text-secondary hover:text-primary transition-all flex items-center justify-center gap-1.5 opacity-90 hover:opacity-100 cursor-pointer no-column-nav"
+          className="w-full mt-2 py-2 border border-dashed border-border hover:border-accent-primary  hover:bg-surface-hover rounded-2xl text-xs font-mono font-bold text-secondary hover:text-primary transition-all flex items-center justify-center gap-1.5 opacity-90 hover:opacity-100 cursor-pointer no-column-nav"
         >
           <Plus className="w-3.5 h-3.5 stroke-[1.5]" /> Add Time Block
         </button>
@@ -497,7 +497,7 @@ function TimeBlockGridView({
   const lineTopPercent = ((currentHour - 8) * 60 + currentMinute) / ((20 - 8 + 1) * 60) * 100;
 
   return (
-    <div className="border border-border rounded-2xl bg-surface shadow-sm overflow-hidden flex flex-col font-sans">
+    <div className="border border-border rounded-2xl bg-surface shadow-resting overflow-hidden flex flex-col font-sans">
       
       {/* Grid Header Row: Days of Week */}
       <div className="flex border-b border-border bg-surface-hover/80 sticky top-0 z-20 backdrop-blur-md">
@@ -511,19 +511,19 @@ function TimeBlockGridView({
             title={`Click to schedule time block on ${day.dayName}, ${day.date.toLocaleDateString()}`}
             className={cn(
               "flex-1 min-w-[140px] sm:min-w-[180px] p-2.5 border-r border-border last:border-r-0 flex items-center justify-between transition-colors cursor-pointer group",
-              day.isToday ? "bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 border-b-2 border-b-[#2563EB] dark:border-b-[#00E5FF]" : "hover:bg-surface-hover"
+              day.isToday ? "bg-accent-primary/10  border-b-2 border-b-accent-primary " : "hover:bg-surface-hover"
             )}
           >
             <div className="flex items-center gap-2">
               <span className={cn(
                 "text-xs font-mono uppercase font-bold",
-                day.isToday ? "text-[#2563EB] dark:text-[#00E5FF]" : "text-secondary"
+                day.isToday ? "text-accent-primary " : "text-secondary"
               )}>
                 {day.dayName}
               </span>
               <div className={cn(
                 "w-7 h-7 rounded-full flex items-center justify-center text-sm font-mono font-bold transition-transform group-hover:scale-105",
-                day.isToday ? "bg-[#2563EB] dark:bg-[#00E5FF] text-white dark:text-[#050811] shadow-sm" : "text-primary bg-surface border border-border"
+                day.isToday ? "bg-accent-primary  text-white  shadow-resting" : "text-primary bg-surface border border-border"
               )}>
                 {day.date.getDate()}
               </div>
@@ -544,15 +544,15 @@ function TimeBlockGridView({
             className="absolute left-0 right-0 z-30 pointer-events-none flex items-center transition-all duration-300"
             style={{ top: `${lineTopPercent}%` }}
           >
-            <div className="w-16 sm:w-20 pr-1.5 text-right text-[10px] font-mono font-bold text-[#2563EB] dark:text-[#00E5FF] bg-surface px-1.5 py-0.5 rounded shadow-sm border border-[#2563EB]/20 dark:border-[#00E5FF]/20">
+            <div className="w-16 sm:w-20 pr-1.5 text-right text-[10px] font-mono font-bold text-accent-primary  bg-surface px-1.5 py-0.5 rounded shadow-resting border border-accent-primary/20 ">
               NOW {String(currentHour).padStart(2, '0')}:{String(currentMinute).padStart(2, '0')}
             </div>
             <div className="relative flex items-center -ml-1">
-              <div className="w-3 h-3 rounded-full bg-[#2563EB] dark:bg-[#00E5FF] animate-ping absolute opacity-75" />
-              <div className="w-2.5 h-2.5 rounded-full bg-[#2563EB] dark:bg-[#00E5FF] shadow-md z-10" />
+              <div className="w-3 h-3 rounded-full bg-accent-primary  animate-ping absolute opacity-75" />
+              <div className="w-2.5 h-2.5 rounded-full bg-accent-primary  shadow-resting z-10" />
             </div>
             <div 
-              className="flex-1 h-[2px] bg-[#2563EB] dark:bg-[#00E5FF]" 
+              className="flex-1 h-[2px] bg-accent-primary " 
               style={{ filter: 'drop-shadow(0 0 6px var(--color-signal-glow))' }}
             />
           </div>
@@ -581,13 +581,13 @@ function TimeBlockGridView({
                     onClick={() => !slotData && onAddTask(day.date, day.dayName)}
                     className={cn(
                       "flex-1 min-w-[140px] sm:min-w-[180px] border-r border-border/60 last:border-r-0 p-1.5 relative transition-colors",
-                      isToday ? "bg-[#2563EB]/5 dark:bg-[#00E5FF]/5" : "hover:bg-surface-hover/50",
+                      isToday ? "bg-accent-primary/5 " : "hover:bg-surface-hover/50",
                       !slotData && "cursor-pointer group/cell"
                     )}
                   >
                     {!slotData ? (
-                      <div className="h-full w-full rounded-xl border border-dashed border-transparent group-hover/cell:border-[#2563EB]/40 dark:group-hover/cell:border-[#00E5FF]/40 flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-all">
-                        <span className="text-[10px] font-mono font-bold text-[#2563EB] dark:text-[#00E5FF] flex items-center gap-1 bg-surface px-2.5 py-1 rounded-lg shadow-2xs border border-border">
+                      <div className="h-full w-full rounded-2xl border border-dashed border-transparent group-hover/cell:border-accent-primary/40  flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-all">
+                        <span className="text-[10px] font-mono font-bold text-accent-primary  flex items-center gap-1 bg-surface px-2.5 py-1 rounded-lg shadow-resting border border-border">
                           <Plus className="w-3 h-3 stroke-[1.5]" /> Set Time Block
                         </span>
                       </div>
@@ -599,18 +599,18 @@ function TimeBlockGridView({
                         const isMedium = issue.priority === 'medium';
                         
                         const pillStyle = isDone
-                          ? "border-l-[#109868] bg-[#109868]/10 hover:bg-[#109868]/15 text-[#109868]"
+                          ? "border-l-status-success bg-status-success/10 hover:bg-status-success/15 text-status-success"
                           : isUrgent
-                          ? "border-l-[#2563EB] dark:border-l-[#00E5FF] bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 hover:bg-[#2563EB]/15 dark:hover:bg-[#00E5FF]/15 text-[#2563EB] dark:text-[#00E5FF]"
+                          ? "border-l-accent-primary  bg-accent-primary/10  hover:bg-accent-primary/15  text-accent-primary "
                           : isMedium
-                          ? "border-l-[#4F46E5] dark:border-l-[#818CF8] bg-[#4F46E5]/10 dark:bg-[#818CF8]/10 hover:bg-[#4F46E5]/15 dark:hover:bg-[#818CF8]/15 text-[#4F46E5] dark:text-[#818CF8]"
-                          : "border-l-[#7C3AED] dark:border-l-[#A78BFA] bg-[#7C3AED]/10 dark:bg-[#A78BFA]/10 hover:bg-[#7C3AED]/15 dark:hover:bg-[#A78BFA]/15 text-[#7C3AED] dark:text-[#A78BFA]";
+                          ? "border-l-[#4F46E5]  bg-[#4F46E5]/10  hover:bg-[#4F46E5]/15  text-[#4F46E5] "
+                          : "border-l-accent-ai  bg-accent-ai/10  hover:bg-accent-ai/15  text-accent-ai ";
 
                         return (
                           <div
                             onClick={(e) => { e.stopPropagation(); onToggleIssue(issue.id, issue.status); }}
                             className={cn(
-                              "h-full rounded-r-xl border-l-4 border-y border-r border-border/60 p-2.5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group/pill relative overflow-hidden",
+                              "h-full rounded-r-xl border-l-4 border-y border-r border-border/60 p-2.5 shadow-resting hover:shadow-resting transition-all flex flex-col justify-between cursor-pointer group/pill relative overflow-hidden",
                               pillStyle
                             )}
                             style={{ minHeight: `${slotData.span * 72}px`, zIndex: 10 }}
@@ -625,7 +625,7 @@ function TimeBlockGridView({
                                   onClick={(e) => { e.stopPropagation(); onToggleIssue(issue.id, issue.status); }}
                                   className={cn(
                                     "w-4 h-4 rounded flex items-center justify-center border shrink-0 transition-colors",
-                                    isDone ? "bg-[#109868] border-[#109868] text-white dark:text-[#050811]" : "border-border bg-surface hover:border-primary"
+                                    isDone ? "bg-status-success border-status-success text-white " : "border-border bg-surface hover:border-primary"
                                   )}
                                 >
                                   {isDone && <Check className="w-2.5 h-2.5 stroke-[2.5]" />}
@@ -646,7 +646,7 @@ function TimeBlockGridView({
                                   e.stopPropagation();
                                   onLaunchTimer(`[Issue] ${issue.title}`);
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-primary hover:opacity-90 text-surface font-mono text-[10px] font-bold flex items-center gap-1 shadow-2xs transition-transform active:scale-95 cursor-pointer w-full justify-center"
+                                className="px-2.5 py-1 rounded-lg bg-primary hover:opacity-90 text-surface font-mono text-[10px] font-bold flex items-center gap-1 shadow-resting transition-transform active:scale-95 cursor-pointer w-full justify-center"
                                 title="Launch Focus Sprint on this directive"
                               >
                                 <Rocket className="w-3 h-3 shrink-0 stroke-[1.5]" /> Launch Focus Sprint
@@ -797,7 +797,7 @@ export function WeeklyPlanner() {
         {/* Left Nav: Month/Year, Date Range, Today & Arrows */}
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 text-[#2563EB] dark:text-[#00E5FF] flex items-center justify-center shadow-2xs border border-[#2563EB]/20 dark:border-[#00E5FF]/20">
+            <div className="w-10 h-10 rounded-2xl bg-accent-primary/10  text-accent-primary  flex items-center justify-center shadow-resting border border-accent-primary/20 ">
               <CalendarIcon className="w-5 h-5 stroke-[1.5]" />
             </div>
             <div>
@@ -811,11 +811,11 @@ export function WeeklyPlanner() {
           <div className="flex items-center gap-2">
             <button 
               onClick={() => navigateWeek('today')}
-              className="px-3.5 py-1.5 text-xs font-mono font-bold text-primary bg-surface border border-border rounded-lg hover:bg-surface-hover transition-colors shadow-2xs cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-mono font-bold text-primary bg-surface border border-border rounded-lg hover:bg-surface-hover transition-colors shadow-resting cursor-pointer"
             >
               TODAY
             </button>
-            <div className="flex items-center bg-surface border border-border rounded-lg p-0.5 shadow-2xs">
+            <div className="flex items-center bg-surface border border-border rounded-lg p-0.5 shadow-resting">
               <button 
                 onClick={() => navigateWeek('prev')} 
                 className="p-1.5 rounded hover:bg-surface-hover text-secondary hover:text-primary transition-colors cursor-pointer"
@@ -831,7 +831,7 @@ export function WeeklyPlanner() {
                 <ChevronRight className="w-4 h-4 stroke-[1.5]" />
               </button>
             </div>
-            <span className="text-xs font-mono font-bold text-primary bg-surface-hover px-3 py-1 rounded-lg border border-border shadow-2xs">
+            <span className="text-xs font-mono font-bold text-primary bg-surface-hover px-3 py-1 rounded-lg border border-border shadow-resting">
               {weekRangeLabel}
             </span>
           </div>
@@ -840,12 +840,12 @@ export function WeeklyPlanner() {
         {/* Right Nav: View Switcher & Schedule Button */}
         <div className="flex flex-wrap items-center justify-end gap-3">
           
-          <div className="flex items-center bg-surface-hover border border-border rounded-xl p-1 shadow-2xs">
+          <div className="flex items-center bg-surface-hover border border-border rounded-2xl p-1 shadow-resting">
             <button
               onClick={() => setViewMode('grid')}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer",
-                viewMode === 'grid' ? "bg-primary text-surface shadow-2xs" : "text-secondary hover:text-primary hover:bg-surface"
+                viewMode === 'grid' ? "bg-primary text-surface shadow-resting" : "text-secondary hover:text-primary hover:bg-surface"
               )}
             >
               <LayoutGrid className="w-3.5 h-3.5 stroke-[1.5]" /> Time Grid
@@ -854,7 +854,7 @@ export function WeeklyPlanner() {
               onClick={() => setViewMode('columns')}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer",
-                viewMode === 'columns' ? "bg-primary text-surface shadow-2xs" : "text-secondary hover:text-primary hover:bg-surface"
+                viewMode === 'columns' ? "bg-primary text-surface shadow-resting" : "text-secondary hover:text-primary hover:bg-surface"
               )}
             >
               <Columns className="w-3.5 h-3.5 stroke-[1.5]" /> Columns
@@ -863,7 +863,7 @@ export function WeeklyPlanner() {
               onClick={() => setViewMode('matrix')}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer",
-                viewMode === 'matrix' ? "bg-[#F59E0B] text-white dark:text-[#050811] shadow-2xs" : "text-secondary hover:text-primary hover:bg-surface"
+                viewMode === 'matrix' ? "bg-[#F59E0B] text-white  shadow-resting" : "text-secondary hover:text-primary hover:bg-surface"
               )}
             >
               <Flame className="w-3.5 h-3.5 stroke-[1.5]" /> Matrix ({habits.length})
@@ -873,7 +873,7 @@ export function WeeklyPlanner() {
           <button 
             type="button"
             onClick={() => handleOpenScheduleModal(new Date(), 'Today')}
-            className="px-4 py-2 bg-[#2563EB] dark:bg-[#00E5FF] hover:opacity-90 text-white dark:text-[#050811] rounded-xl font-mono font-bold shadow-sm transition-all flex items-center gap-1.5 text-xs cursor-pointer hover:scale-102 active:scale-95"
+            className="px-4 py-2 bg-accent-primary  hover:opacity-90 text-white  rounded-2xl font-mono font-bold shadow-resting transition-all flex items-center gap-1.5 text-xs cursor-pointer hover:scale-102 active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[1.5]" /> Schedule Block
           </button>
@@ -883,21 +883,21 @@ export function WeeklyPlanner() {
 
       {/* QUIET AI CONFLICT RESOLUTION & SCHEDULE SENTINEL (Hero Moment) */}
       {unscheduledBacklogCount > 0 && (
-        <div className="bg-gradient-to-r from-[#7C3AED]/15 dark:from-[#A78BFA]/15 via-surface to-transparent border-l-4 border-l-[#7C3AED] dark:border-l-[#A78BFA] p-3.5 rounded-r-xl border-y border-r border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-300">
+        <div className="bg-gradient-to-r from-accent-ai/15  via-surface to-transparent border-l-4 border-l-accent-ai  p-3.5 rounded-r-xl border-y border-r border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-300">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#7C3AED] dark:bg-[#A78BFA] text-white dark:text-[#050811] flex items-center justify-center shrink-0 shadow-sm">
+            <div className="w-8 h-8 rounded-lg bg-accent-ai  text-white  flex items-center justify-center shrink-0 shadow-resting">
               <Sparkles className="w-4 h-4 stroke-[1.5]" />
             </div>
             <div className="text-xs font-mono">
               <strong className="text-primary block font-bold flex items-center gap-1.5">
-                AI Schedule Sentinel: <span className="text-[#7C3AED] dark:text-[#A78BFA]">{unscheduledBacklogCount} unmapped backlog directives</span> detected
+                AI Schedule Sentinel: <span className="text-accent-ai ">{unscheduledBacklogCount} unmapped backlog directives</span> detected
               </strong>
               <span className="text-secondary">AI temporal balancer suggests distributing high-priority blocks across open morning deep-work slots.</span>
             </div>
           </div>
           <button 
             onClick={handleAiAutoResolve} 
-            className="px-3 py-1.5 rounded-lg bg-[#7C3AED] dark:bg-[#A78BFA] text-white dark:text-[#050811] font-mono text-xs font-bold hover:opacity-90 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs"
+            className="px-3 py-1.5 rounded-lg bg-accent-ai  text-white  font-mono text-xs font-bold hover:opacity-90 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-resting"
           >
             ✨ Auto-Resolve Schedule <ArrowRight className="w-3.5 h-3.5 stroke-[1.5]" />
           </button>
@@ -905,18 +905,18 @@ export function WeeklyPlanner() {
       )}
 
       {/* SPRINTS BANNER & CAPACITY TELEMETRY BAR */}
-      <div className="bg-surface border border-border rounded-xl p-3 shadow-2xs flex flex-wrap items-center justify-between gap-4 font-sans">
+      <div className="bg-surface border border-border rounded-2xl p-3 shadow-resting flex flex-wrap items-center justify-between gap-4 font-sans">
         <div className="flex items-center gap-3 min-w-0">
           <span className="text-xs font-mono font-bold uppercase tracking-wider text-secondary bg-surface-hover px-2.5 py-1 rounded-lg border border-border flex items-center gap-1.5 shrink-0">
-            <Layers className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#00E5FF] stroke-[1.5]" /> SPRINT MILESTONES
+            <Layers className="w-3.5 h-3.5 text-accent-primary  stroke-[1.5]" /> SPRINT MILESTONES
           </span>
           <div className="flex flex-wrap items-center gap-2 min-w-0">
             {sprints.length === 0 ? (
               <span className="text-xs text-secondary font-mono truncate">No active sprints spanning this week. Initialize a sprint in Projects to render temporal badges.</span>
             ) : (
               sprints.slice(0, 2).map(sprint => (
-                <div key={sprint.id} className="bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 border border-[#2563EB]/20 dark:border-[#00E5FF]/20 text-[#2563EB] dark:text-[#00E5FF] px-3 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-2 shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-[#2563EB] dark:bg-[#00E5FF] animate-pulse" />
+                <div key={sprint.id} className="bg-accent-primary/10  border border-accent-primary/20  text-accent-primary  px-3 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-2 shadow-resting">
+                  <span className="w-2 h-2 rounded-full bg-accent-primary  animate-pulse" />
                   <span><strong>SPRINT:</strong> {sprint.name}</span>
                   <span className="text-[10px] font-mono bg-surface px-1.5 py-0.5 rounded text-primary uppercase font-bold border border-border/40">ACTIVE</span>
                 </div>
@@ -925,8 +925,8 @@ export function WeeklyPlanner() {
           </div>
         </div>
         
-        <div className="flex items-center gap-3 text-xs bg-surface-hover px-3.5 py-1 rounded-xl border border-border font-mono font-bold">
-          <span className="flex items-center gap-1.5 text-[#2563EB] dark:text-[#00E5FF]"><span className="w-2 h-2 rounded-full bg-[#2563EB] dark:bg-[#00E5FF]" />{focusHours}h Focus</span>
+        <div className="flex items-center gap-3 text-xs bg-surface-hover px-3.5 py-1 rounded-2xl border border-border font-mono font-bold">
+          <span className="flex items-center gap-1.5 text-accent-primary "><span className="w-2 h-2 rounded-full bg-accent-primary " />{focusHours}h Focus</span>
           <span className="text-border">•</span>
           <span className="flex items-center gap-1.5 text-[#F59E0B]"><span className="w-2 h-2 rounded-full bg-[#F59E0B]" />{meetingHours}h Sync</span>
           <span className="text-border">•</span>
@@ -947,7 +947,7 @@ export function WeeklyPlanner() {
 
       {viewMode === 'columns' && (
         <div className="overflow-x-auto pb-2 animate-in fade-in duration-150">
-          <div className="min-w-max border border-border rounded-2xl bg-surface shadow-sm flex overflow-hidden">
+          <div className="min-w-max border border-border rounded-2xl bg-surface shadow-resting flex overflow-hidden">
             {weekDays.map((day, index) => {
               const dayStart = new Date(day.date).setHours(0, 0, 0, 0);
               const dayEnd = new Date(day.date).setHours(23, 59, 59, 999);
@@ -981,7 +981,7 @@ export function WeeklyPlanner() {
         <div className="bg-surface border border-border rounded-2xl overflow-hidden shadow-xs font-sans animate-in fade-in duration-150">
           <div className="px-5 py-4 border-b border-border bg-surface-hover flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center shrink-0 border border-[#F59E0B]/20">
+              <div className="w-8 h-8 rounded-2xl bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center shrink-0 border border-[#F59E0B]/20">
                 <Flame className="w-4 h-4 stroke-[1.5]" />
               </div>
               <div>
@@ -1001,9 +1001,9 @@ export function WeeklyPlanner() {
                   <th className="py-3.5 px-5 w-1/4">Routine Name</th>
                   <th className="py-3.5 px-3 text-center">Streak</th>
                   {weekDays.map(day => (
-                    <th key={day.dayName} className={cn("py-3.5 px-3 text-center", day.isToday ? "text-[#2563EB] dark:text-[#00E5FF] font-bold bg-[#2563EB]/10 dark:bg-[#00E5FF]/10" : "")}>
+                    <th key={day.dayName} className={cn("py-3.5 px-3 text-center", day.isToday ? "text-accent-primary  font-bold bg-accent-primary/10 " : "")}>
                       <div>{day.dayName}</div>
-                      <div className={cn("text-xs font-bold mt-0.5 font-mono", day.isToday ? "text-[#2563EB] dark:text-[#00E5FF]" : "text-primary")}>{day.date.getDate()}</div>
+                      <div className={cn("text-xs font-bold mt-0.5 font-mono", day.isToday ? "text-accent-primary " : "text-primary")}>{day.date.getDate()}</div>
                     </th>
                   ))}
                 </tr>
@@ -1027,18 +1027,18 @@ export function WeeklyPlanner() {
                         (day.isToday && habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
 
                       return (
-                        <td key={dayIdx} className={cn("py-3.5 px-3 text-center", day.isToday ? "bg-[#2563EB]/5 dark:bg-[#00E5FF]/5" : "")}>
+                        <td key={dayIdx} className={cn("py-3.5 px-3 text-center", day.isToday ? "bg-accent-primary/5 " : "")}>
                           <button 
                             type="button"
                             onClick={() => toggleHabitDay(habit.id, day.date)}
                             className="p-1 focus:outline-none hover:scale-110 transition-transform block mx-auto cursor-pointer"
                           >
                             {isChecked ? (
-                              <div className="w-5 h-5 mx-auto rounded-md bg-[#109868] text-white dark:text-[#050811] flex items-center justify-center shadow-2xs transition-all animate-in zoom-in-50 duration-150">
+                              <div className="w-5 h-5 mx-auto rounded-md bg-status-success text-white  flex items-center justify-center shadow-resting transition-all animate-in zoom-in-50 duration-150">
                                 <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                               </div>
                             ) : (
-                              <div className="w-5 h-5 mx-auto rounded-md border border-border bg-surface hover:border-primary transition-all flex items-center justify-center shadow-2xs" />
+                              <div className="w-5 h-5 mx-auto rounded-md border border-border bg-surface hover:border-primary transition-all flex items-center justify-center shadow-resting" />
                             )}
                           </button>
                         </td>

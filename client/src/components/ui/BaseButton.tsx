@@ -11,19 +11,19 @@ export interface BaseButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
 
 export const BaseButton = forwardRef<HTMLButtonElement, BaseButtonProps>(
   ({ className, variant = 'primary', size = 'md', isLoading, disabled, children, ...props }, ref) => {
-    const baseStyles = "inline-flex items-center justify-center font-semibold tracking-tight transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] cursor-pointer select-none";
+    const baseStyles = "inline-flex items-center justify-center font-medium tracking-tight transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] cursor-pointer select-none";
     
     const variants = {
-      primary: "bg-[#2563EB] text-white hover:bg-[#1D4ED8] shadow-sm hover:shadow-md border border-transparent",
-      secondary: "bg-surface-hover text-primary hover:bg-surface-hover/80 border border-border shadow-2xs",
+      primary: "bg-accent-primary text-white hover:bg-accent-primary-hover hover:shadow-hover border border-transparent",
+      secondary: "bg-transparent text-primary hover:bg-surface-hover border border-border hover:shadow-hover",
       ghost: "bg-transparent text-secondary hover:text-primary hover:bg-surface-hover",
-      danger: "bg-red-50 text-[#DC2626] hover:bg-red-100 border border-[#DC2626]/20 shadow-2xs"
+      danger: "bg-status-danger text-white hover:bg-status-danger/90 border border-transparent hover:shadow-hover"
     };
 
     const sizes = {
-      sm: "h-8 px-3 text-xs rounded-md",
-      md: "h-10 px-4 text-sm rounded-lg",
-      lg: "h-12 px-6 text-base rounded-xl"
+      sm: "h-10 px-4 text-[14px] rounded-[12px]",
+      md: "h-12 px-6 text-[16px] rounded-[12px]",
+      lg: "h-14 px-8 text-[18px] rounded-[12px]"
     };
 
     return (

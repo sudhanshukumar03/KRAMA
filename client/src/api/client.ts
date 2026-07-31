@@ -2,43 +2,7 @@ import type {
   Workspace, Space, ProjectWithRelations, IssueWithRelations, PageWithRelations, GoalWithRelations, Habit, Sprint, DailyLog, RoadmapItem, GoalProgressSnapshot, DecisionWithRelations, SearchResult
 } from '../types/schema';
 
-let cachedToken: string | null = null;
-let authPromise: Promise<string | null> | null = null;
-
-// Ensure authentication against Express backend
-async function ensureAuth(): Promise<string | null> {
-  if (cachedToken) return cachedToken;
-  
-  // Prevent concurrent login requests
-  if (authPromise) return authPromise;
-  
-  authPromise = (async () => {
-    if (cachedToken) return cachedToken;
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'engineer', password: 'secure_password' }),
-      });
-      if (res.ok) {
-        window.dispatchEvent(new CustomEvent('krama:api-online'));
-        const data = await res.json();
-        cachedToken = data.token;
-        authPromise = null;
-        return cachedToken;
-      }
-    } catch (err) {
-      window.dispatchEvent(new CustomEvent('krama:api-offline'));
-      console.warn('Auto-auth connection failed (is backend server running?):', err);
-    }
-    authPromise = null;
-    return null;
-  })();
-  
-  return authPromise;
-}
-
-async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function fetchApi<T>(endpoint: string, _options: RequestInit = {}): Promise<T> {
   // Mock data for UI presentation without Postgres
   if (endpoint.includes('/issues')) return [] as any;
   if (endpoint.includes('/projects')) return [{ id: 'p1', name: 'Core Architecture', status: 'active', updatedAt: new Date().toISOString() }] as any;

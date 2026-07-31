@@ -177,8 +177,8 @@ export function Dashboard() {
       {/* MISSION CONTROL HEADER — God-Level UI */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border pb-8">
         <div>
-          <h1 className="text-title font-bold tracking-tight text-primary mb-1">Dashboard</h1>
-          <p className="text-body text-secondary mb-4">
+          <h1 className="text-page-title font-bold tracking-tight text-primary mb-1">Dashboard</h1>
+          <p className="text-body text-secondary text-secondary mb-4">
             Your execution command center.
           </p>
           <div className="text-secondary text-[15px] flex items-center gap-2.5">
@@ -193,7 +193,7 @@ export function Dashboard() {
         <div className="flex items-center gap-4 shrink-0">
           <button 
             onClick={() => navigate('/app/board')} 
-            className="h-12 px-6 rounded-xl font-semibold text-[16px] bg-surface text-secondary hover:text-primary border border-border hover:border-primary transition-all duration-150 flex items-center gap-2.5 cursor-pointer shadow-sm hover:shadow-md"
+            className="h-12 px-6 rounded-2xl font-semibold text-[16px] bg-surface text-secondary hover:text-primary border border-border hover:border-primary transition-all duration-150 flex items-center gap-2.5 cursor-pointer shadow-resting hover:shadow-resting"
           >
             <ListTodo className="w-5 h-5 stroke-[1.5]" /> Kanban Board
           </button>
@@ -206,7 +206,7 @@ export function Dashboard() {
       {/* UNIFIED EXECUTION PULSE BAR — Persistent Blueprint Telemetry */}
       <div 
         onClick={() => navigate('/app/sprint')}
-        className="w-full bg-surface border border-border rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover-lift-soft cursor-pointer group"
+        className="w-full bg-surface border border-border rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 card-lift cursor-pointer group"
       >
         <div className="flex items-center gap-4 min-w-0">
           <div className="w-9 h-9 rounded-lg bg-surface-hover text-primary border border-border flex items-center justify-center shrink-0">
@@ -227,12 +227,12 @@ export function Dashboard() {
         <div className="flex items-center gap-4 shrink-0">
           {/* Visual Monospace Progress Arc / ASCII Bar */}
           <div className="hidden lg:flex items-center gap-1 font-mono text-xs text-primary bg-surface-hover px-3 py-1.5 rounded-md border border-border">
-            <span className="text-[#2563EB] dark:text-[#00E5FF] font-bold">{'█'.repeat(Math.round(executionPulsePct / 10))}</span>
+            <span className="text-accent-primary  font-bold">{'█'.repeat(Math.round(executionPulsePct / 10))}</span>
             <span className="text-muted">{'░'.repeat(10 - Math.round(executionPulsePct / 10))}</span>
             <span className="ml-2 font-bold">{executionPulsePct}%</span>
           </div>
 
-          <span className="text-xs font-medium text-[#2563EB] dark:text-[#00E5FF] group-hover:underline flex items-center gap-1 font-mono">
+          <span className="text-xs font-medium text-accent-primary  group-hover:underline flex items-center gap-1 font-mono">
             Open Sprint Canvas <ArrowRight className="w-3.5 h-3.5 stroke-[1.5] group-hover:translate-x-0.5 transition-transform" />
           </span>
         </div>
@@ -242,13 +242,13 @@ export function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-stretch">
         
         {/* Left Card (7 Cols): Today's Mission — Blueprint Schematics */}
-        <div className="lg:col-span-7 bg-surface border border-border hover-lift-soft rounded-2xl p-6 md:p-8 flex flex-col justify-between relative overflow-hidden group">
-          <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-gradient-to-tl from-[#2563EB]/5 to-transparent rounded-full pointer-events-none" />
+        <div className="lg:col-span-7 bg-surface border border-border card-lift rounded-2xl p-6 md:p-8 flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-gradient-to-tl from-accent-primary/5 to-transparent rounded-full pointer-events-none" />
           
           <div>
             <div className="flex items-center justify-between mb-6">
               <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-primary bg-surface-hover px-3 py-1 rounded-full border border-border flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] dark:bg-[#00E5FF]" /> TODAY'S PRIMARY MISSION
+                <span className="w-1.5 h-1.5 rounded-full bg-accent-primary " /> TODAY'S PRIMARY MISSION
               </span>
               <span className="text-xs font-mono text-secondary">Est. Finish: <strong className="text-primary">Friday 4:30 PM</strong></span>
             </div>
@@ -257,14 +257,14 @@ export function Dashboard() {
               Finish {primaryProject.name}
             </h2>
             
-            <p className="text-body text-secondary max-w-xl mb-6">
+            <p className="text-body text-secondary text-secondary max-w-xl mb-6">
               Core execution pipeline is active. Focus on clearing remaining blockers to achieve milestone release before weekend cutoff.
             </p>
 
             {/* Inline Mission Telemetry Badges */}
             <div className="flex flex-wrap items-center gap-3 mb-8">
               <div className="bg-surface-hover border border-border px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#2563EB] dark:bg-[#00E5FF]" />
+                <span className="w-2 h-2 rounded-full bg-accent-primary " />
                 <span className="text-secondary">Remaining:</span>
                 <strong className="text-primary">{sprintIssuesCount} Issues</strong>
               </div>
@@ -274,12 +274,12 @@ export function Dashboard() {
                 <strong className="text-primary">{hours}h {mins}m</strong>
               </div>
               <div className="bg-surface-hover border border-border px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-2">
-                <TrendingUp className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />
+                <TrendingUp className="w-3.5 h-3.5 text-status-success stroke-[1.5]" />
                 <span className="text-secondary">Velocity Pace:</span>
-                <strong className="text-[#109868]">Ahead (+18%)</strong>
+                <strong className="text-status-success">Ahead (+18%)</strong>
               </div>
               <div className="bg-surface-hover border border-border px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-2" title="Average OKR Goal Progress">
-                <span className="w-2 h-2 rounded-full bg-[#0D9488]" />
+                <span className="w-2 h-2 rounded-full bg-status-success" />
                 <span className="text-secondary">OKR Pace:</span>
                 <strong className="text-primary">{avgGoalProgress}% Avg</strong>
               </div>
@@ -290,7 +290,7 @@ export function Dashboard() {
             <span className="text-xs font-mono text-muted">DIRECTIVE ID: #KR-2026-OS</span>
             <button
               onClick={() => navigate('/app/board')}
-              className="px-6 py-3 rounded-xl bg-[#2563EB] dark:bg-[#00E5FF] text-white dark:text-[#050811] font-bold text-sm font-mono tracking-wide hover:opacity-95 transition-all shadow-md hover:shadow-lg flex items-center gap-2 group/btn cursor-pointer"
+              className="px-6 py-3 rounded-2xl bg-accent-primary  text-white  font-bold text-sm font-mono tracking-wide hover:opacity-95 transition-all shadow-resting hover:shadow-hover flex items-center gap-2 group/btn cursor-pointer"
             >
               <span>CONTINUE EXECUTION</span>
               <ArrowRight className="w-4 h-4 stroke-[2] group-hover/btn:translate-x-1 transition-transform" />
@@ -299,7 +299,7 @@ export function Dashboard() {
         </div>
 
         {/* Right Card (5 Cols): Avionics HUD Gauge */}
-        <div className="lg:col-span-5 bg-surface border border-border hover-lift-soft rounded-2xl p-6 md:p-8 flex flex-col justify-between bg-schematic-grid relative">
+        <div className="lg:col-span-5 bg-surface border border-border card-lift rounded-2xl p-6 md:p-8 flex flex-col justify-between bg-schematic-grid relative">
           <div className="flex items-center justify-between mb-4">
             <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-secondary flex items-center gap-2">
               <Compass className="w-3.5 h-3.5 text-primary stroke-[1.5]" /> AVIONICS VELOCITY HUD
@@ -351,7 +351,7 @@ export function Dashboard() {
               <div className="absolute inset-0 flex flex-col items-center justify-center font-mono pointer-events-none">
                 <div className="text-3xl font-bold text-primary tracking-tight leading-none">{weeklyVelocityCount}</div>
                 <div className="text-[10px] uppercase tracking-widest text-secondary mt-1">TASKS / WK</div>
-                <div className="text-[11px] font-bold text-[#2563EB] dark:text-[#00E5FF] mt-2 bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 px-2 py-0.5 rounded">
+                <div className="text-[11px] font-bold text-accent-primary  mt-2 bg-accent-primary/10  px-2 py-0.5 rounded">
                   {gaugeData.pct}% CAP
                 </div>
               </div>
@@ -370,7 +370,7 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
         
         {/* Next Focus Block Card (Thinking / Execution Clean Identity) */}
-        <div className="bg-surface border border-border rounded-xl p-6 flex flex-col justify-between hover:border-secondary/40 transition-all shadow-2xs">
+        <div className="bg-surface border border-border rounded-2xl p-6 flex flex-col justify-between hover:border-secondary/40 transition-all shadow-resting">
           <div>
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-secondary flex items-center gap-2">
@@ -392,11 +392,11 @@ export function Dashboard() {
 
           <div className="pt-4 border-t border-border flex items-center justify-between">
             <div className="text-[11px] font-mono text-muted flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#109868]" /> Zero-Distraction Mode Ready
+              <span className="w-1.5 h-1.5 rounded-full bg-status-success" /> Zero-Distraction Mode Ready
             </div>
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('toggle-focus'))}
-              className="text-xs font-mono font-medium text-[#2563EB] dark:text-[#00E5FF] hover:underline flex items-center gap-1 cursor-pointer"
+              className="text-xs font-mono font-medium text-accent-primary  hover:underline flex items-center gap-1 cursor-pointer"
             >
               Enter Focus Mode (ESC) <ArrowRight className="w-3.5 h-3.5 stroke-[1.5]" />
             </button>
@@ -404,13 +404,13 @@ export function Dashboard() {
         </div>
 
         {/* AI Strategic Brief Card (Violet Identity #7C3AED / #A78BFA) */}
-        <div className="bg-surface border border-[#7C3AED]/30 dark:border-[#A78BFA]/30 rounded-xl p-6 flex flex-col justify-between relative overflow-hidden shadow-2xs bg-gradient-to-br from-[#7C3AED]/5 via-transparent to-transparent">
+        <div className="bg-surface border border-accent-ai/30  rounded-2xl p-6 flex flex-col justify-between relative overflow-hidden shadow-resting bg-gradient-to-br from-accent-ai/5 via-transparent to-transparent">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-[#7C3AED] dark:text-[#A78BFA] flex items-center gap-2">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-accent-ai  flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5 stroke-[1.5]" /> AI STRATEGIC BRIEF
               </span>
-              <span className="text-[10px] font-mono text-secondary bg-[#7C3AED]/10 dark:bg-[#A78BFA]/10 px-2 py-0.5 rounded border border-[#7C3AED]/20">
+              <span className="text-[10px] font-mono text-secondary bg-accent-ai/10  px-2 py-0.5 rounded border border-accent-ai/20">
                 TELEMETRY SYNTHESIS
               </span>
             </div>
@@ -429,7 +429,7 @@ export function Dashboard() {
             <span className="text-[11px] font-mono text-muted">MODEL: KRAMA-AGY-v2</span>
             <button
               onClick={() => navigate('/app/review')}
-              className="text-xs font-mono font-bold text-[#7C3AED] dark:text-[#A78BFA] hover:underline flex items-center gap-1 cursor-pointer"
+              className="text-xs font-mono font-bold text-accent-ai  hover:underline flex items-center gap-1 cursor-pointer"
             >
               Review Blockers & Decisions <ArrowRight className="w-3.5 h-3.5 stroke-[1.5]" />
             </button>
@@ -454,7 +454,7 @@ export function Dashboard() {
                 onClick={() => setActivityFilter(tab)}
                 className={cn(
                   "px-3 py-1 rounded-md text-[11px] font-mono tracking-wider transition-all duration-150 cursor-pointer",
-                  activityFilter === tab ? "bg-surface text-primary border border-border shadow-2xs font-bold" : "text-secondary hover:text-primary border border-transparent"
+                  activityFilter === tab ? "bg-surface text-primary border border-border shadow-resting font-bold" : "text-secondary hover:text-primary border border-transparent"
                 )}
               >
                 {tab === 'All' ? 'ALL STREAMS' : `${tab.toUpperCase()}S`}
@@ -470,7 +470,7 @@ export function Dashboard() {
           <div className="space-y-3 lg:pr-6">
             <div className="text-xs font-mono font-bold uppercase tracking-wider text-secondary pb-2 border-b border-border flex items-center justify-between">
               <span className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5 stroke-[1.5]" /> Upcoming Deadlines</span>
-              <span onClick={() => navigate('/app/timeline')} className="text-[#2563EB] dark:text-[#00E5FF] cursor-pointer hover:underline lowercase font-normal">calendar &rarr;</span>
+              <span onClick={() => navigate('/app/timeline')} className="text-accent-primary  cursor-pointer hover:underline lowercase font-normal">calendar &rarr;</span>
             </div>
             
             <div className="divide-y divide-border/40">
@@ -481,11 +481,11 @@ export function Dashboard() {
                     <div className="flex items-start gap-2.5 min-w-0">
                       <div className={cn(
                         "mt-1.5 w-1.5 h-1.5 rounded-full shrink-0",
-                        isUrgentDate ? "bg-[#DC2626]" : "bg-[#2563EB] dark:bg-[#00E5FF]"
+                        isUrgentDate ? "bg-status-danger" : "bg-accent-primary "
                       )} />
                       <div className="min-w-0">
-                        <div className="font-medium text-primary text-xs truncate group-hover:text-[#2563EB] dark:group-hover:text-[#00E5FF] transition-colors">{issue.title}</div>
-                        <div className={cn("text-[11px] font-mono mt-0.5", isUrgentDate ? "text-[#DC2626]" : "text-muted")}>
+                        <div className="font-medium text-primary text-xs truncate group-hover:text-accent-primary  transition-colors">{issue.title}</div>
+                        <div className={cn("text-[11px] font-mono mt-0.5", isUrgentDate ? "text-status-danger" : "text-muted")}>
                           Due {new Date(issue.dueDate!).toLocaleDateString()}
                         </div>
                       </div>
@@ -503,8 +503,8 @@ export function Dashboard() {
           {/* Column 2: Daily Habits & Streaks (Unboxed) */}
           <div className="space-y-3 pt-6 lg:pt-0 lg:px-6">
             <div className="text-xs font-mono font-bold uppercase tracking-wider text-secondary pb-2 border-b border-border flex items-center justify-between">
-              <span className="flex items-center gap-2"><Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[1.5]" /> Active Streaks</span>
-              <span onClick={() => navigate('/app/goals')} className="text-[#2563EB] dark:text-[#00E5FF] cursor-pointer hover:underline lowercase font-normal">habits &rarr;</span>
+              <span className="flex items-center gap-2"><Flame className="w-3.5 h-3.5 text-status-warning stroke-[1.5]" /> Active Streaks</span>
+              <span onClick={() => navigate('/app/goals')} className="text-accent-primary  cursor-pointer hover:underline lowercase font-normal">habits &rarr;</span>
             </div>
 
             <div className="divide-y divide-border/40">
@@ -524,7 +524,7 @@ export function Dashboard() {
                         className={cn(
                           "w-4 h-4 rounded flex items-center justify-center border transition-all duration-150 shrink-0",
                           isCompletedToday 
-                            ? "bg-[#109868] border-[#109868] text-white" 
+                            ? "bg-status-success border-status-success text-white" 
                             : "border-border bg-surface group-hover:border-primary"
                         )}
                       >
@@ -533,12 +533,12 @@ export function Dashboard() {
                       <div className="min-w-0">
                         <div className={cn(
                           "font-medium text-xs truncate transition-colors",
-                          isCompletedToday ? "line-through text-muted" : "text-primary group-hover:text-[#109868]"
+                          isCompletedToday ? "line-through text-muted" : "text-primary group-hover:text-status-success"
                         )}>
                           {habit.name}
                         </div>
                         <div className="text-[10px] font-mono text-muted mt-0.5 flex items-center gap-1">
-                          <span className="text-[#EA580C] font-bold">{habit.streak}d streak</span>
+                          <span className="text-status-warning font-bold">{habit.streak}d streak</span>
                           <span>• {habit.cadence}</span>
                         </div>
                       </div>
@@ -569,7 +569,7 @@ export function Dashboard() {
                 return (
                   <div key={idx} onClick={() => navigate(activity.link)} className="py-2.5 flex items-center justify-between gap-3 group cursor-pointer hover:bg-surface-hover/50 -mx-2 px-2 rounded-lg transition-all duration-150">
                     <div className="flex flex-col min-w-0">
-                      <div className="text-xs text-primary font-medium truncate group-hover:text-[#2563EB] dark:group-hover:text-[#00E5FF] transition-colors">
+                      <div className="text-xs text-primary font-medium truncate group-hover:text-accent-primary  transition-colors">
                         {activity.title}
                       </div>
                       <div className="text-[10px] text-muted mt-0.5 font-mono truncate">
@@ -581,7 +581,7 @@ export function Dashboard() {
                       <div className={cn(
                         "px-1.5 py-0.5 rounded text-[9px] font-mono font-bold",
                         isDone ? "bg-surface-hover text-secondary" 
-                        : isInProgress ? "bg-[#2563EB]/10 dark:bg-[#00E5FF]/10 text-[#2563EB] dark:text-[#00E5FF]" 
+                        : isInProgress ? "bg-accent-primary/10  text-accent-primary " 
                         : "bg-surface-hover text-muted"
                       )}>
                         {isDone ? 'DONE' : isInProgress ? 'ACTIVE' : 'PENDING'}

@@ -35,11 +35,11 @@ function getStatusIcon(status: string) {
   switch (status) {
     case 'backlog': return <Circle className="w-3.5 h-3.5 text-muted stroke-[1.5]" />;
     case 'todo': return <CircleDot className="w-3.5 h-3.5 text-secondary stroke-[1.5]" />;
-    case 'in_progress': return <CircleDashed className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#00E5FF] stroke-[1.5] animate-spin-slow" />;
-    case 'review': return <CheckCircle className="w-3.5 h-3.5 text-[#7C3AED] dark:text-[#A78BFA] stroke-[1.5]" />;
+    case 'in_progress': return <CircleDashed className="w-3.5 h-3.5 text-accent-primary  stroke-[1.5] animate-spin-slow" />;
+    case 'review': return <CheckCircle className="w-3.5 h-3.5 text-accent-ai  stroke-[1.5]" />;
     case 'testing': return <CheckCircle className="w-3.5 h-3.5 text-secondary stroke-[1.5]" />;
-    case 'done': return <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />;
-    case 'released': return <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />;
+    case 'done': return <CheckCircle2 className="w-3.5 h-3.5 text-status-success stroke-[1.5]" />;
+    case 'released': return <CheckCircle2 className="w-3.5 h-3.5 text-status-success stroke-[1.5]" />;
     default: return <Circle className="w-3.5 h-3.5 stroke-[1.5]" />;
   }
 }
@@ -68,8 +68,8 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
       {...listeners}
       onClick={() => onClick && onClick(issue)}
       className={cn(
-        "p-3 rounded-xl border border-border bg-surface text-sm cursor-grab active:cursor-grabbing hover:border-[#2563EB]/60 dark:hover:border-[#00E5FF]/60 transition-all duration-200 group relative hover:shadow-sm",
-        isDragging && "scale-[1.02] shadow-md opacity-95 border-[#2563EB] dark:border-[#00E5FF] ring-1 ring-[#2563EB] dark:ring-[#00E5FF] z-50 cursor-grabbing bg-surface-hover"
+        "p-3 rounded-2xl border border-border bg-surface text-sm cursor-grab active:cursor-grabbing hover:border-accent-primary/60  transition-all duration-200 group relative hover:shadow-resting",
+        isDragging && "scale-[1.02] shadow-resting opacity-95 border-accent-primary  ring-1 ring-accent-primary  z-50 cursor-grabbing bg-surface-hover"
       )}
     >
       {/* Top Bar: Always visible minimal header */}
@@ -78,11 +78,11 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
         <div className="flex items-center gap-1.5">
           {/* Show Blocked warning dot by default if blocked */}
           {issue.blockedBy && issue.blockedBy.length > 0 && (
-            <span title="Blocked by dependencies" className="w-2 h-2 rounded-full bg-[#DC2626] animate-pulse" />
+            <span title="Blocked by dependencies" className="w-2 h-2 rounded-full bg-status-danger animate-pulse" />
           )}
           <span className={cn(
             "px-1.5 py-0.5 rounded font-mono text-[9px] font-bold uppercase tracking-widest border",
-            isUrgent ? "bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/30 animate-pulse" 
+            isUrgent ? "bg-status-danger/10 text-status-danger border-status-danger/30 animate-pulse" 
             : isHigh ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30" 
             : "bg-surface-hover text-secondary border-border"
           )}>
@@ -95,7 +95,7 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
                 onDelete(issue);
               }}
               title="Delete Directive"
-              className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-[#DC2626]/10 rounded text-muted hover:text-[#DC2626] transition-all cursor-pointer"
+              className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-status-danger/10 rounded text-muted hover:text-status-danger transition-all cursor-pointer"
             >
               <Trash2 className="w-3 h-3 stroke-[1.5]" />
             </button>
@@ -104,7 +104,7 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
       </div>
 
       {/* Task Title: Clean high-contrast typography */}
-      <div className="font-medium text-primary line-clamp-2 group-hover:text-[#2563EB] dark:group-hover:text-[#00E5FF] transition-colors leading-snug">
+      <div className="font-medium text-primary line-clamp-2 group-hover:text-accent-primary  transition-colors leading-snug">
         {issue.title}
       </div>
 
@@ -117,7 +117,7 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
             {issue.blockedBy && issue.blockedBy.length > 0 && (
               <span 
                 title={`Blocked by: ${issue.blockedBy.map((b: any) => b.title).join(', ')}`}
-                className="px-2 py-0.5 rounded bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+                className="px-2 py-0.5 rounded bg-status-danger/10 text-status-danger border border-status-danger/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
               >
                 <AlertCircle className="w-3 h-3 shrink-0 stroke-[1.5]" />
                 Blocked: {issue.blockedBy.map((b: any) => b.id.slice(0, 6).toUpperCase()).join(', ')}
@@ -126,7 +126,7 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
             {issue.blocking && issue.blocking.length > 0 && (
               <span 
                 title={`Blocking: ${issue.blocking.map((b: any) => b.title).join(', ')}`}
-                className="px-2 py-0.5 rounded bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+                className="px-2 py-0.5 rounded bg-status-success/10 text-status-success border border-status-success/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
               >
                 <AlertCircle className="w-3 h-3 shrink-0 stroke-[1.5]" />
                 Blocking: {issue.blocking.length} {issue.blocking.length === 1 ? 'task' : 'tasks'}
@@ -143,7 +143,7 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
               <span className="text-primary font-bold">{completedSubtasks}/{totalSubtasks}</span>
             </div>
             <div className="h-1 w-full bg-surface-hover rounded-full overflow-hidden border border-border/40">
-              <div className="h-full bg-[#2563EB] dark:bg-[#00E5FF] transition-all duration-300 ease-out" style={{ width: `${subtaskPct}%` }} />
+              <div className="h-full bg-accent-primary  transition-all duration-300 ease-out" style={{ width: `${subtaskPct}%` }} />
             </div>
           </div>
         )}
@@ -175,16 +175,16 @@ function Column({ title, issues, isLast, onDelete, onCreate, onClick }: { id: st
       <div className={cn(
         "px-4 py-3 font-medium text-sm text-primary flex justify-between items-center bg-surface-hover/50 border-b border-border relative",
         title === 'todo' && "border-t-2 border-t-[#6B7280]",
-        title === 'in_progress' && "border-t-2 border-t-[#2563EB] dark:border-t-[#00E5FF]",
-        title === 'blocked' && "border-t-2 border-t-[#DC2626]",
-        title === 'review' && "border-t-2 border-t-[#7C3AED] dark:border-t-[#A78BFA]",
-        title === 'done' && "border-t-2 border-t-[#109868]"
+        title === 'in_progress' && "border-t-2 border-t-accent-primary ",
+        title === 'blocked' && "border-t-2 border-t-status-danger",
+        title === 'review' && "border-t-2 border-t-accent-ai ",
+        title === 'done' && "border-t-2 border-t-status-success"
       )}>
         <div className="flex items-center gap-2">
           {getStatusIcon(title)}
           <span className="capitalize font-mono font-bold text-xs tracking-wider text-primary">{title.replace('_', ' ')}</span>
         </div>
-        <span className="bg-surface border border-border px-2 py-0.5 rounded font-mono text-[10px] text-secondary font-bold shadow-2xs">{issues.length}</span>
+        <span className="bg-surface border border-border px-2 py-0.5 rounded font-mono text-[10px] text-secondary font-bold shadow-resting">{issues.length}</span>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5 flex flex-col justify-between">
         <div className="space-y-2.5">
@@ -255,11 +255,11 @@ function IssueCreateModal({
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
+        className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-hover animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-accent-primary/10 text-accent-primary flex items-center justify-center">
               <ListChecks className="w-4 h-4 stroke-[2]" />
             </div>
             <h3 className="text-base font-medium text-[#111827]">Create New Task / Issue</h3>
@@ -276,7 +276,7 @@ function IssueCreateModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           <div>
             <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
-              Task Title <span className="text-[#DC2626]">*</span>
+              Task Title <span className="text-status-danger">*</span>
             </label>
             <input
               type="text"
@@ -285,7 +285,7 @@ function IssueCreateModal({
               placeholder="e.g., Implement OAuth2 Login Flow"
               required
               autoFocus
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary transition-all"
             />
           </div>
 
@@ -298,7 +298,7 @@ function IssueCreateModal({
               onChange={e => setDescription(e.target.value)}
               placeholder="Add technical details, acceptance criteria, or context..."
               rows={3}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all resize-none"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary transition-all resize-none"
             />
           </div>
 
@@ -310,7 +310,7 @@ function IssueCreateModal({
               <select
                 value={status}
                 onChange={e => setStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary transition-all capitalize"
               >
                 {STATUSES.map(s => (
                   <option key={s} value={s}>{s.replace('_', ' ')}</option>
@@ -325,7 +325,7 @@ function IssueCreateModal({
               <select
                 value={priority}
                 onChange={e => setPriority(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary transition-all capitalize"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -344,14 +344,14 @@ function IssueCreateModal({
                 max="100"
                 value={estimate}
                 onChange={e => setEstimate(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary transition-all"
               />
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5 flex items-center gap-1.5">
-              <AlertCircle className="w-3.5 h-3.5 text-[#DC2626]" /> Dependencies (Blocked By)
+              <AlertCircle className="w-3.5 h-3.5 text-status-danger" /> Dependencies (Blocked By)
             </label>
             <div className="max-h-36 overflow-y-auto border border-border rounded-lg p-2.5 space-y-1.5 bg-surface-hover/50">
               {allIssues.length === 0 ? (
@@ -371,7 +371,7 @@ function IssueCreateModal({
                             setBlockedByIds(blockedByIds.filter(id => id !== other.id));
                           }
                         }}
-                        className="rounded border-border text-[#2563EB] focus:ring-[#2563EB]"
+                        className="rounded border-border text-accent-primary focus:ring-accent-primary"
                       />
                       <span className="font-mono text-secondary text-[10px] bg-surface border border-border px-1 py-0.5 rounded">#{other.id.slice(-4)}</span>
                       <span className="truncate flex-1 font-medium">{other.title}</span>
@@ -455,11 +455,11 @@ function IssueEditModal({
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
+        className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-hover animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-accent-primary/10 text-accent-primary flex items-center justify-center">
               <ListChecks className="w-4 h-4 stroke-[2]" />
             </div>
             <h3 className="text-base font-medium text-[#111827]">Edit Task #{issue.id.slice(-4)}</h3>
@@ -476,7 +476,7 @@ function IssueEditModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           <div>
             <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5">
-              Task Title <span className="text-[#DC2626]">*</span>
+              Task Title <span className="text-status-danger">*</span>
             </label>
             <input
               type="text"
@@ -484,7 +484,7 @@ function IssueEditModal({
               onChange={e => setTitle(e.target.value)}
               required
               autoFocus
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary transition-all"
             />
           </div>
 
@@ -496,7 +496,7 @@ function IssueEditModal({
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all resize-none"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] placeholder:text-muted focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary transition-all resize-none"
             />
           </div>
 
@@ -508,7 +508,7 @@ function IssueEditModal({
               <select
                 value={status}
                 onChange={e => setStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary transition-all capitalize"
               >
                 {STATUSES.map(s => (
                   <option key={s} value={s}>{s.replace('_', ' ')}</option>
@@ -523,7 +523,7 @@ function IssueEditModal({
               <select
                 value={priority}
                 onChange={e => setPriority(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary transition-all capitalize"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -542,14 +542,14 @@ function IssueEditModal({
                 max="100"
                 value={estimate}
                 onChange={e => setEstimate(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm text-[#111827] bg-surface focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary transition-all"
               />
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-mono font-medium text-secondary uppercase mb-1.5 flex items-center gap-1.5">
-              <AlertCircle className="w-3.5 h-3.5 text-[#DC2626]" /> Dependencies (Blocked By)
+              <AlertCircle className="w-3.5 h-3.5 text-status-danger" /> Dependencies (Blocked By)
             </label>
             <div className="max-h-36 overflow-y-auto border border-border rounded-lg p-2.5 space-y-1.5 bg-surface-hover/50">
               {otherIssues.length === 0 ? (
@@ -569,7 +569,7 @@ function IssueEditModal({
                             setBlockedByIds(blockedByIds.filter(id => id !== other.id));
                           }
                         }}
-                        className="rounded border-border text-[#2563EB] focus:ring-[#2563EB]"
+                        className="rounded border-border text-accent-primary focus:ring-accent-primary"
                       />
                       <span className="font-mono text-secondary text-[10px] bg-surface border border-border px-1 py-0.5 rounded">#{other.id.slice(-4)}</span>
                       <span className="truncate flex-1 font-medium">{other.title}</span>
@@ -767,8 +767,8 @@ export function KanbanBoard() {
       {/* Top Bar with Title and Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-title font-bold tracking-tight text-primary">Execution Board</h1>
-          <p className="text-body text-secondary">Drag and drop directives across sprint stages. Bounded mission execution canvas.</p>
+          <h1 className="text-page-title font-bold tracking-tight text-primary">Execution Board</h1>
+          <p className="text-body text-secondary text-secondary">Drag and drop directives across sprint stages. Bounded mission execution canvas.</p>
         </div>
         <BaseButton onClick={() => handleCreateIssue('todo')}>
           <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" /> New Directive
@@ -776,7 +776,7 @@ export function KanbanBoard() {
       </div>
 
       {/* Interactive Filter & Search Bar */}
-      <div className="bg-surface border border-border rounded-xl p-3 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="bg-surface border border-border rounded-2xl p-3 shadow-resting flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         
         {/* Search Input */}
         <div className="relative flex-1 max-w-md">
@@ -786,7 +786,7 @@ export function KanbanBoard() {
             placeholder="Search directives by title or ID (e.g. KR-101)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-[#2563EB] dark:focus:border-[#00E5FF] focus:bg-surface transition-all placeholder:text-muted text-primary"
+            className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-accent-primary  focus:bg-surface transition-all placeholder:text-muted text-primary"
           />
         </div>
 
@@ -802,7 +802,7 @@ export function KanbanBoard() {
               className={cn(
                 "px-3 py-1 rounded-md text-xs font-mono font-bold capitalize transition-all shrink-0 cursor-pointer",
                 priorityFilter === pri 
-                  ? "bg-primary text-surface shadow-2xs" 
+                  ? "bg-primary text-surface shadow-resting" 
                   : "bg-surface-hover text-secondary hover:text-primary border border-border"
               )}
             >
@@ -815,7 +815,7 @@ export function KanbanBoard() {
 
       {/* Single Bounded Board Grid */}
       <div className="flex-1 overflow-x-auto pb-4">
-        <div className="min-w-max h-full border border-border rounded-xl bg-surface shadow-sm flex overflow-hidden">
+        <div className="min-w-max h-full border border-border rounded-2xl bg-surface shadow-resting flex overflow-hidden">
           <DndContext 
             sensors={sensors} 
             collisionDetection={closestCorners} 

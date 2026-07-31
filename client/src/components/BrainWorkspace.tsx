@@ -83,8 +83,8 @@ function PageTreeNode({
     <div className="font-sans">
       <div 
         className={cn(
-          "group relative flex items-center gap-2 py-2 px-3 hover:bg-surface-hover rounded-xl cursor-pointer text-xs transition-all duration-150 select-none my-0.5",
-          isSelected ? "bg-primary text-surface font-bold shadow-2xs" : "text-secondary hover:text-primary"
+          "group relative flex items-center gap-2 py-2 px-3 hover:bg-surface-hover rounded-2xl cursor-pointer text-xs transition-all duration-150 select-none my-0.5",
+          isSelected ? "bg-primary text-surface font-bold shadow-resting" : "text-secondary hover:text-primary"
         )}
         style={{ paddingLeft: `${(level * 16) + 12}px` }}
         onClick={() => onSelect(page.id)}
@@ -141,7 +141,7 @@ function PageTreeNode({
             "opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center transition-all duration-150 rounded-md focus:outline-none cursor-pointer",
             isSelected 
               ? "text-surface hover:bg-surface/20" 
-              : "text-muted hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10"
+              : "text-muted hover:text-red-600  hover:bg-red-500/10"
           )}
           title="Delete Page"
         >
@@ -189,7 +189,7 @@ function Breadcrumbs({ page, pages }: { page: PageWithRelations, pages: PageWith
           <ChevronRight className="w-3.5 h-3.5 text-muted shrink-0 stroke-[1.5]" />
           <span className={cn(
             "flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all duration-150 leading-none", 
-            idx === trail.length - 1 ? "text-primary font-bold bg-surface-hover border border-border shadow-2xs" : "hover:text-primary hover:bg-surface-hover cursor-pointer font-medium"
+            idx === trail.length - 1 ? "text-primary font-bold bg-surface-hover border border-border shadow-resting" : "hover:text-primary hover:bg-surface-hover cursor-pointer font-medium"
           )}>
             {getIconComponent(p.icon, "w-3.5 h-3.5 text-secondary shrink-0")}
             <span className="font-sans truncate max-w-[150px]">{p.title || 'Untitled Document'}</span>
@@ -231,7 +231,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-zinc dark:prose-invert max-w-none focus:outline-none min-h-[450px] text-primary leading-relaxed font-sans text-base',
+        class: 'prose prose-zinc  max-w-none focus:outline-none min-h-[450px] text-primary leading-relaxed font-sans text-base',
       },
     },
   });
@@ -252,7 +252,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
       {/* NEUTRAL WHITE THINKING IDENTITY: Document Telemetry Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-border">
         <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-2xl bg-surface-hover border border-border flex items-center justify-center shrink-0 shadow-2xs">
+          <div className="w-10 h-10 rounded-2xl bg-surface-hover border border-border flex items-center justify-center shrink-0 shadow-resting">
             {getIconComponent(page.icon, "w-5 h-5 text-primary")}
           </div>
           <div>
@@ -264,14 +264,14 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
                 <AlignLeft className="w-3.5 h-3.5 text-muted stroke-[1.5]" /> {wordCount} words ({charCount} chars)
               </span>
               <span>•</span>
-              <span className="flex items-center gap-1 text-[#109868] font-bold">
+              <span className="flex items-center gap-1 text-status-success font-bold">
                 <Clock className="w-3.5 h-3.5 stroke-[1.5]" /> ~{readTimeMins} min read
               </span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2.5">
-          <span className="text-xs font-mono font-bold text-secondary bg-surface-hover px-3 py-1.5 rounded-lg border border-border shadow-2xs">
+          <span className="text-xs font-mono font-bold text-secondary bg-surface-hover px-3 py-1.5 rounded-lg border border-border shadow-resting">
             Auto-saved
           </span>
           <BaseButton onClick={() => toast.success('Document exported to Markdown / Engineering Spec')} className="text-xs py-1.5 cursor-pointer">
@@ -293,7 +293,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
               onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
               className={cn(
                 "px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-                editor.isActive('heading', { level: 1 }) ? "bg-primary text-surface shadow-2xs" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
+                editor.isActive('heading', { level: 1 }) ? "bg-primary text-surface shadow-resting" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
               )}
               title="/h1 Heading 1"
             >
@@ -303,7 +303,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
               onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
               className={cn(
                 "px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-                editor.isActive('heading', { level: 2 }) ? "bg-primary text-surface shadow-2xs" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
+                editor.isActive('heading', { level: 2 }) ? "bg-primary text-surface shadow-resting" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
               )}
               title="/h2 Heading 2"
             >
@@ -313,7 +313,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
               onClick={() => editor.chain().focus().toggleBulletList().run()}
               className={cn(
                 "px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-                editor.isActive('bulletList') ? "bg-primary text-surface shadow-2xs" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
+                editor.isActive('bulletList') ? "bg-primary text-surface shadow-resting" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
               )}
               title="/bullet Bullet List"
             >
@@ -323,7 +323,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
               onClick={() => editor.chain().focus().toggleOrderedList().run()}
               className={cn(
                 "px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-                editor.isActive('orderedList') ? "bg-primary text-surface shadow-2xs" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
+                editor.isActive('orderedList') ? "bg-primary text-surface shadow-resting" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
               )}
               title="/number Ordered List"
             >
@@ -333,7 +333,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
               onClick={() => editor.chain().focus().toggleCodeBlock().run()}
               className={cn(
                 "px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-                editor.isActive('codeBlock') ? "bg-primary text-surface shadow-2xs" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
+                editor.isActive('codeBlock') ? "bg-primary text-surface shadow-resting" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
               )}
               title="/code Code Block"
             >
@@ -343,7 +343,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
               onClick={() => editor.chain().focus().toggleBlockquote().run()}
               className={cn(
                 "px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all duration-150 cursor-pointer",
-                editor.isActive('blockquote') ? "bg-primary text-surface shadow-2xs" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
+                editor.isActive('blockquote') ? "bg-primary text-surface shadow-resting" : "bg-surface text-primary border border-border/80 hover:bg-surface-hover"
               )}
               title="/quote Callout"
             >
@@ -362,7 +362,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
           <button
             type="button"
             onClick={() => toast.success("✨ AI Formatting Sentinel: Document structured with executive summary, clear heading hierarchy, and technical callouts.")}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#A78BFA] text-white dark:text-[#050811] text-xs font-mono font-bold flex items-center gap-1.5 shadow-xs hover:opacity-95 transition-all cursor-pointer hover:scale-105 active:scale-95"
+            className="px-3 py-1.5 rounded-2xl bg-gradient-to-r from-accent-ai to-accent-ai text-white  text-xs font-mono font-bold flex items-center gap-1.5 shadow-xs hover:opacity-95 transition-all cursor-pointer hover:scale-105 active:scale-95"
             title="Trigger AI Document Formatting & Structure"
           >
             <Wand2 className="w-3.5 h-3.5 stroke-[1.5]" />
@@ -387,42 +387,42 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
           {page.linkedProject && (
             <div className="mt-14 pt-6 border-t border-border font-mono text-xs">
               <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-secondary mb-3">
-                <Link2 className="w-4 h-4 text-[#4F46E5] dark:text-[#818CF8] stroke-[1.5]" /> Transitive References & Backlinks
+                <Link2 className="w-4 h-4 text-[#4F46E5]  stroke-[1.5]" /> Transitive References & Backlinks
               </div>
               <div className="divide-y divide-border/60 -mx-3 px-3 bg-surface-hover/30 rounded-2xl border border-border/60">
                 <div 
                   onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
-                  className="py-3.5 px-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-xl transition-all cursor-pointer group"
+                  className="py-3.5 px-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-2xl transition-all cursor-pointer group"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <FolderKanban className="w-4 h-4 text-[#4F46E5] dark:text-[#818CF8] shrink-0 stroke-[1.5]" />
-                    <span className="font-sans text-sm font-bold text-primary group-hover:text-[#4F46E5] dark:group-hover:text-[#818CF8] truncate">{page.linkedProject.name}</span>
+                    <FolderKanban className="w-4 h-4 text-[#4F46E5]  shrink-0 stroke-[1.5]" />
+                    <span className="font-sans text-sm font-bold text-primary group-hover:text-[#4F46E5]  truncate">{page.linkedProject.name}</span>
                     <span className="text-[10px] text-secondary uppercase font-mono font-bold tracking-wider bg-surface px-2 py-0.5 rounded border border-border/80">({page.linkedProject.status})</span>
                   </div>
-                  <span className="text-xs font-mono font-bold text-[#4F46E5] dark:text-[#818CF8] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">Open Initiative <ArrowRight className="w-3.5 h-3.5 stroke-[1.5]" /></span>
+                  <span className="text-xs font-mono font-bold text-[#4F46E5]  opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">Open Initiative <ArrowRight className="w-3.5 h-3.5 stroke-[1.5]" /></span>
                 </div>
 
                 {page.linkedProject.goal && (
                   <div 
                     onClick={() => window.location.href = '/app/goals'}
-                    className="py-3.5 px-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-xl transition-all cursor-pointer group"
+                    className="py-3.5 px-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-2xl transition-all cursor-pointer group"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <Target className="w-4 h-4 text-[#109868] shrink-0 stroke-[1.5]" />
-                      <span className="font-sans text-sm font-bold text-primary group-hover:text-[#109868] truncate">{page.linkedProject.goal.title}</span>
+                      <Target className="w-4 h-4 text-status-success shrink-0 stroke-[1.5]" />
+                      <span className="font-sans text-sm font-bold text-primary group-hover:text-status-success truncate">{page.linkedProject.goal.title}</span>
                     </div>
-                    <span className="text-xs font-mono font-bold text-[#109868] shrink-0 bg-[#109868]/10 px-2.5 py-0.5 rounded border border-[#109868]/20">{page.linkedProject.goal.progress}% Completed</span>
+                    <span className="text-xs font-mono font-bold text-status-success shrink-0 bg-status-success/10 px-2.5 py-0.5 rounded border border-status-success/20">{page.linkedProject.goal.progress}% Completed</span>
                   </div>
                 )}
 
                 {page.linkedProject.issues && (
                   <div 
                     onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
-                    className="py-3.5 px-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-xl transition-all cursor-pointer group"
+                    className="py-3.5 px-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-2xl transition-all cursor-pointer group"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <CheckCircle2 className="w-4 h-4 text-[#2563EB] dark:text-[#00E5FF] shrink-0 stroke-[1.5]" />
-                      <span className="font-sans text-sm font-bold text-primary group-hover:text-[#2563EB] dark:group-hover:text-[#00E5FF]">Execution Tickets & Sprints</span>
+                      <CheckCircle2 className="w-4 h-4 text-accent-primary  shrink-0 stroke-[1.5]" />
+                      <span className="font-sans text-sm font-bold text-primary group-hover:text-accent-primary ">Execution Tickets & Sprints</span>
                     </div>
                     <span className="text-xs text-secondary font-mono font-bold shrink-0">
                       {page.linkedProject.issues.filter((i: any) => i.status === 'done' || i.status === 'released').length} / {page.linkedProject.issues.length} Done • {page.linkedProject.sprints?.length || 0} Sprints
@@ -484,16 +484,16 @@ export function BrainWorkspace() {
     <div className="flex flex-col h-full w-full bg-canvas font-sans text-primary">
       
       {/* COMMAND CENTER BRAIN HEADER */}
-      <div className="h-20 border-b border-border bg-surface px-6 md:px-8 flex items-center justify-between shrink-0 shadow-2xs">
+      <div className="h-20 border-b border-border bg-surface px-6 md:px-8 flex items-center justify-between shrink-0 shadow-resting">
         <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-2xl bg-primary text-surface flex items-center justify-center shrink-0 shadow-2xs">
+          <div className="w-10 h-10 rounded-2xl bg-primary text-surface flex items-center justify-center shrink-0 shadow-resting">
             <Brain className="w-5 h-5 stroke-[1.5]" />
           </div>
           <div>
             <div className="flex items-center gap-2.5 mb-0.5">
               <h1 className="text-h2 font-bold tracking-tight text-primary leading-none">Brain Workspace</h1>
               <span className="bg-surface-hover text-secondary border border-border px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-[#7C3AED] dark:text-[#A78BFA] stroke-[1.5]" /> {pages.length} Specs Tracked
+                <Sparkles className="w-3 h-3 text-accent-ai  stroke-[1.5]" /> {pages.length} Specs Tracked
               </span>
             </div>
             <p className="text-xs text-secondary font-mono">Neutral White thinking canvas for engineering specs, architecture RFCs, and meeting notes.</p>
