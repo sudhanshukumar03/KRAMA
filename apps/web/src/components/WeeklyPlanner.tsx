@@ -47,12 +47,12 @@ function ScheduleTaskModal({
  targetDayName: string;
  allIssues: IssueWithRelations[];
  onScheduleExisting: (issueId: string, dateStr: string) => void;
- onCreateNew: (data: { title: string; priority: string; estimate: number; dateStr: string }) => void;
+ onCreateNew: (data: { title: string; priority: string; estimateMinutes: number; dateStr: string }) => void;
  isSubmitting: boolean;
 }) {
  const [mode, setMode] = useState<'create' | 'pick'>('create');
  const [title, setTitle] = useState('');
- const [priority, setPriority] = useState('medium');
+ const [priority, setPriority] = useState("MEDIUM");
  const [estimate, setEstimate] = useState(2);
  const [selectedIssueId, setSelectedIssueId] = useState('');
 
@@ -61,13 +61,13 @@ function ScheduleTaskModal({
  const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
  const formattedDate = targetDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
 
- const unscheduledIssues = allIssues.filter(i => !i.scheduledDate && i.status !== 'done');
+ const unscheduledIssues = allIssues.filter(i => !i.scheduledDate && i.status !== "DONE");
 
  const handleSubmit = (e: React.FormEvent) => {
  e.preventDefault();
  if (mode === 'create') {
  if (!title.trim()) return;
- onCreateNew({ title: title.trim(), priority, estimate, dateStr });
+ onCreateNew({ title: title.trim(), priority, estimateMinutes: estimate, dateStr });
  } else {
  if (!selectedIssueId) return;
  onScheduleExisting(selectedIssueId, dateStr);
@@ -142,10 +142,10 @@ function ScheduleTaskModal({
  onChange={e => setPriority(e.target.value)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#1A73E8] cursor-pointer font-sans"
  >
- <option value="urgent">🔴 Urgent</option>
- <option value="high">🟠 High</option>
- <option value="medium">🟡 Medium</option>
- <option value="low">🟣 Low</option>
+ <option value="URGENT">🔴 Urgent</option>
+ <option value="HIGH">🟠 High</option>
+ <option value="MEDIUM">🟡 Medium</option>
+ <option value="LOW">🟣 Low</option>
  </select>
  </div>
 
@@ -189,7 +189,7 @@ function ScheduleTaskModal({
  <div className="text-badge text-secondary font-mono mt-0.5 flex items-center gap-2">
  <span className="uppercase">{issue.priority}</span>
  <span>•</span>
- <span>{issue.estimate || 1}h</span>
+ <span>{issue.estimateMinutes || 1}h</span>
  </div>
  </div>
  <div className={cn("w-5 h-5 rounded-full border flex items-center justify-center shrink-0",
@@ -301,7 +301,7 @@ function DayColumn({
  <span>
  {habits.filter(h => {
  const isChecked = h.completions?.some((c: any) => c.date.toString().startsWith(dateStr) && c.completed) ||
- (isToday && h.lastCompletedAt && new Date(h.lastCompletedAt).toDateString() === new Date().toDateString());
+ (isToday && h.updatedAt && new Date(h.updatedAt).toDateString() === new Date().toDateString());
  return isChecked;
  }).length}/{habits.length}
  </span>
@@ -310,7 +310,7 @@ function DayColumn({
  <div className="space-y-1">
  {habits.map(habit => {
  const isChecked = habit.completions?.some((c: any) => c.date.toString().startsWith(dateStr) && c.completed) ||
- (isToday && habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
+ (isToday && habit.updatedAt && new Date(habit.updatedAt).toDateString() === new Date().toDateString());
 
  return (
  <div 
@@ -332,7 +332,7 @@ function DayColumn({
  <span className={cn("truncate flex-1 font-medium", isChecked &&"line-through opacity-75")}>
  {habit.name}
  </span>
- <span className="text-[10px] font-mono opacity-70 shrink-0">{habit.duration || 15}m</span>
+ <span className="text-[10px] font-mono opacity-70 shrink-0">{habit.expectedDurationMinutes || 15}m</span>
  </div>
  );
  })}
@@ -348,9 +348,9 @@ function DayColumn({
  </div>
  ) : (
  issues.map(issue => {
- const isDone = issue.status === 'done';
- const isUrgent = issue.priority === 'urgent' || issue.priority === 'high';
- const isMedium = issue.priority === 'medium';
+ const isDone = issue.status === "DONE";
+ const isUrgent = issue.priority === "URGENT" || issue.priority === "HIGH";
+ const isMedium = issue.priority === "MEDIUM";
  
  // Google Calendar event styling by priority / status
  const cardStyle = isDone
@@ -387,7 +387,7 @@ function DayColumn({
  
  <div className="flex items-center justify-between text-[10px] font-mono opacity-85 pt-1 border-t border-current/15">
  <span className="flex items-center gap-1 font-semibold">
- <Clock className="w-3 h-3 stroke-[2]" /> {issue.estimate ? `${issue.estimate}h` : '1h'} block
+ <Clock className="w-3 h-3 stroke-[2]" /> {issue.estimateMinutes ? `${issue.estimateMinutes}h` : '1h'} block
  </span>
  <span className="uppercase tracking-wider font-bold px-1 rounded bg-surface/50">{issue.priority}</span>
  </div>
@@ -418,7 +418,7 @@ export function WeeklyPlanner() {
  const [modalTargetDate, setModalTargetDate] = useState<Date | null>(null);
  const [modalTargetDayName, setModalTargetDayName] = useState<string>('');
  
- const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+ const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
  const { data: habits = [], isLoading: habitsLoading } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
  const { data: sprints = [] } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
 
@@ -433,14 +433,14 @@ export function WeeklyPlanner() {
  });
 
  const createIssueMutation = useMutation({
- mutationFn: (data: { title: string; priority: string; estimate: number; scheduledDate: string; dueDate: string }) =>
- api.issues.create({
+ mutationFn: (data: { title: string; priority: string; estimateMinutes: number; scheduledDate: string; dueDate: string }) =>
+ api.tasks.create({
  title: data.title,
  priority: data.priority,
- estimate: data.estimate,
+ estimateMinutes: data.estimateMinutes,
  scheduledDate: data.scheduledDate,
  dueDate: data.dueDate,
- status: 'todo'
+ status: "TODO"
  }),
  onSuccess: (newIssue) => {
  queryClient.invalidateQueries({ queryKey: ['issues'] });
@@ -452,7 +452,7 @@ export function WeeklyPlanner() {
 
  const updateIssueMutation = useMutation({
  mutationFn: ({ id, scheduledDate, dueDate, status }: { id: string; scheduledDate?: string; dueDate?: string; status?: string }) =>
- api.issues.update(id, {
+ api.tasks.update(id, {
  ...(scheduledDate !== undefined && { scheduledDate }),
  ...(dueDate !== undefined && { dueDate }),
  ...(status !== undefined && { status }),
@@ -494,7 +494,7 @@ export function WeeklyPlanner() {
  };
 
  const handleToggleIssueStatus = (issueId: string, currentStatus: string) => {
- const nextStatus = currentStatus === 'done' ? 'todo' : 'done';
+ const nextStatus = currentStatus === "DONE" ? "TODO" : "DONE";
  updateIssueMutation.mutate({ id: issueId, status: nextStatus });
  };
 
@@ -508,7 +508,7 @@ export function WeeklyPlanner() {
  const currentMonthYear = weekDays[0].date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
  // Compute Time Block Summary for the week
- const totalEstimate = issues.reduce((sum, i) => sum + (i.estimate || 1), 0);
+ const totalEstimate = issues.reduce((sum, i) => sum + (i.estimateMinutes || 1), 0);
  const focusHours = Math.round(totalEstimate * 0.7);
  const meetingHours = Math.round(totalEstimate * 0.3);
  const bufferHours = Math.max(0, 40 - totalEstimate);
@@ -674,7 +674,7 @@ export function WeeklyPlanner() {
  <span className="w-2 h-2 rounded-full bg-[#EA580C] shrink-0" />
  <span className="truncate">{habit.name}</span>
  </div>
- <div className="text-badge text-secondary ml-4 font-mono mt-0.5">{habit.timeOfDay || 'daily'} • {habit.duration || 15}m block</div>
+ <div className="text-badge text-secondary ml-4 font-mono mt-0.5">{habit.category || 'daily'} • {habit.expectedDurationMinutes || 15}m block</div>
  </td>
  <td className="py-3.5 px-3 text-center font-mono text-caption font-medium text-primary">
  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-badge font-bold"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" />{habit.streak}d</span>
@@ -682,7 +682,7 @@ export function WeeklyPlanner() {
  {weekDays.map((day, dayIdx) => {
  const dStr = day.date.toISOString().split('T')[0] || '';
  const isChecked = habit.completions?.some((c: any) => c.date.toString().startsWith(dStr) && c.completed) ||
- (day.isToday && habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
+ (day.isToday && habit.updatedAt && new Date(habit.updatedAt).toDateString() === new Date().toDateString());
 
  return (
  <td key={dayIdx} className={cn("py-3.5 px-3 text-center", day.isToday ?"bg-[#E8F0FE]/20" :"")}>

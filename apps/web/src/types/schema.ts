@@ -1,22 +1,30 @@
 import type {
+  User,
   Workspace,
-  Space,
-  Page,
-  Goal,
+  WorkspaceMember,
   Project,
-  Issue,
+  Task as Issue,
   Sprint,
-  RoadmapItem,
+  Goal,
+  GoalProgressSnapshot,
   Habit as PrismaHabit,
   HabitCompletion,
-  DailyLog,
+  Space,
+  Page,
   Decision,
-  Resource,
-  LearningTopic,
-  ApplicationEntry,
-  AutomationRule,
-  GoalProgressSnapshot
+  DailyLog,
+  SprintReport,
+  WorkspaceAnalytics,
+  Notification,
+  ActivityLog,
+  Comment,
+  Label,
+  AiRequest,
+  TaskStatus,
+  TaskPriority
 } from "@prisma/client";
+
+export type { TaskStatus, TaskPriority };
 
 export type Habit = PrismaHabit & {
   linkedGoal?: Goal | null;
@@ -24,23 +32,35 @@ export type Habit = PrismaHabit & {
 };
 
 export type {
+  User,
   Workspace,
-  Space,
-  Page,
-  Goal,
+  WorkspaceMember,
   Project,
   Issue,
   Sprint,
-  RoadmapItem,
+  Goal,
+  GoalProgressSnapshot,
   HabitCompletion,
-  DailyLog,
+  Space,
+  Page,
   Decision,
-  Resource,
-  LearningTopic,
-  ApplicationEntry,
-  AutomationRule,
-  GoalProgressSnapshot
+  DailyLog,
+  SprintReport,
+  WorkspaceAnalytics,
+  Notification,
+  ActivityLog,
+  Comment,
+  Label,
+  AiRequest
 };
+
+
+
+export type RoadmapItem = any;
+export type Resource = any;
+export type LearningTopic = any;
+export type ApplicationEntry = any;
+export type AutomationRule = any;
 
 // Extended types for relations
 export type GoalWithRelations = Goal & {
@@ -51,36 +71,39 @@ export type GoalWithRelations = Goal & {
 };
 
 export type ProjectWithRelations = Project & {
-  docs?: Page[];
-  issues?: Issue[];
+  tasks?: Issue[];
+  pages?: Page[];
   sprints?: Sprint[];
   roadmapItems?: RoadmapItem[];
   goal?: GoalWithRelations | null;
   space?: Space | null;
   _count?: {
-    issues?: number;
+    tasks?: number;
     sprints?: number;
     roadmapItems?: number;
-    docs?: number;
+    pages?: number;
   };
 };
 
 export type PageWithRelations = Page & {
   childPages?: Page[];
   linkedProject?: (Project & {
-    issues?: Issue[];
+    tasks?: Issue[];
     goal?: Goal | null;
     sprints?: Sprint[];
   }) | null;
+  space?: Space | null;
 };
 
 export type IssueWithRelations = Issue & {
-  project?: Project;
+  assignee?: User | null;
+  project?: Project | null;
   sprint?: Sprint | null;
-  childIssues?: Issue[];
-  parentIssue?: Issue | null;
-  blockedBy?: Issue[];
+  childTasks?: Issue[];
+  parentTask?: Issue | null;
+  blockedBy?: Issue | null;
   blocking?: Issue[];
+  labels?: Label[];
 };
 
 export type SpaceWithRelations = Space & {

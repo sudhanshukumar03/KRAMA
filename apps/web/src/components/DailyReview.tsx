@@ -33,7 +33,7 @@ export function DailyReview() {
  const queryClient = useQueryClient();
  const { data: logs = [], isLoading } = useQuery({ queryKey: ['daily-logs'], queryFn: api.dailyLogs.list });
  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
- const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+ const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
  const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
 
  const todayLog = logs.find(
@@ -51,7 +51,7 @@ export function DailyReview() {
 
  // Theme-Based Focus Timer State
  const [timerRunning, setTimerRunning] = useState(false);
- const [secondsElapsed, setSecondsElapsed] = useState<number>(todayLog ? todayLog.deepWorkMinutes * 60 : 0);
+ const [secondsElapsed, setSecondsElapsed] = useState<number>(todayLog ? (todayLog.deepWorkMinutes ?? 0) * 60 : 0);
  const [isFullScreenFocus, setIsFullScreenFocus] = useState(false);
  
  const [activeThemeId, setActiveThemeId] = useState<string>('sprint');
@@ -87,9 +87,56 @@ export function DailyReview() {
  if (todayLog.wins) setWins(todayLog.wins);
  if (todayLog.blockers) setBlockers(todayLog.blockers);
  if (todayLog.notes !== null && todayLog.notes !== undefined) setNotes(todayLog.notes);
- if (todayLog.deepWorkMinutes !== undefined) setSecondsElapsed(todayLog.deepWorkMinutes * 60);
+ if (todayLog.deepWorkMinutes !== undefined) setSecondsElapsed((todayLog.deepWorkMinutes ?? 0) * 60);
  }
  }, [todayLog]);
+
+  const autoSaveTimerMutation = useMutation({
+    mutationFn: (mins: number) => {
+      const payload = {
+        date: new Date(),
+        mood: selectedMood,
+        energy: selectedEnergy,
+        deepWorkMinutes: mins,
+        wins,
+        blockers,
+        notes
+      };
+      if (todayLog) {
+        return api.dailyLogs.update(todayLog.id, { deepWorkMinutes: mins });
+      } else {
+        return api.dailyLogs.create(payload);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['dailyLogs'] });
+    }
+  });
+
+  const saveLogMutation = useMutation({
+    mutationFn: () => {
+      const payload = {
+        date: new Date(),
+        mood: selectedMood,
+        energy: selectedEnergy,
+        deepWorkMinutes: Math.floor(secondsElapsed / 60),
+        wins,
+        blockers,
+        notes
+      };
+      if (todayLog) {
+        return api.dailyLogs.update(todayLog.id, payload);
+      } else {
+        return api.dailyLogs.create(payload);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['dailyLogs'] });
+      toast.success('Daily review log & evening telemetry saved!');
+    }
+  });
 
  useEffect(() => {
  let interval: any = null;
@@ -119,7 +166,7 @@ export function DailyReview() {
  clearInterval(interval);
  }
  return () => clearInterval(interval);
- }, [timerRunning, activeThemeId, focusTask, activeTheme, totalThemeSeconds]);
+ }, [timerRunning, activeThemeId, focusTask, activeTheme, totalThemeSeconds, autoSaveTimerMutation]);
 
  const handleSelectTheme = (themeId: string) => {
  setActiveThemeId(themeId);
@@ -159,53 +206,6 @@ export function DailyReview() {
  setSecondsRemaining(totalThemeSeconds);
  toast.info('Session timer reset.');
  };
-
- const autoSaveTimerMutation = useMutation({
- mutationFn: (mins: number) => {
- const payload = {
- date: new Date(),
- mood: selectedMood,
- energy: selectedEnergy,
- deepWorkMinutes: mins,
- wins,
- blockers,
- notes
- };
- if (todayLog) {
- return api.dailyLogs.update(todayLog.id, { deepWorkMinutes: mins });
- } else {
- return api.dailyLogs.create(payload);
- }
- },
- onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
- queryClient.invalidateQueries({ queryKey: ['dailyLogs'] });
- }
- });
-
- const saveLogMutation = useMutation({
- mutationFn: () => {
- const payload = {
- date: new Date(),
- mood: selectedMood,
- energy: selectedEnergy,
- deepWorkMinutes: Math.floor(secondsElapsed / 60),
- wins,
- blockers,
- notes
- };
- if (todayLog) {
- return api.dailyLogs.update(todayLog.id, payload);
- } else {
- return api.dailyLogs.create(payload);
- }
- },
- onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
- queryClient.invalidateQueries({ queryKey: ['dailyLogs'] });
- toast.success('Daily review log & evening telemetry saved!');
- }
- });
 
  const handleEveningShutdown = () => {
  saveLogMutation.mutate();

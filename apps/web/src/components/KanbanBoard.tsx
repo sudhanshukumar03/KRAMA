@@ -21,45 +21,47 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { IssueWithRelations } from '../types/schema';
+import type { IssueWithRelations, TaskStatus, TaskPriority } from '../types/schema';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 import { ErrorState } from './ui/ErrorState';
 import { ConfirmDeleteButton } from './ui/ConfirmDeleteButton';
-import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks, Search, Filter, Plus, User, Trash2, AlertCircle, X } from 'lucide-react';
+import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks, Search, Filter, Plus, User, AlertCircle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
-const STATUSES = ['backlog', 'todo', 'in_progress', 'review', 'testing', 'done', 'released'];
+const STATUSES = ["BACKLOG", "TODO", "IN_PROGRESS", 'review', 'testing', "DONE", "REVIEW"];
 
 function getStatusIcon(status: string) {
  switch (status) {
- case 'backlog': return <Circle className="w-3.5 h-3.5 text-muted stroke-[1.5]" />;
- case 'todo': return <CircleDot className="w-3.5 h-3.5 text-secondary stroke-[1.5]" />;
- case 'in_progress': return <CircleDashed className="w-3.5 h-3.5 text-[#2563EB] stroke-[1.5] animate-spin-slow" />;
+ case "BACKLOG": return <Circle className="w-3.5 h-3.5 text-muted stroke-[1.5]" />;
+ case "TODO": return <CircleDot className="w-3.5 h-3.5 text-secondary stroke-[1.5]" />;
+ case "IN_PROGRESS": return <CircleDashed className="w-3.5 h-3.5 text-[#2563EB] stroke-[1.5] animate-spin-slow" />;
  case 'review': return <CheckCircle className="w-3.5 h-3.5 text-[#7C3AED] stroke-[1.5]" />;
  case 'testing': return <CheckCircle className="w-3.5 h-3.5 text-secondary stroke-[1.5]" />;
- case 'done': return <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />;
- case 'released': return <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />;
+ case "DONE": return <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />;
+ case "REVIEW": return <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />;
  default: return <Circle className="w-3.5 h-3.5 stroke-[1.5]" />;
  }
 }
 
-function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithRelations, isDragging?: boolean, onDelete?: (issue: IssueWithRelations) => void, onClick?: (issue: IssueWithRelations) => void }) {
+function IssueCard({ issue, index = 0, isDragging, onDelete, onClick }: { issue: IssueWithRelations, index?: number, isDragging?: boolean, onDelete?: (issue: IssueWithRelations) => void, onClick?: (issue: IssueWithRelations) => void }) {
  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: issue.id });
 
  const style = {
  transform: CSS.Transform.toString(transform),
- transition: transition || 'transform 150ms cubic-bezier(0.16, 1, 0.3, 1)',
+ transition: transition || 'transform var(--motion-ui) var(--ease-spring)',
  };
 
- const isUrgent = issue.priority === 'urgent';
- const isHigh = issue.priority === 'high';
+ const isUrgent = issue.priority === "URGENT";
+ const isHigh = issue.priority === "HIGH";
 
- const completedSubtasks = issue.childIssues?.filter((c: { status: string }) => c.status === 'done').length || 0;
- const totalSubtasks = issue.childIssues?.length || 0;
+ const completedSubtasks = issue.childTasks?.filter((c: { status: string }) => c.status === "DONE").length || 0;
+ const totalSubtasks = issue.childTasks?.length || 0;
  const subtaskPct = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
- const hasDependencies = (issue.blockedBy && issue.blockedBy.length > 0) || (issue.blocking && issue.blocking.length > 0);
+ const hasDependencies = Boolean(issue.blockedBy) || (issue.blocking && issue.blocking.length > 0);
+
+ const staggerClass = `stagger-${Math.min(index + 1, 7)}`;
 
  return (
  <div 
@@ -68,16 +70,15 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
  {...attributes} 
  {...listeners}
  onClick={() => onClick && onClick(issue)}
- className={cn("p-3 rounded-xl border border-border bg-surface text-body cursor-grab active:cursor-grabbing hover:border-[#2563EB]/60 :border-[#2563EB]/60 transition-all duration-200 group relative hover:shadow-sm",
- isDragging &&"scale-[1.02] shadow-md opacity-95 border-[#2563EB] ring-1 ring-[#2563EB] z-50 cursor-grabbing bg-surface-hover"
+ className={cn(`p-3 rounded-xl border border-border bg-surface text-body cursor-grab active:cursor-grabbing card-hover group relative ${!isDragging ? staggerClass : ''}`,
+ isDragging &&"scale-[1.005] shadow-hover opacity-95 border-primary z-50 cursor-grabbing rotate-[0.8deg]"
  )}
  >
  {/* Top Bar: Always visible minimal header */}
  <div className="flex items-center justify-between gap-2 mb-1.5">
  <span className="font-mono text-[10px] text-muted font-bold tracking-wider group-hover:text-primary transition-colors">{issue.id}</span>
  <div className="flex items-center gap-1.5">
- {/* Show Blocked warning dot by default if blocked */}
- {issue.blockedBy && issue.blockedBy.length > 0 && (
+ {issue.blockedBy && (
  <span title="Blocked by dependencies" className="w-2 h-2 rounded-full bg-[#DC2626] animate-pulse" />
  )}
  <span className={cn("px-1.5 py-0.5 rounded font-mono text-[9px] font-bold uppercase tracking-widest border",
@@ -108,15 +109,15 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
  {/* Dependency Badges */}
  {hasDependencies && (
  <div className="flex flex-wrap gap-1.5">
- {issue.blockedBy && issue.blockedBy.length > 0 && (
- <span 
- title={`Blocked by: ${issue.blockedBy.map((b: any) => b.title).join(', ')}`}
- className="px-2 py-0.5 rounded bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
- >
- <AlertCircle className="w-3 h-3 shrink-0 stroke-[1.5]" />
- Blocked: {issue.blockedBy.map((b: any) => b.id.slice(0, 6).toUpperCase()).join(', ')}
- </span>
- )}
+  {issue.blockedBy && (
+  <span 
+  title={`Blocked by: ${issue.blockedBy.title}`}
+  className="px-2 py-0.5 rounded bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+  >
+  <AlertCircle className="w-3 h-3 shrink-0 stroke-[1.5]" />
+  Blocked: {issue.blockedBy.id.slice(0, 6).toUpperCase()}
+  </span>
+  )}
  {issue.blocking && issue.blocking.length > 0 && (
  <span 
  title={`Blocking: ${issue.blocking.map((b: any) => b.title).join(', ')}`}
@@ -150,8 +151,8 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
  </div>
  <span className="text-badge font-normal truncate max-w-[120px] text-muted">{issue.assignee ? 'Assignee' : 'Solo Builder'}</span>
  </div>
- {issue.estimate && (
- <span className="text-[10px] bg-surface-hover px-1.5 py-0.5 rounded border border-border text-primary font-bold">{issue.estimate}h est</span>
+ {issue.estimateMinutes && (
+ <span className="text-[10px] bg-surface-hover px-1.5 py-0.5 rounded border border-border text-primary font-bold">{issue.estimateMinutes}h est</span>
  )}
  </div>
 
@@ -160,17 +161,17 @@ function IssueCard({ issue, isDragging, onDelete, onClick }: { issue: IssueWithR
  );
 }
 
-function Column({ title, issues, isLast, onDelete, onCreate, onClick }: { id: string, title: string, issues: IssueWithRelations[], isLast: boolean, onDelete?: (issue: IssueWithRelations) => void, onCreate?: (status: string) => void, onClick?: (issue: IssueWithRelations) => void }) {
+function Column({ id, title, issues, isLast, onDelete, onCreate, onClick, isProjectsLoading, hasProjects }: { id: string, title: string, issues: IssueWithRelations[], isLast: boolean, onDelete?: (issue: IssueWithRelations) => void, onCreate?: (status: TaskStatus) => void, onClick?: (issue: IssueWithRelations) => void, isProjectsLoading?: boolean, hasProjects?: boolean }) {
  return (
  <div className={cn("flex flex-col w-[300px] flex-shrink-0 h-full bg-transparent",
  !isLast &&"border-r border-border"
  )}>
  <div className={cn("px-4 py-3 font-medium text-body text-primary flex justify-between items-center border-b border-border/50 relative bg-transparent",
- title === 'todo' &&"border-t-2 border-t-[#6B7280]",
- title === 'in_progress' &&"border-t-2 border-t-[#2563EB]",
+ title === "TODO" &&"border-t-2 border-t-[#6B7280]",
+ title === "IN_PROGRESS" &&"border-t-2 border-t-[#2563EB]",
  title === 'blocked' &&"border-t-2 border-t-[#DC2626]",
  title === 'review' &&"border-t-2 border-t-[#7C3AED]",
- title === 'done' &&"border-t-2 border-t-[#109868]"
+ title === "DONE" &&"border-t-2 border-t-[#109868]"
  )}>
  <div className="flex items-center gap-2">
  {getStatusIcon(title)}
@@ -181,14 +182,14 @@ function Column({ title, issues, isLast, onDelete, onCreate, onClick }: { id: st
  <div className="flex-1 overflow-y-auto p-3 space-y-2.5 flex flex-col justify-between">
  <div className="space-y-2.5">
  {issues.length === 0 ? (
- <div className="py-8 text-center flex flex-col items-center justify-center">
- <ListChecks className="w-5 h-5 text-muted mb-1.5 stroke-[1.5]" />
- <span className="text-caption text-muted font-normal">No issues in {title.replace('_', ' ')}</span>
- </div>
+  <div className="py-8 text-center flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/60 bg-white/30 dark:bg-black/10 backdrop-blur-sm m-2 opacity-70">
+  <ListChecks className="w-5 h-5 text-muted mb-1.5 stroke-[1.5]" />
+  <span className="text-caption text-secondary font-medium">Drop an issue here</span>
+  </div>
  ) : (
  <SortableContext items={issues.map(i => i.id)} strategy={verticalListSortingStrategy}>
- {issues.map(issue => (
- <IssueCard key={issue.id} issue={issue} onDelete={onDelete} onClick={onClick} />
+ {issues.map((issue, idx) => (
+ <IssueCard key={issue.id} issue={issue} index={idx} onDelete={onDelete} onClick={onClick} />
  ))}
  </SortableContext>
  )}
@@ -196,11 +197,40 @@ function Column({ title, issues, isLast, onDelete, onCreate, onClick }: { id: st
 
  {/* Inline + Quick Add Button */}
  <button 
- onClick={() => onCreate ? onCreate(title) : toast.info(`Quick add task to ${title.replace('_', ' ')}`)}
- className="w-full mt-2 py-2 border border-dashed border-border hover:border-primary hover:bg-surface-hover rounded-lg text-caption font-medium text-muted hover:text-primary transition-all flex items-center justify-center gap-1.5 opacity-80 hover:opacity-100"
- >
- <Plus className="w-3.5 h-3.5 stroke-[2]" /> Quick Add
- </button>
+    onClick={() => {
+      if (isProjectsLoading) return;
+      if (!hasProjects) {
+        toast.error('No project found. Create a project first!');
+        return;
+      }
+      if (onCreate) {
+        onCreate(id as TaskStatus);
+      } else {
+        toast.info(`Quick add task to ${title.replace('_', ' ')}`);
+      }
+    }}
+    disabled={isProjectsLoading}
+    className={cn(
+      "w-full mt-2 py-2 border border-dashed border-border rounded-lg text-caption font-medium flex items-center justify-center gap-1.5 transition-all",
+      isProjectsLoading ? "opacity-50 cursor-not-allowed text-muted bg-surface/50" :
+      !hasProjects ? "opacity-50 cursor-not-allowed text-muted hover:border-[#DC2626] hover:text-[#DC2626]" :
+      "hover:border-primary hover:bg-surface-hover text-muted hover:text-primary opacity-80 hover:opacity-100"
+    )}
+  >
+    {isProjectsLoading ? (
+      <span className="flex items-center gap-2">
+        <div className="w-3.5 h-3.5 rounded-full border-2 border-muted border-t-transparent animate-spin" /> Loading...
+      </span>
+    ) : !hasProjects ? (
+      <>
+        <span className="text-muted">Create a project first</span>
+      </>
+    ) : (
+      <>
+        <Plus className="w-3.5 h-3.5 stroke-[2]" /> Quick Add
+      </>
+    )}
+  </button>
  </div>
  </div>
  );
@@ -215,16 +245,16 @@ function IssueCreateModal({
  isSubmitting
 }: {
  open: boolean;
- initialStatus: string;
- allIssues: IssueWithRelations[];
- onClose: () => void;
- onSubmit: (data: { title: string; description: string; status: string; priority: string; estimate: number; blockedByIds: string[] }) => void;
- isSubmitting: boolean;
+  initialStatus: TaskStatus;
+  allIssues: IssueWithRelations[];
+  onClose: () => void;
+  onSubmit: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedByIds?: string[] }) => void;
+  isSubmitting: boolean;
 }) {
  const [title, setTitle] = useState('');
  const [description, setDescription] = useState('');
- const [status, setStatus] = useState(initialStatus || 'todo');
- const [priority, setPriority] = useState('medium');
+  const [status, setStatus] = useState<TaskStatus>(initialStatus || "TODO");
+  const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
  const [estimate, setEstimate] = useState(2);
  const [blockedByIds, setBlockedByIds] = useState<string[]>([]);
 
@@ -237,7 +267,7 @@ function IssueCreateModal({
  const handleSubmit = (e: React.FormEvent) => {
  e.preventDefault();
  if (!title.trim()) return;
- onSubmit({ title: title.trim(), description: description.trim(), status, priority, estimate: Number(estimate) || 0, blockedByIds });
+    onSubmit({ title: title.trim(), description: description.trim(), status: status as TaskStatus, priority: priority as TaskPriority, estimateMinutes: Number(estimate) || 0, blockedByIds });
  };
 
  return (
@@ -300,8 +330,8 @@ function IssueCreateModal({
  Column / Status
  </label>
  <select
- value={status}
- onChange={e => setStatus(e.target.value)}
+  value={status}
+  onChange={e => setStatus(e.target.value as TaskStatus)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
  >
  {STATUSES.map(s => (
@@ -315,14 +345,14 @@ function IssueCreateModal({
  Priority
  </label>
  <select
- value={priority}
- onChange={e => setPriority(e.target.value)}
+  value={priority}
+  onChange={e => setPriority(e.target.value as TaskPriority)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
  >
- <option value="low">Low</option>
- <option value="medium">Medium</option>
- <option value="high">High</option>
- <option value="urgent">Urgent</option>
+ <option value="LOW">Low</option>
+ <option value="MEDIUM">Medium</option>
+ <option value="HIGH">High</option>
+ <option value="URGENT">Urgent</option>
  </select>
  </div>
 
@@ -402,13 +432,13 @@ function IssueEditModal({
  issue: IssueWithRelations | null;
  allIssues: IssueWithRelations[];
  onClose: () => void;
- onSubmit: (id: string, data: { title?: string; description?: string; status?: string; priority?: string; estimate?: number; blockedByIds?: string[] }) => void;
+ onSubmit: (id: string, data: { title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; estimateMinutes?: number; blockedByIds?: string[] }) => void;
  isSubmitting: boolean;
 }) {
  const [title, setTitle] = useState('');
  const [description, setDescription] = useState('');
- const [status, setStatus] = useState('todo');
- const [priority, setPriority] = useState('medium');
+ const [status, setStatus] = useState<TaskStatus>("TODO");
+ const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
  const [estimate, setEstimate] = useState(2);
  const [blockedByIds, setBlockedByIds] = useState<string[]>([]);
 
@@ -416,10 +446,10 @@ function IssueEditModal({
  if (open && issue) {
  setTitle(issue.title || '');
  setDescription(issue.description || '');
- setStatus(issue.status || 'todo');
- setPriority(issue.priority || 'medium');
- setEstimate(issue.estimate ?? 2);
- setBlockedByIds(issue.blockedBy?.map((b: any) => b.id) || []);
+ setStatus(issue.status as TaskStatus || "TODO");
+ setPriority(issue.priority as TaskPriority || "MEDIUM");
+ setEstimate(issue.estimateMinutes ?? 2);
+ setBlockedByIds(issue.blockedBy ? [issue.blockedBy.id] : []);
  }
  }, [open, issue]);
 
@@ -431,9 +461,9 @@ function IssueEditModal({
  onSubmit(issue.id, {
  title: title.trim(),
  description: description.trim(),
- status,
- priority,
- estimate: Number(estimate) || 0,
+ status: status as TaskStatus,
+ priority: priority as TaskPriority,
+ estimateMinutes: Number(estimate) || 0,
  blockedByIds,
  });
  };
@@ -499,7 +529,7 @@ function IssueEditModal({
  </label>
  <select
  value={status}
- onChange={e => setStatus(e.target.value)}
+ onChange={e => setStatus(e.target.value as TaskStatus)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
  >
  {STATUSES.map(s => (
@@ -514,13 +544,13 @@ function IssueEditModal({
  </label>
  <select
  value={priority}
- onChange={e => setPriority(e.target.value)}
+ onChange={e => setPriority(e.target.value as TaskPriority)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
  >
- <option value="low">Low</option>
- <option value="medium">Medium</option>
- <option value="high">High</option>
- <option value="urgent">Urgent</option>
+ <option value="LOW">Low</option>
+ <option value="MEDIUM">Medium</option>
+ <option value="HIGH">High</option>
+ <option value="URGENT">Urgent</option>
  </select>
  </div>
 
@@ -590,27 +620,27 @@ function IssueEditModal({
 
 export function KanbanBoard() {
  const queryClient = useQueryClient();
- const { data: issues = [], isLoading, isError } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
- const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+ const { data: issues = [], isLoading: isLoadingIssues, isError } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
+ const { data: projects = [], isLoading: isLoadingProjects } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
  
  const [activeIssue, setActiveIssue] = useState<IssueWithRelations | null>(null);
  const [searchQuery, setSearchQuery] = useState('');
- const [priorityFilter, setPriorityFilter] = useState<'all' | 'urgent' | 'high' | 'medium' | 'low'>('all');
+ const [priorityFilter, setPriorityFilter] = useState<'all' | "URGENT" | "HIGH" | "MEDIUM" | "LOW">('all');
 
  const [createModalOpen, setCreateModalOpen] = useState(false);
- const [createStatus, setCreateStatus] = useState('todo');
+ const [createStatus, setCreateStatus] = useState<TaskStatus>("TODO");
 
  const [editModalOpen, setEditModalOpen] = useState(false);
  const [editingIssue, setEditingIssue] = useState<IssueWithRelations | null>(null);
 
  const createIssueMutation = useMutation({
- mutationFn: (data: { title: string; description: string; status: string; priority: string; estimate: number; blockedByIds?: string[] }) =>
- api.issues.create({
+ mutationFn: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedByIds?: string[] }) =>
+ api.tasks.create({
  title: data.title,
  description: data.description,
- status: data.status as any,
+ status: data.status,
  priority: data.priority as any,
- estimate: data.estimate,
+ estimateMinutes: data.estimateMinutes,
  assignee: 'me',
  projectId: projects[0]?.id,
  labels: [],
@@ -630,7 +660,7 @@ export function KanbanBoard() {
 
  const updateIssueDetailMutation = useMutation({
  mutationFn: ({ id, data }: { id: string; data: Partial<IssueWithRelations> & { blockedByIds?: string[] } }) =>
- api.issues.update(id, data),
+ api.tasks.update(id, data),
  onSuccess: (updated) => {
  queryClient.invalidateQueries({ queryKey: ['issues'] });
  setEditModalOpen(false);
@@ -642,9 +672,8 @@ export function KanbanBoard() {
  }
  });
 
- const handleCreateIssue = (status: string = 'todo') => {
+ const handleCreateIssue = (status: TaskStatus = "TODO") => {
  if (projects.length === 0) {
- toast.error('No project found. Create a project first!');
  return;
  }
  setCreateStatus(status);
@@ -658,27 +687,27 @@ export function KanbanBoard() {
 
  const handleDeleteIssue = async (issue: IssueWithRelations) => {
  try {
- const res = await api.issues.delete(issue.id);
+ const res = await api.tasks.delete(issue.id);
  queryClient.setQueryData<IssueWithRelations[]>(['issues'], old => old?.filter(i => i.id !== issue.id));
  toast.success(`Deleted"${issue.title}"`, {
  description: `Issue #${issue.id.slice(-4)} removed from sprint board.`,
  action: res?.snapshot ? {
  label: 'Undo',
  onClick: async () => {
- await api.issues.restore(res.snapshot);
+ await api.tasks.restore(res.snapshot);
  queryClient.invalidateQueries({ queryKey: ['issues'] });
  toast.success(`Restored"${issue.title}"`);
  }
  } : undefined,
  duration: 5000,
  });
- } catch (err) {
+ } catch {
  toast.error("Failed to delete issue");
  }
  };
 
  const updateIssueMutation = useMutation({
- mutationFn: ({ id, data }: { id: string, data: Partial<IssueWithRelations> }) => api.issues.update(id, data),
+ mutationFn: ({ id, data }: { id: string, data: Partial<IssueWithRelations> }) => api.tasks.update(id, data),
  onMutate: async ({ id, data }) => {
  await queryClient.cancelQueries({ queryKey: ['issues'] });
  const previousIssues = queryClient.getQueryData<IssueWithRelations[]>(['issues']);
@@ -708,7 +737,7 @@ export function KanbanBoard() {
  });
  }, [issues, searchQuery, priorityFilter]);
 
- if (isLoading) return <LoadingState variant="kanban" title="Loading Kanban Board..." description="Organizing sprint tasks and dependencies..." />;
+ if (isLoadingIssues) return <LoadingState variant="kanban" title="Loading Kanban Board..." description="Organizing sprint tasks and dependencies..." />;
  if (isError) {
  return (
  <div className="p-8">
@@ -740,7 +769,7 @@ export function KanbanBoard() {
  let newStatus = activeIssueData.status;
  
  if (STATUSES.includes(overId)) {
- newStatus = overId;
+ newStatus = overId as TaskStatus;
  } else {
  const overIssueData = issues.find(i => i.id === overId);
  if (overIssueData) {
@@ -762,7 +791,7 @@ export function KanbanBoard() {
  <h1 className="text-title text-primary mb-4 ">Execution Board</h1>
  <p className="text-body text-secondary">Drag and drop directives across sprint stages. Bounded mission execution canvas.</p>
  </div>
- <BaseButton onClick={() => handleCreateIssue('todo')}>
+ <BaseButton onClick={() => handleCreateIssue("TODO")}>
  <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" /> New Directive
  </BaseButton>
  </div>
@@ -787,7 +816,7 @@ export function KanbanBoard() {
  <span className="text-badge font-mono font-medium text-secondary flex items-center gap-1 mr-1 shrink-0 uppercase tracking-wider">
  <Filter className="w-3.5 h-3.5 stroke-[1.5]" /> Priority:
  </span>
- {(['all', 'urgent', 'high', 'medium', 'low'] as const).map((pri) => (
+ {(['all', "URGENT", "HIGH", "MEDIUM", "LOW"] as const).map((pri) => (
  <button
  key={pri}
  onClick={() => setPriorityFilter(pri)}
@@ -816,7 +845,7 @@ export function KanbanBoard() {
  {STATUSES.map((status, index) => {
  const columnIssues = filteredIssues.filter(i => i.status === status);
  return (
- <Column key={status} id={status} title={status} issues={columnIssues} isLast={index === STATUSES.length - 1} onDelete={handleDeleteIssue} onCreate={handleCreateIssue} onClick={handleEditIssue} />
+ <Column key={status} id={status} title={status} issues={columnIssues} isLast={index === STATUSES.length - 1} onDelete={handleDeleteIssue} onCreate={handleCreateIssue} onClick={handleEditIssue} isProjectsLoading={isLoadingProjects} hasProjects={projects.length > 0} />
  );
  })}
  

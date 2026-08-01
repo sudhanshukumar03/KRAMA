@@ -26,7 +26,7 @@ export function Dashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { data: issues = [], isLoading: issuesLoading, isError: issuesError } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+  const { data: issues = [], isLoading: issuesLoading, isError: issuesError } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
   const { data: projects = [], isLoading: projectsLoading, isError: projectsError } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
   const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
   const { data: pages = [] } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
@@ -34,10 +34,10 @@ export function Dashboard() {
   const { data: dailyLogs = [] } = useQuery({ queryKey: ['daily-logs'], queryFn: api.dailyLogs.list });
 
   const activeProjects = useMemo(() => projects.filter(p => p.status === 'active'), [projects]);
-  const inProgressIssues = useMemo(() => issues.filter(i => i.status === 'in_progress'), [issues]);
+  const inProgressIssues = useMemo(() => issues.filter(i => i.status === "IN_PROGRESS"), [issues]);
   const today = useMemo(() => new Date(), []);
   
-  const doneIssues = useMemo(() => issues.filter(i => i.status === 'done' || i.status === 'done_deployed'), [issues]);
+  const doneIssues = useMemo(() => issues.filter(i => i.status === "DONE"), [issues]);
 
   const liveBarData = useMemo(() => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -46,7 +46,7 @@ export function Dashboard() {
       const d = new Date(today.getTime() - i * 86400000);
       const dayStr = d.toISOString().split('T')[0];
       const completedCount = doneIssues.filter(issue => {
-        const dateToUse = issue.completedAt ? new Date(issue.completedAt) : new Date(issue.updatedAt);
+        const dateToUse = issue.updatedAt ? new Date(issue.updatedAt) : new Date(issue.updatedAt);
         return dateToUse.toISOString().split('T')[0] === dayStr;
       }).length;
       data.push({
@@ -72,7 +72,7 @@ export function Dashboard() {
     ...issues.map(i => ({ id: i.id, action: `Issue moved to ${i.status.replace('_', ' ')}`, title: i.title, type: 'Issue' as const, date: new Date(i.updatedAt), status: i.status, link: `/app/board` })),
     ...pages.map(p => ({ id: p.id, action: `Page edited`, title: p.title, type: 'Page' as const, date: new Date(p.updatedAt), status: 'active', link: `/app/brain` })),
     ...goals.map(g => ({ id: g.id, action: `Goal updated`, title: g.title, type: 'Goal' as const, date: new Date(g.updatedAt), status: 'active', link: `/app/goals` })),
-    ...habits.map(h => ({ id: h.id, action: `Habit completed`, title: h.name, type: 'Habit' as const, date: new Date(h.updatedAt), status: 'done', link: `/app/goals` }))
+    ...habits.map(h => ({ id: h.id, action: `Habit completed`, title: h.name, type: 'Habit' as const, date: new Date(h.updatedAt), status: "DONE", link: `/app/goals` }))
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
   const filteredActivity = allActivity.slice(0, 5);
@@ -150,7 +150,7 @@ export function Dashboard() {
           </div>
         </div>
         
-        <div className="w-full md:w-64 shrink-0 flex flex-col gap-4 border-l border-border pl-0 md:pl-8 pt-6 md:pt-0 border-t md:border-t-0">
+        <div className="w-full md:w-64 shrink-0 flex flex-col gap-4 border-l border-border pl-0 md:pl-8 pt-6 md:pt-0 border-t md:border-t-0 tabular-nums">
           <div className="flex items-center justify-between">
             <span className="text-body text-secondary">Remaining</span>
             <strong className="text-body text-primary">{sprintIssuesCount} Issues</strong>
@@ -172,22 +172,22 @@ export function Dashboard() {
         {/* STATS LIST (NO CARDS) */}
         <div>
           <h3 className="text-section mb-4">Execution Metrics</h3>
-          <div className="flex flex-col">
-            <div className="hairline-row">
+          <div className="flex flex-col tabular-nums">
+            <div className="hairline-row hover:bg-surface-hover hover:-translate-y-[1px] transition-all px-2 -mx-2 rounded-lg cursor-pointer">
               <span className="text-body text-secondary">Weekly Velocity</span>
               <div className="flex items-baseline gap-2 text-right">
                 <span className="text-section">{weeklyVelocityCount}</span>
                 <span className="text-caption text-secondary">tasks</span>
               </div>
             </div>
-            <div className="hairline-row">
+            <div className="hairline-row hover:bg-surface-hover hover:-translate-y-[1px] transition-all px-2 -mx-2 rounded-lg cursor-pointer">
               <span className="text-body text-secondary">Active Streaks</span>
               <div className="flex items-baseline gap-2 text-right">
                 <span className="text-section">{habits.filter(h => h.streak > 0).length}</span>
                 <span className="text-caption text-secondary">habits</span>
               </div>
             </div>
-            <div className="hairline-row">
+            <div className="hairline-row hover:bg-surface-hover hover:-translate-y-[1px] transition-all px-2 -mx-2 rounded-lg cursor-pointer">
               <span className="text-body text-secondary">OKR Pace</span>
               <div className="flex items-baseline gap-2 text-right">
                 <span className="text-section">{avgGoalProgress}%</span>

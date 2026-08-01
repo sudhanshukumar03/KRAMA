@@ -58,7 +58,7 @@ export function CommandPalette() {
 
  // Fallback local data for when no search query is active
  const { data: pages = [] } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
- const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+ const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
  const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
 

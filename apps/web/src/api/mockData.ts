@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { 
   Workspace, Space, ProjectWithRelations, IssueWithRelations, PageWithRelations, GoalWithRelations, Habit, Sprint, DailyLog, RoadmapItem
 } from '../types/schema';

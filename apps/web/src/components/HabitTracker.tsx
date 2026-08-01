@@ -26,7 +26,7 @@ function generate30DayPattern(habit: any) {
  }
  const dStr = d.toISOString().split('T')[0] || '';
  const completed = habit.completions?.some((c: any) => c.date.toString().startsWith(dStr) && c.completed) ||
- (i === 0 && habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === today.toDateString());
+ (i === 0 && habit.updatedAt && new Date(habit.updatedAt).toDateString() === today.toDateString());
  
  days.push({ level: completed ? 3 : 0, offset: i, dateStr: dStr });
  }
@@ -41,21 +41,21 @@ function HabitCreateModal({
 }: {
  open: boolean;
  onClose: () => void;
- onSubmit: (data: { name: string; cadence: string; category: string; timeOfDay: string; duration: number }) => void;
+ onSubmit: (data: { name: string; cadence: string; category: string; difficulty: string; expectedDurationMinutes: number }) => void;
  isSubmitting: boolean;
 }) {
  const [name, setName] = useState('');
  const [cadence, setCadence] = useState('daily');
- const [category, setCategory] = useState('Execution');
+ const [category, setCategory] = useState('PRODUCTIVITY');
+ const [expectedDurationMinutes, setDuration] = useState(15);
  const [timeOfDay, setTimeOfDay] = useState('morning');
- const [duration, setDuration] = useState(15);
 
  if (!open) return null;
 
  const handleSubmit = (e: React.FormEvent) => {
  e.preventDefault();
  if (!name.trim()) return;
- onSubmit({ name: name.trim(), cadence, category, timeOfDay, duration });
+ onSubmit({ name: name.trim(), cadence, category, difficulty: 'MEDIUM', expectedDurationMinutes });
  };
 
  return (
@@ -157,7 +157,7 @@ function HabitCreateModal({
  type="number"
  min="1"
  max="480"
- value={duration}
+ value={expectedDurationMinutes}
  onChange={e => setDuration(Number(e.target.value))}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
  />
@@ -222,13 +222,13 @@ export function HabitTracker() {
 
  const [createModalOpen, setCreateModalOpen] = useState(false);
  const createHabitMutation = useMutation({
- mutationFn: (data: { name: string; cadence: string; category: string; timeOfDay: string; duration: number }) =>
+ mutationFn: (data: { name: string; cadence: string; category: string; difficulty: string; expectedDurationMinutes: number }) =>
  api.habits.create({
  name: data.name,
  cadence: data.cadence,
- category: data.category,
- timeOfDay: data.timeOfDay,
- duration: data.duration,
+ category: data.category as any,
+ difficulty: data.difficulty as any,
+ expectedDurationMinutes: data.expectedDurationMinutes,
  streak: 0
  }),
  onSuccess: (newHabit) => {
@@ -269,15 +269,15 @@ export function HabitTracker() {
  ? habits.filter(h => (h.category || 'Uncategorized') === activeCategory)
  : habits;
 
- const morningHabits = habits.filter(h => h.timeOfDay === 'morning');
- const eveningHabits = habits.filter(h => h.timeOfDay === 'evening');
+ const morningHabits = habits.filter(h => h.category === 'HEALTH');
+ const eveningHabits = habits.filter(h => h.category === 'LEARNING');
 
  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
  const isHabitCompleted = (habit: any) => {
  const todayStr = new Date().toISOString().split('T')[0] || '';
  return habit.completions?.some((c: any) => c.date.toString().startsWith(todayStr) && c.completed) ||
- (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
+ (habit.updatedAt && new Date(habit.updatedAt).toDateString() === new Date().toDateString());
  };
 
  const toggleTodayCompletion = (id: string, name?: string, currentlyCompleted?: boolean) => {
@@ -381,7 +381,7 @@ export function HabitTracker() {
  </span>
  <span className="text-[#E5E8EC] font-light">•</span>
  <span className="text-badge text-secondary font-mono flex items-center gap-1">
- <Clock className="w-3 h-3 stroke-[1.5]" /> {habit.duration || 15}m
+ <Clock className="w-3 h-3 stroke-[1.5]" /> {habit.expectedDurationMinutes || 15}m
  </span>
  </div>
  </div>
@@ -434,7 +434,7 @@ export function HabitTracker() {
  <div key={habit.id} className="flex justify-between items-center bg-surface-hover border border-border p-3 rounded-lg hover:border-primary transition-colors group">
  <span className="text-body font-medium text-primary group-hover:text-primary transition-colors">{habit.name}</span>
  <div className="flex items-center gap-3">
- <span className="text-badge text-secondary font-mono">{habit.duration || 15}m</span>
+ <span className="text-badge text-secondary font-mono">{habit.expectedDurationMinutes || 15}m</span>
  <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[10px] font-bold tracking-tight"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" /> {habit.streak}d</span>
  <ConfirmDeleteButton
  onConfirm={(e) => { e.stopPropagation(); deleteMutation.mutate(habit.id); }}
@@ -459,7 +459,7 @@ export function HabitTracker() {
  <div key={habit.id} className="flex justify-between items-center bg-surface-hover border border-border p-3 rounded-lg hover:border-primary transition-colors group">
  <span className="text-body font-medium text-primary group-hover:text-primary transition-colors">{habit.name}</span>
  <div className="flex items-center gap-3">
- <span className="text-badge text-secondary font-mono">{habit.duration || 15}m</span>
+ <span className="text-badge text-secondary font-mono">{habit.expectedDurationMinutes || 15}m</span>
  <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[10px] font-bold tracking-tight"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" /> {habit.streak}d</span>
  <ConfirmDeleteButton
  onConfirm={(e) => { e.stopPropagation(); deleteMutation.mutate(habit.id); }}
@@ -501,7 +501,7 @@ export function HabitTracker() {
  <div className="text-badge text-secondary font-mono flex items-center gap-2 mt-0.5">
  <span>{habit.category || 'General'}</span>
  <span>•</span>
- <span>{habit.timeOfDay || 'daily'} ({habit.duration || 15}m)</span>
+ <span>{habit.category || 'daily'} ({habit.expectedDurationMinutes || 15}m)</span>
  </div>
  </div>
  </div>
@@ -573,7 +573,7 @@ export function HabitTracker() {
  )}>
  {habit.name}
  </span>
- <span className="text-[10px] text-secondary font-mono">{habit.timeOfDay} • {habit.duration || 15}m</span>
+ <span className="text-[10px] text-secondary font-mono">{habit.category} • {habit.expectedDurationMinutes || 15}m</span>
  </div>
  </div>
  );

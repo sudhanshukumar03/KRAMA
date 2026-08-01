@@ -20,29 +20,29 @@ function RoutineCreateModal({
 }: {
  open: boolean;
  onClose: () => void;
- onSubmit: (data: { name: string; cadence: string; category: string; timeOfDay: string; duration: number }) => void;
- isSubmitting: boolean;
+  onSubmit: (data: { name: string; cadence: string; category: string; difficulty: string; expectedDurationMinutes: number }) => void;
+  isSubmitting: boolean;
 }) {
- const [name, setName] = useState('');
- const [cadence] = useState('daily');
- const [category] = useState('Execution');
- const [timeOfDay, setTimeOfDay] = useState('morning');
- const [duration, setDuration] = useState(15);
+  const [name, setName] = useState('');
+  const [cadence] = useState('daily');
+  const [category, setCategory] = useState('PRODUCTIVITY');
+  
+  const [expectedDurationMinutes, setDuration] = useState(15);
 
- if (!open) return null;
+  if (!open) return null;
 
- const handleSubmit = (e: React.FormEvent) => {
- e.preventDefault();
- if (!name.trim()) return;
- onSubmit({ name: name.trim(), cadence, category, timeOfDay, duration });
- };
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onSubmit({ name: name.trim(), cadence, category, difficulty: 'MEDIUM', expectedDurationMinutes });
+  };
 
- return (
- <div
- onClick={onClose}
- className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
- >
- <div
+  return (
+  <div
+  onClick={onClose}
+  className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
+  >
+  <div
  onClick={e => e.stopPropagation()}
  className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
  >
@@ -84,14 +84,14 @@ function RoutineCreateModal({
  Time of Day
  </label>
  <select
- value={timeOfDay}
- onChange={e => setTimeOfDay(e.target.value)}
+ value={category}
+ onChange={e => setCategory(e.target.value)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
  >
- <option value="morning">Morning</option>
- <option value="afternoon">Afternoon</option>
- <option value="evening">Evening</option>
- <option value="anytime">Anytime</option>
+ <option value="MORNING">Morning</option>
+ <option value="AFTERNOON">Afternoon</option>
+ <option value="EVENING">Evening</option>
+ <option value="ANYTIME">Anytime</option>
  </select>
  </div>
 
@@ -103,7 +103,7 @@ function RoutineCreateModal({
  type="number"
  min="1"
  max="480"
- value={duration}
+ value={expectedDurationMinutes}
  onChange={e => setDuration(Number(e.target.value))}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
  />
@@ -133,7 +133,7 @@ function ScheduleTaskModal({
 }: {
  open: boolean;
  onClose: () => void;
- onSubmit: (data: { title: string; priority: string; estimate: number; scheduledDate: string }) => void;
+ onSubmit: (data: { title: string; priority: string; estimateMinutes: number; scheduledDate: string }) => void;
  defaultDate: string;
  isSubmitting: boolean;
 }) {
@@ -151,7 +151,7 @@ function ScheduleTaskModal({
  const handleSubmit = (e: React.FormEvent) => {
  e.preventDefault();
  if (!title.trim()) return;
- onSubmit({ title: title.trim(), priority, estimate: Number(estimate), scheduledDate });
+ onSubmit({ title: title.trim(), priority, estimateMinutes: Number(estimate), scheduledDate });
  };
 
  return (
@@ -234,8 +234,8 @@ function ScheduleTaskModal({
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
  >
  <option value="normal">Normal</option>
- <option value="high">High Priority</option>
- <option value="urgent">Urgent / Blocker</option>
+ <option value="HIGH">High Priority</option>
+ <option value="URGENT">Urgent / Blocker</option>
  </select>
  </div>
 
@@ -254,25 +254,25 @@ function ScheduleTaskModal({
 }
 
 export function TimelineView() {
- const { data: issues = [], isLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+ const { data: issues = [], isLoading } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
  const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
 
  const queryClient = useQueryClient();
  const [routineModalOpen, setRoutineModalOpen] = useState(false);
  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
- const createRoutineMutation = useMutation({
- mutationFn: (data: { name: string; cadence: string; category: string; timeOfDay: string; duration: number }) =>
- api.habits.create({
- name: data.name,
- cadence: data.cadence,
- category: data.category,
- timeOfDay: data.timeOfDay,
- duration: data.duration,
- streak: 0
- }),
- onSuccess: (newHabit) => {
- queryClient.invalidateQueries({ queryKey: ['habits'] });
+  const createRoutineMutation = useMutation({
+  mutationFn: (data: { name: string; cadence: string; category: string; difficulty: string; expectedDurationMinutes: number }) =>
+  api.habits.create({
+  name: data.name,
+  cadence: data.cadence,
+  category: data.category,
+  difficulty: data.difficulty,
+  expectedDurationMinutes: data.expectedDurationMinutes,
+  streak: 0
+  }),
+  onSuccess: (newHabit) => {
+  queryClient.invalidateQueries({ queryKey: ['habits'] });
  setRoutineModalOpen(false);
  toast.success(`Added routine"${newHabit?.name || 'Routine'}"`);
  },
@@ -282,13 +282,13 @@ export function TimelineView() {
  });
 
  const scheduleTaskMutation = useMutation({
- mutationFn: (data: { title: string; priority: string; estimate: number; scheduledDate: string }) =>
- api.issues.create({
+ mutationFn: (data: { title: string; priority: string; estimateMinutes: number; scheduledDate: string }) =>
+ api.tasks.create({
  title: data.title,
  priority: data.priority,
- estimate: data.estimate,
+ estimateMinutes: data.estimateMinutes,
  scheduledDate: new Date(data.scheduledDate).toISOString(),
- status: 'todo'
+ status: "TODO"
  }),
  onSuccess: (newTask) => {
  queryClient.invalidateQueries({ queryKey: ['issues'] });
@@ -345,7 +345,7 @@ export function TimelineView() {
  return date && date >= targetStart && date <= targetEnd;
  });
 
- const pinnedTasks = issues.filter(i => i.priority === 'urgent' || i.priority === 'high').slice(0, 3);
+ const pinnedTasks = issues.filter(i => i.priority === "URGENT" || i.priority === "HIGH").slice(0, 3);
 
  const timeString = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 
@@ -375,7 +375,7 @@ export function TimelineView() {
  <div className="space-y-2.5">
  {pinnedTasks.map(task => {
  const Icon = getIconForString(task.title);
- const isUrgent = task.priority === 'urgent';
+ const isUrgent = task.priority === "URGENT";
  return (
  <div key={task.id} className="bg-surface rounded-xl p-3.5 border border-border shadow-sm flex flex-col gap-2 hover:border-[#2563EB] transition-all group">
  <div className="flex items-center justify-between gap-2">
@@ -530,7 +530,7 @@ export function TimelineView() {
 
  <div className="space-y-4">
  {todayIssues.map((issue, idx) => {
- const isDone = issue.status === 'done' || issue.status === 'released';
+ const isDone = issue.status === "DONE" || issue.status === "REVIEW";
  const Icon = getIconForString(issue.title);
  const isCurrent = idx === 0 && !isDone;
  
@@ -574,7 +574,7 @@ export function TimelineView() {
  )}
  </div>
  <div className="text-badge text-secondary font-mono">
- {issue.estimate ? `${issue.estimate}h Block` : 'Scheduled Task'} • {idx === 0 ? '09:00 - 11:00' : idx === 1 ? '11:30 - 12:30' : '14:00 - 16:00'}
+ {issue.estimateMinutes ? `${issue.estimateMinutes}h Block` : 'Scheduled Task'} • {idx === 0 ? '09:00 - 11:00' : idx === 1 ? '11:30 - 12:30' : '14:00 - 16:00'}
  </div>
  </div>
  </div>
@@ -629,7 +629,7 @@ export function TimelineView() {
  {habits.map((habit) => {
  const todayStr = new Date().toISOString().split('T')[0] || '';
  const isHabitDone = habit.completions?.some((c: any) => c.date.toString().startsWith(todayStr) && c.completed) ||
- (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
+ (habit.updatedAt && new Date(habit.updatedAt).toDateString() === new Date().toDateString());
  const Icon = getIconForString(habit.name);
  return (
  <div 
@@ -651,7 +651,7 @@ export function TimelineView() {
  </div>
  </div>
  <div className="text-badge font-mono text-secondary shrink-0 ml-2 bg-surface-hover px-1.5 py-0.5 rounded border border-border">
- {habit.duration || 15}m
+ {habit.expectedDurationMinutes || 15}m
  </div>
  </div>
  );

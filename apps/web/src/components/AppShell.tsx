@@ -115,7 +115,7 @@ export function AppShell() {
  window.removeEventListener('keydown', handleKeyDown);
  clearTimeout(timeoutId);
  };
- }, [activePrefix, navigate, showCheatsheet]);
+ }, [activePrefix, navigate, showCheatsheet, toggleTheme]);
 
  return (
  <div className="flex flex-col md:flex-row h-screen w-full bg-canvas text-primary overflow-hidden font-sans select-none">

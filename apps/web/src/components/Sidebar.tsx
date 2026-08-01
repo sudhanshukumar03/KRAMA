@@ -19,10 +19,12 @@ import {
  Download,
  X,
  Moon,
- Sun
+ Sun,
+ LogOut
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTheme } from '../lib/theme';
+import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
  { name: 'Dashboard', path: '/app/', icon: Home, shortcut: 'G D', badgeKey: null },
@@ -44,16 +46,17 @@ const executionItems = [
 export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
  const location = useLocation();
  const { theme, toggleTheme } = useTheme();
+ const { user, logout } = useAuth();
 
  // Fetch live counts for badges
- const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+ const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
  const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
  const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
  const { data: pages = [] } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
 
- const openIssuesCount = issues.filter(i => i.status !== 'done' && i.status !== 'released').length;
- const sprintIssuesCount = issues.filter(i => ['todo', 'in_progress', 'review'].includes(i.status)).length;
+ const openIssuesCount = issues.filter(i => i.status !== "DONE" && i.status !== "REVIEW").length;
+ const sprintIssuesCount = issues.filter(i => ["TODO", "IN_PROGRESS", 'review'].includes(i.status)).length;
  const activeProjectsCount = projects.filter(p => p.status === 'active').length;
 
  const getBadgeValue = (key: string | null) => {
@@ -96,14 +99,15 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  key={item.path}
  to={item.path}
  onClick={onMobileClose}
- className={cn("group flex items-center justify-between px-3 py-2 rounded-lg text-caption font-medium transition-all duration-100 outline-none select-none",
+ className={cn("group flex items-center justify-between px-3 py-2 rounded-lg text-caption transition-all duration-150 outline-none select-none relative overflow-hidden",
  isActive 
- ?"bg-surface text-primary font-semibold shadow-2xs border border-border" 
- :"text-secondary hover:text-primary hover:bg-surface/60 border border-transparent"
+ ?"text-primary font-semibold shadow-sm border border-border bg-white/60 dark:bg-black/40 backdrop-blur-md" 
+ :"text-secondary font-medium hover:text-primary hover:bg-surface/80 border border-transparent"
  )}
  >
- <div className="flex items-center gap-2.5 min-w-0">
- <Icon className={cn("w-4 h-4 shrink-0 stroke-[1.75]", isActive ?"text-[#2563EB]" :"text-muted group-hover:text-primary")} />
+ {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3/4 bg-accent rounded-r-md shadow-[0_0_8px_var(--color-accent)]" />}
+ <div className="flex items-center gap-2.5 min-w-0 z-10">
+ <Icon className={cn("w-4 h-4 shrink-0 stroke-[1.75] transition-transform duration-150 ease-out group-hover:translate-x-[1.5px]", isActive ?"text-accent drop-shadow-[0_0_4px_var(--color-accent-tint)]" :"text-muted group-hover:text-primary")} />
  <span className="truncate">{item.name}</span>
  </div>
 
@@ -139,7 +143,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  <span className="font-bold tracking-tight text-primary text-body leading-none block">KRAMA OS</span>
  </div>
  </div>
- <div className="w-2 h-2 rounded-full bg-[#0D9488] animate-pulse" title="Live Sync Active" />
+ <div className="w-2 h-2 rounded-full bg-[#0D9488]" style={{ animation: 'pulse 8s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} title="Live Sync Active" />
  </div>
 
  {/* Search / Command Palette Trigger */}
@@ -217,6 +221,17 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  </span>
  <span className="text-[10px] font-mono text-muted group-hover:text-secondary">JSON</span>
  </button>
+ 
+ <button
+ onClick={logout}
+ className="w-full flex items-center justify-between px-3 py-2 mt-1 rounded-lg text-caption font-medium text-secondary hover:text-[#DC2626] hover:bg-[#DC2626]/10 transition-colors border border-transparent group"
+ title="Sign out of KRAMA OS"
+ >
+ <span className="flex items-center gap-2">
+ <LogOut className="w-3.5 h-3.5 text-secondary group-hover:text-[#DC2626] transition-colors" />
+ <span>Sign Out</span>
+ </span>
+ </button>
  </div>
 
  {/* Shortcuts Hint */}
@@ -230,10 +245,10 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  <div className="p-3 border-t border-border bg-surface flex items-center justify-between">
  <div className="flex items-center gap-2.5 min-w-0">
  <div className="w-8 h-8 rounded-full bg-[#2563EB]/10 border border-[#2563EB]/20 flex items-center justify-center text-[#2563EB] font-mono font-bold text-caption shrink-0">
- SK
+ {user?.name ? user.name.substring(0, 2).toUpperCase() : 'ME'}
  </div>
  <div className="min-w-0">
- <div className="text-caption font-semibold text-primary truncate">Sudhanshu K.</div>
+ <div className="text-caption font-semibold text-primary truncate">{user?.name || 'Loading...'}</div>
  <div className="text-[10px] text-[#0D9488] font-mono flex items-center gap-1">
  <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" /> Online & Focused
  </div>

@@ -10,7 +10,7 @@ interface ConfirmDeleteButtonProps {
 
 export function ConfirmDeleteButton({ onConfirm, className, iconClassName }: ConfirmDeleteButtonProps) {
   const [armed, setArmed] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();

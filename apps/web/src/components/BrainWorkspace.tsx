@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { ChevronRight, FileText, Plus, FileSignature, Building2, Laptop, Brain, Clock, AlignLeft, BookOpen, Heading1, Heading2, List, ListOrdered, Quote, Code, Minus, Command, FolderKanban, Target, CheckCircle2, Link2, Trash2, Sparkles, Wand2, ArrowRight } from 'lucide-react';
+import { ChevronRight, FileText, Plus, FileSignature, Building2, Laptop, Brain, Clock, AlignLeft, BookOpen, Heading1, Heading2, List, ListOrdered, Quote, Code, Minus, Command, FolderKanban, Target, CheckCircle2, Link2, Sparkles, Wand2, ArrowRight } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Content } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -57,7 +57,7 @@ function PageTreeNode({
  }
  } : undefined
  });
- } catch (err) {
+ } catch {
  toast.error('Failed to delete page');
  }
  };
@@ -75,7 +75,7 @@ function PageTreeNode({
  setExpanded(true);
  if (newPage?.id) onSelect(newPage.id);
  toast.success(`Created sub-page under"${page.title}"`);
- } catch (err) {
+ } catch {
  toast.error('Failed to create sub-page');
  }
  };
@@ -400,7 +400,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
  </div>
  )}
 
- {page.linkedProject.issues && (
+ {page.linkedProject.tasks && (
  <div 
  onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
  className="py-3.5 px-3 flex items-center justify-between gap-3 hover:bg-surface-hover rounded-xl transition-all cursor-pointer group"
@@ -410,7 +410,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
  <span className="font-sans text-body font-bold text-primary group-hover:text-[#2563EB] :text-[#2563EB]">Execution Tickets & Sprints</span>
  </div>
  <span className="text-caption text-secondary font-mono font-bold shrink-0">
- {page.linkedProject.issues.filter((i: any) => i.status === 'done' || i.status === 'released').length} / {page.linkedProject.issues.length} Done • {page.linkedProject.sprints?.length || 0} Sprints
+ {page.linkedProject.tasks.filter((i: any) => i.status === "DONE" || i.status === "REVIEW").length} / {page.linkedProject.tasks.length} Done • {page.linkedProject.sprints?.length || 0} Sprints
  </span>
  </div>
  )}
@@ -445,7 +445,7 @@ export function BrainWorkspace() {
  queryClient.invalidateQueries({ queryKey: ['pages'] });
  if (newPage?.id) setSelectedPageId(newPage.id);
  toast.success('Created new document');
- } catch (err) {
+ } catch {
  toast.error('Failed to create document');
  }
  };

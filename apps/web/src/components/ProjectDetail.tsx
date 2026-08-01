@@ -24,7 +24,7 @@ export function ProjectDetail() {
  const [activeTab, setActiveTab] = useState<'overview' | 'board' | 'roadmap' | 'docs'>('overview');
 
  const { data: projects = [], isLoading: pLoading, isError: pError } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
- const { data: issues = [], isLoading: iLoading, isError: iError } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+ const { data: issues = [], isLoading: iLoading, isError: iError } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
  const { data: pages = [], isLoading: docsLoading } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
  const { data: roadmapItems = [], isLoading: rmLoading } = useQuery({ queryKey: ['roadmapItems'], queryFn: api.roadmapItems.list });
  const { data: goals = [], isLoading: goalsLoading } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
@@ -54,20 +54,20 @@ export function ProjectDetail() {
  </div>
  );
 
- const projectIssues = project.issues || issues.filter(i => i.projectId === project.id);
- const projectDocs = project.docs || pages.filter(p => p.linkedProjectId === project.id);
+ const projectIssues = project.tasks || issues.filter(i => i.projectId === project.id);
+ const projectDocs = project.pages || pages.filter(p => p.linkedProjectId === project.id);
  const projectRoadmap = project.roadmapItems || roadmapItems.filter(r => r.projectId === project.id).sort((a, b) => a.order - b.order);
  const projectGoal = project.goal || (project.goalId ? goals.find(g => g.id === project.goalId) : null);
 
- const completedIssues = projectIssues.filter((i: any) => i.status === 'done' || i.status === 'released');
- const openIssues = projectIssues.filter((i: any) => i.status !== 'done' && i.status !== 'released');
+ const completedIssues = projectIssues.filter((i: any) => i.status === "DONE" || i.status === "REVIEW");
+ const openIssues = projectIssues.filter((i: any) => i.status !== "DONE" && i.status !== "REVIEW");
  const progressPct = projectIssues.length > 0 ? Math.round((completedIssues.length / projectIssues.length) * 100) : 0;
  
  // Calculate days since last update
  const daysSinceUpdate = Math.max(0, Math.floor((new Date().getTime() - new Date(project.updatedAt).getTime()) / (1000 * 3600 * 24)));
 
  // Kanban Columns Logic
- const columns = ['backlog', 'todo', 'in_progress', 'review', 'testing', 'done', 'released'];
+ const columns = ["BACKLOG", "TODO", "IN_PROGRESS", 'review', 'testing', "DONE", "REVIEW"];
  const getIssuesByStatus = (status: string) => projectIssues.filter((i: any) => i.status === status);
 
  return (
@@ -241,7 +241,7 @@ export function ProjectDetail() {
  <span className="text-[10px] font-mono text-secondary mt-0.5">{issue.id.slice(0, 7).toUpperCase()}</span>
  </div>
  <span className={cn("px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider border shrink-0",
- issue.priority === 'urgent' ?"bg-red-500/10 text-red-600 border-red-500/20" :"bg-surface-hover text-secondary border-border/80"
+ issue.priority === "URGENT" ?"bg-red-500/10 text-red-600 border-red-500/20" :"bg-surface-hover text-secondary border-border/80"
  )}>
  {issue.status.replace('_', ' ')}
  </span>
@@ -278,8 +278,8 @@ export function ProjectDetail() {
  
  <div className="flex-1 p-3 space-y-3 overflow-y-auto bg-surface-hover/30 min-h-[380px] max-h-[65vh]">
  {columnIssues.map((issue: any) => {
- const subTasks = issue.childIssues || [];
- const completedSubs = subTasks.filter((c: any) => c.status === 'done' || c.status === 'released').length;
+ const subTasks = issue.childTasks || [];
+ const completedSubs = subTasks.filter((c: any) => c.status === "DONE" || c.status === "REVIEW").length;
  const hasSubs = subTasks.length > 0;
 
  return (
@@ -293,8 +293,8 @@ export function ProjectDetail() {
  {issue.id.slice(0, 7).toUpperCase()}
  </span>
  <span className={cn("text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border",
- issue.priority === 'urgent' ?"bg-red-500/10 text-red-600 border-red-500/20" :
- issue.priority === 'high' ?"bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20" :"bg-surface-hover text-secondary border-border/80"
+ issue.priority === "URGENT" ?"bg-red-500/10 text-red-600 border-red-500/20" :
+ issue.priority === "HIGH" ?"bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20" :"bg-surface-hover text-secondary border-border/80"
  )}>
  {issue.priority}
  </span>
@@ -322,7 +322,7 @@ export function ProjectDetail() {
 
  <div className="flex items-center justify-between text-[10px] font-mono text-secondary pt-1.5 border-t border-border/60">
  <span>{issue.assignee ? 'Assigned' : 'Unassigned'}</span>
- {issue.estimate && <span className="bg-surface-hover px-2 py-0.5 rounded border border-border/80 font-bold text-primary">{issue.estimate}h pt</span>}
+ {issue.estimateMinutes && <span className="bg-surface-hover px-2 py-0.5 rounded border border-border/80 font-bold text-primary">{issue.estimateMinutes}h pt</span>}
  </div>
  </div>
  );
@@ -358,7 +358,7 @@ export function ProjectDetail() {
  {/* Timeline Precision Node */}
  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-surface shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 border-2 border-border shadow-sm group-hover:border-[#2563EB] :border-[#2563EB] transition-colors">
  <div className={cn("w-3.5 h-3.5 rounded-full transition-all",
- item.status === 'completed' ?"bg-[#109868] shadow-2xs" : item.status === 'in_progress' ?"bg-[#2563EB] animate-pulse" :"bg-border"
+ item.status === 'completed' ?"bg-[#109868] shadow-2xs" : item.status === "IN_PROGRESS" ?"bg-[#2563EB] animate-pulse" :"bg-border"
  )} />
  </div>
 
@@ -370,7 +370,7 @@ export function ProjectDetail() {
  <span className="text-caption font-mono font-bold uppercase tracking-widest text-[#2563EB] bg-[#2563EB]/10 px-2.5 py-0.5 rounded-md border border-[#2563EB]/20">{item.version}</span>
  <span className={cn("text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md border",
  item.status === 'completed' ?"bg-[#109868]/10 text-[#109868] border-[#109868]/20" : 
- item.status === 'in_progress' ?"bg-[#2563EB] text-white border-transparent shadow-2xs" :"bg-surface-hover border-border text-secondary"
+ item.status === "IN_PROGRESS" ?"bg-[#2563EB] text-white border-transparent shadow-2xs" :"bg-surface-hover border-border text-secondary"
  )}>
  {item.status.replace('_', ' ')}
  </span>

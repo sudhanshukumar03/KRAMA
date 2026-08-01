@@ -9,7 +9,7 @@ import { cn } from '../lib/utils';
 export function SprintView() {
  const queryClient = useQueryClient();
  const { data: sprints = [], isLoading: sprintsLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
- const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+ const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
 
  const handleStartSprint = async () => {
@@ -29,7 +29,7 @@ export function SprintView() {
  });
  queryClient.invalidateQueries({ queryKey: ['sprints'] });
  toast.success('Started new 14-day sprint!');
- } catch (err) {
+ } catch {
  toast.error('Failed to start sprint');
  }
  };
@@ -59,15 +59,15 @@ export function SprintView() {
  const totalDays = 14;
  const dayOfSprint = Math.max(1, totalDays - daysRemaining);
 
- const sprintIssues = issues.filter(i => ['todo', 'in_progress', 'review'].includes(i.status));
- const doneIssues = issues.filter(i => ['done', 'testing', 'released'].includes(i.status));
+ const sprintIssues = issues.filter(i => ["TODO", "IN_PROGRESS", 'review'].includes(i.status));
+ const doneIssues = issues.filter(i => ["DONE", 'testing', "REVIEW"].includes(i.status));
  
  const totalIssues = sprintIssues.length + doneIssues.length;
  const progress = totalIssues === 0 ? 0 : Math.round((doneIssues.length / totalIssues) * 100);
 
  // Compute story points from estimates (default 3h if missing)
- const completedPoints = doneIssues.reduce((acc, i) => acc + (i.estimate || 3), 0);
- const remainingPoints = sprintIssues.reduce((acc, i) => acc + (i.estimate || 3), 0);
+ const completedPoints = doneIssues.reduce((acc, i) => acc + (i.estimateMinutes || 3), 0);
+ const remainingPoints = sprintIssues.reduce((acc, i) => acc + (i.estimateMinutes || 3), 0);
  const totalPoints = completedPoints + remainingPoints;
  const velocityPacing = (completedPoints / Math.max(1, dayOfSprint)) * 7;
 
@@ -167,15 +167,15 @@ export function SprintView() {
  <span className="capitalize bg-surface-hover px-1.5 py-0.2 rounded border border-border">{issue.status.replace('_', ' ')}</span>
  <span>•</span>
  <span className={cn("px-1.5 py-0.2 rounded uppercase font-bold text-[9px] border",
- issue.priority === 'urgent' ?"bg-red-50 text-[#DC2626] border-[#DC2626]/20" :"bg-surface-hover text-secondary border-border"
+ issue.priority === "URGENT" ?"bg-red-50 text-[#DC2626] border-[#DC2626]/20" :"bg-surface-hover text-secondary border-border"
  )}>{issue.priority}</span>
  <span>•</span>
- <span className="text-primary font-medium">{issue.estimate || 3}h pt</span>
- {issue.childIssues && issue.childIssues.length > 0 && (
+ <span className="text-primary font-medium">{issue.estimateMinutes || 3}h pt</span>
+ {issue.childTasks && issue.childTasks.length > 0 && (
  <>
  <span>•</span>
  <span className="text-[#2563EB]">
- {issue.childIssues.filter((c: any) => c.status === 'done' || c.status === 'released').length}/{issue.childIssues.length} sub-tasks
+ {issue.childTasks.filter((c: any) => c.status === "DONE" || c.status === "REVIEW").length}/{issue.childTasks.length} sub-tasks
  </span>
  </>
  )}
@@ -221,7 +221,7 @@ export function SprintView() {
  <div className="text-badge font-mono text-muted flex items-center gap-2">
  <span>Released & Done</span>
  <span>•</span>
- <span>{issue.estimate || 3}h pt logged</span>
+ <span>{issue.estimateMinutes || 3}h pt logged</span>
  </div>
  </div>
  </div>

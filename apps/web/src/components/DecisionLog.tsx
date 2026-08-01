@@ -24,22 +24,22 @@ import type { DecisionWithRelations } from '../types/schema';
 
 interface DecisionFormData {
  title: string;
- context: string;
- reasoning: string;
- alternativesConsidered: string[];
- outcome: string;
- date: string;
- linkedProjectId: string;
+ metadata: string;
+ rationale: string;
+ options: string[];
+ outcomes: string;
+ createdAt: string;
+ 
 }
 
 const emptyForm: DecisionFormData = {
  title: '',
- context: '',
- reasoning: '',
- alternativesConsidered: [],
- outcome: '',
- date: new Date().toISOString().split('T')[0],
- linkedProjectId: '',
+ metadata: '',
+ rationale: '',
+ options: [],
+ outcomes: '',
+ createdAt: new Date().toISOString().split('T')[0],
+ 
 };
 
 function DecisionModal({
@@ -72,17 +72,17 @@ function DecisionModal({
  if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
  e.preventDefault();
  const newTag = tagInput.trim().replace(/,$/, '');
- if (newTag && !form.alternativesConsidered.includes(newTag)) {
- setForm(prev => ({ ...prev, alternativesConsidered: [...prev.alternativesConsidered, newTag] }));
+ if (newTag && !form.options.includes(newTag)) {
+ setForm(prev => ({ ...prev, options: [...prev.options, newTag] }));
  }
  setTagInput('');
- } else if (e.key === 'Backspace' && !tagInput && form.alternativesConsidered.length > 0) {
- setForm(prev => ({ ...prev, alternativesConsidered: prev.alternativesConsidered.slice(0, -1) }));
+ } else if (e.key === 'Backspace' && !tagInput && form.options.length > 0) {
+ setForm(prev => ({ ...prev, options: prev.options.slice(0, -1) }));
  }
  };
 
  const removeTag = (tag: string) => {
- setForm(prev => ({ ...prev, alternativesConsidered: prev.alternativesConsidered.filter(t => t !== tag) }));
+ setForm(prev => ({ ...prev, options: prev.options.filter(t => t !== tag) }));
  };
 
  return (
@@ -130,7 +130,7 @@ function DecisionModal({
  <div>
  <label className="block text-caption font-medium text-primary mb-1.5">Context</label>
  <textarea
- value={form.context}
+ value={form.metadata}
  onChange={e => setForm(prev => ({ ...prev, context: e.target.value }))}
  placeholder="What prompted this decision? What's the background?"
  rows={3}
@@ -142,7 +142,7 @@ function DecisionModal({
  <div>
  <label className="block text-caption font-medium text-primary mb-1.5">Reasoning</label>
  <textarea
- value={form.reasoning}
+ value={form.rationale}
  onChange={e => setForm(prev => ({ ...prev, reasoning: e.target.value }))}
  placeholder="Why was this the best option? What trade-offs were considered?"
  rows={3}
@@ -154,7 +154,7 @@ function DecisionModal({
  <div>
  <label className="block text-caption font-medium text-primary mb-1.5">Alternatives Considered</label>
  <div className="flex flex-wrap items-center gap-1.5 min-h-[40px] px-3 py-2 border border-border rounded-lg bg-surface focus-within:ring-2 focus-within:ring-[#2563EB]/30 focus-within:border-[#2563EB] transition-all">
- {form.alternativesConsidered.map(tag => (
+ {form.options.map(tag => (
  <span
  key={tag}
  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover border border-border text-caption text-primary font-medium"
@@ -170,7 +170,7 @@ function DecisionModal({
  value={tagInput}
  onChange={e => setTagInput(e.target.value)}
  onKeyDown={handleTagKeyDown}
- placeholder={form.alternativesConsidered.length === 0 ? 'Type and press Enter or comma to add...' : ''}
+ placeholder={form.options.length === 0 ? 'Type and press Enter or comma to add...' : ''}
  className="flex-1 min-w-[120px] text-body bg-transparent border-none outline-none placeholder:text-muted"
  />
  </div>
@@ -181,7 +181,7 @@ function DecisionModal({
  <label className="block text-caption font-medium text-primary mb-1.5">Outcome</label>
  <input
  type="text"
- value={form.outcome}
+ value={form.outcomes}
  onChange={e => setForm(prev => ({ ...prev, outcome: e.target.value }))}
  placeholder="What was decided? What action was taken?"
  className="w-full px-3 py-2 text-body border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] placeholder:text-muted transition-all"
@@ -194,7 +194,7 @@ function DecisionModal({
  <label className="block text-caption font-medium text-primary mb-1.5">Date</label>
  <input
  type="date"
- value={form.date}
+ value={form.createdAt}
  onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))}
  className="w-full px-3 py-2 text-body border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all"
  />
@@ -202,8 +202,8 @@ function DecisionModal({
  <div>
  <label className="block text-caption font-medium text-primary mb-1.5">Linked Project</label>
  <select
- value={form.linkedProjectId}
- onChange={e => setForm(prev => ({ ...prev, linkedProjectId: e.target.value }))}
+ value={form.metadata}
+ onChange={e => setForm(prev => ({ ...prev, metadata: e.target.value }))}
  className="w-full px-3 py-2 text-body border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB] transition-all"
  >
  <option value="">No project</option>
@@ -247,7 +247,7 @@ function DecisionCard({
 }) {
  const [expanded, setExpanded] = useState(false);
 
- const formattedDate = new Date(decision.date).toLocaleDateString('en-US', {
+ const formattedDate = new Date(decision.createdAt).toLocaleDateString('en-US', {
  month: 'short',
  day: 'numeric',
  year: 'numeric',
@@ -321,25 +321,25 @@ function DecisionCard({
  {expanded && (
  <div className="px-5 pb-5 pt-0 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150">
  <div className="border-t border-border pt-4 space-y-4">
- {decision.context && (
+ {decision.metadata && (
  <div>
  <h4 className="text-[10px] font-mono font-bold text-muted uppercase tracking-widest mb-1.5">Context</h4>
- <p className="text-body text-[#374151] leading-relaxed whitespace-pre-wrap">{decision.context}</p>
+ <p className="text-body text-[#374151] leading-relaxed whitespace-pre-wrap">{decision.metadata as string}</p>
  </div>
  )}
 
- {decision.reasoning && (
+ {decision.rationale && (
  <div>
  <h4 className="text-[10px] font-mono font-bold text-muted uppercase tracking-widest mb-1.5">Reasoning</h4>
- <p className="text-body text-[#374151] leading-relaxed whitespace-pre-wrap">{decision.reasoning}</p>
+ <p className="text-body text-[#374151] leading-relaxed whitespace-pre-wrap">{decision.rationale}</p>
  </div>
  )}
 
- {decision.alternativesConsidered && decision.alternativesConsidered.length > 0 && (
+ {decision.options && (decision.options as string[]).length > 0 && (
  <div>
  <h4 className="text-[10px] font-mono font-bold text-muted uppercase tracking-widest mb-1.5">Alternatives Considered</h4>
  <div className="flex flex-wrap gap-1.5">
- {(decision.alternativesConsidered as string[]).map((alt: string, i: number) => (
+ {(decision.options as string[]).map((alt: string, i: number) => (
  <span
  key={i}
  className="px-2 py-0.5 rounded-md bg-surface-hover border border-border text-caption text-[#374151] font-medium"
@@ -351,11 +351,11 @@ function DecisionCard({
  </div>
  )}
 
- {decision.outcome && (
+ {decision.outcomes && (
  <div>
  <h4 className="text-[10px] font-mono font-bold text-muted uppercase tracking-widest mb-1.5">Outcome</h4>
  <div className="px-3 py-2 rounded-lg bg-[#F0FDF4] border border-[#BBF7D0] text-body text-[#166534] font-medium">
- {decision.outcome}
+ {decision.outcomes}
  </div>
  </div>
  )}
@@ -382,10 +382,7 @@ export function DecisionLog() {
  // ── Queries ──
  const { data: decisions = [], isLoading: decisionsLoading } = useQuery({
  queryKey: ['decisions', { projectId: projectFilter || undefined, q: searchQuery || undefined }],
- queryFn: () => api.decisions.list({
- projectId: projectFilter || undefined,
- q: searchQuery || undefined,
- }),
+ queryFn: () => api.decisions.list(),
  });
 
  const { data: projects = [] } = useQuery({
@@ -427,7 +424,7 @@ export function DecisionLog() {
  action: {
  label: 'Undo',
  onClick: () => {
- api.decisions.restore(result.snapshot).then(() => {
+ api.decisions.restore(result).then(() => {
  queryClient.invalidateQueries({ queryKey: ['decisions'] });
  toast.success('Decision restored');
  });
@@ -458,12 +455,11 @@ export function DecisionLog() {
  const handleSubmit = (data: DecisionFormData) => {
  const payload = {
  title: data.title,
- context: data.context || null,
- reasoning: data.reasoning || null,
- alternativesConsidered: data.alternativesConsidered,
- outcome: data.outcome || null,
- date: new Date(data.date).toISOString(),
- linkedProjectId: data.linkedProjectId || null,
+ metadata: data.metadata || null,
+ rationale: data.rationale || null,
+ options: data.options,
+ outcomes: data.outcomes || null,
+ createdAt: new Date(data.createdAt).toISOString(),
  };
 
  if (editingDecision) {
@@ -476,18 +472,17 @@ export function DecisionLog() {
  const modalInitial: DecisionFormData = editingDecision
  ? {
  title: editingDecision.title,
- context: editingDecision.context || '',
- reasoning: editingDecision.reasoning || '',
- alternativesConsidered: editingDecision.alternativesConsidered || [],
- outcome: editingDecision.outcome || '',
- date: new Date(editingDecision.date).toISOString().split('T')[0],
- linkedProjectId: editingDecision.linkedProjectId || '',
+ metadata: editingDecision.metadata as string || '',
+ rationale: editingDecision.rationale || '',
+ options: editingDecision.options as string[] || [],
+ outcomes: editingDecision.outcomes || '',
+ createdAt: new Date(editingDecision.createdAt).toISOString().split('T')[0],
  }
- : { ...emptyForm, date: new Date().toISOString().split('T')[0] };
+ : { ...emptyForm, createdAt: new Date().toISOString().split('T')[0] };
 
  // Local client-side sort (newest first)
  const sortedDecisions = useMemo(
- () => [...decisions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+ () => [...decisions].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
  [decisions]
  );
 

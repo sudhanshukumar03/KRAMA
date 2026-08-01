@@ -35,15 +35,24 @@
   --color-danger: #DC2626;
   --color-info: #0891B2;
 
-  /* 7. Spacing, Radius */
-  --radius-btn: 10px;
-  --radius-input: 12px;
+  /* 7. Spacing, Radius & Shadows */
+  --radius-btn: 16px;
+  --radius-input: 16px;
   --radius-card: 16px;
   --radius-modal: 20px;
   
-  /* 8. Motion */
-  --transition-default: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-bounce-forbidden: 150ms cubic-bezier(0.4, 0, 0.2, 1); /* Ensuring no bounce */
+  --shadow-resting: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02);
+  --shadow-hover: 0 4px 6px rgba(0, 0, 0, 0.03), 0 10px 24px rgba(0, 0, 0, 0.06), 0 0 0 1px var(--color-border);
+  
+  /* 8. Motion Tokens */
+  --motion-instant: 70ms;
+  --motion-fast: 110ms;
+  --motion-ui: 160ms;
+  --motion-comfort: 220ms;
+  
+  --ease-out: ease-out;
+  --ease-in-out: ease-in-out;
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @layer base {
@@ -58,10 +67,54 @@
     selection-background-color: rgba(37, 99, 235, 0.1);
     selection-color: var(--color-accent);
   }
+
+  /* Focus Ring */
+  *:focus-visible {
+    outline: none !important;
+    box-shadow: 0 0 0 2px var(--color-canvas), 0 0 0 4px var(--color-accent) !important;
+  }
+
+  .dark {
+    /* Canvas & Surfaces */
+    --color-canvas: #050811;
+    --color-surface: #0B1220;
+    --color-border: #1E293B;
+    
+    /* Text */
+    --color-primary: #F8FAFC;
+    --color-secondary: #94A3B8;
+    --color-muted: #64748B;
+    
+    /* Accent Color (Cyan Glow for Dark Mode) */
+    --color-accent: #00E5FF;
+    --color-accent-hover: #38BDF8;
+    --color-accent-tint: rgba(0, 229, 255, 0.12);
+    
+    /* Category Colors (Slightly brightened for contrast on black) */
+    --color-brain: #A78BFA;
+    --color-execution: #3B82F6;
+    --color-goals: #2DD4BF;
+    --color-habits: #FB923C;
+    --color-projects: #818CF8;
+    --color-urgency: #F87171;
+
+    /* Status Colors */
+    --color-success: #34D399;
+    --color-warning: #FBBF24;
+    --color-danger: #F87171;
+    --color-info: #22D3EE;
+  }
 }
 
 @layer utilities {
   /* 6. Typography Semantic Classes */
+  .text-page-title {
+    font-family: var(--font-serif);
+    font-size: 44px;
+    font-weight: 500;
+    line-height: 1.1;
+  }
+
   .text-title {
     font-family: var(--font-serif);
     font-size: 32px;
@@ -120,19 +173,44 @@
     border-bottom: 1px solid var(--color-border);
   }
 
-  /* 8. Motion Hover Utilites */
+  /* 8. Motion Hover Utilities */
   .card-hover {
-    transition: all var(--transition-default);
+    transition: transform var(--motion-ui) var(--ease-spring), box-shadow var(--motion-ui) var(--ease-spring), border-color var(--motion-ui) var(--ease-spring);
+    border: 1px solid transparent; /* Adaptive border base */
   }
   .card-hover:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    transform: translateY(-2px) scale(1.005);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--color-border);
   }
   
-  .btn-press:active {
-    transform: scale(0.98);
-    transition-duration: 100ms;
+  .btn-press {
+    transition: transform var(--motion-fast) var(--ease-out), filter var(--motion-fast) var(--ease-out);
   }
+  .btn-press:hover {
+    filter: brightness(1.05);
+  }
+  .btn-press:active {
+    transform: scale(0.97);
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  
+  /* Stagger Animations */
+  @keyframes slideUpFade {
+    0% { opacity: 0; transform: translateY(8px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  
+  .stagger-1 { animation: slideUpFade var(--motion-comfort) var(--ease-spring) 0ms both; }
+  .stagger-2 { animation: slideUpFade var(--motion-comfort) var(--ease-spring) 30ms both; }
+  .stagger-3 { animation: slideUpFade var(--motion-comfort) var(--ease-spring) 60ms both; }
+  .stagger-4 { animation: slideUpFade var(--motion-comfort) var(--ease-spring) 90ms both; }
+  .stagger-5 { animation: slideUpFade var(--motion-comfort) var(--ease-spring) 120ms both; }
+  .stagger-6 { animation: slideUpFade var(--motion-comfort) var(--ease-spring) 150ms both; }
+  .stagger-7 { animation: slideUpFade var(--motion-comfort) var(--ease-spring) 180ms both; }
   
   /* Fallbacks to coerce specific strict colors onto legacy classnames if missed by script */
   [class*="text-[#111827]"], [class*="text-gray-900"] { color: var(--color-primary) !important; }
@@ -155,5 +233,37 @@
   }
   .ProseMirror:focus {
     outline: none !important;
+  }
+
+  /* KRAMA Floating Surfaces (Toasts) */
+  [data-sonner-toast] {
+    background: var(--color-surface) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-card) !important;
+    box-shadow: var(--shadow-hover) !important;
+    color: var(--color-primary) !important;
+    font-family: var(--font-sans) !important;
+  }
+  
+  [data-sonner-toast][data-type="error"] {
+    border-left: 4px solid var(--color-danger) !important;
+  }
+  
+  [data-sonner-toast][data-type="success"] {
+    border-left: 4px solid var(--color-success) !important;
+  }
+  
+  [data-sonner-toast][data-type="warning"] {
+    border-left: 4px solid var(--color-warning) !important;
+  }
+  
+  [data-sonner-toast] [data-title] {
+    font-weight: 600 !important;
+    font-size: 15px !important;
+  }
+  
+  [data-sonner-toast] [data-description] {
+    color: var(--color-secondary) !important;
+    font-size: 14px !important;
   }
 }

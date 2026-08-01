@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, Sparkles, ArrowRight, Flame, Check, Trash2, X } from 'lucide-react';
+import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, Sparkles, ArrowRight, Flame, Check, X } from 'lucide-react';
 import { ConfirmDeleteButton } from './ui/ConfirmDeleteButton';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
@@ -42,7 +42,7 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
  }
  } : undefined
  });
- } catch (err) {
+ } catch {
  toast.error('Failed to delete goal');
  }
  };
@@ -486,7 +486,7 @@ export function Goals() {
  {habits.map(habit => {
  const todayStr = new Date().toISOString().split('T')[0] || '';
  const isCompletedToday = habit.completions?.some((c: any) => c.date.toString().startsWith(todayStr) && c.completed) || 
- (habit.lastCompletedAt && new Date(habit.lastCompletedAt).toDateString() === new Date().toDateString());
+ (habit.updatedAt && new Date(habit.updatedAt).toDateString() === new Date().toDateString());
  return (
  <div key={habit.id} className="py-3 px-4 flex items-center justify-between hover:bg-surface-hover transition-colors duration-100 group">
  <div className="flex items-center gap-3 min-w-0 pr-2">
@@ -505,7 +505,7 @@ export function Goals() {
  <div className={cn("font-medium text-body leading-tight truncate transition-colors",
  isCompletedToday ?"line-through text-muted" :"text-primary group-hover:text-[#EA580C]"
  )}>{habit.name}</div>
- <div className="text-[10px] text-secondary font-mono uppercase tracking-[0.02em] mt-0.5">{habit.timeOfDay || 'Daily'} • {habit.duration || 15}m</div>
+ <div className="text-[10px] text-secondary font-mono uppercase tracking-[0.02em] mt-0.5">{habit.category || 'Daily'} • {habit.expectedDurationMinutes || 15}m</div>
  </div>
  </div>
  <div className="flex items-center gap-2 shrink-0">

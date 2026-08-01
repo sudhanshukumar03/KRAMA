@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, Trash2, X, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, X, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 import { ConfirmDeleteButton } from './ui/ConfirmDeleteButton';
@@ -150,7 +150,7 @@ export function Projects() {
  const navigate = useNavigate();
  const queryClient = useQueryClient();
  const { data: projects = [], isLoading: pLoading } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
- const { data: issues = [], isLoading: iLoading } = useQuery({ queryKey: ['issues'], queryFn: api.issues.list });
+ const { data: issues = [], isLoading: iLoading } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
  const { data: pages = [], isLoading: docLoading } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
  const { data: sprints = [], isLoading: sLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
 
@@ -169,7 +169,7 @@ export function Projects() {
  }
  } : undefined
  });
- } catch (err) {
+ } catch {
  toast.error('Failed to delete initiative');
  }
  };
@@ -305,12 +305,12 @@ export function Projects() {
  
  <div className="flex flex-col gap-4">
  {statusProjects.map(project => {
- const projectIssues = project.issues || issues.filter(i => i.projectId === project.id);
- const totalDocs = project._count?.docs ?? (project.docs?.length || pages.filter(p => p.linkedProjectId === project.id).length);
+ const projectIssues = project.tasks || issues.filter(i => i.projectId === project.id);
+ const totalDocs = project._count?.pages ?? (project.pages?.length || pages.filter(p => p.linkedProjectId === project.id).length);
  const totalSprints = project._count?.sprints ?? (project.sprints?.length || sprints.filter(s => s.projectId === project.id).length);
  
- const completedIssues = projectIssues.filter((i: any) => i.status === 'done' || i.status === 'released').length;
- const totalIssues = project._count?.issues ?? projectIssues.length;
+ const completedIssues = projectIssues.filter((i: any) => i.status === "DONE" || i.status === "REVIEW").length;
+ const totalIssues = project._count?.tasks ?? projectIssues.length;
  const progressPct = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
 
  // Compute hours since last active
