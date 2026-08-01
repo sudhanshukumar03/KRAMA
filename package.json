@@ -12,6 +12,7 @@
     "lint": "pnpm -r run lint"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "concurrently": "^8.2.2",
     "typescript": "^5.5.3"
   },
