@@ -1,10 +1,12 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jwt-simple';
 import crypto from 'crypto';
-import { PrismaClient } from '@prisma/client';
 import { redisService } from './redis.service';
+import { userRepository } from '../repositories/user.repository';
+import { sessionRepository } from '../repositories/session.repository';
+import { workspaceRepository } from '../repositories/workspace.repository';
+import { runInTransaction } from '../prisma';
 
-const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'krama-os-secret-jwt-key-2026';
 const ACCESS_TOKEN_EXPIRY_MS = 15 * 60 * 1000; // 15 mins
 const REFRESH_TOKEN_EXPIRY_S = 30 * 24 * 60 * 60; // 30 days
@@ -38,30 +40,80 @@ export class AuthService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
+  async signup(data: any, ip?: string, userAgent?: string) {
+    const existingUser = await userRepository.findByEmail(data.email);
+    if (existingUser) {
+      throw new Error('Email already in use');
+    }
+
+    const passwordHash = await this.hashPassword(data.password);
+
+    const { newUser, workspaceId } = await runInTransaction(async (tx) => {
+      const createdUser = await userRepository.create({
+        email: data.email,
+        name: data.name,
+        passwordHash,
+      }, tx);
+
+      const personalWorkspace = await workspaceRepository.create({
+        name: `${data.name || 'Personal'}'s Workspace`,
+        createdBy: createdUser.id,
+      }, tx);
+
+      await workspaceRepository.addMember(personalWorkspace.id, createdUser.id, 'OWNER', tx);
+
+      return { newUser: createdUser, workspaceId: personalWorkspace.id };
+    });
+
+    const { accessToken, refreshToken } = await this.createSession(newUser.id, ip, userAgent);
+
+    return { 
+      accessToken, 
+      refreshToken,
+      user: { 
+        id: newUser.id, 
+        email: newUser.email, 
+        name: newUser.name,
+        memberships: [{ workspaceId, role: 'OWNER' }]
+      }
+    };
+  }
+
+  async login(data: any, ip?: string, userAgent?: string) {
+    const user = await userRepository.findByEmail(data.email);
+    if (!user) {
+      throw new Error('Invalid credentials');
+    }
+
+    const isValid = await this.verifyPassword(data.password, user.passwordHash);
+    if (!isValid) {
+      throw new Error('Invalid credentials');
+    }
+
+    const { accessToken, refreshToken } = await this.createSession(user.id, ip, userAgent);
+    return { accessToken, refreshToken, user };
+  }
+
   async createSession(userId: string, ip?: string, userAgent?: string): Promise<{ accessToken: string; refreshToken: string }> {
     const refreshToken = this.generateRefreshToken();
     const refreshTokenHash = this.hashRefreshToken(refreshToken);
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_S * 1000);
 
-    // Save to Postgres (Source of truth)
-    const session = await prisma.session.create({
-      data: {
-        userId,
-        refreshTokenHash,
-        expiresAt,
-        ip,
-        userAgent,
-      },
+    const session = await sessionRepository.create({
+      userId,
+      refreshTokenHash,
+      expiresAt,
+      ip,
+      userAgent,
     });
 
-    // Save to Redis (Fast path)
     await redisService.set(
       `session:${refreshTokenHash}`,
       JSON.stringify({ userId, expiresAt: expiresAt.toISOString(), sessionId: session.id }),
       REFRESH_TOKEN_EXPIRY_S
     );
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await userRepository.findById(userId);
     const accessToken = this.generateAccessToken(userId, session.id, user!.email, user!.name);
 
     return { accessToken, refreshToken };
@@ -69,21 +121,12 @@ export class AuthService {
 
   async revokeSession(refreshToken: string): Promise<void> {
     const hash = this.hashRefreshToken(refreshToken);
-
-    // Delete from Redis (Fast path)
     await redisService.del(`session:${hash}`);
-
-    // Mark as revoked in Postgres
-    await prisma.session.update({
-      where: { refreshTokenHash: hash },
-      data: { revokedAt: new Date() },
-    }).catch(() => { /* Ignore if it doesn't exist */ });
+    await sessionRepository.updateByHash(hash, { revokedAt: new Date() }).catch(() => {});
   }
 
   async revokeAllSessions(userId: string): Promise<void> {
-    const sessions = await prisma.session.findMany({
-      where: { userId, revokedAt: null },
-    });
+    const sessions = await sessionRepository.findActiveByUserId(userId);
 
     const pipeline = redisService.client.multi();
     for (const s of sessions) {
@@ -91,10 +134,33 @@ export class AuthService {
     }
     await pipeline.exec();
 
-    await prisma.session.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    await sessionRepository.updateManyActiveByUserId(userId, { revokedAt: new Date() });
+  }
+
+  async refresh(refreshToken: string, ip?: string, userAgent?: string) {
+    const hash = this.hashRefreshToken(refreshToken);
+    const cachedSessionStr = await redisService.get(`session:${hash}`);
+    
+    let sessionData = null;
+    if (cachedSessionStr) {
+      sessionData = JSON.parse(cachedSessionStr);
+    } else {
+      const dbSession = await sessionRepository.findByHash(hash);
+      if (dbSession && !dbSession.revokedAt && dbSession.expiresAt > new Date()) {
+        sessionData = { userId: dbSession.userId, expiresAt: dbSession.expiresAt, sessionId: dbSession.id };
+        await redisService.set(`session:${hash}`, JSON.stringify(sessionData), Math.floor((dbSession.expiresAt.getTime() - Date.now()) / 1000));
+      }
+    }
+
+    if (!sessionData || new Date(sessionData.expiresAt) < new Date()) {
+      throw new Error('Invalid refresh token');
+    }
+
+    // Revoke old
+    await this.revokeSession(refreshToken);
+
+    // Create new
+    return this.createSession(sessionData.userId, ip, userAgent);
   }
 }
 

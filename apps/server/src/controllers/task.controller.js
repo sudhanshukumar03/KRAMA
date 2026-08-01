@@ -1,77 +1,38 @@
-import { PrismaClient } from '@prisma/client';
 import { CreateTaskSchema, UpdateTaskSchema, ReorderSchema } from '@krama/validation';
-import { notificationsQueue } from '../queues';
-const prisma = new PrismaClient();
+import { taskService } from '../services/task.service';
 export const listTasks = async (req, res) => {
     try {
         const workspaceId = req.headers['x-workspace-id'] || req.query.workspaceId;
         if (!workspaceId)
             return res.status(400).json({ message: 'workspaceId is required' });
-        const { projectId, sprintId, status } = req.query;
-        const where = {
-            workspaceId,
-            deletedAt: null,
-        };
-        if (projectId)
-            where.projectId = projectId;
-        if (sprintId)
-            where.sprintId = sprintId;
-        if (status)
-            where.status = status;
-        const tasks = await prisma.task.findMany({
-            where,
-            include: {
-                project: true,
-                sprint: true,
-            },
-            orderBy: { position: 'asc' },
+        const tasks = await taskService.listTasks(workspaceId, {
+            projectId: req.query.projectId,
+            sprintId: req.query.sprintId,
+            status: req.query.status,
         });
         return res.status(200).json(tasks);
     }
     catch (error) {
+        console.error(error);
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
 export const getTask = async (req, res) => {
     try {
-        const { id } = req.params;
         const workspaceId = req.headers['x-workspace-id'] || req.query.workspaceId;
-        const task = await prisma.task.findUnique({
-            where: { id },
-            include: {
-                project: true,
-                sprint: true,
-            },
-        });
-        if (!task || task.deletedAt || task.workspaceId !== workspaceId) {
-            return res.status(404).json({ message: 'Task not found' });
-        }
+        const task = await taskService.getTask(req.params.id, workspaceId);
         return res.status(200).json(task);
     }
     catch (error) {
+        if (error.message === 'Task not found')
+            return res.status(404).json({ message: error.message });
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
 export const createTask = async (req, res) => {
     try {
         const data = CreateTaskSchema.parse(req.body);
-        const lastTask = await prisma.task.findFirst({
-            where: { workspaceId: data.workspaceId, deletedAt: null },
-            orderBy: { position: 'desc' },
-            select: { position: true },
-        });
-        const position = lastTask ? lastTask.position + 1.0 : 1.0;
-        const task = await prisma.task.create({
-            data: {
-                ...data,
-                position,
-                createdBy: req.user.id,
-            },
-            include: {
-                project: true,
-                sprint: true,
-            },
-        });
+        const task = await taskService.createTask(data, req.user.id);
         return res.status(201).json(task);
     }
     catch (error) {
@@ -82,110 +43,57 @@ export const createTask = async (req, res) => {
 };
 export const updateTask = async (req, res) => {
     try {
-        const { id } = req.params;
         const data = UpdateTaskSchema.parse(req.body);
-        const existing = await prisma.task.findUnique({ where: { id } });
-        if (!existing || existing.deletedAt || existing.workspaceId !== data.workspaceId) {
-            return res.status(404).json({ message: 'Task not found' });
-        }
-        if (existing.version !== data.version) {
-            return res.status(409).json({ message: 'Conflict: version mismatch' });
-        }
-        const { version, workspaceId, ...updateData } = data;
-        const task = await prisma.task.update({
-            where: { id },
-            data: {
-                ...updateData,
-                version: { increment: 1 },
-                updatedBy: req.user.id,
-            },
-            include: {
-                project: true,
-                sprint: true,
-            },
-        });
+        const task = await taskService.updateTask(req.params.id, data.workspaceId, data, req.user.id);
         return res.status(200).json(task);
     }
     catch (error) {
         if (error.name === 'ZodError')
             return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+        if (error.message === 'Task not found')
+            return res.status(404).json({ message: error.message });
+        if (error.message.includes('Conflict'))
+            return res.status(409).json({ message: error.message });
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
 export const deleteTask = async (req, res) => {
     try {
-        const { id } = req.params;
         const workspaceId = req.headers['x-workspace-id'] || req.query.workspaceId;
-        const existing = await prisma.task.findUnique({ where: { id } });
-        if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
-            return res.status(404).json({ message: 'Task not found' });
-        }
-        await prisma.task.update({
-            where: { id },
-            data: {
-                deletedAt: new Date(),
-                updatedBy: req.user.id,
-            },
-        });
+        await taskService.deleteTask(req.params.id, workspaceId, req.user.id);
         return res.status(200).json({ message: 'Task deleted' });
     }
     catch (error) {
+        if (error.message === 'Task not found')
+            return res.status(404).json({ message: error.message });
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
 export const reorderTask = async (req, res) => {
     try {
-        const { id } = req.params;
         const data = ReorderSchema.parse(req.body);
-        const existing = await prisma.task.findUnique({ where: { id } });
-        if (!existing || existing.deletedAt || existing.workspaceId !== data.workspaceId) {
-            return res.status(404).json({ message: 'Task not found' });
-        }
-        if (existing.version !== data.version) {
-            return res.status(409).json({ message: 'Conflict: version mismatch' });
-        }
-        const task = await prisma.task.update({
-            where: { id },
-            data: {
-                position: data.position,
-                version: { increment: 1 },
-                updatedBy: req.user.id,
-            },
-        });
-        // TODO: Stage X - periodic position rebalance job
+        const task = await taskService.reorderTask(req.params.id, data.workspaceId, data, req.user.id);
         return res.status(200).json(task);
     }
     catch (error) {
         if (error.name === 'ZodError')
             return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+        if (error.message === 'Task not found')
+            return res.status(404).json({ message: error.message });
+        if (error.message.includes('Conflict'))
+            return res.status(409).json({ message: error.message });
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
 export const completeTask = async (req, res) => {
     try {
-        const { id } = req.params;
         const workspaceId = req.headers['x-workspace-id'] || req.query.workspaceId;
-        const existing = await prisma.task.findUnique({ where: { id } });
-        if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
-            return res.status(404).json({ message: 'Task not found' });
-        }
-        const task = await prisma.task.update({
-            where: { id },
-            data: {
-                status: 'done',
-                version: { increment: 1 },
-                updatedBy: req.user.id,
-            },
-        });
-        // Enqueue event asynchronously
-        await notificationsQueue.add('task-completed', {
-            taskId: task.id,
-            workspaceId: task.workspaceId,
-            userId: req.user.id,
-        });
+        const task = await taskService.completeTask(req.params.id, workspaceId, req.user.id);
         return res.status(200).json(task);
     }
     catch (error) {
+        if (error.message === 'Task not found')
+            return res.status(404).json({ message: error.message });
         return res.status(500).json({ message: 'Internal server error' });
     }
 };

@@ -7,3 +7,7 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
+export const runInTransaction = <T>(fn: (tx: any) => Promise<T>): Promise<T> => {
+  return prisma.$transaction(fn);
+};

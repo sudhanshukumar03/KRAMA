@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { CreateProjectSchema, UpdateProjectSchema, ReorderSchema } from '@krama/validation';

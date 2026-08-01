@@ -1,0 +1,106 @@
+export declare class HabitService {
+    listHabits(workspaceId: string): Promise<{
+        name: string;
+        id: string;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        version: number;
+        workspaceId: string;
+        createdBy: string | null;
+        updatedBy: string | null;
+        streak: number;
+        expectedDurationMinutes: number | null;
+        category: import("@prisma/client").$Enums.HabitCategory;
+        difficulty: import("@prisma/client").$Enums.HabitDifficulty;
+        linkedGoalId: string | null;
+    }[]>;
+    getHabit(id: string, workspaceId: string): Promise<{
+        name: string;
+        id: string;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        version: number;
+        workspaceId: string;
+        createdBy: string | null;
+        updatedBy: string | null;
+        streak: number;
+        expectedDurationMinutes: number | null;
+        category: import("@prisma/client").$Enums.HabitCategory;
+        difficulty: import("@prisma/client").$Enums.HabitDifficulty;
+        linkedGoalId: string | null;
+    }>;
+    createHabit(data: any, userId: string): Promise<{
+        name: string;
+        id: string;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        version: number;
+        workspaceId: string;
+        createdBy: string | null;
+        updatedBy: string | null;
+        streak: number;
+        expectedDurationMinutes: number | null;
+        category: import("@prisma/client").$Enums.HabitCategory;
+        difficulty: import("@prisma/client").$Enums.HabitDifficulty;
+        linkedGoalId: string | null;
+    }>;
+    updateHabit(id: string, workspaceId: string, data: any, userId: string): Promise<{
+        name: string;
+        id: string;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        version: number;
+        workspaceId: string;
+        createdBy: string | null;
+        updatedBy: string | null;
+        streak: number;
+        expectedDurationMinutes: number | null;
+        category: import("@prisma/client").$Enums.HabitCategory;
+        difficulty: import("@prisma/client").$Enums.HabitDifficulty;
+        linkedGoalId: string | null;
+    }>;
+    deleteHabit(id: string, workspaceId: string, userId: string): Promise<{
+        name: string;
+        id: string;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        version: number;
+        workspaceId: string;
+        createdBy: string | null;
+        updatedBy: string | null;
+        streak: number;
+        expectedDurationMinutes: number | null;
+        category: import("@prisma/client").$Enums.HabitCategory;
+        difficulty: import("@prisma/client").$Enums.HabitDifficulty;
+        linkedGoalId: string | null;
+    }>;
+    logHabitCompletion(id: string, workspaceId: string, userId: string): Promise<{
+        name: string;
+        id: string;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        version: number;
+        workspaceId: string;
+        createdBy: string | null;
+        updatedBy: string | null;
+        streak: number;
+        expectedDurationMinutes: number | null;
+        category: import("@prisma/client").$Enums.HabitCategory;
+        difficulty: import("@prisma/client").$Enums.HabitDifficulty;
+        linkedGoalId: string | null;
+    }>;
+}
+export declare const habitService: HabitService;
+//# sourceMappingURL=habit.service.d.ts.map

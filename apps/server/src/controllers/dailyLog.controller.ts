@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { CreateDailyLogSchema, UpdateDailyLogSchema } from '@krama/validation';

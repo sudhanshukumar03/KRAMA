@@ -43,8 +43,8 @@ export const requireWorkspaceRole = (minRole) => {
         if (!req.user) {
             return res.status(401).json({ message: 'Unauthorized' });
         }
-        // Attempt to extract workspaceId from params or body
-        const workspaceId = req.params.workspaceId || req.body.workspaceId;
+        // Attempt to extract workspaceId from params, body, query, or headers
+        const workspaceId = req.params.workspaceId || (req.body && req.body.workspaceId) || req.query.workspaceId || req.headers['x-workspace-id'];
         if (!workspaceId) {
             return res.status(400).json({ message: 'workspaceId is required' });
         }
@@ -69,6 +69,7 @@ export const requireWorkspaceRole = (minRole) => {
         if (roleHierarchy[membership.role] < roleHierarchy[minRole]) {
             return res.status(403).json({ message: 'Forbidden' });
         }
+        req.workspaceId = workspaceId;
         next();
     };
 };

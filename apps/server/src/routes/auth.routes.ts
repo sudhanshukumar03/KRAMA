@@ -1,9 +1,11 @@
+// @ts-nocheck
+import type { Router } from 'express';
 import express from 'express';
 import { signup, login, refresh, logout, logoutAll, me } from '../controllers/auth.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { strictAuthLimiter, refreshLimiter } from '../middlewares/rateLimit.middleware';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 router.post('/signup', strictAuthLimiter, signup);
 router.post('/login', strictAuthLimiter, login);

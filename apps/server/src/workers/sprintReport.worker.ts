@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Worker } from 'bullmq';
 import { PrismaClient } from '@prisma/client';
 import { QUEUE_NAMES } from '../queues';

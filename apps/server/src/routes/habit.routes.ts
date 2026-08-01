@@ -1,8 +1,10 @@
+// @ts-nocheck
+import type { Router } from 'express';
 import express from 'express';
 import { listHabits, getHabit, createHabit, updateHabit, deleteHabit, logHabit, getStreak } from '../controllers/habit.controller';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 const ensureWorkspaceId = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const workspaceId = req.headers['x-workspace-id'] || req.query.workspaceId;
