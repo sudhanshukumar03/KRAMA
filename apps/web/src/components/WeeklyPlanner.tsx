@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import type { IssueWithRelations } from '../types/schema';
 import { LoadingState } from './ui/LoadingState';
+import { EmptyState } from './ui/EmptyState';
 
 // Helper for dates of the current week (Monday to Sunday)
 function getWeekDates(referenceDate: Date) {
@@ -477,6 +478,38 @@ export function WeeklyPlanner() {
  }, [weekDays, issues]);
 
  if (issuesLoading || habitsLoading) return <LoadingState title="Loading Google Planner..." description="Mapping time blocks and daily routines..." />;
+
+ if (issues.length === 0 && habits.length === 0) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center h-full bg-surface-hover relative overflow-hidden">
+      <div className="absolute inset-0 flex flex-col pointer-events-none opacity-20">
+        <div className="flex-1 border-b border-border"></div>
+        <div className="flex-1 border-b border-border"></div>
+        <div className="flex-1 border-b border-border"></div>
+        <div className="flex-1"></div>
+      </div>
+      <div className="relative z-10 w-full h-full flex flex-col items-center justify-center">
+        <EmptyState 
+          icon={CalendarIcon}
+          title="Your Week is Wide Open"
+          description="You have no tasks or routines scheduled. Plan your week to start making progress."
+          actionLabel="Schedule Time Block"
+          onAction={() => handleOpenScheduleModal(new Date(), 'Today')}
+        />
+        <ScheduleTaskModal
+          open={scheduleModalOpen}
+          onClose={() => setScheduleModalOpen(false)}
+          targetDate={modalTargetDate}
+          targetDayName={modalTargetDayName}
+          allIssues={issues}
+          onScheduleExisting={(issueId, dateStr) => updateIssueMutation.mutate({ id: issueId, scheduledDate: dateStr, dueDate: dateStr })}
+          onCreateNew={(data) => createIssueMutation.mutate({ ...data, scheduledDate: data.dateStr, dueDate: data.dateStr })}
+          isSubmitting={createIssueMutation.isPending || updateIssueMutation.isPending}
+        />
+      </div>
+    </div>
+  );
+ }
 
  const navigateWeek = (direction: 'prev' | 'next' | 'today') => {
  if (direction === 'today') {
