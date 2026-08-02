@@ -11,20 +11,20 @@ export interface BaseButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
 
 export const BaseButton = forwardRef<HTMLButtonElement, BaseButtonProps>(
  ({ className, variant = 'primary', size = 'md', isLoading, disabled, children, ...props }, ref) => {
- const baseStyles ="inline-flex items-center justify-center font-semibold tracking-tight transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] cursor-pointer select-none";
- 
- const variants = {
- primary:"bg-[#2563EB] text-white hover:bg-[#1D4ED8] shadow-sm hover:shadow-md border border-transparent",
- secondary:"bg-surface-hover text-primary hover:bg-surface-hover/80 hover:text-[#000000] border border-border shadow-2xs",
- ghost:"bg-transparent text-secondary hover:text-primary hover:bg-surface-hover",
- danger:"bg-red-50 text-[#DC2626] hover:bg-red-100 border border-[#DC2626]/20 shadow-2xs"
- };
+  const baseStyles = "krama-btn disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] cursor-pointer select-none";
+  
+  const variants = {
+    primary: "krama-btn-primary shadow-sm hover:shadow-md",
+    secondary: "krama-btn-secondary shadow-sm",
+    ghost: "krama-btn-ghost",
+    danger: "bg-red-50 text-[#DC2626] hover:bg-red-100 border border-[#DC2626]/20 shadow-2xs"
+  };
 
- const sizes = {
- sm:"h-8 px-3 text-xs rounded-md",
- md:"h-10 px-4 text-sm rounded-lg",
- lg:"h-12 px-6 text-base rounded-xl"
- };
+  const sizes = {
+    sm: "h-8 px-3 text-caption",
+    md: "h-11 px-5 text-body",
+    lg: "h-12 px-6 text-section"
+  };
 
  return (
  <button
