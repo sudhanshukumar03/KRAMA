@@ -44,7 +44,7 @@ function ProjectCreateModal({
  >
  <div
  onClick={e => e.stopPropagation()}
- className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+ className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
  >
  <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/80 backdrop-blur-md">
  <div className="flex items-center gap-2.5">
@@ -157,17 +157,17 @@ export function Projects() {
  const handleDeleteProject = async (e: React.MouseEvent, project: any) => {
  e.stopPropagation();
  try {
- const res = await api.projects.delete(project.id);
+ await api.projects.delete(project.id);
  queryClient.invalidateQueries({ queryKey: ['projects'] });
- toast.success(`Deleted initiative"${project.name}"`, {
- action: res?.snapshot ? {
+ toast.success(`Deleted initiative "${project.name}"`, {
+ action: {
  label: 'Undo',
  onClick: async () => {
- await api.projects.restore(res.snapshot);
+ await api.projects.restore(project.id);
  queryClient.invalidateQueries({ queryKey: ['projects'] });
- toast.success(`Restored initiative"${project.name}"`);
+ toast.success(`Restored initiative "${project.name}"`);
  }
- } : undefined
+ }
  });
  } catch {
  toast.error('Failed to delete initiative');
@@ -220,7 +220,7 @@ export function Projects() {
  <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex flex-col h-full bg-canvas animate-in fade-in duration-150 gap-6 pb-24 font-sans text-primary">
  
  {/* COMMAND CENTER PORTFOLIO HEADER (Indigo #2563EB Identity) */}
- <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 bg-surface border border-border p-5 rounded-2xl shadow-xs">
+ <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 v4-card p-5">
  <div className="flex items-center gap-4">
  <div className="w-12 h-12 rounded-2xl bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-sm border border-[#2563EB]/20">
  <FolderKanban className="w-6 h-6 stroke-[1.5]" />
@@ -242,7 +242,7 @@ export function Projects() {
  </div>
 
  {/* STRATEGIC HEALTH FILTER & SEARCH BAR */}
- <div className="bg-surface border border-border rounded-xl p-3.5 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+ <div className="v4-card rounded-xl p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
  <div className="relative flex-1 max-w-md">
  <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 stroke-[1.5]" />
  <input
@@ -321,7 +321,7 @@ export function Projects() {
  <div 
  key={project.id} 
  onClick={() => navigate(`/app/projects/${project.id}`)}
- className="bg-surface border border-border rounded-2xl p-6 shadow-xs hover:shadow-md transition-all duration-300 hover:translate-y-[-2px] hover:border-[#2563EB] :border-[#2563EB] cursor-pointer group/card flex flex-col justify-between gap-5 relative overflow-hidden"
+ className="v4-card p-6 hover:shadow-md transition-all duration-300 hover:translate-y-[-2px] hover:border-[#2563EB] cursor-pointer group/card flex flex-col justify-between gap-5 relative overflow-hidden"
  >
  {/* Left color glow bar on hover */}
  <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2563EB] opacity-0 group-hover/card:opacity-100 transition-opacity duration-300" />
