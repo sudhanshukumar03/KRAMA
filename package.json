@@ -24,5 +24,8 @@
       "esbuild",
       "prisma"
     ]
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.20"
   }
 }

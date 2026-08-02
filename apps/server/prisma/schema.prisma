@@ -285,6 +285,7 @@ model GoalProgressSnapshot {
 model Habit {
   id                      String          @id @default(uuid())
   name                    String
+  icon                    String?
   streak                  Int             @default(0)
   expectedDurationMinutes Int?
   category                HabitCategory   @default(OTHER)

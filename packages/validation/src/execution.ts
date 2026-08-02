@@ -41,6 +41,12 @@ export const UpdateGoalSchema = CreateGoalSchema.partial().extend({
 
 export const CreateHabitSchema = WorkspaceScoped.extend({
   name: z.string().min(1).max(255),
+  icon: z.string().optional(),
+  linkedGoalId: z.string().uuid().optional(),
+  category: z.string().optional(),
+  difficulty: z.string().optional(),
+  expectedDurationMinutes: z.number().int().optional(),
+  cadence: z.string().optional(),
 });
 
 export const UpdateHabitSchema = CreateHabitSchema.partial().extend({
