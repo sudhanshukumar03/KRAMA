@@ -1,7 +1,6 @@
-// @ts-nocheck
 import type { Router } from 'express';
 import express from 'express';
-import { listGoals, getGoal, createGoal, updateGoal, deleteGoal } from '../controllers/goal.controller';
+import { listGoals, getGoal, createGoal, updateGoal, deleteGoal, restoreGoal } from '../controllers/goal.controller';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 
 const router: Router = express.Router();
@@ -22,5 +21,6 @@ router.get('/:id', requireWorkspaceRole('VIEWER'), getGoal);
 router.post('/', requireWorkspaceRole('MEMBER'), createGoal);
 router.patch('/:id', requireWorkspaceRole('MEMBER'), updateGoal);
 router.delete('/:id', requireWorkspaceRole('ADMIN'), deleteGoal);
+router.post('/:id/restore', requireWorkspaceRole('MEMBER'), restoreGoal);
 
 export default router;
