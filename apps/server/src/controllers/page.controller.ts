@@ -1,13 +1,20 @@
-// @ts-nocheck
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { CreatePageSchema, UpdatePageSchema } from '@krama/validation';
 
-const prisma = new PrismaClient();
+import { prisma } from '../prisma';
+import { embeddingQueue } from '../queues';
+
+function extractTextFromBlocks(blocksData: any): string {
+  if (!blocksData || !Array.isArray(blocksData.blocks)) return '';
+  return blocksData.blocks
+    .map((b: any) => b?.data?.text || '')
+    .filter(Boolean)
+    .join('\n');
+}
 
 export const listPages = async (req: Request, res: Response) => {
   try {
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const workspaceId = (req.headers['x-workspace-id'] || req.query.workspaceId) as string;
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
     // The frontend typically wants a flat list or tree. Let's return flat and let frontend build the tree,
@@ -33,8 +40,8 @@ export const listPages = async (req: Request, res: Response) => {
 
 export const getPage = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const id = req.params.id as string;
+    const workspaceId = (req.headers['x-workspace-id'] || req.query.workspaceId) as string;
 
     const page = await prisma.page.findUnique({
       where: { id },
@@ -71,6 +78,13 @@ export const createPage = async (req: Request, res: Response) => {
       },
     });
 
+    if (page.blocks) {
+      const text = extractTextFromBlocks(page.blocks);
+      if (text) {
+        embeddingQueue.add('upsert', { pageId: page.id, content: text }).catch(console.error);
+      }
+    }
+
     return res.status(201).json(page);
   } catch (error: any) {
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
@@ -80,7 +94,7 @@ export const createPage = async (req: Request, res: Response) => {
 
 export const updatePage = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const data = UpdatePageSchema.parse(req.body);
 
     const existing = await prisma.page.findUnique({ where: { id } });
@@ -107,6 +121,13 @@ export const updatePage = async (req: Request, res: Response) => {
       },
     });
 
+    if (page.blocks) {
+      const text = extractTextFromBlocks(page.blocks);
+      if (text) {
+        embeddingQueue.add('upsert', { pageId: page.id, content: text }).catch(console.error);
+      }
+    }
+
     return res.status(200).json(page);
   } catch (error: any) {
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
@@ -116,8 +137,8 @@ export const updatePage = async (req: Request, res: Response) => {
 
 export const deletePage = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const id = req.params.id as string;
+    const workspaceId = (req.headers['x-workspace-id'] || req.query.workspaceId) as string;
     const userId = req.user!.id;
 
     const existing = await prisma.page.findUnique({ where: { id } });
@@ -141,6 +162,40 @@ export const deletePage = async (req: Request, res: Response) => {
     return res.status(200).json({ message: 'Page and children deleted' });
   } catch (error) {
     console.error('Failed to delete page:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const restorePage = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const workspaceId = (req.headers['x-workspace-id'] || req.query.workspaceId) as string;
+    const userId = req.user!.id;
+
+    const existing = await prisma.page.findFirst({ where: { id, workspaceId } });
+    if (!existing) {
+      return res.status(404).json({ message: 'Page not found' });
+    }
+    if (!existing.deletedAt) {
+      return res.status(409).json({ message: 'Conflict: nothing to restore' });
+    }
+
+    // Recursive restore using a raw SQL CTE (same as delete but reversed)
+    await prisma.$executeRaw`
+      WITH RECURSIVE PageHierarchy AS (
+        SELECT id FROM "Page" WHERE id = ${id}
+        UNION
+        SELECT p.id FROM "Page" p
+        INNER JOIN PageHierarchy ph ON p."parentPageId" = ph.id
+      )
+      UPDATE "Page"
+      SET "deletedAt" = NULL, "updatedBy" = ${userId}
+      WHERE id IN (SELECT id FROM PageHierarchy)
+    `;
+
+    return res.status(200).json({ message: 'Page and children restored' });
+  } catch (error) {
+    console.error('Failed to restore page:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
