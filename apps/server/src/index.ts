@@ -1,19 +1,18 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 
 dotenv.config();
 
 const app = express();
-const prisma = new PrismaClient();
+import { prisma } from './prisma';
 
 // Security Middlewares
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: ['http://localhost:5173', 'http://localhost:5174'],
   credentials: true,
 }));
 
@@ -36,6 +35,11 @@ import habitRoutes from './routes/habit.routes';
 import sprintRoutes from './routes/sprint.routes';
 import dailyLogRoutes from './routes/dailyLog.routes';
 import aiRoutes from './routes/ai.routes';
+import knowledgeGraphRoutes from './routes/knowledgeGraph.routes';
+import notificationRoutes from './routes/notification.routes';
+import dashboardRoutes from './routes/dashboard.routes';
+import focusSessionRoutes from './routes/focusSession.routes';
+import analyticsRoutes from './routes/analytics.routes';
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);
@@ -48,6 +52,11 @@ app.use('/api/v1/habits', habitRoutes);
 app.use('/api/v1/sprints', sprintRoutes);
 app.use('/api/v1/daily-logs', dailyLogRoutes);
 app.use('/api/v1/ai', aiRoutes);
+app.use('/api/v1/knowledge-graph', knowledgeGraphRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/focus-sessions', focusSessionRoutes);
+app.use('/api/v1/analytics', analyticsRoutes);
 
 app.use('/api/v1', (req, res) => {
   res.status(404).json({ message: 'Not found' });
