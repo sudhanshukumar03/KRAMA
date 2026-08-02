@@ -30,17 +30,17 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
  const handleDeleteGoal = async (e: React.MouseEvent) => {
  e.stopPropagation();
  try {
- const res = await api.goals.delete(goal.id);
+ await api.goals.delete(goal.id);
  queryClient.invalidateQueries({ queryKey: ['goals'] });
- toast.success(`Deleted"${goal.title}"`, {
- action: res?.snapshot ? {
+ toast.success(`Deleted "${goal.title}"`, {
+ action: {
  label: 'Undo',
  onClick: async () => {
- await api.goals.restore(res.snapshot);
+ await api.goals.restore(goal.id);
  queryClient.invalidateQueries({ queryKey: ['goals'] });
- toast.success(`Restored"${goal.title}"`);
+ toast.success(`Restored "${goal.title}"`);
  }
- } : undefined
+ }
  });
  } catch {
  toast.error('Failed to delete goal');
@@ -55,7 +55,7 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
  return (
  <div className="flex flex-col mb-4 group/goal">
  <div 
- className={cn("bg-surface border border-border rounded-xl p-5 transition-all duration-150 hover:border-[#0D9488] shadow-sm",
+ className={cn("v4-card p-5 transition-all duration-150 hover:border-[#0D9488]",
  depth > 0 &&"border-l-4 border-l-[#E5E8EC] rounded-l-none bg-surface-hover/60",
  depth === 0 &&"border-l-2 border-l-[#0D9488]"
  )}
@@ -161,7 +161,7 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
 
  {/* NEW: Mini Trendline Sparkline & Projection */}
  <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-0 border-border/60">
- <div className="flex items-end gap-1 h-5 px-2 bg-surface border border-border rounded shadow-2xs" title="Recent 5-step snapshot trend">
+ <div className="flex items-end gap-1 h-5 px-2 bg-card border border-border rounded shadow-2xs" title="Recent 5-step snapshot trend">
  {trendPoints.map((val, i) => (
  <div key={i} className="w-1.5 bg-[#0D9488] rounded-t-2xs" style={{ height: `${Math.max(15, (val / 100) * 100)}%` }} />
  ))}
@@ -226,7 +226,7 @@ function GoalCreateModal({
  >
  <div
  onClick={e => e.stopPropagation()}
- className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+ className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
  >
  <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50">
  <div className="flex items-center gap-2.5">
@@ -348,16 +348,16 @@ export function Goals() {
 
  const deleteHabitMutation = useMutation({
  mutationFn: (id: string) => api.habits.delete(id),
- onSuccess: (res, deletedId) => {
+ onSuccess: (_, deletedId) => {
  queryClient.invalidateQueries({ queryKey: ['habits'] });
  queryClient.invalidateQueries({ queryKey: ['snapshots'] });
  queryClient.invalidateQueries({ queryKey: ['goals'] });
  const deletedName = habits.find(h => h.id === deletedId)?.name || 'Routine';
  toast.success(`Deleted"${deletedName}"`, {
- action: res.snapshot ? {
+ action: {
  label: 'Undo',
- onClick: () => restoreHabitMutation.mutate(res.snapshot)
- } : undefined
+ onClick: () => restoreHabitMutation.mutate(deletedId)
+ }
  });
  },
  onError: () => toast.error('Failed to delete routine')
@@ -481,7 +481,7 @@ export function Goals() {
  </button>
  </div>
  
- <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-sm pt-1">
+ <div className="v4-card overflow-hidden pt-1">
  <div className="divide-y divide-border">
  {habits.map(habit => {
  const todayStr = new Date().toISOString().split('T')[0] || '';
