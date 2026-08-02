@@ -91,7 +91,8 @@ export class AuthService {
     }
 
     const { accessToken, refreshToken } = await this.createSession(user.id, ip, userAgent);
-    return { accessToken, refreshToken, user };
+    const { passwordHash, ...safeUser } = user;
+    return { accessToken, refreshToken, user: safeUser };
   }
 
   async createSession(userId: string, ip?: string, userAgent?: string): Promise<{ accessToken: string; refreshToken: string }> {
