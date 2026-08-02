@@ -114,7 +114,7 @@ export const api = {
   workspaces: {
     list: () => fetchApi<Workspace[]>('/workspaces'),
     create: (data: Record<string, any>) => fetchApi<Workspace>('/workspaces', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, any>) => fetchApi<Workspace>(`/workspaces/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, any>) => fetchApi<Workspace>(`/workspaces/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<void>(`/workspaces/${id}`, { method: 'DELETE' }),
     export: () => fetchApi<any>('/workspaces/export'),
   },
@@ -129,33 +129,34 @@ export const api = {
     get: (id: string) => fetchApi<PageWithRelations>(`/pages/${id}`),
     create: (data: Record<string, any>) => fetchApi<PageWithRelations>('/pages', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<PageWithRelations>(`/pages/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<{ message: string; snapshot?: any }>(`/pages/${id}`, { method: 'DELETE' }),
-    restore: (snapshot: any) => fetchApi<any>('/pages/restore', { method: 'POST', body: JSON.stringify({ snapshot }) }),
+    delete: (id: string) => fetchApi<{ message: string }>(`/pages/${id}`, { method: 'DELETE' }),
+    restore: (id: string) => fetchApi<any>(`/pages/${id}/restore`, { method: 'POST' }),
   },
   goals: {
     list: () => fetchApi<GoalWithRelations[]>('/goals'),
     create: (data: Record<string, any>) => fetchApi<GoalWithRelations>('/goals', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<GoalWithRelations>(`/goals/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<{ message: string; snapshot?: any }>(`/goals/${id}`, { method: 'DELETE' }),
-    restore: (snapshot: any) => fetchApi<any>('/goals/restore', { method: 'POST', body: JSON.stringify({ snapshot }) }),
+    delete: (id: string) => fetchApi<{ message: string }>(`/goals/${id}`, { method: 'DELETE' }),
+    restore: (id: string) => fetchApi<any>(`/goals/${id}/restore`, { method: 'POST' }),
   },
   projects: {
     list: () => fetchApi<ProjectWithRelations[]>('/projects'),
     create: (data: Record<string, any>) => fetchApi<ProjectWithRelations>('/projects', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<ProjectWithRelations>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<{ message: string; snapshot?: any }>(`/projects/${id}`, { method: 'DELETE' }),
-    restore: (snapshot: any) => fetchApi<any>('/projects/restore', { method: 'POST', body: JSON.stringify({ snapshot }) }),
+    delete: (id: string) => fetchApi<{ message: string }>(`/projects/${id}`, { method: 'DELETE' }),
+    restore: (id: string) => fetchApi<any>(`/projects/${id}/restore`, { method: 'POST' }),
   },
   tasks: {
     list: (params?: any) => {
-      const q = new URLSearchParams(params || {}).toString();
+      const safeParams = (params && params.queryKey) ? undefined : params;
+      const q = new URLSearchParams(safeParams || {}).toString();
       return fetchApi<IssueWithRelations[]>(`/tasks${q ? `?${q}` : ''}`); // Mapped to /tasks
     },
     get: (id: string) => fetchApi<IssueWithRelations>(`/tasks/${id}`),
     create: (data: Record<string, any> & { title: string }) => fetchApi<IssueWithRelations>('/tasks', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<IssueWithRelations>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<{ message: string; snapshot?: any }>(`/tasks/${id}`, { method: 'DELETE' }),
-    restore: (snapshot: any) => fetchApi<any>('/tasks/restore', { method: 'POST', body: JSON.stringify({ snapshot }) }),
+    delete: (id: string) => fetchApi<{ message: string }>(`/tasks/${id}`, { method: 'DELETE' }),
+    restore: (id: string) => fetchApi<any>(`/tasks/${id}/restore`, { method: 'POST' }),
     complete: (id: string) => fetchApi<IssueWithRelations>(`/tasks/${id}/complete`, { method: 'PATCH' }),
   },
   sprints: {
@@ -174,9 +175,9 @@ export const api = {
     list: () => fetchApi<Habit[]>('/habits'),
     create: (data: Record<string, any>) => fetchApi<Habit>('/habits', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<Habit>(`/habits/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<{ message: string; snapshot?: any }>(`/habits/${id}`, { method: 'DELETE' }),
-    restore: (snapshot: any) => fetchApi<any>('/habits/restore', { method: 'POST', body: JSON.stringify({ snapshot }) }),
-    complete: (id: string, date?: string) => fetchApi<Habit>(`/habits/${id}/complete`, { method: 'POST', ...(date ? { body: JSON.stringify({ date }) } : {}) }),
+    delete: (id: string) => fetchApi<{ message: string }>(`/habits/${id}`, { method: 'DELETE' }),
+    restore: (id: string) => fetchApi<any>(`/habits/${id}/restore`, { method: 'POST' }),
+    complete: (id: string, date?: string) => fetchApi<Habit>(`/habits/${id}/log`, { method: 'POST', ...(date ? { body: JSON.stringify({ date }) } : {}) }),
   },
   dailyLogs: {
     list: () => fetchApi<DailyLog[]>('/daily-logs'),
@@ -198,4 +199,27 @@ export const api = {
     delete: async (_id?: string) => { throw new Error('Not implemented yet'); },
     restore: async (_snapshot: any) => { throw new Error('Not implemented yet'); },
   },
+  ai: {
+    complete: (data: Record<string, any>) => fetchApi<any>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),
+    ragQuery: (data: Record<string, any>) => fetchApi<any>('/ai/rag-query', { method: 'POST', body: JSON.stringify(data) }),
+    config: () => fetchApi<any>('/ai/config')
+  },
+  knowledgeGraph: {
+    get: () => fetchApi<any>('/knowledge-graph', { method: 'GET' })
+  },
+  notifications: {
+    list: () => fetchApi<any[]>('/notifications', { method: 'GET' }),
+    markAsRead: (id: string) => fetchApi<any>(`/notifications/${id}/read`, { method: 'PATCH' })
+  },
+  dashboard: {
+    get: () => fetchApi<any>('/dashboard', { method: 'GET' })
+  },
+  focusSessions: {
+    complete: (data: Record<string, any>) => fetchApi<any>('/focus-sessions', { method: 'POST', body: JSON.stringify(data) })
+  },
+  analytics: {
+    overview: (range: string) => fetchApi<any[]>(`/analytics/overview?range=${range}`, { method: 'GET' }),
+    focusHistory: (range: string) => fetchApi<any[]>(`/analytics/focus-history?range=${range}`, { method: 'GET' }),
+    habitHeatmap: (habitId: string, range: string) => fetchApi<any[]>(`/analytics/habit-heatmap?habitId=${habitId}&range=${range}`, { method: 'GET' })
+  }
 };
