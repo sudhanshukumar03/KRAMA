@@ -70,7 +70,7 @@ function IssueCard({ issue, index = 0, isDragging, onDelete, onClick }: { issue:
  {...attributes} 
  {...listeners}
  onClick={() => onClick && onClick(issue)}
- className={cn(`p-3 rounded-xl border border-border bg-surface text-body cursor-grab active:cursor-grabbing card-hover group relative ${!isDragging ? staggerClass : ''}`,
+ className={cn(`p-3 v4-card text-body cursor-grab active:cursor-grabbing card-hover group relative ${!isDragging ? staggerClass : ''}`,
  isDragging &&"scale-[1.005] shadow-hover opacity-95 border-primary z-50 cursor-grabbing rotate-[0.8deg]"
  )}
  >
@@ -687,18 +687,18 @@ export function KanbanBoard() {
 
  const handleDeleteIssue = async (issue: IssueWithRelations) => {
  try {
- const res = await api.tasks.delete(issue.id);
+ await api.tasks.delete(issue.id);
  queryClient.setQueryData<IssueWithRelations[]>(['issues'], old => old?.filter(i => i.id !== issue.id));
- toast.success(`Deleted"${issue.title}"`, {
+ toast.success(`Deleted "${issue.title}"`, {
  description: `Issue #${issue.id.slice(-4)} removed from sprint board.`,
- action: res?.snapshot ? {
+ action: {
  label: 'Undo',
  onClick: async () => {
- await api.tasks.restore(res.snapshot);
+ await api.tasks.restore(issue.id);
  queryClient.invalidateQueries({ queryKey: ['issues'] });
- toast.success(`Restored"${issue.title}"`);
+ toast.success(`Restored "${issue.title}"`);
  }
- } : undefined,
+ },
  duration: 5000,
  });
  } catch {
