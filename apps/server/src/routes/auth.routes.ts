@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Router } from 'express';
 import express from 'express';
 import { signup, login, refresh, logout, logoutAll, me } from '../controllers/auth.controller';
