@@ -65,7 +65,7 @@ function HabitCreateModal({
  >
  <div
  onClick={e => e.stopPropagation()}
- className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+ className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
  >
  <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50">
  <div className="flex items-center gap-2.5">
@@ -193,31 +193,31 @@ export function HabitTracker() {
  });
 
  const restoreMutation = useMutation({
- mutationFn: (snapshot: any) => api.habits.restore(snapshot),
- onSuccess: (restoredHabit) => {
- queryClient.invalidateQueries({ queryKey: ['habits'] });
- queryClient.invalidateQueries({ queryKey: ['snapshots'] });
- queryClient.invalidateQueries({ queryKey: ['goals'] });
- toast.success(`Restored"${restoredHabit?.name || 'Routine'}"`);
- },
- onError: () => toast.error('Failed to restore routine')
+   mutationFn: (id: string) => api.habits.restore(id),
+   onSuccess: (restoredHabit) => {
+     queryClient.invalidateQueries({ queryKey: ['habits'] });
+     queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+     queryClient.invalidateQueries({ queryKey: ['goals'] });
+     toast.success(`Restored "${restoredHabit?.name || 'Routine'}"`);
+   },
+   onError: () => toast.error('Failed to restore routine')
  });
 
  const deleteMutation = useMutation({
- mutationFn: (id: string) => api.habits.delete(id),
- onSuccess: (res, deletedId) => {
- queryClient.invalidateQueries({ queryKey: ['habits'] });
- queryClient.invalidateQueries({ queryKey: ['snapshots'] });
- queryClient.invalidateQueries({ queryKey: ['goals'] });
- const deletedName = habits.find(h => h.id === deletedId)?.name || 'Routine';
- toast.success(`Deleted"${deletedName}"`, {
- action: res.snapshot ? {
- label: 'Undo',
- onClick: () => restoreMutation.mutate(res.snapshot)
- } : undefined
- });
- },
- onError: () => toast.error('Failed to delete routine')
+   mutationFn: (id: string) => api.habits.delete(id),
+   onSuccess: (_, deletedId) => {
+     queryClient.invalidateQueries({ queryKey: ['habits'] });
+     queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+     queryClient.invalidateQueries({ queryKey: ['goals'] });
+     const deletedName = habits.find(h => h.id === deletedId)?.name || 'Routine';
+     toast.success(`Deleted "${deletedName}"`, {
+       action: {
+         label: 'Undo',
+         onClick: () => restoreMutation.mutate(deletedId)
+       }
+     });
+   },
+   onError: () => toast.error('Failed to delete routine')
  });
 
  const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -257,6 +257,26 @@ export function HabitTracker() {
  </div>
  );
  }
+
+ if (habits.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center h-full">
+        <EmptyState 
+          icon={Flame}
+          title="No habits created."
+          description="Create your first routine to start building your streak."
+          actionLabel="Create Habit"
+          onAction={handleCreateHabit}
+        />
+        <HabitCreateModal
+          open={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          onSubmit={(data) => createHabitMutation.mutate(data)}
+          isSubmitting={createHabitMutation.isPending}
+        />
+      </div>
+    );
+  }
 
  const categoriesMap = new Map<string, number>();
  habits.forEach(h => {
@@ -354,7 +374,7 @@ export function HabitTracker() {
  const heatmap = generate30DayPattern(habit);
 
  return (
- <div key={habit.id} className="bg-surface border border-border rounded-xl p-5 hover:border-primary transition-all cursor-pointer group flex flex-col justify-between shadow-sm gap-4">
+ <div key={habit.id} className="v4-card p-5 hover:border-primary transition-all cursor-pointer group flex flex-col justify-between gap-4">
  <div className="flex items-start gap-4">
  <div className="w-11 h-11 bg-surface-hover rounded-xl border border-border flex items-center justify-center shrink-0 group-hover:border-primary group-hover:bg-primary transition-all shadow-2xs">
  <Icon className="w-5 h-5 text-primary group-hover:text-white transition-colors stroke-[1.75]" />
@@ -424,7 +444,7 @@ export function HabitTracker() {
  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
  
  {/* Morning */}
- <div className="bg-surface border border-border rounded-xl p-5 shadow-sm">
+ <div className="v4-card p-5">
  <h3 className="text-card text-primary mb-2 uppercase tracking-[0.02em] flex items-center justify-between">
  <span className="flex items-center gap-1.5 text-primary font-semibold"><Sun className="w-3.5 h-3.5 text-[#EA580C]" />Morning Routine</span>
  <span className="font-mono text-[10px] text-muted">{morningHabits.length} habits</span>
@@ -449,7 +469,7 @@ export function HabitTracker() {
  </div>
 
  {/* Evening */}
- <div className="bg-surface border border-border rounded-xl p-5 shadow-sm">
+ <div className="v4-card p-5">
  <h3 className="text-card text-primary mb-2 uppercase tracking-[0.02em] flex items-center justify-between">
  <span className="flex items-center gap-1.5 text-primary font-semibold"><Moon className="w-3.5 h-3.5 text-[#7C3AED]" />Evening Routine</span>
  <span className="font-mono text-[10px] text-muted">{eveningHabits.length} habits</span>
@@ -489,7 +509,7 @@ export function HabitTracker() {
  </div>
  </div>
 
- <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-2xs divide-y divide-border/60">
+ <div className="v4-card overflow-hidden divide-y divide-border/60">
  {habits.map(habit => (
  <div key={habit.id} className="p-4 flex items-center justify-between gap-4 hover:bg-surface-hover/80 transition-colors">
  <div className="flex items-center gap-3 min-w-0">
@@ -529,7 +549,7 @@ export function HabitTracker() {
 
  {/* RIGHT COLUMN: Daily Checklist Widget (30% on desktop, 100% on mobile) */}
  <div className="w-full lg:w-[30%] bg-surface-hover lg:h-full lg:overflow-y-auto p-4 sm:p-6 lg:p-8 border-t lg:border-t-0 lg:border-l border-border">
- <div className="bg-surface border border-border shadow-sm rounded-xl p-4 sm:p-6 relative overflow-hidden">
+ <div className="v4-card p-4 sm:p-6 relative overflow-hidden">
  
  <div className="absolute top-0 left-0 w-full h-1.5 bg-[#EA580C]" />
  
