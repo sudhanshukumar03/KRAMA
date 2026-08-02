@@ -1,7 +1,6 @@
-// @ts-nocheck
 import type { Router } from 'express';
 import express from 'express';
-import { listPages, getPage, createPage, updatePage, deletePage } from '../controllers/page.controller';
+import { listPages, getPage, createPage, updatePage, deletePage, restorePage } from '../controllers/page.controller';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 
 const router: Router = express.Router();
@@ -22,5 +21,6 @@ router.get('/:id', requireWorkspaceRole('VIEWER'), getPage);
 router.post('/', requireWorkspaceRole('MEMBER'), createPage);
 router.patch('/:id', requireWorkspaceRole('MEMBER'), updatePage);
 router.delete('/:id', requireWorkspaceRole('ADMIN'), deletePage);
+router.post('/:id/restore', requireWorkspaceRole('MEMBER'), restorePage);
 
 export default router;
