@@ -6,6 +6,7 @@ export const QUEUE_NAMES = {
   HABIT_STREAK: 'habit-streak',
   SPRINT_REPORT: 'sprint-report',
   ANALYTICS: 'analytics',
+  EMBEDDING: 'embedding',
 };
 
 // Common queue options
@@ -35,6 +36,11 @@ export const sprintReportQueue = new Queue(QUEUE_NAMES.SPRINT_REPORT, {
 });
 
 export const analyticsQueue = new Queue(QUEUE_NAMES.ANALYTICS, {
+  connection,
+  defaultJobOptions,
+});
+
+export const embeddingQueue = new Queue(QUEUE_NAMES.EMBEDDING, {
   connection,
   defaultJobOptions,
 });
