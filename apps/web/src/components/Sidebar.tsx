@@ -3,44 +3,34 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { toast } from 'sonner';
 import { 
- Home, 
- BookOpen, 
- Target, 
- FolderKanban,
- KanbanSquare,
- CalendarCheck,
- Search,
- Calendar,
- Clock,
- Clock4,
- TrendingUp,
- Sparkles,
- Scale,
- Download,
- X,
- Moon,
- Sun,
- LogOut
+  Home, BookOpen, Target, FolderKanban, Network,
+  Calendar, Clock4, KanbanSquare, Clock, CalendarCheck, TrendingUp,
+  Sparkles, Search, LogOut, Moon, Sun, Download, X
 } from 'lucide-react';
-import { cn } from '../lib/utils';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
+import { cn } from '../lib/utils';
 
-const navItems = [
- { name: 'Dashboard', path: '/app/', icon: Home, shortcut: 'G D', badgeKey: null },
- { name: 'Brain Workspace', path: '/app/brain', icon: BookOpen, shortcut: 'G B', badgeKey: 'pages' },
- { name: 'Goals', path: '/app/goals', icon: Target, shortcut: 'G G', badgeKey: 'goals' },
- { name: 'Projects', path: '/app/projects', icon: FolderKanban, shortcut: 'G P', badgeKey: 'projects' },
+const strategicBrainItems = [
+  { name: 'Dashboard', path: '/app/', icon: Home, shortcut: 'G D', badgeKey: null },
+  { name: 'Brain Workspace', path: '/app/brain', icon: BookOpen, shortcut: 'G B', badgeKey: 'pages' },
+  { name: 'Goals & OKRs', path: '/app/goals', icon: Target, shortcut: 'G G', badgeKey: 'goals' },
+  { name: 'Projects', path: '/app/projects', icon: FolderKanban, shortcut: 'G P', badgeKey: 'projects' },
+  { name: 'Knowledge Graph', path: '/app/graph', icon: Network, shortcut: 'G K', badgeKey: null },
 ];
 
-const executionItems = [
- { name: 'Weekly Planner', path: '/app/planner', icon: Calendar, shortcut: 'E W', badgeKey: null },
- { name: 'Daily Schedule', path: '/app/timeline', icon: Clock4, shortcut: 'E T', badgeKey: null },
- { name: 'Kanban Board', path: '/app/board', icon: KanbanSquare, shortcut: 'E K', badgeKey: 'openIssues' },
- { name: 'Sprint View', path: '/app/sprint', icon: Clock, shortcut: 'E S', badgeKey: 'sprintIssues' },
- { name: 'Daily Review', path: '/app/review', icon: CalendarCheck, shortcut: 'E R', badgeKey: null },
- { name: 'Decision Log', path: '/app/decisions', icon: Scale, shortcut: 'E D', badgeKey: null },
- { name: 'Habit Tracker', path: '/app/habits', icon: TrendingUp, shortcut: 'E H', badgeKey: 'habits' },
+const executionLoopItems = [
+  { name: 'Planner', path: '/app/planner', icon: Calendar, shortcut: 'E W', badgeKey: null },
+  { name: 'Daily Schedule', path: '/app/timeline', icon: Clock4, shortcut: 'E T', badgeKey: null },
+  { name: 'Timeline', path: '/app/sprint', icon: Clock, shortcut: 'E S', badgeKey: 'sprintIssues' },
+  { name: 'Kanban Board', path: '/app/board', icon: KanbanSquare, shortcut: 'E K', badgeKey: 'openIssues' },
+  { name: 'Habits', path: '/app/habits', icon: TrendingUp, shortcut: 'E H', badgeKey: 'habits' },
+  { name: 'Reviews', path: '/app/review', icon: CalendarCheck, shortcut: 'E R', badgeKey: null },
+];
+
+const systemItems = [
+  { name: 'Analytics', path: '/app/analytics', icon: TrendingUp, shortcut: 'S N', badgeKey: null },
+  { name: 'AI Assistant', path: '/app/ai', icon: Sparkles, shortcut: 'S A', badgeKey: null },
 ];
 
 export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
@@ -132,7 +122,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  };
 
  const sidebarContent = (
- <div className="w-64 border-r border-border bg-surface-hover flex flex-col h-full flex-shrink-0 select-none">
+ <div className="w-[300px] border-r border-border bg-[var(--color-sidebar)] rounded-r-[var(--radius-sidebar)] flex flex-col h-full flex-shrink-0 select-none shadow-[var(--shadow-resting)] z-10 transition-transform duration-300">
  {/* Header / Brand */}
  <div className="h-14 flex items-center justify-between px-4 border-b border-border bg-surface">
  <div className="flex items-center gap-2.5">
@@ -172,7 +162,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  <Sparkles className="w-3 h-3 text-[#7C3AED]" />
  </div>
  <div className="space-y-1">
- {navItems.map(renderLink)}
+ {strategicBrainItems.map(renderLink)}
  </div>
  </div>
 
@@ -182,7 +172,16 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  <span className="text-[#2563EB] text-[9px] bg-accent-tint px-1.5 py-0.2 rounded border border-[#2563EB]/20 font-bold">Active</span>
  </div>
  <div className="space-y-1">
- {executionItems.map(renderLink)}
+ {executionLoopItems.map(renderLink)}
+ </div>
+ </div>
+
+ <div className="px-3 mt-6">
+ <div className="text-[10px] font-mono font-bold text-muted uppercase tracking-widest mb-2 px-2 flex items-center justify-between">
+ <span>System</span>
+ </div>
+ <div className="space-y-1">
+ {systemItems.map(renderLink)}
  </div>
  </div>
  </div>
