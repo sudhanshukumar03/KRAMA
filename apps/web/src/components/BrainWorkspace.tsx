@@ -44,18 +44,18 @@ function PageTreeNode({
  const handleDeletePage = async (e: React.MouseEvent) => {
  e.stopPropagation();
  try {
- const res = await api.pages.delete(page.id);
+ await api.pages.delete(page.id);
  queryClient.invalidateQueries({ queryKey: ['pages'] });
  if (isSelected) onSelect(pages.find(p => p.id !== page.id)?.id || '');
- toast.success(`Deleted"${page.title}"`, {
- action: res?.snapshot ? {
- label: 'Undo',
- onClick: async () => {
- await api.pages.restore(res.snapshot);
- queryClient.invalidateQueries({ queryKey: ['pages'] });
- toast.success(`Restored"${page.title}"`);
- }
- } : undefined
+ toast.success(`Deleted "${page.title}"`, {
+   action: {
+     label: 'Undo',
+     onClick: async () => {
+       await api.pages.restore(page.id);
+       queryClient.invalidateQueries({ queryKey: ['pages'] });
+       toast.success(`Restored "${page.title}"`);
+     }
+   }
  });
  } catch {
  toast.error('Failed to delete page');
@@ -272,7 +272,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
  </div>
 
  {/* WRITING CANVAS CONTAINER (Clean Monochrome Notion / Arc Identity) */}
- <div className="flex-1 bg-surface rounded-2xl border border-border shadow-xs flex flex-col max-w-4xl mx-auto w-full overflow-hidden min-h-[620px] relative">
+ <div className="flex-1 v4-card flex flex-col max-w-4xl mx-auto w-full overflow-hidden min-h-[620px] relative">
  
  {/* COMMAND RIBBON WITH FLOATING AI FORMATTING ASSISTANT */}
  <div className="bg-surface-hover/80 backdrop-blur-md px-4 py-3 flex flex-wrap items-center justify-between gap-2 shrink-0 border-b border-border">
