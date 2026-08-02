@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Router } from 'express';
 import express from 'express';
 import { listSprints, getSprint, createSprint, updateSprint, deleteSprint, getSprintTasks } from '../controllers/sprint.controller';
