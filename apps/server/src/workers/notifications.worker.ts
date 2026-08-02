@@ -1,9 +1,8 @@
 import { Worker } from 'bullmq';
-import { PrismaClient } from '@prisma/client';
 import { QUEUE_NAMES } from '../queues';
 import { connection } from '../lib/redis';
 
-const prisma = new PrismaClient();
+import { prisma } from '../prisma';
 
 export const notificationsWorker = new Worker(
   QUEUE_NAMES.NOTIFICATIONS,
