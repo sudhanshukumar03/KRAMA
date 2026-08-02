@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
 }
 
 // -----------------------------------------------------------------------------
@@ -78,6 +80,8 @@ model User {
   habitCompletions HabitCompletion[]
   tasksAssigned    Task[]    @relation("TaskAssignee")
   activityLogs     ActivityLog[]
+  focusSessions    FocusSession[]
+  comments         Comment[]
 }
 
 model Session {
@@ -121,6 +125,8 @@ model Workspace {
   aiRequests       AiRequest[]
   activityLogs     ActivityLog[]
   labels           Label[]
+  focusSessions    FocusSession[]
+  decisions        Decision[]
 }
 
 model WorkspaceMember {
@@ -151,6 +157,8 @@ model Project {
   workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   goalId           String?
   goal             Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  spaceId          String?
+  space            Space?    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
 
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -163,6 +171,7 @@ model Project {
   tasks            Task[]
   pages            Page[]    @relation("ProjectPages")
   sprints          Sprint[]
+  focusSessions    FocusSession[]
 }
 
 model Task {
@@ -203,6 +212,7 @@ model Task {
 
   labels           LabelsOnTasks[]
   comments         Comment[]
+  focusSessions    FocusSession[]
 }
 
 model Sprint {
@@ -243,6 +253,8 @@ model Goal {
 
   workspaceId      String
   workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  spaceId          String?
+  space            Space?    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
 
   parentGoalId     String?
   parentGoal       Goal?     @relation("GoalHierarchy", fields: [parentGoalId], references: [id])
@@ -324,6 +336,8 @@ model Space {
   deletedAt      DateTime?
 
   pages          Page[]
+  projects       Project[]
+  goals          Goal[]
 }
 
 model Page {
@@ -350,6 +364,8 @@ model Page {
   createdBy        String?
   updatedBy        String?
   version          Int       @default(1)
+  
+  embedding        PageEmbedding?
 }
 
 model Decision {
@@ -361,6 +377,7 @@ model Decision {
   metadata         Json?
 
   workspaceId      String
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 }
@@ -393,6 +410,27 @@ model DailyLog {
   version         Int       @default(1)
 
   @@unique([userId, workspaceId, date])
+}
+
+model FocusSession {
+  id              String    @id @default(uuid())
+  startTime       DateTime
+  endTime         DateTime?
+  duration        Int       // duration in seconds
+  completed       Boolean   @default(false)
+  type            String    @default("pomodoro") // 'pomodoro' | 'short_break' | 'long_break'
+  
+  projectId       String?
+  project         Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  taskId          String?
+  task            Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime  @default(now())
 }
 
 model SprintReport {
@@ -462,6 +500,7 @@ model Comment {
   taskId          String?
   task            Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   authorId        String
+  author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }
@@ -495,9 +534,23 @@ model AiRequest {
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspaceId      String
   workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  prompt           String
+  prompt           String?
   response         String?
   model            String
+  provider         String    @default("groq")
   tokensUsed       Int       @default(0)
+  promptTokens     Int       @default(0)
+  completionTokens Int       @default(0)
+  estimatedCostUsd Float     @default(0)
+  latencyMs        Int       @default(0)
+  cacheHit         Boolean   @default(false)
   createdAt        DateTime  @default(now())
+}
+
+model PageEmbedding {
+  id         String   @id @default(uuid())
+  pageId     String   @unique
+  page       Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  embedding  Unsupported("vector(384)")
+  updatedAt  DateTime @updatedAt
 }
