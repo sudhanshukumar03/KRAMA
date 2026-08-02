@@ -1,7 +1,6 @@
-// @ts-nocheck
 import type { Router } from 'express';
 import express from 'express';
-import { listTasks, getTask, createTask, updateTask, deleteTask, reorderTask, completeTask } from '../controllers/task.controller';
+import { listTasks, getTask, createTask, updateTask, deleteTask, reorderTask, completeTask, restoreTask } from '../controllers/task.controller';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 
 const router: Router = express.Router();
@@ -24,5 +23,6 @@ router.patch('/:id', requireWorkspaceRole('MEMBER'), updateTask);
 router.delete('/:id', requireWorkspaceRole('ADMIN'), deleteTask);
 router.patch('/:id/reorder', requireWorkspaceRole('MEMBER'), reorderTask);
 router.patch('/:id/complete', requireWorkspaceRole('MEMBER'), completeTask);
+router.post('/:id/restore', requireWorkspaceRole('MEMBER'), restoreTask);
 
 export default router;
