@@ -1,10 +1,8 @@
-// @ts-nocheck
 import { Worker } from 'bullmq';
-import { PrismaClient } from '@prisma/client';
 import { QUEUE_NAMES } from '../queues';
 import { connection } from '../lib/redis';
 
-const prisma = new PrismaClient();
+import { prisma } from '../prisma';
 
 export const habitStreakWorker = new Worker(
   QUEUE_NAMES.HABIT_STREAK,
@@ -14,7 +12,7 @@ export const habitStreakWorker = new Worker(
     const habits = await prisma.habit.findMany({
       where: { deletedAt: null },
       include: {
-        logs: {
+        completions: {
           orderBy: { completedAt: 'desc' },
         },
       },
@@ -22,13 +20,13 @@ export const habitStreakWorker = new Worker(
 
     for (const habit of habits) {
       let currentStreak = 0;
-      if (habit.logs.length > 0) {
+      if (habit.completions.length > 0) {
         let lastDate = new Date(); // Today
         lastDate.setHours(0,0,0,0);
         
         let iterDate = new Date(lastDate);
 
-        for (let log of habit.logs) {
+        for (let log of habit.completions) {
           const logDate = new Date(log.completedAt);
           logDate.setHours(0,0,0,0);
           
