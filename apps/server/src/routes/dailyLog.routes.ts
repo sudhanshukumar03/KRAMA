@@ -1,7 +1,6 @@
-// @ts-nocheck
 import type { Router } from 'express';
 import express from 'express';
-import { listDailyLogs, getDailyLog, createDailyLog, updateDailyLog } from '../controllers/dailyLog.controller';
+import { listDailyLogs, getDailyLog, createDailyLog, updateDailyLog, deleteDailyLog } from '../controllers/dailyLog.controller';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 
 const router: Router = express.Router();
@@ -21,5 +20,6 @@ router.get('/', requireWorkspaceRole('MEMBER'), listDailyLogs);
 router.get('/:id', requireWorkspaceRole('MEMBER'), getDailyLog);
 router.post('/', requireWorkspaceRole('MEMBER'), createDailyLog);
 router.patch('/:id', requireWorkspaceRole('MEMBER'), updateDailyLog);
+router.delete('/:id', requireWorkspaceRole('MEMBER'), deleteDailyLog);
 
 export default router;
