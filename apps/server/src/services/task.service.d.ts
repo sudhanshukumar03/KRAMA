@@ -171,6 +171,30 @@ export declare class TaskService {
         parentTaskId: string | null;
         position: number;
     }>;
+    restoreTask(id: string, workspaceId: string, userId: string): Promise<{
+        id: string;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        version: number;
+        workspaceId: string;
+        createdBy: string | null;
+        updatedBy: string | null;
+        title: string;
+        description: string | null;
+        status: import("@prisma/client").$Enums.TaskStatus;
+        priority: import("@prisma/client").$Enums.TaskPriority;
+        estimateMinutes: number | null;
+        scheduledDate: Date | null;
+        dueDate: Date | null;
+        projectId: string | null;
+        sprintId: string | null;
+        assigneeId: string | null;
+        blockedById: string | null;
+        parentTaskId: string | null;
+        position: number;
+    }>;
 }
 export declare const taskService: TaskService;
 //# sourceMappingURL=task.service.d.ts.map
