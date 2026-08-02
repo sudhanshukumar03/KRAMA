@@ -1,9 +1,17 @@
 import { workspaceRepository } from '../repositories/workspace.repository';
-import { runInTransaction } from '../prisma';
+import { runInTransaction, prisma } from '../prisma';
 
 export class WorkspaceService {
-  async listWorkspaces() {
-    return workspaceRepository.findAll();
+  async listWorkspaces(userId: string) {
+    return workspaceRepository.findAll({
+      where: {
+        members: {
+          some: {
+            userId
+          }
+        }
+      }
+    });
   }
 
   async getWorkspace(id: string) {
@@ -42,6 +50,30 @@ export class WorkspaceService {
     }
 
     return workspaceRepository.delete(id);
+  }
+
+  async exportWorkspace(id: string) {
+    const workspace = await workspaceRepository.findById(id);
+    if (!workspace) {
+      throw new Error('Workspace not found');
+    }
+
+    const data = await prisma.workspace.findUnique({
+      where: { id },
+      include: {
+        members: {
+          select: { role: true, user: { select: { id: true, name: true, email: true } } }
+        },
+        goals: { where: { deletedAt: null } },
+        projects: { where: { deletedAt: null } },
+        pages: { where: { deletedAt: null } },
+        tasks: { where: { deletedAt: null } },
+        sprints: { where: { deletedAt: null } },
+        habits: { where: { deletedAt: null } },
+      }
+    });
+
+    return data;
   }
 }
 
