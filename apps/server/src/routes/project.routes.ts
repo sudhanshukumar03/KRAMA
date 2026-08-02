@@ -1,7 +1,6 @@
-// @ts-nocheck
 import type { Router } from 'express';
 import express from 'express';
-import { listProjects, getProject, createProject, updateProject, deleteProject, reorderProject } from '../controllers/project.controller';
+import { listProjects, getProject, createProject, updateProject, deleteProject, reorderProject, restoreProject } from '../controllers/project.controller';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 
 const router: Router = express.Router();
@@ -24,5 +23,6 @@ router.post('/', requireWorkspaceRole('MEMBER'), createProject);
 router.patch('/:id', requireWorkspaceRole('MEMBER'), updateProject);
 router.delete('/:id', requireWorkspaceRole('ADMIN'), deleteProject); // Requires ADMIN to soft-delete
 router.patch('/:id/reorder', requireWorkspaceRole('MEMBER'), reorderProject);
+router.post('/:id/restore', requireWorkspaceRole('MEMBER'), restoreProject);
 
 export default router;
