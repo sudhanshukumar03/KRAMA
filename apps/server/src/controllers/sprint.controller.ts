@@ -1,13 +1,11 @@
-// @ts-nocheck
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { CreateSprintSchema, UpdateSprintSchema } from '@krama/validation';
 
-const prisma = new PrismaClient();
+import { prisma } from '../prisma';
 
 export const listSprints = async (req: Request, res: Response) => {
   try {
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
     const sprints = await prisma.sprint.findMany({
@@ -29,8 +27,8 @@ export const listSprints = async (req: Request, res: Response) => {
 
 export const getSprint = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const { id } = req.params as { id: string };
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
 
     const sprint = await prisma.sprint.findUnique({
       where: { id },
@@ -70,7 +68,7 @@ export const createSprint = async (req: Request, res: Response) => {
 
 export const updateSprint = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     const data = UpdateSprintSchema.parse(req.body);
 
     const existing = await prisma.sprint.findUnique({ where: { id } });
@@ -105,8 +103,8 @@ export const updateSprint = async (req: Request, res: Response) => {
 
 export const deleteSprint = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const { id } = req.params as { id: string };
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
 
     const existing = await prisma.sprint.findUnique({ where: { id } });
     if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
@@ -129,8 +127,8 @@ export const deleteSprint = async (req: Request, res: Response) => {
 
 export const getSprintTasks = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const { id } = req.params as { id: string };
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
 
     const existing = await prisma.sprint.findUnique({ where: { id } });
     if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
