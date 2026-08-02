@@ -1,13 +1,11 @@
-// @ts-nocheck
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { CreateProjectSchema, UpdateProjectSchema, ReorderSchema } from '@krama/validation';
 
-const prisma = new PrismaClient();
+import { prisma } from '../prisma';
 
 export const listProjects = async (req: Request, res: Response) => {
   try {
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
     const projects = await prisma.project.findMany({
@@ -32,8 +30,8 @@ export const listProjects = async (req: Request, res: Response) => {
 
 export const getProject = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const { id } = req.params as { id: string };
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
 
     const project = await prisma.project.findUnique({
       where: { id },
@@ -85,7 +83,7 @@ export const createProject = async (req: Request, res: Response) => {
 
 export const updateProject = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     const data = UpdateProjectSchema.parse(req.body);
 
     const existing = await prisma.project.findUnique({ where: { id } });
@@ -123,11 +121,8 @@ export const updateProject = async (req: Request, res: Response) => {
 
 export const deleteProject = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    // We expect workspaceId in query for auth middleware, or we can just look it up.
-    // Auth middleware `requireWorkspaceRole` expects `workspaceId` in params or body.
-    // Wait, if it's in body, DELETE requests usually don't have body. We should rely on req.query.workspaceId or header.
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const { id } = req.params as { id: string };
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
 
     const existing = await prisma.project.findUnique({ where: { id } });
     if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
@@ -150,7 +145,7 @@ export const deleteProject = async (req: Request, res: Response) => {
 
 export const reorderProject = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     const data = ReorderSchema.parse(req.body);
 
     const existing = await prisma.project.findUnique({ where: { id } });
@@ -171,11 +166,42 @@ export const reorderProject = async (req: Request, res: Response) => {
       },
     });
 
-    // TODO: Stage X - periodic position rebalance job if precision gets too high.
-
     return res.status(200).json(project);
   } catch (error: any) {
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const restoreProject = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+
+    const existing = await prisma.project.findFirst({ where: { id, workspaceId } });
+    if (!existing) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    if (!existing.deletedAt) {
+      return res.status(409).json({ message: 'Conflict: nothing to restore' });
+    }
+
+    const project = await prisma.project.update({
+      where: { id },
+      data: {
+        deletedAt: null,
+        updatedBy: req.user!.id,
+      },
+      include: {
+        goal: true,
+        _count: {
+          select: { tasks: true, pages: true, sprints: true },
+        },
+      },
+    });
+
+    return res.status(200).json(project);
+  } catch (error) {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
