@@ -1,13 +1,11 @@
-// @ts-nocheck
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { CreateDailyLogSchema, UpdateDailyLogSchema } from '@krama/validation';
 
-const prisma = new PrismaClient();
+import { prisma } from '../prisma';
 
 export const listDailyLogs = async (req: Request, res: Response) => {
   try {
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
     const { date, range } = req.query; // date=YYYY-MM-DD, range=7 for last 7 days
@@ -51,8 +49,8 @@ export const listDailyLogs = async (req: Request, res: Response) => {
 
 export const getDailyLog = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const { id } = req.params as { id: string };
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
 
     const log = await prisma.dailyLog.findUnique({
       where: { id },
@@ -107,7 +105,7 @@ export const createDailyLog = async (req: Request, res: Response) => {
 
 export const updateDailyLog = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     const data = UpdateDailyLogSchema.parse(req.body);
 
     const existing = await prisma.dailyLog.findUnique({ where: { id } });
@@ -134,6 +132,30 @@ export const updateDailyLog = async (req: Request, res: Response) => {
     return res.status(200).json(log);
   } catch (error: any) {
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const deleteDailyLog = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+
+    const existing = await prisma.dailyLog.findUnique({ where: { id } });
+    if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
+      return res.status(404).json({ message: 'Daily Log not found' });
+    }
+
+    await prisma.dailyLog.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        updatedBy: req.user!.id,
+      },
+    });
+
+    return res.status(200).json({ message: 'Daily Log deleted' });
+  } catch (error) {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
