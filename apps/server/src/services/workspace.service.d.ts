@@ -1,5 +1,5 @@
 export declare class WorkspaceService {
-    listWorkspaces(): Promise<{
+    listWorkspaces(userId: string): Promise<{
         name: string;
         id: string;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
@@ -59,6 +59,135 @@ export declare class WorkspaceService {
         updatedBy: string | null;
         productivityScore: number;
     }>;
+    exportWorkspace(id: string): Promise<({
+        members: {
+            user: {
+                name: string | null;
+                id: string;
+                email: string;
+            };
+            role: import("@prisma/client").$Enums.Role;
+        }[];
+        projects: {
+            name: string;
+            id: string;
+            metadata: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            version: number;
+            workspaceId: string;
+            createdBy: string | null;
+            updatedBy: string | null;
+            status: string;
+            position: number;
+            problemStatement: string | null;
+            goalId: string | null;
+            spaceId: string | null;
+        }[];
+        goals: {
+            id: string;
+            metadata: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            version: number;
+            workspaceId: string;
+            createdBy: string | null;
+            updatedBy: string | null;
+            title: string;
+            type: string;
+            spaceId: string | null;
+            progress: number;
+            targetDate: Date | null;
+            parentGoalId: string | null;
+        }[];
+        habits: {
+            name: string;
+            id: string;
+            metadata: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            version: number;
+            workspaceId: string;
+            createdBy: string | null;
+            updatedBy: string | null;
+            streak: number;
+            expectedDurationMinutes: number | null;
+            category: import("@prisma/client").$Enums.HabitCategory;
+            difficulty: import("@prisma/client").$Enums.HabitDifficulty;
+            linkedGoalId: string | null;
+        }[];
+        pages: {
+            id: string;
+            metadata: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            version: number;
+            workspaceId: string;
+            createdBy: string | null;
+            updatedBy: string | null;
+            title: string;
+            spaceId: string | null;
+            icon: string | null;
+            blocks: import("@prisma/client/runtime/library").JsonValue | null;
+            parentPageId: string | null;
+            linkedProjectId: string | null;
+        }[];
+        tasks: {
+            id: string;
+            metadata: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            version: number;
+            workspaceId: string;
+            createdBy: string | null;
+            updatedBy: string | null;
+            title: string;
+            description: string | null;
+            status: import("@prisma/client").$Enums.TaskStatus;
+            priority: import("@prisma/client").$Enums.TaskPriority;
+            estimateMinutes: number | null;
+            scheduledDate: Date | null;
+            dueDate: Date | null;
+            projectId: string | null;
+            sprintId: string | null;
+            assigneeId: string | null;
+            blockedById: string | null;
+            parentTaskId: string | null;
+            position: number;
+        }[];
+        sprints: {
+            name: string;
+            id: string;
+            metadata: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            version: number;
+            workspaceId: string;
+            createdBy: string | null;
+            updatedBy: string | null;
+            status: string;
+            projectId: string | null;
+            startDate: Date;
+            endDate: Date;
+        }[];
+    } & {
+        name: string;
+        id: string;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        version: number;
+        createdBy: string | null;
+        updatedBy: string | null;
+        productivityScore: number;
+    }) | null>;
 }
 export declare const workspaceService: WorkspaceService;
 //# sourceMappingURL=workspace.service.d.ts.map
