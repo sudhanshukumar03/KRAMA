@@ -101,6 +101,26 @@ export declare class HabitService {
         difficulty: import("@prisma/client").$Enums.HabitDifficulty;
         linkedGoalId: string | null;
     }>;
+    getStreak(id: string, workspaceId: string): Promise<{
+        streak: number;
+    }>;
+    restoreHabit(id: string, workspaceId: string, userId: string): Promise<{
+        name: string;
+        id: string;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        version: number;
+        workspaceId: string;
+        createdBy: string | null;
+        updatedBy: string | null;
+        streak: number;
+        expectedDurationMinutes: number | null;
+        category: import("@prisma/client").$Enums.HabitCategory;
+        difficulty: import("@prisma/client").$Enums.HabitDifficulty;
+        linkedGoalId: string | null;
+    }>;
 }
 export declare const habitService: HabitService;
 //# sourceMappingURL=habit.service.d.ts.map
