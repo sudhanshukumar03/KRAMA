@@ -115,6 +115,22 @@ export class TaskService {
       return task;
     });
   }
+
+  async restoreTask(id: string, workspaceId: string, userId: string) {
+    return runInTransaction(async (tx) => {
+      const existing = await taskRepository.findById(id, tx);
+      if (!existing) throw new Error('Task not found');
+      if (!existing.deletedAt || existing.workspaceId !== workspaceId) throw new Error('Conflict: nothing to restore');
+
+      const task = await taskRepository.update(id, {
+        deletedAt: null,
+        updatedBy: userId
+      }, tx);
+
+      domainEventBus.emitEvent('TASK_RESTORED', { taskId: task.id, workspaceId: task.workspaceId });
+      return task;
+    });
+  }
 }
 
 export const taskService = new TaskService();
