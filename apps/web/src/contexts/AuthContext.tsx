@@ -70,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(meData.user);
             const wid = meData.user.memberships?.[0]?.workspaceId || null;
             setWorkspaceId(wid);
+            api.setWorkspaceId(wid); // Synchronously set to avoid race condition with React Query mounts
           }
         }
       } catch {
