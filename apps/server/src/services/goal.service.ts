@@ -68,6 +68,22 @@ export class GoalService {
       return goal;
     });
   }
+
+  async restoreGoal(id: string, workspaceId: string, userId: string) {
+    return runInTransaction(async (tx) => {
+      const existing = await goalRepository.findById(id, tx);
+      if (!existing) throw new Error('Goal not found');
+      if (!existing.deletedAt || existing.workspaceId !== workspaceId) throw new Error('Conflict: nothing to restore');
+
+      const goal = await goalRepository.update(id, {
+        deletedAt: null,
+        updatedBy: userId
+      }, tx);
+
+      domainEventBus.emitEvent('GOAL_RESTORED', { goalId: goal.id, workspaceId: goal.workspaceId });
+      return goal;
+    });
+  }
 }
 
 export const goalService = new GoalService();
