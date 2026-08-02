@@ -86,3 +86,15 @@ export const getStreak = async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+export const restoreHabit = async (req: Request, res: Response) => {
+  try {
+    const workspaceId = (req.headers['x-workspace-id'] || req.query.workspaceId) as string;
+    const habit = await habitService.restoreHabit(req.params.id as string, workspaceId, req.user!.id);
+    return res.status(200).json(habit);
+  } catch (error: any) {
+    if (error.message === 'Habit not found') return res.status(404).json({ message: error.message });
+    if (error.message.includes('Conflict')) return res.status(409).json({ message: error.message });
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
