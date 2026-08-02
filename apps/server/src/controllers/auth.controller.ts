@@ -1,7 +1,7 @@
-// @ts-nocheck
 import type { Request, Response } from 'express';
 import { SignupSchema, LoginSchema } from '@krama/validation';
 import { authService } from '../services/auth.service';
+import { prisma } from '../prisma';
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -96,7 +96,11 @@ export const logout = async (req: Request, res: Response) => {
     if (refreshToken) {
       await authService.revokeSession(refreshToken);
     }
-    res.clearCookie('krama_refresh');
+    res.clearCookie('krama_refresh', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
     return res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {
     console.error('Logout error:', error);
@@ -111,7 +115,11 @@ export const logoutAll = async (req: Request, res: Response) => {
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     await authService.revokeAllSessions(userId);
-    res.clearCookie('krama_refresh');
+    res.clearCookie('krama_refresh', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
     return res.status(200).json({ message: 'Logged out of all sessions' });
   } catch (error) {
     console.error('LogoutAll error:', error);
@@ -122,7 +130,19 @@ export const logoutAll = async (req: Request, res: Response) => {
 export const me = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
-    return res.status(200).json({ user: req.user });
+    const userId = req.user.id;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        memberships: {
+          select: { workspaceId: true, role: true }
+        }
+      }
+    });
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const { passwordHash, ...safeUser } = user;
+    return res.status(200).json({ user: safeUser });
   } catch (error) {
     return res.status(500).json({ message: 'Internal server error' });
   }
