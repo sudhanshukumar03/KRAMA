@@ -1,10 +1,8 @@
-// @ts-nocheck
 import { Worker } from 'bullmq';
-import { PrismaClient } from '@prisma/client';
 import { QUEUE_NAMES } from '../queues';
 import { connection } from '../lib/redis';
 
-const prisma = new PrismaClient();
+import { prisma } from '../prisma';
 
 export const sprintReportWorker = new Worker(
   QUEUE_NAMES.SPRINT_REPORT,
@@ -40,7 +38,7 @@ export const sprintReportWorker = new Worker(
 
       if (existingReport) continue;
 
-      const tasksCompleted = sprint.tasks.filter(t => t.status === 'done').length;
+      const tasksCompleted = sprint.tasks.filter((t) => t.status === 'DONE').length;
       const tasksPlanned = sprint.tasks.length;
 
       await prisma.sprintReport.create({
