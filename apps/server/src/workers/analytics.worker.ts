@@ -1,10 +1,8 @@
-// @ts-nocheck
 import { Worker } from 'bullmq';
-import { PrismaClient } from '@prisma/client';
 import { QUEUE_NAMES } from '../queues';
 import { connection } from '../lib/redis';
 
-const prisma = new PrismaClient();
+import { prisma } from '../prisma';
 
 export const analyticsWorker = new Worker(
   QUEUE_NAMES.ANALYTICS,
@@ -18,6 +16,19 @@ export const analyticsWorker = new Worker(
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // AI Prompt Retention: Clear prompts older than 30 days
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    await prisma.aiRequest.updateMany({
+      where: {
+        createdAt: { lt: thirtyDaysAgo },
+        prompt: { not: null }
+      },
+      data: {
+        prompt: null
+      }
+    });
+
     const sevenDaysAgo = new Date(today);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -28,7 +39,7 @@ export const analyticsWorker = new Worker(
       const weeklyVelocity = await prisma.task.count({
         where: {
           workspaceId: workspace.id,
-          status: 'done',
+          status: 'DONE',
           updatedAt: { gte: sevenDaysAgo },
           deletedAt: null,
         },
