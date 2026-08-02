@@ -6,4 +6,5 @@ export declare const updateTask: (req: Request, res: Response) => Promise<Respon
 export declare const deleteTask: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 export declare const reorderTask: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 export declare const completeTask: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
+export declare const restoreTask: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 //# sourceMappingURL=task.controller.d.ts.map
