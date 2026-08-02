@@ -1,6 +1,5 @@
 export declare class GoalService {
     listGoals(workspaceId: string): Promise<{
-        type: string;
         id: string;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
@@ -11,12 +10,13 @@ export declare class GoalService {
         createdBy: string | null;
         updatedBy: string | null;
         title: string;
+        type: string;
+        spaceId: string | null;
         progress: number;
         targetDate: Date | null;
         parentGoalId: string | null;
     }[]>;
     getGoal(id: string, workspaceId: string): Promise<{
-        type: string;
         id: string;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
@@ -27,12 +27,13 @@ export declare class GoalService {
         createdBy: string | null;
         updatedBy: string | null;
         title: string;
+        type: string;
+        spaceId: string | null;
         progress: number;
         targetDate: Date | null;
         parentGoalId: string | null;
     }>;
     createGoal(data: any, userId: string): Promise<{
-        type: string;
         id: string;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
@@ -43,12 +44,13 @@ export declare class GoalService {
         createdBy: string | null;
         updatedBy: string | null;
         title: string;
+        type: string;
+        spaceId: string | null;
         progress: number;
         targetDate: Date | null;
         parentGoalId: string | null;
     }>;
     updateGoal(id: string, workspaceId: string, data: any, userId: string): Promise<{
-        type: string;
         id: string;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
@@ -59,12 +61,13 @@ export declare class GoalService {
         createdBy: string | null;
         updatedBy: string | null;
         title: string;
+        type: string;
+        spaceId: string | null;
         progress: number;
         targetDate: Date | null;
         parentGoalId: string | null;
     }>;
     deleteGoal(id: string, workspaceId: string, userId: string): Promise<{
-        type: string;
         id: string;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
@@ -75,6 +78,25 @@ export declare class GoalService {
         createdBy: string | null;
         updatedBy: string | null;
         title: string;
+        type: string;
+        spaceId: string | null;
+        progress: number;
+        targetDate: Date | null;
+        parentGoalId: string | null;
+    }>;
+    restoreGoal(id: string, workspaceId: string, userId: string): Promise<{
+        id: string;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        version: number;
+        workspaceId: string;
+        createdBy: string | null;
+        updatedBy: string | null;
+        title: string;
+        type: string;
+        spaceId: string | null;
         progress: number;
         targetDate: Date | null;
         parentGoalId: string | null;
