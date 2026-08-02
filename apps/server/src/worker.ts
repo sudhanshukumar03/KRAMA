@@ -2,6 +2,7 @@ import { notificationsWorker } from './workers/notifications.worker';
 import { habitStreakWorker } from './workers/habitStreak.worker';
 import { sprintReportWorker } from './workers/sprintReport.worker';
 import { analyticsWorker } from './workers/analytics.worker';
+import { embeddingWorker } from './workers/embedding.worker';
 
 import { habitStreakQueue, sprintReportQueue, analyticsQueue } from './queues';
 
@@ -43,6 +44,7 @@ const shutdown = async () => {
     habitStreakWorker.close(),
     sprintReportWorker.close(),
     analyticsWorker.close(),
+    embeddingWorker.close(),
   ]);
   console.log('Workers closed.');
   process.exit(0);
