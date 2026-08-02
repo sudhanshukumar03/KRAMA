@@ -444,7 +444,7 @@ export function DailyReview() {
  </button>
 
  {showTaskDropdown && (
- <div className="absolute right-0 top-full mt-2 w-72 bg-surface border border-border rounded-xl shadow-2xl p-2 z-30 max-h-64 overflow-y-auto space-y-1 text-left animate-in fade-in zoom-in-95 duration-150 font-sans">
+ <div className="absolute right-0 top-full mt-2 w-72 v4-card shadow-2xl p-2 z-30 max-h-64 overflow-y-auto space-y-1 text-left animate-in fade-in zoom-in-95 duration-150 font-sans">
  <div className="text-[10px] font-mono uppercase font-bold text-secondary px-2 py-1 border-b border-border">Active Issues & Habits</div>
  {issues.map(issue => (
  <button
@@ -543,7 +543,7 @@ export function DailyReview() {
  </div>
 
  {/* Active Display & Radial Timer Widget */}
- <div className="bg-surface border border-border rounded-2xl p-8 flex flex-col md:flex-row items-center justify-center md:justify-start gap-12 shadow-sm relative overflow-hidden mt-2">
+ <div className="v4-card p-8 flex flex-col md:flex-row items-center justify-center md:justify-start gap-12 relative overflow-hidden mt-2">
  
  {/* Radial Timer Gauge & Controls */}
  <div className="relative flex flex-col items-center">
@@ -821,7 +821,7 @@ export function DailyReview() {
  <textarea 
  value={notes}
  onChange={(e) => setNotes(e.target.value)}
- className="w-full bg-surface border border-border rounded-2xl p-5 min-h-[140px] text-body text-primary focus:outline-none focus:border-[#F59E0B] focus:ring-1 focus:ring-[#F59E0B] resize-none placeholder:text-muted transition-all shadow-xs font-sans leading-relaxed"
+ className="w-full bg-card border border-border rounded-2xl p-5 min-h-[140px] text-body text-primary focus:outline-none focus:border-[#F59E0B] focus:ring-1 focus:ring-[#F59E0B] resize-none placeholder:text-muted transition-all shadow-xs font-sans leading-relaxed"
  placeholder="Record key architecture reflections, design notes, or carryover tasks for tomorrow morning's execution loop..."
  />
  </div>
