@@ -1,1 +1,1 @@
-{"version":3,"file":"workspace.routes.d.ts","sourceRoot":"","sources":["workspace.routes.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,MAAM,EAAE,MAAM,SAAS,CAAC;AAWtC,QAAA,MAAM,MAAM,EAAE,MAAyB,CAAC;AAUxC,eAAe,MAAM,CAAC"}
+{"version":3,"file":"workspace.routes.d.ts","sourceRoot":"","sources":["workspace.routes.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,MAAM,EAAE,MAAM,SAAS,CAAC;AAYtC,QAAA,MAAM,MAAM,EAAE,MAAyB,CAAC;AAWxC,eAAe,MAAM,CAAC"}
