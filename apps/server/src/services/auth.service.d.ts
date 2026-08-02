@@ -24,7 +24,6 @@ export declare class AuthService {
             name: string | null;
             id: string;
             email: string;
-            passwordHash: string;
             emailVerifiedAt: Date | null;
             metadata: import("@prisma/client/runtime/library").JsonValue | null;
             createdAt: Date;
