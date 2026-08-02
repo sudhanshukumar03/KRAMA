@@ -1,11 +1,10 @@
-// @ts-nocheck
 import type { Request, Response } from 'express';
 import { CreateTaskSchema, UpdateTaskSchema, ReorderSchema } from '@krama/validation';
 import { taskService } from '../services/task.service';
 
 export const listTasks = async (req: Request, res: Response) => {
   try {
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
     const tasks = await taskService.listTasks(workspaceId, {
@@ -23,8 +22,8 @@ export const listTasks = async (req: Request, res: Response) => {
 
 export const getTask = async (req: Request, res: Response) => {
   try {
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
-    const task = await taskService.getTask(req.params.id, workspaceId);
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    const task = await taskService.getTask((req.params.id as string), workspaceId);
     return res.status(200).json(task);
   } catch (error: any) {
     if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
@@ -46,7 +45,8 @@ export const createTask = async (req: Request, res: Response) => {
 export const updateTask = async (req: Request, res: Response) => {
   try {
     const data = UpdateTaskSchema.parse(req.body);
-    const task = await taskService.updateTask(req.params.id, data.workspaceId, data, req.user!.id);
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || (data.workspaceId as string);
+    const task = await taskService.updateTask((req.params.id as string), workspaceId, data, req.user!.id);
     return res.status(200).json(task);
   } catch (error: any) {
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
@@ -58,8 +58,8 @@ export const updateTask = async (req: Request, res: Response) => {
 
 export const deleteTask = async (req: Request, res: Response) => {
   try {
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
-    await taskService.deleteTask(req.params.id, workspaceId, req.user!.id);
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    await taskService.deleteTask((req.params.id as string), workspaceId, req.user!.id);
     return res.status(200).json({ message: 'Task deleted' });
   } catch (error: any) {
     if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
@@ -70,7 +70,7 @@ export const deleteTask = async (req: Request, res: Response) => {
 export const reorderTask = async (req: Request, res: Response) => {
   try {
     const data = ReorderSchema.parse(req.body);
-    const task = await taskService.reorderTask(req.params.id, data.workspaceId, data, req.user!.id);
+    const task = await taskService.reorderTask((req.params.id as string), data.workspaceId, data, req.user!.id);
     return res.status(200).json(task);
   } catch (error: any) {
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
@@ -82,11 +82,23 @@ export const reorderTask = async (req: Request, res: Response) => {
 
 export const completeTask = async (req: Request, res: Response) => {
   try {
-    const workspaceId = req.headers['x-workspace-id'] as string || req.query.workspaceId as string;
-    const task = await taskService.completeTask(req.params.id, workspaceId, req.user!.id);
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    const task = await taskService.completeTask((req.params.id as string), workspaceId, req.user!.id);
     return res.status(200).json(task);
   } catch (error: any) {
     if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const restoreTask = async (req: Request, res: Response) => {
+  try {
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    const task = await taskService.restoreTask((req.params.id as string), workspaceId, req.user!.id);
+    return res.status(200).json(task);
+  } catch (error: any) {
+    if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
+    if (error.message.includes('Conflict')) return res.status(409).json({ message: error.message });
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
