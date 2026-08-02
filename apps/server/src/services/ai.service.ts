@@ -1,30 +1,103 @@
-// @ts-nocheck
-import { PrismaClient } from '@prisma/client';
+
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { redisService } from './redis.service';
 import crypto from 'crypto';
+import { prisma } from '../prisma';
+import { logger } from '../utils/logger';
 
-const prisma = new PrismaClient();
+export type ProviderType = 'openai' | 'anthropic' | 'groq';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'mock' });
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || 'mock' });
-const groq = new OpenAI({ 
-  baseURL: 'https://api.groq.com/openai/v1',
-  apiKey: process.env.GROQ_API_KEY || 'mock' 
-});
-
-type Provider = 'openai' | 'anthropic' | 'groq';
-
-interface AiCompleteParams {
+export interface AiCompleteParams {
   prompt: string;
   model?: string;
-  provider?: Provider;
+  provider?: ProviderType;
   workspaceId: string;
   userId: string;
 }
 
-// Very simple static cost estimation for demonstration
+export interface ProviderResponse {
+  completionText: string;
+  promptTokens: number;
+  completionTokens: number;
+}
+
+interface AIProvider {
+  complete(prompt: string, model: string): Promise<ProviderResponse>;
+}
+
+class OpenAIProvider implements AIProvider {
+  private client: OpenAI;
+  constructor() {
+    if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured.");
+    this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  async complete(prompt: string, model: string): Promise<ProviderResponse> {
+    const response = await this.client.chat.completions.create({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    return {
+      completionText: response.choices[0]?.message?.content || '',
+      promptTokens: response.usage?.prompt_tokens || 0,
+      completionTokens: response.usage?.completion_tokens || 0,
+    };
+  }
+}
+
+class AnthropicProvider implements AIProvider {
+  private client: Anthropic;
+  constructor() {
+    if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured.");
+    this.client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+  async complete(prompt: string, model: string): Promise<ProviderResponse> {
+    const response = await this.client.messages.create({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 4096,
+    });
+    return {
+      completionText: (response.content[0] as any)?.text || '',
+      promptTokens: response.usage.input_tokens,
+      completionTokens: response.usage.output_tokens,
+    };
+  }
+}
+
+class GroqProvider implements AIProvider {
+  private client: OpenAI;
+  constructor() {
+    if (!process.env.GROQ_API_KEY) throw new Error("GROQ_API_KEY is not configured.");
+    this.client = new OpenAI({ 
+      baseURL: 'https://api.groq.com/openai/v1',
+      apiKey: process.env.GROQ_API_KEY 
+    });
+  }
+  async complete(prompt: string, model: string): Promise<ProviderResponse> {
+    const response = await this.client.chat.completions.create({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    return {
+      completionText: response.choices[0]?.message?.content || '',
+      promptTokens: response.usage?.prompt_tokens || 0,
+      completionTokens: response.usage?.completion_tokens || 0,
+    };
+  }
+}
+
+class ProviderFactory {
+  static getProvider(provider: ProviderType): AIProvider {
+    switch (provider) {
+      case 'openai': return new OpenAIProvider();
+      case 'anthropic': return new AnthropicProvider();
+      case 'groq': return new GroqProvider();
+      default: throw new Error(`Unsupported provider: ${provider}`);
+    }
+  }
+}
+
 const COST_MAP: Record<string, { prompt: number, completion: number }> = {
   'gpt-4o-mini': { prompt: 0.15 / 1_000_000, completion: 0.60 / 1_000_000 },
   'gpt-3.5-turbo': { prompt: 0.50 / 1_000_000, completion: 1.50 / 1_000_000 },
@@ -39,8 +112,29 @@ export class AiService {
     return (promptTokens * rates.prompt) + (completionTokens * rates.completion);
   }
 
+  private async executeWithRetry(providerInstance: AIProvider, prompt: string, model: string, maxRetries = 1): Promise<ProviderResponse> {
+    let lastError: any;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await providerInstance.complete(prompt, model);
+      } catch (error: any) {
+        lastError = error;
+        const status = error.status || error.response?.status;
+        if (status === 429 || (status >= 500 && status < 600)) {
+          if (attempt < maxRetries) {
+            logger.warn(`Provider error (${status}), retrying...`, { attempt: attempt + 1, model });
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1))); // simple backoff
+            continue;
+          }
+        }
+        throw error;
+      }
+    }
+    throw lastError;
+  }
+
   public async complete(params: AiCompleteParams): Promise<string> {
-    const provider = params.provider || 'openai';
+    const provider = params.provider || 'groq';
     const model = params.model || (provider === 'openai' ? 'gpt-4o-mini' : provider === 'groq' ? 'llama-3.1-8b-instant' : 'claude-3-haiku-20240307');
     
     // 1. Check Cache
@@ -49,7 +143,6 @@ export class AiService {
     
     const cached = await redisService.get(cacheKey);
     if (cached) {
-      // Log cache hit usage
       await prisma.aiRequest.create({
         data: {
           workspaceId: params.workspaceId,
@@ -59,71 +152,27 @@ export class AiService {
           promptTokens: 0,
           completionTokens: 0,
           estimatedCostUsd: 0,
+          latencyMs: 0,
           cacheHit: true,
+          prompt: params.prompt,
         },
       });
       return cached;
     }
 
-    // 2. Provider execution
-    let completionText = '';
-    let promptTokens = 0;
-    let completionTokens = 0;
+    const providerInstance = ProviderFactory.getProvider(provider);
+    const startTime = Date.now();
+    let response: ProviderResponse;
 
     try {
-      if (provider === 'openai') {
-        if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'mock') {
-          completionText = 'hello world (mocked)';
-          promptTokens = 10;
-          completionTokens = 10;
-        } else {
-          const response = await openai.chat.completions.create({
-            model,
-            messages: [{ role: 'user', content: params.prompt }],
-          });
-          completionText = response.choices[0]?.message?.content || '';
-          promptTokens = response.usage?.prompt_tokens || 0;
-          completionTokens = response.usage?.completion_tokens || 0;
-        }
-      } else if (provider === 'anthropic') {
-        if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'mock') {
-          completionText = 'hello world (mocked)';
-          promptTokens = 10;
-          completionTokens = 10;
-        } else {
-          const response = await anthropic.messages.create({
-            model,
-            messages: [{ role: 'user', content: params.prompt }],
-            max_tokens: 4096,
-          });
-          completionText = (response.content[0] as any)?.text || '';
-          promptTokens = response.usage.input_tokens;
-          completionTokens = response.usage.output_tokens;
-        }
-      } else if (provider === 'groq') {
-        if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'mock') {
-          completionText = 'hello world (mocked)';
-          promptTokens = 10;
-          completionTokens = 10;
-        } else {
-          const response = await groq.chat.completions.create({
-            model,
-            messages: [{ role: 'user', content: params.prompt }],
-          });
-          completionText = response.choices[0]?.message?.content || '';
-          promptTokens = response.usage?.prompt_tokens || 0;
-          completionTokens = response.usage?.completion_tokens || 0;
-        }
-      } else {
-        throw new Error(`Unsupported provider: ${provider}`);
-      }
+      response = await this.executeWithRetry(providerInstance, params.prompt, model);
     } catch (err: any) {
-      console.error(`[AI Gateway] Provider error (${provider}/${model}):`, err.message);
-      throw new Error(`AI Provider failed: ${err.message}`);
+      logger.error('Provider failed', { provider, model, error: err.message, stack: err.stack });
+      throw new Error('AI_PROVIDER_ERROR');
     }
 
-    // 3. Track Usage and Cache Result
-    const estimatedCostUsd = this.calculateCost(model, promptTokens, completionTokens);
+    const latencyMs = Date.now() - startTime;
+    const estimatedCostUsd = this.calculateCost(model, response.promptTokens, response.completionTokens);
 
     await prisma.aiRequest.create({
       data: {
@@ -131,17 +180,18 @@ export class AiService {
         userId: params.userId,
         provider,
         model,
-        promptTokens,
-        completionTokens,
+        promptTokens: response.promptTokens,
+        completionTokens: response.completionTokens,
         estimatedCostUsd,
+        latencyMs,
         cacheHit: false,
+        prompt: params.prompt,
       },
     });
 
-    // Cache with 1 hour TTL
-    await redisService.set(cacheKey, completionText, 60 * 60);
+    await redisService.set(cacheKey, response.completionText, 60 * 60);
 
-    return completionText;
+    return response.completionText;
   }
 }
 
