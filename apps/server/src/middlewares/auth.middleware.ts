@@ -1,11 +1,10 @@
-// @ts-nocheck
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jwt-simple';
-import { PrismaClient } from '@prisma/client';
 import { redisService } from '../services/redis.service';
 import type { RequestUser } from '@krama/types';
 
-const prisma = new PrismaClient();
+import { prisma } from '../prisma';
+
 const JWT_SECRET = process.env.JWT_SECRET || 'krama-os-secret-jwt-key-2026';
 
 export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
@@ -17,7 +16,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
   const token = authHeader.split(' ')[1];
 
   try {
-    const payload = jwt.decode(token, JWT_SECRET);
+    const payload = jwt.decode(token as string, JWT_SECRET as string);
     if (payload.exp < Date.now()) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
@@ -66,7 +65,7 @@ export const requireWorkspaceRole = (minRole: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VI
       where: {
         userId_workspaceId: {
           userId: req.user.id,
-          workspaceId,
+          workspaceId: workspaceId as string,
         },
       },
       select: { role: true },
@@ -76,18 +75,19 @@ export const requireWorkspaceRole = (minRole: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VI
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const roleHierarchy = {
+    const roleHierarchy: Record<string, number> = {
       OWNER: 4,
       ADMIN: 3,
       MEMBER: 2,
       VIEWER: 1,
+      GUEST: 0,
     };
 
-    if (roleHierarchy[membership.role] < roleHierarchy[minRole]) {
+    if (roleHierarchy[membership.role]! < roleHierarchy[minRole]!) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    (req as any).workspaceId = workspaceId;
+    (req as any).workspaceId = workspaceId as string;
     next();
   };
 };
