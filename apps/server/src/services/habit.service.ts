@@ -107,6 +107,22 @@ export class HabitService {
     const habit = await this.getHabit(id, workspaceId);
     return { streak: habit.streak };
   }
+
+  async restoreHabit(id: string, workspaceId: string, userId: string) {
+    return runInTransaction(async (tx) => {
+      const existing = await habitRepository.findById(id, tx);
+      if (!existing) throw new Error('Habit not found');
+      if (!existing.deletedAt || existing.workspaceId !== workspaceId) throw new Error('Conflict: nothing to restore');
+
+      const habit = await habitRepository.update(id, {
+        deletedAt: null,
+        updatedBy: userId
+      }, tx);
+
+      domainEventBus.emitEvent('HABIT_RESTORED', { habitId: habit.id, workspaceId: habit.workspaceId });
+      return habit;
+    });
+  }
 }
 
 export const habitService = new HabitService();
