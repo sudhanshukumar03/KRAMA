@@ -438,11 +438,6 @@ export function DecisionLog() {
  });
 
  // ── Handlers ──
- const handleCreate = () => {
- setEditingDecision(null);
- setModalOpen(true);
- };
-
  const handleEdit = (decision: DecisionWithRelations) => {
  setEditingDecision(decision);
  setModalOpen(true);
@@ -506,9 +501,9 @@ export function DecisionLog() {
  Track technical decisions, context, and rationale for future reference.
  </p>
  </div>
- <BaseButton onClick={handleCreate}>
- <Plus className="w-4 h-4 mr-1.5 stroke-[2]" /> Log Decision
- </BaseButton>
+  <BaseButton disabled title="Decision logging will be available in a future update">
+    <Plus className="w-4 h-4 mr-1.5 stroke-[2] opacity-50" /> Log Decision (Coming Soon)
+  </BaseButton>
  </div>
 
  {/* Search + Filter Bar */}
@@ -579,12 +574,10 @@ export function DecisionLog() {
  </div>
  ) : (
  <div className="border border-border rounded-xl bg-surface h-64 flex items-center justify-center shadow-sm">
- <EmptyState
- icon={Scale}
- description={searchQuery || projectFilter ? 'No decisions match your filters.' : 'No decisions logged yet. Start recording architectural choices.'}
- actionLabel={!searchQuery && !projectFilter ? 'Log Decision' : undefined}
- onAction={!searchQuery && !projectFilter ? handleCreate : undefined}
- />
+  <EmptyState
+    icon={Scale}
+    description={searchQuery || projectFilter ? 'No decisions match your filters.' : 'Decision logging will be available in a future update.'}
+  />
  </div>
  )}
 
