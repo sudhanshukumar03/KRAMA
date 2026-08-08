@@ -35,7 +35,7 @@ export class HabitService {
         throw new Error('Habit not found');
       }
 
-      if (existing.version !== data.version) {
+      if (data.version !== undefined && existing.version !== data.version) {
         throw new Error('Conflict: version mismatch');
       }
 

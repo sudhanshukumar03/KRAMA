@@ -30,7 +30,7 @@ export const signup = async (req: Request, res: Response) => {
     if (error.message === 'Email already in use') {
       return res.status(400).json({ message: error.message });
     }
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -61,7 +61,7 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ message: error.message });
     }
     console.error('Login error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -104,7 +104,7 @@ export const logout = async (req: Request, res: Response) => {
     return res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {
     console.error('Logout error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -123,7 +123,7 @@ export const logoutAll = async (req: Request, res: Response) => {
     return res.status(200).json({ message: 'Logged out of all sessions' });
   } catch (error) {
     console.error('LogoutAll error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -144,6 +144,6 @@ export const me = async (req: Request, res: Response) => {
     const { passwordHash, ...safeUser } = user;
     return res.status(200).json({ user: safeUser });
   } catch (error) {
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
 };

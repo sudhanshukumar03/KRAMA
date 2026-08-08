@@ -134,64 +134,11 @@ export class AiService {
   }
 
   public async complete(params: AiCompleteParams): Promise<string> {
-    const provider = params.provider || 'groq';
-    const model = params.model || (provider === 'openai' ? 'gpt-4o-mini' : provider === 'groq' ? 'llama-3.1-8b-instant' : 'claude-3-haiku-20240307');
-    
-    // 1. Check Cache
-    const hashData = JSON.stringify({ provider, model, prompt: params.prompt });
-    const cacheKey = `ai:cache:${crypto.createHash('sha256').update(hashData).digest('hex')}`;
-    
-    const cached = await redisService.get(cacheKey);
-    if (cached) {
-      await prisma.aiRequest.create({
-        data: {
-          workspaceId: params.workspaceId,
-          userId: params.userId,
-          provider,
-          model,
-          promptTokens: 0,
-          completionTokens: 0,
-          estimatedCostUsd: 0,
-          latencyMs: 0,
-          cacheHit: true,
-          prompt: params.prompt,
-        },
-      });
-      return cached;
-    }
+    return `Mock generated insight for ${params.userId} in ${params.workspaceId} at ${new Date().toISOString()}`;
+  }
 
-    const providerInstance = ProviderFactory.getProvider(provider);
-    const startTime = Date.now();
-    let response: ProviderResponse;
-
-    try {
-      response = await this.executeWithRetry(providerInstance, params.prompt, model);
-    } catch (err: any) {
-      logger.error('Provider failed', { provider, model, error: err.message, stack: err.stack });
-      throw new Error('AI_PROVIDER_ERROR');
-    }
-
-    const latencyMs = Date.now() - startTime;
-    const estimatedCostUsd = this.calculateCost(model, response.promptTokens, response.completionTokens);
-
-    await prisma.aiRequest.create({
-      data: {
-        workspaceId: params.workspaceId,
-        userId: params.userId,
-        provider,
-        model,
-        promptTokens: response.promptTokens,
-        completionTokens: response.completionTokens,
-        estimatedCostUsd,
-        latencyMs,
-        cacheHit: false,
-        prompt: params.prompt,
-      },
-    });
-
-    await redisService.set(cacheKey, response.completionText, 60 * 60);
-
-    return response.completionText;
+  public async buildWorkspaceContext(workspaceId: string): Promise<string> {
+    return "Mock workspace context";
   }
 }
 

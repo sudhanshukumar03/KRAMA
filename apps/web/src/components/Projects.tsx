@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, X, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
@@ -9,6 +9,9 @@ import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { IconPicker } from './ui/IconPicker';
+import { resolveIcon } from '../lib/iconResolver';
+
 function ProjectCreateModal({
  open,
  onClose,
@@ -17,7 +20,7 @@ function ProjectCreateModal({
 }: {
  open: boolean;
  onClose: () => void;
- onSubmit: (data: { name: string; problemStatement: string; status: string; targetDate: string }) => void;
+ onSubmit: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon: string }) => void;
  isSubmitting: boolean;
 }) {
  const [name, setName] = useState('');
@@ -28,13 +31,14 @@ function ProjectCreateModal({
  d.setDate(d.getDate() + 60);
  return d.toISOString().split('T')[0];
  });
+ const [icon, setIcon] = useState('FolderKanban');
 
  if (!open) return null;
 
  const handleSubmit = (e: React.FormEvent) => {
  e.preventDefault();
  if (!name.trim()) return;
- onSubmit({ name: name.trim(), problemStatement: problemStatement.trim(), status, targetDate });
+ onSubmit({ name: name.trim(), problemStatement: problemStatement.trim(), status, targetDate, icon });
  };
 
  return (
@@ -48,9 +52,7 @@ function ProjectCreateModal({
  >
  <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/80 backdrop-blur-md">
  <div className="flex items-center gap-2.5">
- <div className="w-8 h-8 rounded-xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center border border-[#2563EB]/20">
- <FolderKanban className="w-4 h-4 stroke-[1.5]" />
- </div>
+ <IconPicker value={icon} onChange={setIcon} />
  <div>
  <h3 className="text-card text-primary mb-2 ">New Project</h3>
  <p className="text-caption text-secondary font-mono">Engineering portfolio tracking</p>
@@ -176,12 +178,13 @@ export function Projects() {
 
  const [createModalOpen, setCreateModalOpen] = useState(false);
  const createProjectMutation = useMutation({
- mutationFn: (data: { name: string; problemStatement: string; status: string; targetDate: string }) =>
+ mutationFn: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon: string }) =>
  api.projects.create({
  name: data.name,
  problemStatement: data.problemStatement,
  status: data.status,
  progress: 0,
+ icon: data.icon,
  targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : null
  }),
  onSuccess: (newProj) => {
@@ -333,6 +336,9 @@ export function Projects() {
  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-secondary bg-surface-hover px-2 py-0.5 rounded border border-border/60">
  {project.id.slice(0, 6).toUpperCase()}
  </span>
+ <div className="w-6 h-6 text-primary flex items-center justify-center">
+ {React.createElement(resolveIcon(project.icon || 'FolderKanban'), { className: "w-5 h-5 stroke-[1.5]" })}
+ </div>
  <h3 className="text-card text-primary mb-2 md: truncate group-hover/card:text-[#2563EB] text-[#2563EB] transition-colors">
  {project.name}
  </h3>

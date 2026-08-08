@@ -27,19 +27,22 @@ export const getHabit = async (req: Request, res: Response) => {
 
 export const createHabit = async (req: Request, res: Response) => {
   try {
-    const data = CreateHabitSchema.parse(req.body);
+    const workspaceId = (req.headers['x-workspace-id'] || req.query.workspaceId) as string;
+    const data = CreateHabitSchema.parse({ ...req.body, workspaceId });
     // @ts-ignore
     const habit = await habitService.createHabit(data, req.user!.id);
     return res.status(201).json(habit);
   } catch (error: any) {
+    console.error('Habit Create Error:', error);
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
 
 export const updateHabit = async (req: Request, res: Response) => {
   try {
-    const data = UpdateHabitSchema.parse(req.body);
+    const workspaceId = (req.headers['x-workspace-id'] || req.query.workspaceId) as string;
+    const data = UpdateHabitSchema.parse({ ...req.body, workspaceId });
     // @ts-ignore
     const habit = await habitService.updateHabit(req.params.id as string, data.workspaceId, data, req.user!.id);
     return res.status(200).json(habit);
@@ -70,6 +73,7 @@ export const logHabit = async (req: Request, res: Response) => {
     const habit = await habitService.logHabitCompletion(req.params.id as string, workspaceId, req.user!.id);
     return res.status(200).json(habit);
   } catch (error: any) {
+    console.error('logHabit error:', error);
     if (error.message === 'Habit not found') return res.status(404).json({ message: error.message });
     if (error.message === 'Habit already logged for today') return res.status(400).json({ message: error.message });
     return res.status(500).json({ message: 'Internal server error' });

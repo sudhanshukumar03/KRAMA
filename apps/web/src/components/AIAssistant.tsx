@@ -13,7 +13,7 @@ export function AIAssistant() {
     { role: 'assistant', content: 'Hello! I am your AI Assistant. How can I help you today?' }
   ]);
   const [input, setInput] = useState('');
-  const [useRag, setUseRag] = useState(false);
+  const [useRag, setUseRag] = useState(() => new URLSearchParams(window.location.search).get('mode') === 'rag');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [config, setConfig] = useState<any>(null);

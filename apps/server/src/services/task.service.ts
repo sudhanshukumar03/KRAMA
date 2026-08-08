@@ -43,7 +43,7 @@ export class TaskService {
         throw new Error('Task not found');
       }
 
-      if (existing.version !== data.version) {
+      if (data.version !== undefined && existing.version !== data.version) {
         throw new Error('Conflict: version mismatch');
       }
 
@@ -56,6 +56,10 @@ export class TaskService {
       }, tx);
 
       domainEventBus.emitEvent('TASK_UPDATED', { taskId: task.id, workspaceId: task.workspaceId });
+      
+      if (existing.status !== 'DONE' && updateData.status === 'DONE') {
+        domainEventBus.emitEvent('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId, userId });
+      }
       return task;
     });
   }
@@ -105,13 +109,17 @@ export class TaskService {
         throw new Error('Task not found');
       }
 
+      const isNewlyCompleted = existing.status !== TaskStatus.DONE;
+
       const task = await taskRepository.update(id, {
         status: TaskStatus.DONE,
         version: { increment: 1 },
         updatedBy: userId,
       }, tx);
 
-      domainEventBus.emitEvent('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId });
+      if (isNewlyCompleted) {
+        domainEventBus.emitEvent('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId, userId });
+      }
       return task;
     });
   }

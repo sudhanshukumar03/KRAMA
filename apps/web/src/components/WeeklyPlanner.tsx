@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import { Plus, ChevronLeft, ChevronRight, Check, Clock, Flame, Calendar as CalendarIcon, X, Briefcase, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { cn } from '../lib/utils';
+import { cn, parseLocalDate } from '../lib/utils';
 import type { IssueWithRelations } from '../types/schema';
 import { LoadingState } from './ui/LoadingState';
 import { EmptyState } from './ui/EmptyState';
@@ -54,7 +54,7 @@ function ScheduleTaskModal({
  const [mode, setMode] = useState<'create' | 'pick'>('create');
  const [title, setTitle] = useState('');
  const [priority, setPriority] = useState("MEDIUM");
- const [estimate, setEstimate] = useState(2);
+ const [estimateHours, setEstimateHours] = useState(2);
  const [selectedIssueId, setSelectedIssueId] = useState('');
 
  if (!open || !targetDate) return null;
@@ -68,7 +68,7 @@ function ScheduleTaskModal({
  e.preventDefault();
  if (mode === 'create') {
  if (!title.trim()) return;
- onCreateNew({ title: title.trim(), priority, estimateMinutes: estimate, dateStr });
+ onCreateNew({ title: title.trim(), priority, estimateMinutes: Math.round(Number(estimateHours) * 60), dateStr });
  } else {
  if (!selectedIssueId) return;
  onScheduleExisting(selectedIssueId, dateStr);
@@ -151,18 +151,16 @@ function ScheduleTaskModal({
  </div>
 
  <div>
- <label className="block text-caption font-medium text-primary uppercase tracking-wider mb-1.5 font-mono">Estimated Time</label>
- <select
- value={estimate}
- onChange={e => setEstimate(Number(e.target.value))}
- className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#1A73E8] cursor-pointer font-mono"
- >
- <option value={0.5}>30m (Quick block)</option>
- <option value={1}>1.0h (Standard)</option>
- <option value={2}>2.0h (Deep session)</option>
- <option value={4}>4.0h (Half day sprint)</option>
- <option value={8}>8.0h (Full day milestone)</option>
- </select>
+ <label className="block text-caption font-medium text-primary uppercase tracking-wider mb-1.5 font-mono">Estimated Hours</label>
+ <input
+ type="number"
+ min="0.5"
+ max="24"
+ step="0.5"
+ value={estimateHours}
+ onChange={e => setEstimateHours(Number(e.target.value))}
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#1A73E8] transition-all font-sans"
+ />
  </div>
  </div>
  </>
@@ -190,7 +188,7 @@ function ScheduleTaskModal({
  <div className="text-badge text-secondary font-mono mt-0.5 flex items-center gap-2">
  <span className="uppercase">{issue.priority}</span>
  <span>•</span>
- <span>{issue.estimateMinutes || 1}h</span>
+ <span>{(issue.estimateMinutes || 60) / 60}h</span>
  </div>
  </div>
  <div className={cn("w-5 h-5 rounded-full border flex items-center justify-center shrink-0",
@@ -301,7 +299,7 @@ function DayColumn({
  </span>
  <span>
  {habits.filter(h => {
- const isChecked = h.completions?.some((c: any) => c.date.toString().startsWith(dateStr) && c.completed) ||
+ const isChecked = h.completions?.some((c: any) => c.completedAt && c.completedAt.toString().startsWith(dateStr)) ||
  (isToday && h.updatedAt && new Date(h.updatedAt).toDateString() === new Date().toDateString());
  return isChecked;
  }).length}/{habits.length}
@@ -310,7 +308,7 @@ function DayColumn({
  
  <div className="space-y-1">
  {habits.map(habit => {
- const isChecked = habit.completions?.some((c: any) => c.date.toString().startsWith(dateStr) && c.completed) ||
+ const isChecked = habit.completions?.some((c: any) => c.completedAt && c.completedAt.toString().startsWith(dateStr)) ||
  (isToday && habit.updatedAt && new Date(habit.updatedAt).toDateString() === new Date().toDateString());
 
  return (
@@ -342,13 +340,27 @@ function DayColumn({
  )}
 
  {/* Section 2: Scheduled Event Pills (Google Calendar Time Blocks) */}
- <div className="space-y-2 no-column-nav">
+ <div className="space-y-4 no-column-nav">
  {issues.length === 0 ? (
  <div className="py-6 text-center flex flex-col items-center justify-center">
  <span className="text-caption text-muted font-normal">No scheduled events</span>
  </div>
  ) : (
- issues.map(issue => {
+ Object.entries(
+ issues.reduce((acc, issue) => {
+ // Safe access for project and goal
+ const project = (issue as any).project;
+ const goalTitle = project?.goal?.title || 'Uncategorized';
+ if (!acc[goalTitle]) acc[goalTitle] = [];
+ acc[goalTitle].push(issue);
+ return acc;
+ }, {} as Record<string, typeof issues>)
+ ).map(([goalTitle, goalIssues]) => (
+ <div key={goalTitle} className="space-y-2">
+ <div className="text-[10px] uppercase font-mono tracking-wider font-semibold text-secondary px-1 flex items-center gap-1.5 border-b border-border/40 pb-1">
+ <Layers className="w-3 h-3" /> {goalTitle}
+ </div>
+ {goalIssues.map(issue => {
  const isDone = issue.status === "DONE";
  const isUrgent = issue.priority === "URGENT" || issue.priority === "HIGH";
  const isMedium = issue.priority === "MEDIUM";
@@ -388,13 +400,15 @@ function DayColumn({
  
  <div className="flex items-center justify-between text-[10px] font-mono opacity-85 pt-1 border-t border-current/15">
  <span className="flex items-center gap-1 font-semibold">
- <Clock className="w-3 h-3 stroke-[2]" /> {issue.estimateMinutes ? `${issue.estimateMinutes}h` : '1h'} block
+ <Clock className="w-3 h-3 stroke-[2]" /> {(issue.estimateMinutes || 60) / 60}h block
  </span>
  <span className="uppercase tracking-wider font-bold px-1 rounded bg-surface/50">{issue.priority}</span>
  </div>
  </div>
  );
- })
+ })}
+ </div>
+ ))
  )}
  </div>
  </div>
@@ -434,15 +448,15 @@ export function WeeklyPlanner() {
  });
 
  const createIssueMutation = useMutation({
- mutationFn: (data: { title: string; priority: string; estimateMinutes: number; scheduledDate: string; dueDate: string }) =>
- api.tasks.create({
- title: data.title,
- priority: data.priority,
- estimateMinutes: data.estimateMinutes,
- scheduledDate: data.scheduledDate,
- dueDate: data.dueDate,
- status: "TODO"
- }),
+  mutationFn: (data: { title: string; priority: string; estimateMinutes: number; dateStr: string }) =>
+  api.tasks.create({
+  title: data.title,
+  priority: data.priority,
+  estimateMinutes: data.estimateMinutes,
+  scheduledDate: data.dateStr ? parseLocalDate(data.dateStr)?.toISOString() : undefined,
+  dueDate: data.dateStr ? parseLocalDate(data.dateStr)?.toISOString() : undefined,
+  status: "TODO"
+  }),
  onSuccess: (newIssue) => {
  queryClient.invalidateQueries({ queryKey: ['issues'] });
  setScheduleModalOpen(false);
@@ -454,8 +468,8 @@ export function WeeklyPlanner() {
  const updateIssueMutation = useMutation({
  mutationFn: ({ id, scheduledDate, dueDate, status }: { id: string; scheduledDate?: string; dueDate?: string; status?: string }) =>
  api.tasks.update(id, {
- ...(scheduledDate !== undefined && { scheduledDate }),
- ...(dueDate !== undefined && { dueDate }),
+ ...(scheduledDate !== undefined && { scheduledDate: `${scheduledDate}T00:00:00.000Z` }),
+ ...(dueDate !== undefined && { dueDate: `${dueDate}T00:00:00.000Z` }),
  ...(status !== undefined && { status }),
  }),
  onSuccess: () => {
@@ -503,7 +517,7 @@ export function WeeklyPlanner() {
           targetDayName={modalTargetDayName}
           allIssues={issues}
           onScheduleExisting={(issueId, dateStr) => updateIssueMutation.mutate({ id: issueId, scheduledDate: dateStr, dueDate: dateStr })}
-          onCreateNew={(data) => createIssueMutation.mutate({ ...data, scheduledDate: data.dateStr, dueDate: data.dateStr })}
+          onCreateNew={(data) => createIssueMutation.mutate({ ...data, dateStr: data.dateStr })}
           isSubmitting={createIssueMutation.isPending || updateIssueMutation.isPending}
         />
       </div>
@@ -541,10 +555,10 @@ export function WeeklyPlanner() {
  const currentMonthYear = weekDays[0].date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
  // Compute Time Block Summary for the week
- const totalEstimate = issues.reduce((sum, i) => sum + (i.estimateMinutes || 1), 0);
- const focusHours = Math.round(totalEstimate * 0.7);
- const meetingHours = Math.round(totalEstimate * 0.3);
- const bufferHours = Math.max(0, 40 - totalEstimate);
+ const totalEstimate = issues.reduce((sum, i) => sum + (i.estimateMinutes || 60), 0);
+ const focusHours = Math.round(totalEstimate * 0.7 / 60);
+ const meetingHours = Math.round(totalEstimate * 0.3 / 60);
+ const bufferHours = Math.max(0, 40 - (totalEstimate / 60));
 
  return (
  <div className="p-4 md:p-6 h-full flex flex-col bg-surface-hover animate-in fade-in duration-150 gap-4 overflow-y-auto pb-20 font-sans text-primary">
@@ -599,7 +613,7 @@ export function WeeklyPlanner() {
  <span className="text-border-muted">•</span>
  <span className="flex items-center gap-1.5 text-[#E37400] font-bold"><span className="w-2 h-2 rounded-full bg-[#E37400]" />{meetingHours}h Sync</span>
  <span className="text-border-muted">•</span>
- <span className="flex items-center gap-1.5 text-secondary font-bold"><span className="w-2 h-2 rounded-full bg-[#70757A]" />{bufferHours}h Free</span>
+ <span className="flex items-center gap-1.5 text-secondary font-bold"><span className="w-2 h-2 rounded-full bg-[#70757A]" />{Math.round(bufferHours)}h Free</span>
  </div>
 
  <button 
@@ -642,13 +656,13 @@ export function WeeklyPlanner() {
  <div className="overflow-x-auto pb-2">
  <div className="min-w-max border border-border rounded-2xl bg-surface shadow-sm flex overflow-hidden">
  {weekDays.map((day, index) => {
- const dayStart = new Date(day.date).setHours(0, 0, 0, 0);
- const dayEnd = new Date(day.date).setHours(23, 59, 59, 999);
- 
- const dayIssues = issues.filter(issue => {
- const date = issue.scheduledDate ? new Date(issue.scheduledDate) : issue.dueDate ? new Date(issue.dueDate) : null;
- return date && date.getTime() >= dayStart && date.getTime() <= dayEnd;
- });
+  const dayStart = new Date(day.date).setHours(0, 0, 0, 0);
+  const dayEnd = new Date(day.date).setHours(23, 59, 59, 999);
+  
+  const dayIssues = issues.filter(issue => {
+  const date = issue.scheduledDate ? new Date(issue.scheduledDate) : issue.dueDate ? new Date(issue.dueDate) : null;
+  return date && date.getTime() >= dayStart && date.getTime() <= dayEnd;
+  });
 
  return (
  <DayColumn 
@@ -714,7 +728,7 @@ export function WeeklyPlanner() {
  </td>
  {weekDays.map((day, dayIdx) => {
  const dStr = day.date.toISOString().split('T')[0] || '';
- const isChecked = habit.completions?.some((c: any) => c.date.toString().startsWith(dStr) && c.completed) ||
+ const isChecked = habit.completions?.some((c: any) => c.completedAt && c.completedAt.toString().startsWith(dStr)) ||
  (day.isToday && habit.updatedAt && new Date(habit.updatedAt).toDateString() === new Date().toDateString());
 
  return (
@@ -755,7 +769,7 @@ export function WeeklyPlanner() {
  targetDayName={modalTargetDayName}
  allIssues={issues}
  onScheduleExisting={(issueId, dateStr) => updateIssueMutation.mutate({ id: issueId, scheduledDate: dateStr, dueDate: dateStr })}
- onCreateNew={(data) => createIssueMutation.mutate({ ...data, scheduledDate: data.dateStr, dueDate: data.dateStr })}
+ onCreateNew={(data) => createIssueMutation.mutate(data)}
  isSubmitting={createIssueMutation.isPending || updateIssueMutation.isPending}
  />
 

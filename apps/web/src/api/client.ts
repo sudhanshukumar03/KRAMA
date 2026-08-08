@@ -3,7 +3,7 @@ import type {
 } from '../types/schema';
 import { toast } from 'sonner';
 
-const API_BASE = 'http://localhost:3000/api/v1';
+const API_BASE = '/api/v1';
 
 let currentAccessToken: string | null = null;
 let currentWorkspaceId: string | null = null;
@@ -202,7 +202,8 @@ export const api = {
   ai: {
     complete: (data: Record<string, any>) => fetchApi<any>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),
     ragQuery: (data: Record<string, any>) => fetchApi<any>('/ai/rag-query', { method: 'POST', body: JSON.stringify(data) }),
-    config: () => fetchApi<any>('/ai/config')
+    config: () => fetchApi<any>('/ai/config'),
+    getDashboardInsight: (force?: boolean) => fetchApi<{ insight: string }>(`/ai/dashboard-insight${force ? '?force=true' : ''}`)
   },
   knowledgeGraph: {
     get: () => fetchApi<any>('/knowledge-graph', { method: 'GET' })

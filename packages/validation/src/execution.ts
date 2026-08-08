@@ -6,6 +6,7 @@ const WorkspaceScoped = z.object({
 
 export const CreateProjectSchema = WorkspaceScoped.extend({
   name: z.string().min(1).max(255),
+  icon: z.string().optional(),
   problemStatement: z.string().optional(),
   goalId: z.string().uuid().optional(),
   status: z.enum(['active', 'completed', 'archived']).default('active'),
@@ -23,15 +24,21 @@ export const CreateTaskSchema = WorkspaceScoped.extend({
   assigneeId: z.string().uuid().optional(),
   status: z.string().default('todo'),
   priority: z.string().default('medium'),
+  blockedById: z.string().uuid().nullable().optional(),
+  estimateMinutes: z.number().int().min(0).optional(),
+  scheduledDate: z.string().datetime().nullable().optional(),
+  dueDate: z.string().datetime().nullable().optional(),
 });
 
 export const UpdateTaskSchema = CreateTaskSchema.partial().extend({
-  version: z.number().int().min(1),
+  version: z.number().int().min(1).optional(),
+  position: z.number().optional(),
 });
 
 export const CreateGoalSchema = WorkspaceScoped.extend({
   title: z.string().min(1).max(255),
   type: z.enum(['yearly', 'quarterly']),
+  icon: z.string().optional(),
 });
 
 export const UpdateGoalSchema = CreateGoalSchema.partial().extend({
@@ -47,6 +54,8 @@ export const CreateHabitSchema = WorkspaceScoped.extend({
   difficulty: z.string().optional(),
   expectedDurationMinutes: z.number().int().optional(),
   cadence: z.string().optional(),
+  scheduledDays: z.array(z.number().int().min(0).max(6)).optional(),
+  timeOfDay: z.string().optional(),
 });
 
 export const UpdateHabitSchema = CreateHabitSchema.partial().extend({

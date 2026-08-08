@@ -15,6 +15,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (token: string, userData: User) => void;
   logout: () => void;
+  switchWorkspace: (id: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -68,9 +69,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const meData = await api.auth.me();
           if (mounted && meData.user) {
             setUser(meData.user);
-            const wid = meData.user.memberships?.[0]?.workspaceId || null;
+            let wid = meData.user.memberships?.[0]?.workspaceId || null;
+            if (!wid) {
+              const savedWid = localStorage.getItem('krama_active_workspace');
+              wid = savedWid || null;
+            }
             setWorkspaceId(wid);
             api.setWorkspaceId(wid); // Synchronously set to avoid race condition with React Query mounts
+            if (wid) localStorage.setItem('krama_active_workspace', wid);
           }
         }
       } catch {
@@ -92,10 +98,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setWorkspaceId(wid);
     api.setAccessToken(token);
     api.setWorkspaceId(wid);
+    if (wid) localStorage.setItem('krama_active_workspace', wid);
+  };
+  
+  const switchWorkspace = (id: string) => {
+    setWorkspaceId(id);
+    api.setWorkspaceId(id);
+    localStorage.setItem('krama_active_workspace', id);
+    window.location.reload(); // Quick way to wipe all React Query state for the old workspace
   };
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, workspaceId, isLoading, login, logout: handleLogout }}>
+    <AuthContext.Provider value={{ user, accessToken, workspaceId, isLoading, login, logout: handleLogout, switchWorkspace }}>
       {children}
     </AuthContext.Provider>
   );

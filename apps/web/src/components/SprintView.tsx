@@ -59,8 +59,9 @@ export function SprintView() {
  const totalDays = 14;
  const dayOfSprint = Math.max(1, totalDays - daysRemaining);
 
- const sprintIssues = issues.filter(i => ["TODO", "IN_PROGRESS", 'review'].includes(i.status));
- const doneIssues = issues.filter(i => ["DONE", 'testing', "REVIEW"].includes(i.status));
+ const activeSprintIssues = issues.filter(i => i.sprintId === activeSprint.id);
+ const sprintIssues = activeSprintIssues.filter(i => ["TODO", "IN_PROGRESS", "REVIEW"].includes(i.status));
+ const doneIssues = activeSprintIssues.filter(i => ["DONE"].includes(i.status));
  
  const totalIssues = sprintIssues.length + doneIssues.length;
  const progress = totalIssues === 0 ? 0 : Math.round((doneIssues.length / totalIssues) * 100);

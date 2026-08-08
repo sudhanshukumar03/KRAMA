@@ -3,6 +3,7 @@ import { aiService } from '../services/ai.service';
 import { prisma } from '../prisma';
 import { logger } from '../utils/logger';
 import { getEmbedding } from '../lib/embedding';
+import { redisService } from '../services/redis.service';
 
 export const completeAiRequest = async (req: Request, res: Response) => {
   try {
@@ -140,6 +141,64 @@ export const ragQuery = async (req: Request, res: Response) => {
       success: false, 
       code: "AI_PROVIDER_ERROR", 
       message: "Unable to generate a response." 
+    });
+  }
+};
+
+export const getDashboardInsight = async (req: Request, res: Response) => {
+  try {
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    if (!workspaceId) {
+      return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Workspace ID is required' });
+    }
+
+    const force = req.query.force === 'true';
+    const cacheKey = `ai:dashboard_insight:${workspaceId}`;
+    
+    if (!force) {
+      const cached = await redisService.get(cacheKey);
+      if (cached) {
+        return res.status(200).json({ insight: cached });
+      }
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const rateLimitKey = `ai_insight_generation_count:${req.user!.id}:${today}`;
+    const countStr = await redisService.get(rateLimitKey);
+    const count = countStr ? parseInt(countStr, 10) : 0;
+
+    if (count >= 3) {
+      return res.status(429).json({
+        success: false,
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: 'You have reached the daily limit (3) for generating AI dashboard insights.',
+      });
+    }
+
+    const contextStr = await aiService.buildWorkspaceContext(workspaceId);
+    const prompt = `You are an AI assistant for Krama OS, an execution and productivity platform.
+Based on the following workspace context, provide a short 2-3 sentence motivational and strategic insight for the user's dashboard.
+Focus on what they should prioritize today based on their active goals and pending tasks.
+
+${contextStr}`;
+
+    const answer = await aiService.complete({
+      prompt,
+      workspaceId,
+      userId: req.user!.id,
+    });
+
+    await redisService.set(rateLimitKey, (count + 1).toString(), 24 * 60 * 60);
+    // Overwrite the cache. Use end of day expiration for this insight cache itself
+    await redisService.set(cacheKey, answer, 24 * 60 * 60);
+
+    return res.status(200).json({ insight: answer });
+  } catch (error: any) {
+    logger.error('Error in getDashboardInsight', { error: error.message, stack: error.stack });
+    return res.status(500).json({ 
+      success: false, 
+      code: "AI_PROVIDER_ERROR", 
+      message: "Unable to generate insight." 
     });
   }
 };

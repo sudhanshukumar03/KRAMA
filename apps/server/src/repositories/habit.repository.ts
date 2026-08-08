@@ -26,6 +26,12 @@ export class HabitRepository implements BaseRepository<Habit, Prisma.HabitUnchec
         workspaceId,
         deletedAt: null,
       },
+      include: {
+        completions: {
+          orderBy: { completedAt: 'desc' },
+          take: 30, // Limit to recent completions
+        }
+      },
       orderBy: { createdAt: 'desc' },
     });
   }

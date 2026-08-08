@@ -3,11 +3,31 @@ import { prisma } from '../prisma';
 import type { Goal, Prisma } from '@prisma/client';
 import type { TxClient } from './user.repository';
 
+const defaultGoalInclude = {
+  _count: { select: { projects: true, habits: true } },
+  habits: { select: { id: true } },
+  snapshots: { orderBy: { date: 'asc' as const } },
+  childGoals: {
+    include: {
+      _count: { select: { projects: true, habits: true } },
+      habits: { select: { id: true } },
+      snapshots: { orderBy: { date: 'asc' as const } },
+      childGoals: {
+        include: {
+          _count: { select: { projects: true, habits: true } },
+          habits: { select: { id: true } },
+          snapshots: { orderBy: { date: 'asc' as const } },
+        }
+      }
+    }
+  }
+};
+
 export class GoalRepository implements BaseRepository<Goal, Prisma.GoalUncheckedCreateInput, Prisma.GoalUncheckedUpdateInput> {
   async findById(id: string, tx?: TxClient): Promise<Goal | null> {
     return (tx || prisma).goal.findUnique({
       where: { id },
-      include: { projects: true },
+      include: defaultGoalInclude,
     });
   }
 
@@ -21,7 +41,7 @@ export class GoalRepository implements BaseRepository<Goal, Prisma.GoalUnchecked
         workspaceId,
         deletedAt: null,
       },
-      include: { projects: true },
+      include: defaultGoalInclude,
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -29,7 +49,7 @@ export class GoalRepository implements BaseRepository<Goal, Prisma.GoalUnchecked
   async create(data: Prisma.GoalUncheckedCreateInput, tx?: TxClient): Promise<Goal> {
     return (tx || prisma).goal.create({
       data,
-      include: { projects: true },
+      include: defaultGoalInclude,
     });
   }
 
@@ -37,7 +57,7 @@ export class GoalRepository implements BaseRepository<Goal, Prisma.GoalUnchecked
     return (tx || prisma).goal.update({
       where: { id },
       data,
-      include: { projects: true },
+      include: defaultGoalInclude,
     });
   }
 

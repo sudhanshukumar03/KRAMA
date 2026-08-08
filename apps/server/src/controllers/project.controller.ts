@@ -24,7 +24,7 @@ export const listProjects = async (req: Request, res: Response) => {
     
     return res.status(200).json(projects);
   } catch (error) {
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -44,7 +44,7 @@ export const getProject = async (req: Request, res: Response) => {
 
     return res.status(200).json(project);
   } catch (error) {
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -77,7 +77,7 @@ export const createProject = async (req: Request, res: Response) => {
     return res.status(201).json(project);
   } catch (error: any) {
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -115,7 +115,7 @@ export const updateProject = async (req: Request, res: Response) => {
     return res.status(200).json(project);
   } catch (error: any) {
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -139,7 +139,7 @@ export const deleteProject = async (req: Request, res: Response) => {
 
     return res.status(200).json({ message: 'Project deleted' });
   } catch (error) {
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -169,7 +169,7 @@ export const reorderProject = async (req: Request, res: Response) => {
     return res.status(200).json(project);
   } catch (error: any) {
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -202,6 +202,6 @@ export const restoreProject = async (req: Request, res: Response) => {
 
     return res.status(200).json(project);
   } catch (error) {
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
 };

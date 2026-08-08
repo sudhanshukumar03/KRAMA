@@ -33,8 +33,8 @@ class RedisService {
     }
   }
 
-  async del(key: string): Promise<void> {
-    await this.client.del(key);
+  async del(key: string): Promise<number> {
+    return this.client.del(key);
   }
 }
 

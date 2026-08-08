@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, Sparkles, ArrowRight, Flame, Check, X } from 'lucide-react';
+import { Target, CheckCircle2, TrendingUp, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, Sparkles, ArrowRight, X } from 'lucide-react';
 import { ConfirmDeleteButton } from './ui/ConfirmDeleteButton';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
@@ -12,6 +12,7 @@ import type { GoalWithRelations } from '../types/schema';
 import { computeGoalPace } from '../lib/goalUtils';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { HabitRow } from './HabitRow';
 
 function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number }) {
  const queryClient = useQueryClient();
@@ -483,45 +484,15 @@ export function Goals() {
  
  <div className="v4-card overflow-hidden pt-1">
  <div className="divide-y divide-border">
- {habits.map(habit => {
- const todayStr = new Date().toISOString().split('T')[0] || '';
- const isCompletedToday = habit.completions?.some((c: any) => c.date.toString().startsWith(todayStr) && c.completed) || 
- (habit.updatedAt && new Date(habit.updatedAt).toDateString() === new Date().toDateString());
- return (
- <div key={habit.id} className="py-3 px-4 flex items-center justify-between hover:bg-surface-hover transition-colors duration-100 group">
- <div className="flex items-center gap-3 min-w-0 pr-2">
- <button 
- type="button"
- onClick={(e) => { e.stopPropagation(); toggleHabitMutation.mutate(habit.id); }}
- className={cn("w-5 h-5 rounded flex items-center justify-center border transition-all duration-150 shrink-0 cursor-pointer",
- isCompletedToday 
- ?"bg-[#2563EB] border-[#2563EB] text-white" 
- :"border-[#D1D5DB] bg-surface group-hover:border-[#9CA3AF]"
- )}
- >
- {isCompletedToday && <Check className="w-3 h-3 stroke-[2.5]" />}
- </button>
- <div className="min-w-0" onClick={() => navigate('/app/habits')} style={{ cursor: 'pointer' }}>
- <div className={cn("font-medium text-body leading-tight truncate transition-colors",
- isCompletedToday ?"line-through text-muted" :"text-primary group-hover:text-[#EA580C]"
- )}>{habit.name}</div>
- <div className="text-[10px] text-secondary font-mono uppercase tracking-[0.02em] mt-0.5">{habit.category || 'Daily'} • {habit.expectedDurationMinutes || 15}m</div>
- </div>
- </div>
- <div className="flex items-center gap-2 shrink-0">
- <div className="text-caption font-mono font-bold flex items-center gap-1 text-[#C2410C] bg-[#FFF7ED] px-2 py-0.5 rounded border border-[#FFEDD5] cursor-pointer" onClick={() => navigate('/app/habits')}>
- <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[2]" /> {habit.streak}d
- </div>
- <ConfirmDeleteButton
- onConfirm={(e) => { e.stopPropagation(); deleteHabitMutation.mutate(habit.id); }}
- className="opacity-0 group-hover:opacity-100"
- iconClassName="w-3.5 h-3.5"
- />
- <ArrowRight className="w-3.5 h-3.5 text-muted opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={() => navigate('/app/habits')} />
- </div>
- </div>
- );
- })}
+ {habits.map(habit => (
+  <HabitRow
+    key={habit.id}
+    habit={habit}
+    onToggle={(id) => toggleHabitMutation.mutate(id)}
+    onDelete={(id) => deleteHabitMutation.mutate(id)}
+    onNavigate={() => navigate('/app/habits')}
+  />
+ ))}
  {habits.length === 0 && (
  <div className="py-8">
  <EmptyState 

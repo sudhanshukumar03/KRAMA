@@ -354,7 +354,7 @@ export function DailyReview() {
  <span className="text-caption font-mono font-bold text-primary bg-surface-hover px-3.5 py-2 rounded-xl border border-border shadow-2xs">
  {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
  </span>
- <BaseButton onClick={() => saveLogMutation.mutate()} disabled={saveLogMutation.isPending} className="cursor-pointer bg-[#F59E0B] hover:bg-[#D97706] text-white font-bold">
+ <BaseButton onClick={() => saveLogMutation.mutate()} disabled={saveLogMutation.isPending} className="cursor-pointer bg-[#F59E0B] hover:bg-[#D97706] text-white font-bold whitespace-nowrap">
  <Save className="w-4 h-4 mr-1.5 stroke-[1.5]" />
  {saveLogMutation.isPending ? 'Saving...' : 'Save Review'}
  </BaseButton>
@@ -372,7 +372,8 @@ export function DailyReview() {
  AI Sunset Sentinel <span className="bg-[#F59E0B]/20 text-[#D97706] px-2 py-0.2 rounded text-[10px] font-mono font-bold uppercase">Evening Analysis</span>
  </h3>
  <p className="text-caption text-secondary font-mono mt-0.5 leading-relaxed">
- You logged <strong className="text-primary">{Math.floor(secondsElapsed / 60)}m</strong> of deep focus today across <strong className="text-primary">{wins.length} wins</strong>. 
+ You logged <strong className="text-primary">{Math.floor(secondsElapsed / 60)}m</strong> of deep focus today.
+ {wins.length > 0 && <span> You achieved <strong className="text-primary">{wins.length} win{wins.length !== 1 ? 's' : ''}</strong>.</span>}
  {wins.length >= 3 
  ?" Outstanding momentum! Calibrate your energy levels below before executing your evening shutdown."
  :" Review your open blockers and note carryover architecture tasks for tomorrow morning."}
@@ -411,7 +412,6 @@ export function DailyReview() {
  <button 
  onClick={() => setIsFullScreenFocus(true)} 
  className="text-[#D97706] hover:opacity-80 font-mono text-caption font-bold flex items-center gap-1.5 bg-[#F59E0B]/10 px-3.5 py-2 rounded-xl transition-colors cursor-pointer border border-[#F59E0B]/20 shadow-2xs"
- title="Enter Immersive Full-Screen Mode"
  >
  <Maximize2 className="w-3.5 h-3.5 stroke-[1.5]" /> Full Screen
  </button>
@@ -659,10 +659,10 @@ export function DailyReview() {
  <Icon className={cn("w-5 h-5 stroke-[1.5]", isSelected ?"text-surface" : opt.color)} />
  </div>
  <div className="min-w-0">
- <div className={cn("font-bold text-body leading-tight", isSelected ?"text-surface" :"text-primary")}>
+ <div className={cn("font-bold text-body leading-tight", isSelected ? "text-surface" : "text-primary")}>
  {opt.label}
  </div>
- <div className={cn("text-badge truncate font-mono mt-0.5", isSelected ?"text-surface/80" :"text-secondary")}>
+ <div className={cn("text-badge font-mono mt-0.5", isSelected ? "text-surface/80" : "text-secondary")}>
  {opt.desc}
  </div>
  </div>
@@ -752,7 +752,6 @@ export function DailyReview() {
  </button>
  </div>
  ))}
- {wins.length === 0 && <div className="text-secondary text-caption font-mono italic py-6 text-center">What went well today? Log your engineering wins!</div>}
  </div>
 
  <div className="flex gap-2 pt-3 border-t border-border/80">
@@ -792,7 +791,6 @@ export function DailyReview() {
  </button>
  </div>
  ))}
- {blockers.length === 0 && <div className="text-secondary text-caption font-mono italic py-6 text-center">No technical blockers impeding your momentum!</div>}
  </div>
 
  <div className="flex gap-2 pt-3 border-t border-border/80">

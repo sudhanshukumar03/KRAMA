@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { FolderKanban, ArrowLeft, Plus, CheckCircle2, Clock, Target, AlertCircle, XCircle, ArrowUpCircle, FileText, Sparkles, CheckSquare, Building2, Laptop, ArrowRight } from 'lucide-react';
+import { FolderKanban, ArrowLeft, Plus, CheckCircle2, Clock, Target, AlertCircle, XCircle, ArrowUpCircle, FileText, Sparkles, CheckSquare, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
@@ -12,11 +12,7 @@ import { cn } from '../lib/utils';
 import { computeGoalPace } from '../lib/goalUtils';
 import type { GoalWithRelations } from '../types/schema';
 
-function getDocIcon(iconName: string | null, className?: string) {
- if (iconName === 'landmark') return <Building2 className={cn(className ||"w-4 h-4 text-[#7C3AED]","stroke-[1.5]")} />;
- if (iconName === 'laptop') return <Laptop className={cn(className ||"w-4 h-4 text-[#7C3AED]","stroke-[1.5]")} />;
- return <FileText className={cn(className ||"w-4 h-4 text-[#7C3AED]","stroke-[1.5]")} />;
-}
+import { resolveIcon } from '../lib/iconResolver';
 
 export function ProjectDetail() {
  const { id } = useParams();
@@ -67,7 +63,7 @@ export function ProjectDetail() {
  const daysSinceUpdate = Math.max(0, Math.floor((new Date().getTime() - new Date(project.updatedAt).getTime()) / (1000 * 3600 * 24)));
 
  // Kanban Columns Logic
- const columns = ["BACKLOG", "TODO", "IN_PROGRESS", 'review', 'testing', "DONE", "REVIEW"];
+ const columns = ["BACKLOG", "TODO", "IN_PROGRESS", "REVIEW", "DONE"];
  const getIssuesByStatus = (status: string) => projectIssues.filter((i: any) => i.status === status);
 
  return (
@@ -82,7 +78,7 @@ export function ProjectDetail() {
  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-5">
  <div className="flex items-start gap-4">
  <div className="w-12 h-12 rounded-2xl bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-sm border border-[#2563EB]/20 mt-0.5">
- <FolderKanban className="w-6 h-6 stroke-[1.5]" />
+ {React.createElement(resolveIcon(project.icon || 'FolderKanban'), { className: "w-6 h-6 stroke-[1.5]" })}
  </div>
  <div>
  <div className="flex flex-wrap items-center gap-3 mb-1.5">
@@ -213,7 +209,7 @@ export function ProjectDetail() {
  {projectDocs.slice(0, 3).map((doc: any) => (
  <div key={doc.id} onClick={() => navigate(`/app/brain`)} className="p-4 hover:bg-surface-hover transition-colors flex items-center gap-3.5 cursor-pointer group">
  <div className="w-9 h-9 rounded-xl bg-surface-hover border border-border flex items-center justify-center shrink-0 group-hover:bg-[#7C3AED]/10 :bg-[#A78BFA]/10 transition-colors">
- {getDocIcon(doc.icon,"w-4 h-4 text-[#7C3AED] group-hover:scale-110 transition-transform")}
+ {React.createElement(resolveIcon(doc.icon), { className: "w-4 h-4 text-[#7C3AED] group-hover:scale-110 transition-transform" })}
  </div>
  <div className="flex flex-col min-w-0">
  <span className="font-bold text-body text-primary truncate group-hover:text-[#7C3AED] :text-[#A78BFA] transition-colors">{doc.title}</span>
@@ -403,7 +399,7 @@ export function ProjectDetail() {
  >
  <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#7C3AED] opacity-0 group-hover:opacity-100 transition-opacity" />
  <div>
- <div className="mb-4 group-hover:scale-110 transition-transform w-fit p-2.5 rounded-xl bg-surface-hover border border-border/80">{getDocIcon(doc.icon,"w-6 h-6 text-[#7C3AED]")}</div>
+ <div className="mb-4 group-hover:scale-110 transition-transform w-fit p-2.5 rounded-xl bg-surface-hover border border-border/80">{React.createElement(resolveIcon(doc.icon), { className: "w-6 h-6 text-[#7C3AED]" })}</div>
  <div className="font-bold text-card text-primary leading-snug group-hover:text-[#7C3AED] :text-[#A78BFA] transition-colors">{doc.title}</div>
  </div>
  <div className="pt-3.5 border-t border-border/60 flex items-center justify-between text-caption font-mono text-secondary">

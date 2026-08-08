@@ -248,7 +248,7 @@ function IssueCreateModal({
   initialStatus: TaskStatus;
   allIssues: IssueWithRelations[];
   onClose: () => void;
-  onSubmit: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedByIds?: string[] }) => void;
+  onSubmit: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null }) => void;
   isSubmitting: boolean;
 }) {
  const [title, setTitle] = useState('');
@@ -256,7 +256,7 @@ function IssueCreateModal({
   const [status, setStatus] = useState<TaskStatus>(initialStatus || "TODO");
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
  const [estimate, setEstimate] = useState(2);
- const [blockedByIds, setBlockedByIds] = useState<string[]>([]);
+ const [blockedById, setBlockedById] = useState<string | null>(null);
 
  useEffect(() => {
  if (open && initialStatus) setStatus(initialStatus);
@@ -264,11 +264,11 @@ function IssueCreateModal({
 
  if (!open) return null;
 
- const handleSubmit = (e: React.FormEvent) => {
- e.preventDefault();
- if (!title.trim()) return;
-    onSubmit({ title: title.trim(), description: description.trim(), status: status as TaskStatus, priority: priority as TaskPriority, estimateMinutes: Number(estimate) || 0, blockedByIds });
- };
+  const handleSubmit = (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!title.trim()) return;
+    onSubmit({ title: title.trim(), description: description.trim(), status: status as TaskStatus, priority: priority as TaskPriority, estimateMinutes: Number(estimate) || 0, blockedById });
+  };
 
  return (
  <div
@@ -375,35 +375,16 @@ function IssueCreateModal({
  <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5 flex items-center gap-1.5">
  <AlertCircle className="w-3.5 h-3.5 text-[#DC2626]" /> Dependencies (Blocked By)
  </label>
- <div className="max-h-36 overflow-y-auto border border-border rounded-lg p-2.5 space-y-1.5 bg-surface-hover/50">
- {allIssues.length === 0 ? (
- <div className="text-caption text-muted italic text-center py-2">No other tasks available to link as dependencies</div>
- ) : (
- allIssues.map(other => {
- const isChecked = blockedByIds.includes(other.id);
- return (
- <label key={other.id} className="flex items-center gap-2 text-caption text-primary cursor-pointer hover:bg-surface p-1.5 rounded transition-colors border border-transparent hover:border-border">
- <input
- type="checkbox"
- checked={isChecked}
- onChange={e => {
- if (e.target.checked) {
- setBlockedByIds([...blockedByIds, other.id]);
- } else {
- setBlockedByIds(blockedByIds.filter(id => id !== other.id));
- }
- }}
- className="rounded border-border text-[#2563EB] focus:ring-[#2563EB]"
- />
- <span className="font-mono text-secondary text-[10px] bg-surface border border-border px-1 py-0.5 rounded">#{other.id.slice(-4)}</span>
- <span className="truncate flex-1 font-medium">{other.title}</span>
- <span className="text-[10px] text-muted uppercase capitalize">{other.status.replace('_', ' ')}</span>
- </label>
- );
- })
- )}
- </div>
- <p className="text-badge text-secondary mt-1">Select any tasks that must be completed before this task can start.</p>
+ <select
+   value={blockedById || ""}
+   onChange={e => setBlockedById(e.target.value || null)}
+   className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+ >
+   <option value="">None (No Dependency)</option>
+   {allIssues.map(other => (
+     <option key={other.id} value={other.id}>#{other.id.slice(-4)} - {other.title}</option>
+   ))}
+ </select>
  </div>
 
  <div className="pt-4 border-t border-border flex justify-end gap-3 shrink-0">
@@ -432,7 +413,7 @@ function IssueEditModal({
  issue: IssueWithRelations | null;
  allIssues: IssueWithRelations[];
  onClose: () => void;
- onSubmit: (id: string, data: { title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; estimateMinutes?: number; blockedByIds?: string[] }) => void;
+  onSubmit: (id: string, data: { title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; estimateMinutes?: number; blockedById?: string | null }) => void;
  isSubmitting: boolean;
 }) {
  const [title, setTitle] = useState('');
@@ -440,7 +421,7 @@ function IssueEditModal({
  const [status, setStatus] = useState<TaskStatus>("TODO");
  const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
  const [estimate, setEstimate] = useState(2);
- const [blockedByIds, setBlockedByIds] = useState<string[]>([]);
+ const [blockedById, setBlockedById] = useState<string | null>(null);
 
  useEffect(() => {
  if (open && issue) {
@@ -449,24 +430,24 @@ function IssueEditModal({
  setStatus(issue.status as TaskStatus || "TODO");
  setPriority(issue.priority as TaskPriority || "MEDIUM");
  setEstimate(issue.estimateMinutes ?? 2);
- setBlockedByIds(issue.blockedBy ? [issue.blockedBy.id] : []);
+  setBlockedById(issue.blockedBy ? issue.blockedBy.id : null);
  }
  }, [open, issue]);
 
  if (!open || !issue) return null;
 
- const handleSubmit = (e: React.FormEvent) => {
- e.preventDefault();
- if (!title.trim()) return;
- onSubmit(issue.id, {
- title: title.trim(),
- description: description.trim(),
- status: status as TaskStatus,
- priority: priority as TaskPriority,
- estimateMinutes: Number(estimate) || 0,
- blockedByIds,
- });
- };
+  const handleSubmit = (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!title.trim()) return;
+  onSubmit(issue.id, {
+  title: title.trim(),
+  description: description.trim(),
+  status: status as TaskStatus,
+  priority: priority as TaskPriority,
+  estimateMinutes: Number(estimate) || 0,
+  blockedById
+  });
+  };
 
  const otherIssues = allIssues.filter(i => i.id !== issue.id);
 
@@ -573,35 +554,17 @@ function IssueEditModal({
  <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5 flex items-center gap-1.5">
  <AlertCircle className="w-3.5 h-3.5 text-[#DC2626]" /> Dependencies (Blocked By)
  </label>
- <div className="max-h-36 overflow-y-auto border border-border rounded-lg p-2.5 space-y-1.5 bg-surface-hover/50">
- {otherIssues.length === 0 ? (
- <div className="text-caption text-muted italic text-center py-2">No other tasks available to link as dependencies</div>
- ) : (
- otherIssues.map(other => {
- const isChecked = blockedByIds.includes(other.id);
- return (
- <label key={other.id} className="flex items-center gap-2 text-caption text-primary cursor-pointer hover:bg-surface p-1.5 rounded transition-colors border border-transparent hover:border-border">
- <input
- type="checkbox"
- checked={isChecked}
- onChange={e => {
- if (e.target.checked) {
- setBlockedByIds([...blockedByIds, other.id]);
- } else {
- setBlockedByIds(blockedByIds.filter(id => id !== other.id));
- }
- }}
- className="rounded border-border text-[#2563EB] focus:ring-[#2563EB]"
- />
- <span className="font-mono text-secondary text-[10px] bg-surface border border-border px-1 py-0.5 rounded">#{other.id.slice(-4)}</span>
- <span className="truncate flex-1 font-medium">{other.title}</span>
- <span className="text-[10px] text-muted uppercase capitalize">{other.status.replace('_', ' ')}</span>
- </label>
- );
- })
- )}
- </div>
- <p className="text-badge text-secondary mt-1">Select any tasks that must be completed before this task can start.</p>
+ <select
+   value={blockedById || ""}
+   onChange={e => setBlockedById(e.target.value || null)}
+   className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+ >
+   <option value="">None (No Dependency)</option>
+   {otherIssues.map(other => (
+     <option key={other.id} value={other.id}>#{other.id.slice(-4)} - {other.title}</option>
+   ))}
+ </select>
+ <p className="text-badge text-secondary mt-1">Select a task that must be completed before this task can start.</p>
  </div>
 
  <div className="pt-4 border-t border-border flex justify-end gap-3 shrink-0">
@@ -633,19 +596,19 @@ export function KanbanBoard() {
  const [editModalOpen, setEditModalOpen] = useState(false);
  const [editingIssue, setEditingIssue] = useState<IssueWithRelations | null>(null);
 
- const createIssueMutation = useMutation({
- mutationFn: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedByIds?: string[] }) =>
- api.tasks.create({
- title: data.title,
- description: data.description,
- status: data.status,
- priority: data.priority as any,
- estimateMinutes: data.estimateMinutes,
- assignee: 'me',
- projectId: projects[0]?.id,
- labels: [],
- blockedByIds: data.blockedByIds || []
- }),
+  const createIssueMutation = useMutation({
+    mutationFn: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null }) =>
+      api.tasks.create({
+        title: data.title,
+        description: data.description,
+        status: data.status,
+        priority: data.priority as any,
+        estimateMinutes: data.estimateMinutes,
+        assignee: 'me',
+        projectId: projects[0]?.id,
+        labels: [],
+        blockedById: data.blockedById
+      }),
  onSuccess: (newIssue) => {
  queryClient.invalidateQueries({ queryKey: ['issues'] });
  setCreateModalOpen(false);
@@ -658,9 +621,9 @@ export function KanbanBoard() {
  }
  });
 
- const updateIssueDetailMutation = useMutation({
- mutationFn: ({ id, data }: { id: string; data: Partial<IssueWithRelations> & { blockedByIds?: string[] } }) =>
- api.tasks.update(id, data),
+  const updateIssueDetailMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<IssueWithRelations> & { blockedById?: string | null } }) =>
+      api.tasks.update(id, data),
  onSuccess: (updated) => {
  queryClient.invalidateQueries({ queryKey: ['issues'] });
  setEditModalOpen(false);
@@ -755,32 +718,71 @@ export function KanbanBoard() {
  setActiveIssue(issues.find(i => i.id === active.id) || null);
  };
 
- const handleDragEnd = (event: DragEndEvent) => {
- setActiveIssue(null);
- const { active, over } = event;
- if (!over) return;
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveIssue(null);
+    const { active, over } = event;
+    if (!over) return;
 
- const activeId = active.id as string;
- const overId = over.id as string;
+    const activeId = active.id as string;
+    const overId = over.id as string;
 
- const activeIssueData = issues.find(i => i.id === activeId);
- if (!activeIssueData) return;
+    const activeIssueData = issues.find(i => i.id === activeId);
+    if (!activeIssueData) return;
 
- let newStatus = activeIssueData.status;
- 
- if (STATUSES.includes(overId)) {
- newStatus = overId as TaskStatus;
- } else {
- const overIssueData = issues.find(i => i.id === overId);
- if (overIssueData) {
- newStatus = overIssueData.status;
- }
- }
+    let newStatus = activeIssueData.status;
+    let overIssueData = issues.find(i => i.id === overId);
+    
+    if (STATUSES.includes(overId)) {
+      newStatus = overId as TaskStatus;
+    } else if (overIssueData) {
+      newStatus = overIssueData.status;
+    }
 
- if (activeIssueData.status !== newStatus) {
- updateIssueMutation.mutate({ id: activeId, data: { status: newStatus } });
- }
- };
+    let newPosition = activeIssueData.position;
+
+    if (activeId !== overId) {
+      const statusIssues = issues.filter(i => i.status === newStatus).sort((a, b) => a.position - b.position);
+      
+      if (STATUSES.includes(overId)) {
+        // Dropped directly on an empty column or trailing space of a column
+        // Place at the bottom of that column
+        const lastCard = statusIssues[statusIssues.length - 1];
+        newPosition = (lastCard?.position ?? 0) + 1000;
+      } else {
+        const filtered = statusIssues.filter(i => i.id !== activeId);
+        let insertIndex = filtered.findIndex(i => i.id === overId);
+        
+        // If moving down in the same column, dnd-kit overId represents the card we swap with
+        const activeIndex = statusIssues.findIndex(i => i.id === activeId);
+        if (activeIssueData.status === newStatus && activeIndex !== -1 && activeIndex < insertIndex) {
+          insertIndex += 1; // Insert after
+        }
+
+        const aboveCard = filtered[insertIndex - 1];
+        const belowCard = filtered[insertIndex];
+
+        // TODO [TASK-REBALANCE-CRON]: Float midpoint precision degrades over repeated drops in the same gap.
+        // A background cron/worker should periodically run across active sprints to re-space task positions with clean integers (1000, 2000...).
+        newPosition = ((aboveCard?.position ?? 0) + (belowCard?.position ?? (aboveCard?.position ?? 0) + 1000)) / 2;
+      }
+    }
+
+    if (activeIssueData.status !== newStatus || activeIssueData.position !== newPosition) {
+      // Optimistic update
+      queryClient.setQueryData(['issues'], (old: any) => {
+        if (!old) return old;
+        return old.map((i: any) => i.id === activeId ? { ...i, status: newStatus, position: newPosition } : i);
+      });
+
+      updateIssueMutation.mutate({ id: activeId, data: { status: newStatus, position: newPosition } }, {
+        onError: () => {
+          // Revert optimistic update on failure
+          queryClient.invalidateQueries({ queryKey: ['issues'] });
+          toast.error('Failed to move task');
+        }
+      });
+    }
+  };
 
  return (
  <div className="p-4 sm:p-6 md:p-8 h-full flex flex-col bg-canvas animate-in fade-in duration-150 gap-6">

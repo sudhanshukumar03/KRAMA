@@ -46,7 +46,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  const { data: pages = [] } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
 
  const openIssuesCount = issues.filter(i => i.status !== "DONE" && i.status !== "REVIEW").length;
- const sprintIssuesCount = issues.filter(i => ["TODO", "IN_PROGRESS", 'review'].includes(i.status)).length;
+ const sprintIssuesCount = issues.filter(i => ["TODO", "IN_PROGRESS", "REVIEW"].includes(i.status)).length;
  const activeProjectsCount = projects.filter(p => p.status === 'active').length;
 
  const getBadgeValue = (key: string | null) => {

@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { ChevronRight, FileText, Plus, FileSignature, Building2, Laptop, Brain, Clock, AlignLeft, BookOpen, Heading1, Heading2, List, ListOrdered, Quote, Code, Minus, Command, FolderKanban, Target, CheckCircle2, Link2, Sparkles, Wand2, ArrowRight } from 'lucide-react';
+import { ChevronRight, Plus, FileSignature, Brain, Clock, AlignLeft, BookOpen, Heading1, Heading2, List, ListOrdered, Quote, Code, Minus, Command, FolderKanban, Target, CheckCircle2, Link2, Sparkles, Wand2, ArrowRight } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Content } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -15,12 +15,8 @@ import { ErrorState } from './ui/ErrorState';
 import { ConfirmDeleteButton } from './ui/ConfirmDeleteButton';
 import { toast } from 'sonner';
 
-function getIconComponent(iconName: string | null, className?: string) {
- if (iconName === 'landmark') return <Building2 className={cn(className ||"w-4 h-4 text-secondary","stroke-[1.5]")} />;
- if (iconName === 'laptop') return <Laptop className={cn(className ||"w-4 h-4 text-secondary","stroke-[1.5]")} />;
- if (iconName) return <span className="text-body leading-none select-none">{iconName}</span>;
- return <FileText className={cn(className ||"w-4 h-4 text-muted","stroke-[1.5]")} />;
-}
+import { IconPicker } from './ui/IconPicker';
+import { resolveIcon } from '../lib/iconResolver';
 
 function PageTreeNode({ 
  page, 
@@ -117,7 +113,7 @@ function PageTreeNode({
  />
  )}
  <span className="flex items-center justify-center flex-shrink-0 z-10">
- {getIconComponent(page.icon, isSelected ?"w-4 h-4 text-surface" :"w-4 h-4 text-secondary")}
+ {React.createElement(resolveIcon(page.icon), { className: isSelected ? "w-4 h-4 text-surface" : "w-4 h-4 text-secondary" })}
  </span>
  <span className="truncate flex-1 z-10 font-sans">{page.title || 'Untitled Document'}</span>
  <button 
@@ -182,7 +178,7 @@ function Breadcrumbs({ page, pages }: { page: PageWithRelations, pages: PageWith
  <span className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all duration-150 leading-none", 
  idx === trail.length - 1 ?"text-primary font-bold bg-surface-hover border border-border shadow-2xs" :"hover:text-primary hover:bg-surface-hover cursor-pointer font-medium"
  )}>
- {getIconComponent(p.icon,"w-3.5 h-3.5 text-secondary shrink-0")}
+ {React.createElement(resolveIcon(p.icon), { className: "w-3.5 h-3.5 text-secondary shrink-0" })}
  <span className="font-sans truncate max-w-[150px]">{p.title || 'Untitled Document'}</span>
  </span>
  </div>
@@ -243,8 +239,16 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
  {/* NEUTRAL WHITE THINKING IDENTITY: Document Telemetry Header Bar */}
  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-border">
  <div className="flex items-center gap-3.5">
- <div className="w-10 h-10 rounded-2xl bg-surface-hover border border-border flex items-center justify-center shrink-0 shadow-2xs">
- {getIconComponent(page.icon,"w-5 h-5 text-primary")}
+ <div className="w-10 h-10 rounded-2xl bg-surface-hover border border-border flex items-center justify-center shrink-0 shadow-2xs hover:bg-surface-hover/80 transition-colors cursor-pointer">
+ <IconPicker
+ value={page.icon}
+ onChange={(newIcon) => {
+ api.pages.update(page.id, { icon: newIcon }).then(() => {
+ queryClient.invalidateQueries({ queryKey: ['pages'] });
+ });
+ }}
+ triggerClassName="border-none hover:border-none shadow-none bg-transparent hover:bg-transparent !p-0"
+ />
  </div>
  <div>
  <span className="text-caption font-mono font-bold text-primary block mb-0.5 uppercase tracking-wider">
@@ -343,17 +347,17 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
  </button>
  </div>
 
- {/* Floating AI Formatting Assistant (Violet #7C3AED / #A78BFA Identity) */}
- <button
- type="button"
- onClick={() => toast.success("✨ AI Formatting Sentinel: Document structured with executive summary, clear heading hierarchy, and technical callouts.")}
- className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#A78BFA] text-white text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs hover:opacity-95 transition-all cursor-pointer hover:scale-105 active:scale-95"
- title="Trigger AI Document Formatting & Structure"
- >
- <Wand2 className="w-3.5 h-3.5 stroke-[1.5]" />
- <span>AI Polish & Structure</span>
- </button>
- </div>
+  {/* Floating AI RAG Entry Point (Violet #7C3AED / #A78BFA Identity) */}
+  <button
+  type="button"
+  onClick={() => { window.location.href = '/app/ai?mode=rag'; }}
+  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#A78BFA] text-white text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs hover:opacity-95 transition-all cursor-pointer hover:scale-105 active:scale-95"
+  title="Ask AI about your notes"
+  >
+  <Wand2 className="w-3.5 h-3.5 stroke-[1.5]" />
+  <span>Ask AI about your notes</span>
+  </button>
+  </div>
 
  {/* EDITOR AREA */}
  <div className="flex-1 p-6 md:p-10 flex flex-col justify-between overflow-y-auto">

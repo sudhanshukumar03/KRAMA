@@ -47,6 +47,16 @@ export class GoalService {
         updatedBy: userId,
       }, tx);
 
+      if (updateData.progress !== undefined && updateData.progress !== existing.progress) {
+        await tx.goalProgressSnapshot.create({
+          data: {
+            goalId: goal.id,
+            progress: updateData.progress,
+            date: new Date(),
+          }
+        });
+      }
+
       domainEventBus.emitEvent('GOAL_UPDATED', { goalId: goal.id, workspaceId: goal.workspaceId });
       return goal;
     });

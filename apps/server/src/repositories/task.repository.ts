@@ -7,7 +7,7 @@ export class TaskRepository implements BaseRepository<Task, Prisma.TaskUnchecked
   async findById(id: string, tx?: TxClient): Promise<Task | null> {
     return (tx || prisma).task.findUnique({
       where: { id },
-      include: { project: true, sprint: true },
+      include: { project: { include: { goal: true } }, sprint: true },
     });
   }
 
@@ -19,11 +19,16 @@ export class TaskRepository implements BaseRepository<Task, Prisma.TaskUnchecked
     const where: any = { workspaceId, deletedAt: null };
     if (filters.projectId) where.projectId = filters.projectId;
     if (filters.sprintId) where.sprintId = filters.sprintId;
-    if (filters.status) where.status = filters.status;
+    
+    if (filters.status) {
+      where.status = filters.status;
+    } else {
+      where.status = { not: 'CANCELED' };
+    }
 
     return (tx || prisma).task.findMany({
       where,
-      include: { project: true, sprint: true },
+      include: { project: { include: { goal: true } }, sprint: true },
       orderBy: { position: 'asc' },
     });
   }
@@ -40,7 +45,7 @@ export class TaskRepository implements BaseRepository<Task, Prisma.TaskUnchecked
   async create(data: Prisma.TaskUncheckedCreateInput, tx?: TxClient): Promise<Task> {
     return (tx || prisma).task.create({
       data,
-      include: { project: true, sprint: true },
+      include: { project: { include: { goal: true } }, sprint: true },
     });
   }
 
@@ -48,7 +53,7 @@ export class TaskRepository implements BaseRepository<Task, Prisma.TaskUnchecked
     return (tx || prisma).task.update({
       where: { id },
       data,
-      include: { project: true, sprint: true },
+      include: { project: { include: { goal: true } }, sprint: true },
     });
   }
 

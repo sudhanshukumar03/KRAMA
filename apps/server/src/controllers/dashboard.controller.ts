@@ -86,6 +86,12 @@ export const getDashboardData = async (req: Request, res: Response) => {
         focusSessions: focusSessions.filter(fs => new Date(fs.startTime).toDateString() === new Date().toDateString())
       },
       habits, // optionally return subset or all
+      projects: projects.map(p => {
+        const projectTasks = tasks.filter(t => t.projectId === p.id);
+        const completed = projectTasks.filter(t => t.status === 'DONE').length;
+        const progress = projectTasks.length > 0 ? Math.round((completed / projectTasks.length) * 100) : 0;
+        return { ...p, progress };
+      }),
       focus: {
         sessions: focusSessions,
       },

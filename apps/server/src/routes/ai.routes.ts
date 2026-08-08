@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 import { aiLimiter } from '../middlewares/rateLimit.middleware';
-import { completeAiRequest, getUsage, getConfig, ragQuery } from '../controllers/ai.controller';
+import { completeAiRequest, getUsage, getConfig, ragQuery, getDashboardInsight } from '../controllers/ai.controller';
 
 const router: Router = Router();
 
@@ -17,5 +17,7 @@ router.post('/complete', completeAiRequest);
 router.post('/rag-query', ragQuery);
 router.get('/usage', getUsage);
 router.get('/config', getConfig);
+router.get('/dashboard-insight', getDashboardInsight);
 
 export default router;
+

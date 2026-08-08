@@ -49,6 +49,7 @@ export const updateTask = async (req: Request, res: Response) => {
     const task = await taskService.updateTask((req.params.id as string), workspaceId, data, req.user!.id);
     return res.status(200).json(task);
   } catch (error: any) {
+    console.error('updateTask error:', error);
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
     if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
     if (error.message.includes('Conflict')) return res.status(409).json({ message: error.message });

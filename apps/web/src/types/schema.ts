@@ -64,10 +64,14 @@ export type AutomationRule = any;
 
 // Extended types for relations
 export type GoalWithRelations = Goal & {
-  childGoals?: Goal[];
+  childGoals?: GoalWithRelations[];
   linkedProjects?: Project[];
-  habits?: Habit[];
+  habits?: Pick<Habit, 'id'>[];
   snapshots?: GoalProgressSnapshot[];
+  _count?: {
+    projects?: number;
+    habits?: number;
+  };
 };
 
 export type ProjectWithRelations = Project & {
