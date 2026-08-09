@@ -9,6 +9,7 @@ import { getIconForString } from '../lib/iconMap';
 import { LoadingState } from './ui/LoadingState';
 import { BaseButton } from './ui/BaseButton';
 import { useHabitCompletion } from '../hooks/useHabitCompletion';
+import { isHabitScheduledToday } from '../lib/habitFilters';
 
 const calendarDays = Array.from({ length: 31 }, (_, i) => i + 1);
 const weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -674,10 +675,10 @@ export function TimelineView() {
  </div>
  </div>
  <div className="space-y-3 flex-1">
- {habits.map((habit) => (
+ {habits.filter(isHabitScheduledToday).map((habit) => (
  <TimelineHabitRow key={habit.id} habit={habit} />
  ))}
- {habits.length === 0 && (
+ {habits.filter(isHabitScheduledToday).length === 0 && (
  <div className="py-8 text-center border border-dashed border-border rounded-xl bg-surface-hover/50">
  <p className="text-caption text-secondary mb-3">No daily routines added yet.</p>
  <button onClick={() => setRoutineModalOpen(true)} className="px-3 py-1.5 rounded-lg bg-[#FFF7ED] text-[#EA580C] border border-[#FFEDD5] text-caption font-medium hover:bg-[#FFEDD5] transition-colors inline-flex items-center gap-1 cursor-pointer">

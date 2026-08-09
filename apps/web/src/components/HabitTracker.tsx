@@ -26,6 +26,7 @@ import { cn } from "../lib/utils";
 import { resolveIcon } from "../lib/iconResolver";
 import { IconPicker } from "./ui/IconPicker";
 import { useHabitCompletion, isHabitCompletedToday } from "../hooks/useHabitCompletion";
+import { isHabitScheduledToday } from "../lib/habitFilters";
 
 function HabitMainListItem({ habit, deleteMutation }: { habit: any; deleteMutation: any }) {
   const { isCompletedToday, toggleHabit, isPending } = useHabitCompletion(habit);
@@ -865,16 +866,10 @@ export function HabitTracker() {
     return true;
   });
 
-  const todayDay = new Date().getDay();
-  const isScheduledToday = (h: any) => {
-    const scheduled = h.scheduledDays && h.scheduledDays.length > 0 ? h.scheduledDays : [0, 1, 2, 3, 4, 5, 6];
-    return scheduled.includes(todayDay);
-  };
-
-  const morningHabits = habits.filter((h) => h.timeOfDay === "morning" && isScheduledToday(h));
-  const afternoonHabits = habits.filter((h) => h.timeOfDay === "afternoon" && isScheduledToday(h));
-  const eveningHabits = habits.filter((h) => h.timeOfDay === "evening" && isScheduledToday(h));
-  const anytimeHabits = habits.filter((h) => h.timeOfDay === "anytime" && isScheduledToday(h));
+  const morningHabits = habits.filter((h) => h.timeOfDay === "morning" && isHabitScheduledToday(h));
+  const afternoonHabits = habits.filter((h) => h.timeOfDay === "afternoon" && isHabitScheduledToday(h));
+  const eveningHabits = habits.filter((h) => h.timeOfDay === "evening" && isHabitScheduledToday(h));
+  const anytimeHabits = habits.filter((h) => h.timeOfDay === "anytime" && isHabitScheduledToday(h));
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -882,10 +877,7 @@ export function HabitTracker() {
     day: "numeric",
   });
 
-  const todaysHabits = habits.filter(h => {
-    const scheduled = h.scheduledDays && h.scheduledDays.length > 0 ? h.scheduledDays : [0, 1, 2, 3, 4, 5, 6];
-    return scheduled.includes(new Date().getDay());
-  });
+  const todaysHabits = habits.filter(isHabitScheduledToday);
 
   const completedCount = todaysHabits.filter((h) => isHabitCompletedToday(h)).length;
   const totalHabits = todaysHabits.length || 1;
