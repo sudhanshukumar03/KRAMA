@@ -48,7 +48,10 @@ export class HabitRepository implements BaseRepository<Habit, Prisma.HabitUnchec
   }
 
   async delete(id: string, tx?: TxClient): Promise<Habit> {
-    return (tx || prisma).habit.delete({ where: { id } });
+    return (tx || prisma).habit.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   }
 
   async addCompletion(data: Prisma.HabitCompletionUncheckedCreateInput, tx?: TxClient): Promise<any> {

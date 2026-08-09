@@ -10,6 +10,7 @@ export const listGoals = async (req: Request, res: Response) => {
     const goals = await goalService.listGoals(workspaceId);
     return res.status(200).json(goals);
   } catch (error) {
+    console.error('listGoals Error:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };

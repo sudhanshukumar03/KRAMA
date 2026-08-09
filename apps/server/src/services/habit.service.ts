@@ -59,10 +59,9 @@ export class HabitService {
         throw new Error('Habit not found');
       }
 
-      const habit = await habitRepository.update(id, {
-        deletedAt: new Date(),
-        updatedBy: userId,
-      }, tx);
+      const habit = await habitRepository.delete(id, tx);
+      // We also update the 'updatedBy' to trace who archived it
+      await habitRepository.update(id, { updatedBy: userId }, tx);
 
       domainEventBus.emitEvent('HABIT_DELETED', { habitId: habit.id, workspaceId: habit.workspaceId });
       return habit;
