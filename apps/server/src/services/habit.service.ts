@@ -76,6 +76,15 @@ export class HabitService {
       }
 
       const now = new Date();
+
+      const scheduled = existing.scheduledDays && existing.scheduledDays.length > 0 
+        ? existing.scheduledDays 
+        : [0, 1, 2, 3, 4, 5, 6];
+        
+      if (!scheduled.includes(now.getDay())) {
+        throw new Error('Habit not scheduled for today');
+      }
+
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 

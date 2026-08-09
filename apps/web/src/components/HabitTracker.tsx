@@ -865,10 +865,16 @@ export function HabitTracker() {
     return true;
   });
 
-  const morningHabits = habits.filter((h) => h.timeOfDay === "morning");
-  const afternoonHabits = habits.filter((h) => h.timeOfDay === "afternoon");
-  const eveningHabits = habits.filter((h) => h.timeOfDay === "evening");
-  const anytimeHabits = habits.filter((h) => h.timeOfDay === "anytime");
+  const todayDay = new Date().getDay();
+  const isScheduledToday = (h: any) => {
+    const scheduled = h.scheduledDays && h.scheduledDays.length > 0 ? h.scheduledDays : [0, 1, 2, 3, 4, 5, 6];
+    return scheduled.includes(todayDay);
+  };
+
+  const morningHabits = habits.filter((h) => h.timeOfDay === "morning" && isScheduledToday(h));
+  const afternoonHabits = habits.filter((h) => h.timeOfDay === "afternoon" && isScheduledToday(h));
+  const eveningHabits = habits.filter((h) => h.timeOfDay === "evening" && isScheduledToday(h));
+  const anytimeHabits = habits.filter((h) => h.timeOfDay === "anytime" && isScheduledToday(h));
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",

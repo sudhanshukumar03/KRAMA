@@ -76,6 +76,7 @@ export const logHabit = async (req: Request, res: Response) => {
     console.error('logHabit error:', error);
     if (error.message === 'Habit not found') return res.status(404).json({ message: error.message });
     if (error.message === 'Habit already logged for today') return res.status(400).json({ message: error.message });
+    if (error.message === 'Habit not scheduled for today') return res.status(400).json({ message: error.message });
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
