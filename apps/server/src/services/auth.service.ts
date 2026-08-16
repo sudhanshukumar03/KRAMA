@@ -6,6 +6,7 @@ import { userRepository } from '../repositories/user.repository';
 import { sessionRepository } from '../repositories/session.repository';
 import { workspaceRepository } from '../repositories/workspace.repository';
 import { runInTransaction, prisma } from '../prisma';
+import { userAuthSelect } from '../utils/selectors';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'krama-os-secret-jwt-key-2026';
 const ACCESS_TOKEN_EXPIRY_MS = 15 * 60 * 1000; // 15 mins
@@ -66,16 +67,12 @@ export class AuthService {
     });
 
     const { accessToken, refreshToken } = await this.createSession(newUser.id, ip, userAgent);
+    const finalUser = await prisma.user.findUnique({ where: { id: newUser.id }, select: userAuthSelect });
 
     return { 
       accessToken, 
       refreshToken,
-      user: { 
-        id: newUser.id, 
-        email: newUser.email, 
-        name: newUser.name,
-        memberships: [{ workspaceId, role: 'OWNER' }]
-      }
+      user: finalUser
     };
   }
 
@@ -91,8 +88,9 @@ export class AuthService {
     }
 
     const { accessToken, refreshToken } = await this.createSession(user.id, ip, userAgent);
-    const { passwordHash, ...safeUser } = user;
-    return { accessToken, refreshToken, user: safeUser };
+    const finalUser = await prisma.user.findUnique({ where: { id: user.id }, select: userAuthSelect });
+    
+    return { accessToken, refreshToken, user: finalUser };
   }
 
   async createSession(userId: string, ip?: string, userAgent?: string): Promise<{ accessToken: string; refreshToken: string }> {

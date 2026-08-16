@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { SignupSchema, LoginSchema } from '@krama/validation';
 import { authService } from '../services/auth.service';
 import { prisma } from '../prisma';
+import { userAuthSelect } from '../utils/selectors';
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -133,17 +134,48 @@ export const me = async (req: Request, res: Response) => {
     const userId = req.user.id;
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        memberships: {
-          select: { workspaceId: true, role: true }
-        }
-      }
+      select: userAuthSelect
     });
 
     if (!user) return res.status(404).json({ message: 'User not found' });
-    const { passwordHash, ...safeUser } = user;
-    return res.status(200).json({ user: safeUser });
+    return res.status(200).json({ user });
   } catch (error) {
     console.error(error); return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const updatePreferences = async (req: Request, res: Response) => {
+  try {
+    // @ts-ignore
+    const userId = req.user.id;
+    const { timerPreferences } = req.body;
+
+    if (!timerPreferences) {
+      return res.status(400).json({ message: 'timerPreferences object is required' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    const currentMetadata = (user.metadata as Record<string, any>) || {};
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        metadata: {
+          ...currentMetadata,
+          timerPreferences: {
+            ...(currentMetadata.timerPreferences || {}),
+            ...timerPreferences
+          }
+        }
+      },
+      select: userAuthSelect
+    });
+
+    return res.status(200).json({ user: updatedUser });
+  } catch (error) {
+    console.error('Error updating user preferences', error);
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };

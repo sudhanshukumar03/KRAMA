@@ -110,6 +110,7 @@ export const api = {
     logout: () => fetchApi<any>('/auth/logout', { method: 'POST' }),
     refresh: () => fetchApi<any>('/auth/refresh', { method: 'POST' }),
     me: () => fetchApi<any>('/auth/me', { method: 'GET' }),
+    updatePreferences: (timerPreferences: Record<string, any>) => fetchApi<any>('/auth/me/preferences', { method: 'PATCH', body: JSON.stringify({ timerPreferences }) }),
   },
   workspaces: {
     list: () => fetchApi<Workspace[]>('/workspaces'),
@@ -177,7 +178,8 @@ export const api = {
     update: (id: string, data: Record<string, any>) => fetchApi<Habit>(`/habits/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/habits/${id}`, { method: 'DELETE' }),
     restore: (id: string) => fetchApi<any>(`/habits/${id}/restore`, { method: 'POST' }),
-    complete: (id: string, date?: string) => fetchApi<Habit>(`/habits/${id}/log`, { method: 'POST', ...(date ? { body: JSON.stringify({ date }) } : {}) }),
+    complete: (id: string, date?: string, dateIso?: string) => fetchApi<Habit>(`/habits/${id}/log`, { method: 'POST', ...(date ? { body: JSON.stringify({ date, dateIso }) } : {}) }),
+    uncomplete: (id: string, date?: string, dateIso?: string) => fetchApi<Habit>(`/habits/${id}/log?date=${date || ''}&dateIso=${dateIso || ''}`, { method: 'DELETE' }),
   },
   dailyLogs: {
     list: () => fetchApi<DailyLog[]>('/daily-logs'),

@@ -6,6 +6,14 @@ interface User {
   email: string;
   name: string;
   memberships: { workspaceId: string; role: string }[];
+  metadata?: {
+    timerPreferences?: {
+      sprint?: number;
+      deep?: number;
+      quick?: number;
+    };
+    [key: string]: any;
+  };
 }
 
 interface AuthContextType {
@@ -16,6 +24,7 @@ interface AuthContextType {
   login: (token: string, userData: User) => void;
   logout: () => void;
   switchWorkspace: (id: string) => void;
+  updateUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -108,8 +117,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.reload(); // Quick way to wipe all React Query state for the old workspace
   };
 
+  const updateUser = (newUser: User) => {
+    setUser(newUser);
+    localStorage.setItem('krama_user', JSON.stringify(newUser));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, accessToken, workspaceId, isLoading, login, logout: handleLogout, switchWorkspace }}>
+    <AuthContext.Provider value={{ user, accessToken, workspaceId, isLoading, login, logout: handleLogout, switchWorkspace, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
