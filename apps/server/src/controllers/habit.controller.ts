@@ -70,13 +70,29 @@ export const logHabit = async (req: Request, res: Response) => {
   try {
     const workspaceId = (req.headers['x-workspace-id'] || req.body.workspaceId) as string;
     // @ts-ignore
-    const habit = await habitService.logHabitCompletion(req.params.id as string, workspaceId, req.user!.id);
+    const habit = await habitService.logHabitCompletion(req.params.id as string, workspaceId, req.user!.id, req.body.date, req.body.dateIso);
     return res.status(200).json(habit);
   } catch (error: any) {
     console.error('logHabit error:', error);
     if (error.message === 'Habit not found') return res.status(404).json({ message: error.message });
     if (error.message === 'Habit already logged for today') return res.status(400).json({ message: error.message });
     if (error.message === 'Habit not scheduled for today') return res.status(400).json({ message: error.message });
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const unlogHabit = async (req: Request, res: Response) => {
+  try {
+    const workspaceId = (req.headers['x-workspace-id'] || req.body.workspaceId || req.query.workspaceId) as string;
+    const date = (req.body.date || req.query.date) as string | undefined;
+    const dateIso = (req.body.dateIso || req.query.dateIso) as string | undefined;
+    // @ts-ignore
+    const habit = await habitService.unlogHabitCompletion(req.params.id as string, workspaceId, req.user!.id, date, dateIso);
+    return res.status(200).json(habit);
+  } catch (error: any) {
+    console.error('unlogHabit error:', error);
+    if (error.message === 'Habit not found') return res.status(404).json({ message: error.message });
+    if (error.message === 'Habit not logged for today') return res.status(400).json({ message: error.message });
     return res.status(500).json({ message: 'Internal server error' });
   }
 };

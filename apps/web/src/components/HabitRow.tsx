@@ -17,8 +17,8 @@ interface HabitRowProps {
  * Used by both Goals.tsx's Habits Overview panel and HabitTracker.tsx so
  * completion-status logic has exactly one implementation.
  */
-export function HabitRow({ habit, onToggle, onDelete, onNavigate }: HabitRowProps) {
-  const { isCompletedToday } = useHabitCompletion(habit);
+export function HabitRow({ habit, onDelete, onNavigate }: HabitRowProps) {
+  const { isCompletedToday, toggleHabit } = useHabitCompletion(habit);
 
   return (
     <div className="py-3 px-4 flex items-center justify-between hover:bg-surface-hover transition-colors duration-100 group">
@@ -34,17 +34,15 @@ export function HabitRow({ habit, onToggle, onDelete, onNavigate }: HabitRowProp
         <button
           type="button"
           data-testid="habit-checkbox"
-          disabled={isCompletedToday}
           onClick={(e) => {
             e.stopPropagation();
-            if (isCompletedToday) return;
-            onToggle(habit.id);
+            toggleHabit();
           }}
           className={cn(
-            'w-5 h-5 rounded flex items-center justify-center border transition-all duration-150 shrink-0',
-            isCompletedToday
-              ? 'bg-[#2563EB] border-[#2563EB] text-white cursor-default'
-              : 'border-[#D1D5DB] bg-surface group-hover:border-[#9CA3AF] cursor-pointer'
+            "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
+            isCompletedToday 
+              ? "bg-[#0D9488] border-[#0D9488] text-white" 
+              : "border-border hover:border-[#0D9488] bg-transparent text-transparent"
           )}
         >
           {isCompletedToday && <Check className="w-3 h-3 stroke-[2.5]" />}

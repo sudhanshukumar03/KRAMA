@@ -34,7 +34,7 @@ function HabitMainListItem({ habit, deleteMutation }: { habit: any; deleteMutati
   return (
     <div
       onClick={() => {
-        if (isCompletedToday || isPending) return;
+        if (isPending) return;
         toggleHabit();
       }}
       className={cn(
@@ -46,7 +46,17 @@ function HabitMainListItem({ habit, deleteMutation }: { habit: any; deleteMutati
       )}
     >
       <div className="flex items-center gap-3">
-        <button type="button" className="focus:outline-none" disabled={isCompletedToday || isPending}>
+        <button 
+          type="button" 
+          data-testid="habit-checkbox"
+          className="focus:outline-none" 
+          disabled={isPending}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (isPending) return;
+            toggleHabit();
+          }}
+        >
           {isCompletedToday ? (
             <div className="w-5 h-5 rounded-md bg-[#EA580C] text-white flex items-center justify-center shadow-2xs transition-all animate-in zoom-in-50 duration-150">
               <Check className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -87,13 +97,13 @@ function HabitTrackerRow({ habit, index }: { habit: any; index: number }) {
   return (
     <div
       onClick={() => {
-        if (isCompletedToday) return;
+        if (isPending) return;
         toggleHabit();
       }}
       className={cn(
         "flex items-center gap-3 group p-2 rounded-lg transition-all border",
         isCompletedToday
-          ? "bg-surface-hover border-transparent cursor-default"
+          ? "bg-surface-hover border-transparent cursor-pointer"
           : "bg-surface border-border hover:border-primary shadow-2xs cursor-pointer",
         isPending && "opacity-50 cursor-not-allowed"
       )}
@@ -101,7 +111,16 @@ function HabitTrackerRow({ habit, index }: { habit: any; index: number }) {
       <div className="w-5 text-right text-badge font-mono text-muted">
         {(index + 1).toString().padStart(2, "0")}
       </div>
-      <button type="button" className="focus:outline-none" disabled={isCompletedToday || isPending}>
+      <button 
+        type="button" 
+        className="focus:outline-none" 
+        disabled={isPending}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isPending) return;
+          toggleHabit();
+        }}
+      >
         {isCompletedToday ? (
           <div className="w-5 h-5 rounded-md bg-primary text-white flex items-center justify-center shadow-2xs transition-all animate-in zoom-in-50 duration-150">
             <Check className="w-3.5 h-3.5 stroke-[2.5]" />

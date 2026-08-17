@@ -1,13 +1,19 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { toast } from 'sonner';
+import { formatLocalDate, parseLocalDate } from '../lib/utils';
 
 export function isHabitCompletedToday(habit: any): boolean {
   if (!habit) return false;
-  const today = new Date();
-  return habit.completions?.some((c: any) => 
-    c.completedAt && new Date(c.completedAt).toDateString() === today.toDateString()
-  ) || false;
+  
+  const todayStr = formatLocalDate(new Date());
+  
+  return habit.completions?.some((c: any) => {
+    if (!c.completedAt) return false;
+    // We must compare the local date of the completion with today's local date
+    const completedDateStr = formatLocalDate(new Date(c.completedAt));
+    return completedDateStr === todayStr;
+  }) || false;
 }
 
 export function useHabitCompletion(habit: any) {
@@ -16,12 +22,17 @@ export function useHabitCompletion(habit: any) {
   const isCompletedToday = isHabitCompletedToday(habit);
 
   const toggleMutation = useMutation({
-    mutationFn: (id: string) => api.habits.complete(id),
-    onSuccess: () => {
+    mutationFn: (data: { id: string, localDate: string, localDateIso: string, isCurrentlyCompleted: boolean }) => {
+      if (data.isCurrentlyCompleted) {
+        return api.habits.uncomplete(data.id, data.localDate, data.localDateIso);
+      }
+      return api.habits.complete(data.id, data.localDate, data.localDateIso);
+    },
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['snapshots'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
-      if (!isCompletedToday) {
+      if (!variables.isCurrentlyCompleted) {
         toast.success(`Habit Completed!`, {
           description: `You checked off "${habit?.name || "Routine"}". Keep the streak going!`,
         });
@@ -38,18 +49,15 @@ export function useHabitCompletion(habit: any) {
 
   if (!habit) return { isCompletedToday: false, todayStr: '', toggleHabit: () => {}, isPending: false };
   
-  // Get local date string YYYY-MM-DD
+  // Use the shared date utility to format the date without UTC shift issues
   const today = new Date();
-  // Use local timezone formatting to avoid UTC date shift issues
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  const todayStr = `${year}-${month}-${day}`;
+  const todayStr = formatLocalDate(today) || '';
+  const todayIso = parseLocalDate(todayStr)?.toISOString() || '';
 
   return { 
     isCompletedToday, 
     todayStr,
-    toggleHabit: () => toggleMutation.mutate(habit.id),
+    toggleHabit: () => toggleMutation.mutate({ id: habit.id, localDate: todayStr, localDateIso: todayIso, isCurrentlyCompleted: isCompletedToday }),
     isPending: toggleMutation.isPending
   };
 }

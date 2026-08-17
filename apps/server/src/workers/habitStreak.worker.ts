@@ -25,34 +25,48 @@ export const habitStreakWorker = new Worker(
         : [0, 1, 2, 3, 4, 5, 6];
 
       if (habit.completions.length > 0) {
-        const completedDates = new Set(
-          habit.completions.map((c: any) => {
-            const d = new Date(c.completedAt);
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          })
-        );
-
         let iterDate = new Date();
-        iterDate.setHours(0, 0, 0, 0);
+        iterDate.setUTCHours(0, 0, 0, 0); // Normalize to UTC midnight, ignore server timezone
+
+        // Track consumed completions to prevent double-counting across overlapping day windows
+        const consumedCompletionIds = new Set<string>();
+
+        // Helper: Widen tolerance to accurately span all global timezones (-14h to +36h).
+        // A 50-hour window safely covers from UTC+14 to UTC-12.
+        const consumeCompletionForDay = (targetDate: Date) => {
+          const targetTime = targetDate.getTime();
+          const windowStart = targetTime - (14 * 60 * 60 * 1000); // 14 hours before UTC midnight (UTC+14)
+          const windowEnd = targetTime + (36 * 60 * 60 * 1000); // 36 hours after UTC midnight (UTC-12)
+          
+          const match = habit.completions.find((c: any) => {
+             if (consumedCompletionIds.has(c.id)) return false;
+             const t = new Date(c.completedAt).getTime();
+             return t >= windowStart && t <= windowEnd;
+          });
+
+          if (match) {
+            consumedCompletionIds.add(match.id);
+            return true;
+          }
+          return false;
+        };
 
         // Check today
-        const todayStr = `${iterDate.getFullYear()}-${String(iterDate.getMonth() + 1).padStart(2, '0')}-${String(iterDate.getDate()).padStart(2, '0')}`;
-        if (completedDates.has(todayStr)) {
+        if (consumeCompletionForDay(iterDate)) {
           currentStreak++;
         }
 
         // Walk backwards
-        iterDate.setDate(iterDate.getDate() - 1);
+        iterDate.setUTCDate(iterDate.getUTCDate() - 1);
         while (true) {
-          if (scheduled.includes(iterDate.getDay())) {
-            const dStr = `${iterDate.getFullYear()}-${String(iterDate.getMonth() + 1).padStart(2, '0')}-${String(iterDate.getDate()).padStart(2, '0')}`;
-            if (completedDates.has(dStr)) {
+          if (scheduled.includes(iterDate.getUTCDay())) {
+            if (consumeCompletionForDay(iterDate)) {
               currentStreak++;
             } else {
               break; // Streak broken
             }
           }
-          iterDate.setDate(iterDate.getDate() - 1);
+          iterDate.setUTCDate(iterDate.getUTCDate() - 1);
         }
       }
 

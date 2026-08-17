@@ -58,6 +58,18 @@ export class HabitRepository implements BaseRepository<Habit, Prisma.HabitUnchec
     return (tx || prisma).habitCompletion.create({ data });
   }
 
+  async removeCompletionToday(habitId: string, todayStart: Date, todayEnd: Date, tx?: TxClient): Promise<void> {
+    await (tx || prisma).habitCompletion.deleteMany({
+      where: {
+        habitId,
+        completedAt: {
+          gte: todayStart,
+          lte: todayEnd,
+        },
+      }
+    });
+  }
+
   async getCompletionCountToday(habitId: string, todayStart: Date, todayEnd: Date, tx?: TxClient): Promise<number> {
     return (tx || prisma).habitCompletion.count({
       where: {

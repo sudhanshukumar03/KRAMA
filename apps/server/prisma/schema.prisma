@@ -248,6 +248,7 @@ model Goal {
   id               String    @id @default(uuid())
   title            String
   type             String    // yearly, quarterly
+  status           String    @default("ACTIVE") // ACTIVE, PAUSED, COMPLETED, CANCELED
   progress         Float     @default(0)
   targetDate       DateTime?
   icon             String?
