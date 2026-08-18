@@ -22,8 +22,8 @@ export const CreateTaskSchema = WorkspaceScoped.extend({
   projectId: z.string().uuid().optional(),
   sprintId: z.string().uuid().optional(),
   assigneeId: z.string().uuid().optional(),
-  status: z.string().default('todo'),
-  priority: z.string().default('medium'),
+  status: z.enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'CANCELED']).default('TODO'),
+  priority: z.enum(['NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
   blockedById: z.string().uuid().nullable().optional(),
   estimateMinutes: z.number().int().min(0).optional(),
   scheduledDate: z.string().datetime().nullable().optional(),
@@ -38,6 +38,7 @@ export const UpdateTaskSchema = CreateTaskSchema.partial().extend({
 export const CreateGoalSchema = WorkspaceScoped.extend({
   title: z.string().min(1).max(255),
   type: z.enum(['yearly', 'quarterly']),
+  status: z.enum(['ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELED']).optional().default('ACTIVE'),
   icon: z.string().optional(),
 });
 
@@ -50,12 +51,15 @@ export const CreateHabitSchema = WorkspaceScoped.extend({
   name: z.string().min(1).max(255),
   icon: z.string().optional(),
   linkedGoalId: z.string().uuid().optional(),
-  category: z.string().optional(),
-  difficulty: z.string().optional(),
-  expectedDurationMinutes: z.number().int().optional(),
-  cadence: z.string().optional(),
+  // Must stay in sync with HabitCategory and HabitDifficulty enums in schema.prisma 
+  // No automated enforcement, this is a manual mirror.
+  category: z.enum(["HEALTH", "LEARNING", "PRODUCTIVITY", "MINDFULNESS", "FINANCE", "OTHER"]).optional(),
+  difficulty: z.enum(["VERY_EASY", "EASY", "MEDIUM", "HARD", "EXTREME"]).optional(),
+  expectedDurationMinutes: z.number().int().min(1).max(1440).optional(),
+  // Must stay in sync with real UI string values (no strict DB enum exists for these yet)
+  cadence: z.enum(["daily", "weekly"]).optional(),
   scheduledDays: z.array(z.number().int().min(0).max(6)).optional(),
-  timeOfDay: z.string().optional(),
+  timeOfDay: z.enum(["morning", "afternoon", "evening", "anytime"]).optional(),
 });
 
 export const UpdateHabitSchema = CreateHabitSchema.partial().extend({

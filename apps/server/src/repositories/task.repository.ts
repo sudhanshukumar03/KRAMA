@@ -28,7 +28,7 @@ export class TaskRepository implements BaseRepository<Task, Prisma.TaskUnchecked
 
     return (tx || prisma).task.findMany({
       where,
-      include: { project: { include: { goal: true } }, sprint: true },
+      include: { project: { include: { goal: true } }, sprint: true, blockedBy: true },
       orderBy: { position: 'asc' },
     });
   }

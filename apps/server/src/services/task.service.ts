@@ -24,6 +24,15 @@ export class TaskService {
       const maxPos = await taskRepository.findMaxPosition(data.workspaceId, tx);
       const position = maxPos + 1.0;
 
+      if (data.sprintId) {
+        const sprint = await tx.sprint.findUnique({ where: { id: data.sprintId } });
+        if (!sprint || sprint.workspaceId !== data.workspaceId) throw new Error('Conflict: invalid sprint scoping');
+      }
+      if (data.projectId) {
+        const project = await tx.project.findUnique({ where: { id: data.projectId } });
+        if (!project || project.workspaceId !== data.workspaceId) throw new Error('Conflict: invalid project scoping');
+      }
+
       const task = await taskRepository.create({
         ...data,
         position,
@@ -48,6 +57,15 @@ export class TaskService {
       }
 
       const { version, workspaceId: _, ...updateData } = data;
+
+      if (updateData.sprintId) {
+        const sprint = await tx.sprint.findUnique({ where: { id: updateData.sprintId } });
+        if (!sprint || sprint.workspaceId !== workspaceId) throw new Error('Conflict: invalid sprint scoping');
+      }
+      if (updateData.projectId) {
+        const project = await tx.project.findUnique({ where: { id: updateData.projectId } });
+        if (!project || project.workspaceId !== workspaceId) throw new Error('Conflict: invalid project scoping');
+      }
 
       const task = await taskRepository.update(id, {
         ...updateData,
