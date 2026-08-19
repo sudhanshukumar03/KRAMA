@@ -18,8 +18,81 @@ export const completeAiRequest = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Workspace ID is required' });
     }
 
+    let finalPrompt = prompt;
+
+    if (prompt.includes('@project')) {
+      const now = new Date();
+      const activeSprint = await prisma.sprint.findFirst({
+        where: {
+          workspaceId,
+          startDate: { lte: now },
+          endDate: { gte: now }
+        }
+      });
+
+      const activeGoals = await prisma.goal.findMany({
+        where: {
+          workspaceId,
+          status: { not: 'COMPLETED' }
+        }
+      });
+
+      const openTasks = await prisma.task.findMany({
+        where: {
+          workspaceId,
+          assigneeId: req.user!.id,
+          status: { notIn: ['DONE', 'CANCELED'] }
+        },
+        take: 15,
+        orderBy: [
+          { priority: 'desc' },
+          { dueDate: 'asc' }
+        ],
+        include: {
+          blockedBy: {
+            select: { title: true }
+          }
+        }
+      });
+
+      let contextStr = '<system_project_context>\n';
+      contextStr += "The user has invoked the @project command. Use the following real-time data from their workspace to inform your answer:\n\n";
+      
+      if (activeSprint) {
+        contextStr += `# Current Sprint: "${activeSprint.name}" (${activeSprint.startDate.toISOString().split('T')[0]} - ${activeSprint.endDate.toISOString().split('T')[0]})\n`;
+      } else {
+        contextStr += `# Current Sprint: None active\n`;
+      }
+      contextStr += '\n';
+
+      if (activeGoals.length > 0) {
+        contextStr += `# Active Goals:\n`;
+        activeGoals.forEach((g, i) => {
+          contextStr += `${i + 1}. ${g.title} (${g.progress}% complete)\n`;
+        });
+      } else {
+        contextStr += `# Active Goals: None\n`;
+      }
+      contextStr += '\n';
+
+      if (openTasks.length > 0) {
+        contextStr += `# Open Tasks:\n`;
+        openTasks.forEach(t => {
+          const blockedStr = t.blockedBy ? `Blocked by: ${t.blockedBy.title}` : `Blocked by: None`;
+          contextStr += `- ${t.title} (${t.status}, ${t.priority} Priority, ${blockedStr})\n`;
+        });
+      } else {
+        contextStr += `# Open Tasks: None\n`;
+      }
+      
+      contextStr += '</system_project_context>\n\n';
+      
+      const strippedPrompt = prompt.replace('@project', '').trim();
+      finalPrompt = contextStr + strippedPrompt;
+    }
+
     const completion = await aiService.complete({
-      prompt,
+      prompt: finalPrompt,
       model,
       provider,
       workspaceId,
