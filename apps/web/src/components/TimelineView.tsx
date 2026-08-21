@@ -21,10 +21,7 @@ function TimelineHabitRow({ habit }: { habit: any }) {
   return (
    <div 
    onClick={() => {
-     if (isCompletedToday) {
-       toast.error("Habit already logged for today");
-       return;
-     }
+     if (isPending) return;
      toggleHabit();
    }}
    className={cn("flex items-center justify-between py-2 border-b border-border/60 last:border-0 group cursor-pointer transition-all duration-150 -mx-2 px-2 rounded-lg",
@@ -33,8 +30,22 @@ function TimelineHabitRow({ habit }: { habit: any }) {
    )}
    >
    <div className="flex items-center gap-3 min-w-0">
+   <button 
+     type="button"
+     disabled={isPending}
+     onClick={(e) => {
+       e.stopPropagation();
+       if (isPending) return;
+       toggleHabit();
+     }}
+     className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors focus:outline-none",
+       isCompletedToday ?"bg-[#EA580C] text-white border-transparent shadow-2xs" :"bg-surface border-2 border-border text-transparent hover:border-[#EA580C]"
+     )}
+   >
+     <Check className="w-3.5 h-3.5 stroke-[3]" />
+   </button>
    <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-   isCompletedToday ?"bg-[#EA580C] text-white shadow-2xs" :"bg-surface-hover border border-border text-[#EA580C] group-hover:border-[#EA580C]"
+   isCompletedToday ?"bg-[#FFF7ED] text-[#EA580C]" :"bg-surface-hover border border-border text-[#EA580C] group-hover:border-[#EA580C]"
    )}>
    <Icon className="w-3.5 h-3.5 stroke-[1.75]" />
    </div>
@@ -60,13 +71,13 @@ function RoutineCreateModal({
 }: {
  open: boolean;
  onClose: () => void;
-  onSubmit: (data: { name: string; cadence: string; category: string; difficulty: string; expectedDurationMinutes: number }) => void;
+  onSubmit: (data: { name: string; cadence: string; category: string; difficulty: string; expectedDurationMinutes: number; timeOfDay: string }) => void;
   isSubmitting: boolean;
 }) {
   const [name, setName] = useState('');
   const [cadence] = useState('daily');
   const [category, setCategory] = useState('PRODUCTIVITY');
-  
+  const [timeOfDay, setTimeOfDay] = useState('morning');
   const [expectedDurationMinutes, setDuration] = useState(15);
 
   if (!open) return null;
@@ -74,7 +85,7 @@ function RoutineCreateModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onSubmit({ name: name.trim(), cadence, category, difficulty: 'MEDIUM', expectedDurationMinutes });
+    onSubmit({ name: name.trim(), cadence, category, difficulty: 'MEDIUM', expectedDurationMinutes, timeOfDay });
   };
 
   return (
@@ -138,6 +149,22 @@ function RoutineCreateModal({
  </div>
 
  <div>
+  <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
+  Time of Day
+  </label>
+  <select
+  value={timeOfDay}
+  onChange={e => setTimeOfDay(e.target.value)}
+  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+  >
+  <option value="morning">Morning</option>
+  <option value="afternoon">Afternoon</option>
+  <option value="evening">Evening</option>
+  <option value="anytime">Anytime</option>
+  </select>
+  </div>
+
+ <div>
  <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
  Duration (mins)
  </label>
@@ -167,41 +194,41 @@ function RoutineCreateModal({
 }
 
 function ScheduleTaskModal({
- open,
- onClose,
- onSubmit,
- defaultDate,
- isSubmitting
+  open,
+  onClose,
+  onSubmit,
+  defaultDate,
+  isSubmitting,
 }: {
- open: boolean;
- onClose: () => void;
- onSubmit: (data: { title: string; priority: string; estimateMinutes: number; scheduledDate: string }) => void;
- defaultDate: string;
- isSubmitting: boolean;
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: { title: string; priority: string; estimateMinutes: number; dueDate: string }) => void;
+  defaultDate: string;
+  isSubmitting: boolean;
 }) {
- const [title, setTitle] = useState('');
- const [priority, setPriority] = useState('normal');
- const [estimateHours, setEstimateHours] = useState(1);
- const [scheduledDate, setScheduledDate] = useState(defaultDate);
+  const [title, setTitle] = useState('');
+  const [priority, setPriority] = useState('normal');
+  const [estimateHours, setEstimateHours] = useState(1);
+  const [dueDate, setDueDate] = useState(defaultDate);
 
- useEffect(() => {
- if (open) setScheduledDate(defaultDate);
- }, [open, defaultDate]);
+  useEffect(() => {
+    if (open) setDueDate(defaultDate);
+  }, [open, defaultDate]);
 
- if (!open) return null;
+  if (!open) return null;
 
- const handleSubmit = (e: React.FormEvent) => {
- e.preventDefault();
- if (!title.trim()) return;
- onSubmit({ title: title.trim(), priority, estimateMinutes: Math.round(Number(estimateHours) * 60), scheduledDate });
- };
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    onSubmit({ title: title.trim(), priority, estimateMinutes: Math.round(Number(estimateHours) * 60), dueDate });
+  };
 
- return (
- <div
- onClick={onClose}
- className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
- >
- <div
+  return (
+  <div
+  onClick={onClose}
+  className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
+  >
+  <div
  onClick={e => e.stopPropagation()}
  className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
  >
@@ -238,17 +265,17 @@ function ScheduleTaskModal({
  </div>
 
  <div className="grid grid-cols-2 gap-4">
- <div>
- <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
- Scheduled Date
- </label>
- <input
- type="date"
- value={scheduledDate}
- onChange={e => setScheduledDate(e.target.value)}
- className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
- />
- </div>
+          <div className="space-y-1.5">
+            <label className="text-caption font-semibold text-secondary">
+              Date
+            </label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={e => setDueDate(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+            />
+          </div>
 
  <div>
  <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
@@ -323,15 +350,15 @@ export function TimelineView() {
  }
  });
 
- const scheduleTaskMutation = useMutation({
- mutationFn: (data: { title: string; priority: string; estimateMinutes: number; scheduledDate: string }) =>
- api.tasks.create({
- title: data.title,
- priority: data.priority,
- estimateMinutes: data.estimateMinutes,
- scheduledDate: data.scheduledDate ? parseLocalDate(data.scheduledDate)?.toISOString() : undefined,
- status: "TODO"
- }),
+  const scheduleTaskMutation = useMutation({
+    mutationFn: (data: { title: string; priority: string; estimateMinutes: number; dueDate: string }) => 
+      api.tasks.create({
+        title: data.title,
+        priority: data.priority,
+        estimateMinutes: data.estimateMinutes,
+        dueDate: data.dueDate ? parseLocalDate(data.dueDate)?.toISOString() : undefined,
+        status: "TODO"
+      }),
  onSuccess: (newTask) => {
  queryClient.invalidateQueries({ queryKey: ['issues'] });
  setScheduleModalOpen(false);
@@ -674,19 +701,65 @@ export function TimelineView() {
  <button onClick={() => window.location.href = '/app/habits'} className="text-badge font-medium text-secondary hover:text-primary transition-colors">Manage</button>
  </div>
  </div>
- <div className="space-y-3 flex-1">
- {habits.filter(isHabitScheduledToday).map((habit) => (
- <TimelineHabitRow key={habit.id} habit={habit} />
- ))}
- {habits.filter(isHabitScheduledToday).length === 0 && (
- <div className="py-8 text-center border border-dashed border-border rounded-xl bg-surface-hover/50">
- <p className="text-caption text-secondary mb-3">No daily routines added yet.</p>
- <button onClick={() => setRoutineModalOpen(true)} className="px-3 py-1.5 rounded-lg bg-[#FFF7ED] text-[#EA580C] border border-[#FFEDD5] text-caption font-medium hover:bg-[#FFEDD5] transition-colors inline-flex items-center gap-1 cursor-pointer">
- <Plus className="w-3.5 h-3.5 stroke-[2]" /> Add Routine
- </button>
- </div>
- )}
- </div>
+   <div className="space-y-4 flex-1">
+   
+   {/* Morning */}
+   {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "morning").length > 0 && (
+     <div>
+       <div className="text-[10px] font-mono font-bold text-secondary uppercase mb-2">Morning</div>
+       <div className="space-y-1">
+         {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "morning").map(habit => (
+           <TimelineHabitRow key={habit.id} habit={habit} />
+         ))}
+       </div>
+     </div>
+   )}
+
+   {/* Afternoon */}
+   {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "afternoon").length > 0 && (
+     <div>
+       <div className="text-[10px] font-mono font-bold text-secondary uppercase mb-2">Afternoon</div>
+       <div className="space-y-1">
+         {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "afternoon").map(habit => (
+           <TimelineHabitRow key={habit.id} habit={habit} />
+         ))}
+       </div>
+     </div>
+   )}
+
+   {/* Evening */}
+   {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "evening").length > 0 && (
+     <div>
+       <div className="text-[10px] font-mono font-bold text-secondary uppercase mb-2">Evening</div>
+       <div className="space-y-1">
+         {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "evening").map(habit => (
+           <TimelineHabitRow key={habit.id} habit={habit} />
+         ))}
+       </div>
+     </div>
+   )}
+
+   {/* Anytime */}
+   {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "anytime").length > 0 && (
+     <div>
+       <div className="text-[10px] font-mono font-bold text-secondary uppercase mb-2">Anytime</div>
+       <div className="space-y-1">
+         {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "anytime").map(habit => (
+           <TimelineHabitRow key={habit.id} habit={habit} />
+         ))}
+       </div>
+     </div>
+   )}
+
+   {habits.filter(isHabitScheduledToday).length === 0 && (
+   <div className="py-8 text-center border border-dashed border-border rounded-xl bg-surface-hover/50">
+   <p className="text-caption text-secondary mb-3">No daily routines added yet.</p>
+   <button onClick={() => setRoutineModalOpen(true)} className="px-3 py-1.5 rounded-lg bg-[#FFF7ED] text-[#EA580C] border border-[#FFEDD5] text-caption font-medium hover:bg-[#FFEDD5] transition-colors inline-flex items-center gap-1 cursor-pointer">
+   <Plus className="w-3.5 h-3.5 stroke-[2]" /> Add Routine
+   </button>
+   </div>
+   )}
+   </div>
  </div>
 
  </div>

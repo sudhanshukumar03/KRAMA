@@ -245,7 +245,7 @@ function DayColumn({
  habits: any[];
  isLast: boolean; 
  onAddTask: (date: Date, dayName: string) => void;
- onToggleHabit: (habitId: string, date: Date) => void;
+ onToggleHabit: (habitId: string, date: Date, isCurrentlyCompleted: boolean) => void;
  onToggleIssue: (issueId: string, currentStatus: string) => void;
 }) {
  const navigate = useNavigate();
@@ -299,22 +299,28 @@ function DayColumn({
  </span>
  <span>
  {habits.filter(h => {
- const isChecked = h.completions?.some((c: any) => c.completedAt && c.completedAt.toString().startsWith(dateStr)) ||
- (isToday && h.updatedAt && new Date(h.updatedAt).toDateString() === new Date().toDateString());
- return isChecked;
- }).length}/{habits.length}
+  const isChecked = h.completions?.some((c: any) => {
+    if (!c.completedAt) return false;
+    const completedLocalStr = new Date(c.completedAt).toLocaleDateString('en-CA');
+    return completedLocalStr === dateStr;
+  });
+  return isChecked;
+  }).length}/{habits.length}
  </span>
  </div>
  
  <div className="space-y-1">
  {habits.map(habit => {
- const isChecked = habit.completions?.some((c: any) => c.completedAt && c.completedAt.toString().startsWith(dateStr)) ||
- (isToday && habit.updatedAt && new Date(habit.updatedAt).toDateString() === new Date().toDateString());
+   const isChecked = habit.completions?.some((c: any) => {
+     if (!c.completedAt) return false;
+     const completedLocalStr = new Date(c.completedAt).toLocaleDateString('en-CA');
+     return completedLocalStr === dateStr;
+   }) || false;
 
  return (
  <div 
  key={habit.id}
- onClick={(e) => { e.stopPropagation(); onToggleHabit(habit.id, date); }}
+ onClick={(e) => { e.stopPropagation(); onToggleHabit(habit.id, date, isChecked); }}
  className={cn("flex items-center gap-2 p-1.5 rounded-lg border text-caption transition-all cursor-pointer",
  isChecked 
  ?"bg-[#E6F4EA]/60 border-[#CEEAD6] text-[#137333]" 
@@ -438,9 +444,14 @@ export function WeeklyPlanner() {
  const { data: sprints = [] } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
 
  const queryClient = useQueryClient();
- const toggleHabitMutation = useMutation({
- mutationFn: ({ id, date }: { id: string; date: string }) => api.habits.complete(id, date),
- onSuccess: () => {
+  const toggleHabitMutation = useMutation({
+    mutationFn: (data: { id: string; date: string; dateIso: string; isCurrentlyCompleted: boolean }) => {
+      if (data.isCurrentlyCompleted) {
+        return api.habits.uncomplete(data.id, data.date, data.dateIso);
+      }
+      return api.habits.complete(data.id, data.date, data.dateIso);
+    },
+    onSuccess: () => {
  queryClient.invalidateQueries({ queryKey: ['habits'] });
  queryClient.invalidateQueries({ queryKey: ['snapshots'] });
  queryClient.invalidateQueries({ queryKey: ['goals'] });
@@ -535,10 +546,11 @@ export function WeeklyPlanner() {
  setCurrentDate(newDate);
  };
 
- const toggleHabitDay = (habitId: string, dayDate: Date) => {
- const dStr = dayDate.toISOString().split('T')[0] || '';
- toggleHabitMutation.mutate({ id: habitId, date: dStr });
- };
+  const toggleHabitDay = (habitId: string, dayDate: Date, isCurrentlyCompleted: boolean) => {
+   const dStr = dayDate.toISOString().split('T')[0] || '';
+   const dIso = parseLocalDate(dStr)?.toISOString() || '';
+   toggleHabitMutation.mutate({ id: habitId, date: dStr, dateIso: dIso, isCurrentlyCompleted });
+   };
 
  const handleToggleIssueStatus = (issueId: string, currentStatus: string) => {
  const nextStatus = currentStatus === "DONE" ? "TODO" : "DONE";
@@ -727,15 +739,18 @@ export function WeeklyPlanner() {
  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-badge font-bold"><Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" />{habit.streak}d</span>
  </td>
  {weekDays.map((day, dayIdx) => {
- const dStr = day.date.toISOString().split('T')[0] || '';
- const isChecked = habit.completions?.some((c: any) => c.completedAt && c.completedAt.toString().startsWith(dStr)) ||
- (day.isToday && habit.updatedAt && new Date(habit.updatedAt).toDateString() === new Date().toDateString());
+  const dStr = day.date.toISOString().split('T')[0] || '';
+  const isChecked = habit.completions?.some((c: any) => {
+    if (!c.completedAt) return false;
+    const completedLocalStr = new Date(c.completedAt).toLocaleDateString('en-CA'); // Gets YYYY-MM-DD in local time
+    return completedLocalStr === dStr;
+  });
 
  return (
  <td key={dayIdx} className={cn("py-3.5 px-3 text-center", day.isToday ?"bg-[#E8F0FE]/20" :"")}>
  <button 
  type="button"
- onClick={() => toggleHabitDay(habit.id, day.date)}
+ onClick={() => toggleHabitDay(habit.id, day.date, isChecked || false)}
  className="p-1 focus:outline-none hover:scale-110 transition-transform block mx-auto cursor-pointer"
  >
  {isChecked ? (
