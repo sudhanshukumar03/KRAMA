@@ -12,7 +12,9 @@ import type { GoalWithRelations } from '../types/schema';
 import { computeGoalPace } from '../lib/goalUtils';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { isHabitScheduledToday } from '../lib/habitFilters';
 import { HabitRow } from './HabitRow';
+import { IconPicker } from './ui/IconPicker';
 
 function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number }) {
  const queryClient = useQueryClient();
@@ -80,6 +82,20 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
  </span>
  </div>
  )}
+ {(goal._count?.projects !== undefined || goal._count?.habits !== undefined) && (
+  <div className="flex items-center gap-2 mt-1.5 text-caption text-secondary font-mono">
+  {goal._count.projects !== undefined && (
+  <span className="bg-surface-hover px-1.5 py-0.5 rounded text-[10px]">
+  {goal._count.projects} project{goal._count.projects !== 1 ? 's' : ''}
+  </span>
+  )}
+  {goal._count.habits !== undefined && (
+  <span className="bg-surface-hover px-1.5 py-0.5 rounded text-[10px]">
+  {goal._count.habits} habit{goal._count.habits !== 1 ? 's' : ''}
+  </span>
+  )}
+  </div>
+  )}
  </div>
  
  <div className="flex items-center gap-3">
@@ -200,10 +216,11 @@ function GoalCreateModal({
 }: {
  open: boolean;
  onClose: () => void;
- onSubmit: (data: { title: string; type: string; progress: number; targetDate: string }) => void;
+ onSubmit: (data: { title: string; type: string; progress: number; targetDate: string; icon?: string }) => void;
  isSubmitting: boolean;
 }) {
  const [title, setTitle] = useState('');
+ const [icon, setIcon] = useState<string | null>(null);
  const [type, setType] = useState('quarterly');
  const [progress, setProgress] = useState(0);
  const [targetDate, setTargetDate] = useState(() => {
@@ -217,7 +234,7 @@ function GoalCreateModal({
  const handleSubmit = (e: React.FormEvent) => {
  e.preventDefault();
  if (!title.trim()) return;
- onSubmit({ title: title.trim(), type, progress, targetDate });
+ onSubmit({ title: title.trim(), icon: icon || undefined, type, progress, targetDate });
  };
 
  return (
@@ -246,19 +263,30 @@ function GoalCreateModal({
  </div>
 
  <form onSubmit={handleSubmit} className="p-6 space-y-4">
- <div>
- <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
- Objective Title <span className="text-[#DC2626]">*</span>
- </label>
- <input
- type="text"
- value={title}
- onChange={e => setTitle(e.target.value)}
- placeholder="e.g., Ship Krama OS v1.0 Public Beta"
- required
- autoFocus
- className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary placeholder:text-muted focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition-all"
- />
+ <div className="flex gap-3">
+   <div>
+     <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
+       Icon
+     </label>
+     <IconPicker
+       value={icon}
+       onChange={setIcon}
+       triggerClassName="w-10 h-10 px-0 py-0"
+     />
+   </div>
+   <div className="flex-1">
+     <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
+     Objective Title <span className="text-[#DC2626]">*</span>
+     </label>
+     <input
+     type="text"
+     value={title}
+     onChange={e => setTitle(e.target.value)}
+     placeholder="e.g., Ship Krama OS v1.0 Public Beta"
+     required
+     className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent/30 transition-shadow"
+     />
+   </div>
  </div>
 
  <div className="grid grid-cols-2 gap-4">
@@ -328,13 +356,13 @@ export function Goals() {
 
  const queryClient = useQueryClient();
  const toggleHabitMutation = useMutation({
- mutationFn: (id: string) => api.habits.complete(id),
- onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['habits'] });
- queryClient.invalidateQueries({ queryKey: ['snapshots'] });
- queryClient.invalidateQueries({ queryKey: ['goals'] });
- }
- });
+  mutationFn: (id: string) => api.habits.complete(id),
+  onSuccess: () => {
+  queryClient.invalidateQueries({ queryKey: ['habits'] });
+  queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+  queryClient.invalidateQueries({ queryKey: ['goals'] });
+  }
+  });
 
  const restoreHabitMutation = useMutation({
  mutationFn: (snapshot: any) => api.habits.restore(snapshot),
@@ -366,13 +394,13 @@ export function Goals() {
 
  const [createModalOpen, setCreateModalOpen] = useState(false);
  const createGoalMutation = useMutation({
- mutationFn: (data: { title: string; type: string; progress: number; targetDate: string }) =>
+ mutationFn: (data: { title: string; type: string; progress: number; targetDate: string; icon?: string }) =>
  api.goals.create({
  title: data.title,
  type: data.type,
  progress: data.progress,
+ icon: data.icon,
  targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : null,
- status: 'on_track'
  }),
  onSuccess: (newGoal) => {
  queryClient.invalidateQueries({ queryKey: ['goals'] });
@@ -484,20 +512,20 @@ export function Goals() {
  
  <div className="v4-card overflow-hidden pt-1">
  <div className="divide-y divide-border">
- {habits.map(habit => (
+ {habits.filter(isHabitScheduledToday).map(habit => (
   <HabitRow
     key={habit.id}
     habit={habit}
-    onToggle={(id) => toggleHabitMutation.mutate(id)}
+    onToggle={() => toggleHabitMutation.mutate(habit.id)}
     onDelete={(id) => deleteHabitMutation.mutate(id)}
     onNavigate={() => navigate('/app/habits')}
   />
  ))}
- {habits.length === 0 && (
+ {habits.filter(isHabitScheduledToday).length === 0 && (
  <div className="py-8">
  <EmptyState 
  icon={TrendingUp}
- description="No active habits."
+ description="No active habits scheduled for today."
  />
  </div>
  )}

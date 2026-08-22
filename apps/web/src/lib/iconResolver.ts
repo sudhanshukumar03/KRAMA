@@ -229,6 +229,13 @@ export function resolveIcon(iconKey: string | null | undefined) {
     return ICONS[iconKey as IconKey];
   }
 
+  // Case-insensitive match
+  const lowerKey = iconKey.toLowerCase();
+  const matchedKey = Object.keys(ICONS).find(k => k.toLowerCase() === lowerKey);
+  if (matchedKey) {
+    return ICONS[matchedKey as IconKey];
+  }
+
   // Fallback map for legacy/hardcoded strings used in Spaces/Pages
   if (iconKey === "landmark") return Building2;
   if (iconKey === "laptop") return Laptop;

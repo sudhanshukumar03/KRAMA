@@ -12,6 +12,7 @@ import { EmptyState } from './ui/EmptyState';
 import { 
   Target, Sparkles, CheckSquare, Clock, Link as LinkIcon, FileText, Lightbulb, Activity, Flame, Zap, RefreshCw, Briefcase, Calendar
 } from 'lucide-react';
+import { isHabitScheduledToday } from '../lib/habitFilters';
 import { toast } from 'sonner';
 
 export function Dashboard() {
@@ -57,6 +58,7 @@ export function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
     },
     onError: () => {
       toast.error('Failed to update task');
@@ -72,7 +74,14 @@ export function Dashboard() {
     setCaptureOpen(true);
   };
 
-  if (data.onboarding.completed < data.onboarding.total) {
+  // Unlock the main dashboard once they've completed the core setup steps:
+  // Workspace, Goal, Project, Task, and Habit.
+  const requiredCoreSteps = ['workspace', 'goal', 'project', 'task', 'habit'];
+  const hasIncompleteCoreSteps = data.onboarding.steps
+    .filter((step: any) => requiredCoreSteps.includes(step.id))
+    .some((step: any) => !step.completed);
+
+  if (hasIncompleteCoreSteps) {
     return (
       <>
         <WelcomeDashboard dashboardData={data} onQuickCapture={handleQuickCapture} />
@@ -266,9 +275,9 @@ export function Dashboard() {
                 <Calendar className="w-5 h-5 text-secondary" />
                 Habits Preview
               </h2>
-              {data.habits && data.habits.length > 0 ? (
+              {data.habits && data.habits.filter(isHabitScheduledToday).length > 0 ? (
                 <div className="space-y-3">
-                  {data.habits.slice(0, 4).map((h: any) => {
+                  {data.habits.filter(isHabitScheduledToday).slice(0, 4).map((h: any) => {
                     // Generate last 5 days
                     const days = Array.from({ length: 5 }, (_, i) => {
                       const d = new Date();

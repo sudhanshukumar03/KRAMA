@@ -30,19 +30,18 @@ import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks,
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
-const STATUSES = ["BACKLOG", "TODO", "IN_PROGRESS", 'review', 'testing', "DONE", "REVIEW"];
+const STATUSES = ["BACKLOG", "TODO", "IN_PROGRESS", "REVIEW", "DONE", "CANCELED"];
 
 function getStatusIcon(status: string) {
- switch (status) {
- case "BACKLOG": return <Circle className="w-3.5 h-3.5 text-muted stroke-[1.5]" />;
- case "TODO": return <CircleDot className="w-3.5 h-3.5 text-secondary stroke-[1.5]" />;
- case "IN_PROGRESS": return <CircleDashed className="w-3.5 h-3.5 text-[#2563EB] stroke-[1.5] animate-spin-slow" />;
- case 'review': return <CheckCircle className="w-3.5 h-3.5 text-[#7C3AED] stroke-[1.5]" />;
- case 'testing': return <CheckCircle className="w-3.5 h-3.5 text-secondary stroke-[1.5]" />;
- case "DONE": return <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />;
- case "REVIEW": return <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />;
- default: return <Circle className="w-3.5 h-3.5 stroke-[1.5]" />;
- }
+  switch (status) {
+    case "BACKLOG": return <Circle className="w-3.5 h-3.5 text-muted stroke-[1.5]" />;
+    case "TODO": return <CircleDot className="w-3.5 h-3.5 text-secondary stroke-[1.5]" />;
+    case "IN_PROGRESS": return <CircleDashed className="w-3.5 h-3.5 text-[#2563EB] stroke-[1.5] animate-spin-slow" />;
+    case "REVIEW": return <CheckCircle className="w-3.5 h-3.5 text-[#7C3AED] stroke-[1.5]" />;
+    case "DONE": return <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />;
+    case "CANCELED": return <X className="w-3.5 h-3.5 text-muted stroke-[1.5]" />;
+    default: return <Circle className="w-3.5 h-3.5 stroke-[1.5]" />;
+  }
 }
 
 function IssueCard({ issue, index = 0, isDragging, onDelete, onClick }: { issue: IssueWithRelations, index?: number, isDragging?: boolean, onDelete?: (issue: IssueWithRelations) => void, onClick?: (issue: IssueWithRelations) => void }) {
@@ -844,10 +843,10 @@ export function KanbanBoard() {
  onDragStart={handleDragStart}
  onDragEnd={handleDragEnd}
  >
- {STATUSES.map((status, index) => {
+ {STATUSES.filter(s => s !== "CANCELED").map((status, index, arr) => {
  const columnIssues = filteredIssues.filter(i => i.status === status);
  return (
- <Column key={status} id={status} title={status} issues={columnIssues} isLast={index === STATUSES.length - 1} onDelete={handleDeleteIssue} onCreate={handleCreateIssue} onClick={handleEditIssue} isProjectsLoading={isLoadingProjects} hasProjects={projects.length > 0} />
+ <Column key={status} id={status} title={status} issues={columnIssues} isLast={index === arr.length - 1} onDelete={handleDeleteIssue} onCreate={handleCreateIssue} onClick={handleEditIssue} isProjectsLoading={isLoadingProjects} hasProjects={projects.length > 0} />
  );
  })}
  
