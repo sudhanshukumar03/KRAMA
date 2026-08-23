@@ -21,6 +21,11 @@ test.describe.serial('Section 3 UI Verification', () => {
     page.on('pageerror', exception => {
       console.log(`PAGE EXCEPTION: "${exception}"`);
     });
+    page.on('response', response => {
+      if (response.status() === 401 || response.status() === 500) {
+        console.log(`NETWORK ERROR: ${response.status()} on ${response.url()}`);
+      }
+    });
 
     // 1. Signup
     await page.goto('/signup');

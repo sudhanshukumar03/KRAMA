@@ -15,6 +15,7 @@ test.describe.serial('Streak Synchronization Test', () => {
   });
 
   test('Habit Completion propagates streak automatically', async ({ page }) => {
+    page.on('console', msg => console.log('BROWSER CONSOLE:', msg.text()));
     // 1. Signup
     await page.goto('/signup');
     await page.fill('input[type="text"]', 'Streak Verify User');
@@ -72,8 +73,20 @@ test.describe.serial('Streak Synchronization Test', () => {
 
     // Step 6: Check whether that same habit shows the same updated streak there, without a manual refresh
     await page.waitForTimeout(2000); // Give React Query time to render the new page
-    const textContent = await page.locator('div').filter({ hasText: 'Verify UI Code' }).first().textContent();
-    console.log('TRACKER ROW TEXT CONTENT:', textContent);
+    let textContent = await page.locator('div').filter({ hasText: 'Verify UI Code' }).first().textContent();
+    console.log('TRACKER ROW TEXT CONTENT AFTER TICK:', textContent);
     await expect(page.getByText('1d streak')).toBeVisible({ timeout: 10000 });
+
+    // Step 7: Untick it!
+    const targetRow = page.locator('div').filter({ hasText: 'Verify UI Code' }).first();
+    const [untickResponse] = await Promise.all([
+      page.waitForResponse(res => res.url().includes('/log') && res.request().method() === 'DELETE', { timeout: 10000 }),
+      targetRow.locator('[data-testid="habit-checkbox"]').click()
+    ]);
+    console.log('Log habit untick response status:', untickResponse.status());
+    await page.waitForTimeout(2000);
+    textContent = await targetRow.textContent();
+    console.log('TRACKER ROW TEXT CONTENT AFTER UNTICK:', textContent);
+    await expect(page.getByText('0d streak')).toBeVisible({ timeout: 10000 });
   });
 });
