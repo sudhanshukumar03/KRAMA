@@ -17,8 +17,12 @@ export class GoalService {
 
   async createGoal(data: any, userId: string) {
     return runInTransaction(async (tx) => {
+      const { status, ...restData } = data;
+      const metadata = status ? { status } : undefined;
+
       const goal = await goalRepository.create({
-        ...data,
+        ...restData,
+        metadata,
         createdBy: userId,
         updatedBy: userId,
       }, tx);
@@ -39,10 +43,13 @@ export class GoalService {
         throw new Error('Conflict: version mismatch');
       }
 
-      const { version, workspaceId: _, ...updateData } = data;
+      const { version, workspaceId: _, status, metadata: existingMetadata, ...updateData } = data;
+      
+      const newMetadata = status ? { ...(existingMetadata || {}), status } : existingMetadata;
 
       const goal = await goalRepository.update(id, {
         ...updateData,
+        ...(newMetadata !== undefined ? { metadata: newMetadata } : {}),
         version: { increment: 1 },
         updatedBy: userId,
       }, tx);

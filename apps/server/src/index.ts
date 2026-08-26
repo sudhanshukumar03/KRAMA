@@ -9,7 +9,12 @@ dotenv.config();
 const app = express();
 import { prisma } from './prisma';
 
-const allowedOrigins = ['http://localhost:5173', 'http://localhost:5174'];
+const allowedOrigins = [
+  'http://localhost:5173', 
+  'http://localhost:5174',
+  process.env.FRONTEND_URL,
+  process.env.CORS_ORIGIN
+].filter(Boolean) as string[];
 
 import './events/subscribers';
 
@@ -56,6 +61,10 @@ import notificationRoutes from './routes/notification.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import focusSessionRoutes from './routes/focusSession.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import decisionRoutes from './routes/decision.routes';
+import plannerRoutes from './routes/planner.routes';
+import holidayRoutes from './routes/holiday.routes';
+import searchRoutes from './routes/search.routes';
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);
@@ -73,6 +82,10 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/focus-sessions', focusSessionRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/decisions', decisionRoutes);
+app.use('/api/v1/planner/holidays', holidayRoutes);
+app.use('/api/v1/planner', plannerRoutes);
+app.use('/api/v1/search', searchRoutes);
 
 app.use('/api/v1', (req, res) => {
   res.status(404).json({ message: 'Not found' });

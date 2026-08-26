@@ -2,8 +2,8 @@ import { Worker } from 'bullmq';
 import { QUEUE_NAMES } from '../queues';
 import { connection } from '../lib/redis';
 import { prisma } from '../prisma';
-
-let pipeline: any = null;
+import { getEmbedding } from '../lib/embedding';
+import { createChunks } from '../services/rag/chunker';
 
 export const embeddingWorker = new Worker(
   QUEUE_NAMES.EMBEDDING,
@@ -12,30 +12,39 @@ export const embeddingWorker = new Worker(
     if (!pageId || !content) {
       return { skipped: true, reason: 'Missing data' };
     }
-    
-    if (!pipeline) {
-      console.log(`[Worker:Embedding] Loading Xenova/all-MiniLM-L6-v2 (lazy load)...`);
-      const { pipeline: transformersPipeline } = await import('@xenova/transformers');
-      pipeline = await transformersPipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-      console.log(`[Worker:Embedding] Model loaded successfully.`);
+
+    const page = await prisma.page.findUnique({
+      where: { id: pageId },
+      select: { workspaceId: true }
+    });
+
+    if (!page) {
+      return { skipped: true, reason: 'Page not found' };
     }
 
-    console.log(`[Worker:Embedding] Generating embedding for page ${pageId}...`);
+    console.log(`[Worker:Embedding] Chunking and embedding page ${pageId}...`);
     
-    // Generate embedding
-    const output = await pipeline(content, { pooling: 'mean', normalize: true });
-    
-    const embeddingArray = Array.from(output.data);
-    const vectorString = `[${embeddingArray.join(',')}]`;
-    
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO "PageEmbedding" ("id", "pageId", "embedding", "updatedAt")
-      VALUES (gen_random_uuid(), $1, $2::vector, NOW())
-      ON CONFLICT ("pageId")
-      DO UPDATE SET "embedding" = $2::vector, "updatedAt" = NOW()
-    `, pageId, vectorString);
+    // 1. Chunk content
+    const chunks = createChunks(content, 800, 100);
 
-    return { pageId, success: true };
+    // 2. Delete old chunks
+    await prisma.knowledgeChunk.deleteMany({
+      where: { pageId }
+    });
+
+    // 3. Embed and save new chunks
+    for (let i = 0; i < chunks.length; i++) {
+      const chunkText = chunks[i] as string;
+      const embeddingArray = await getEmbedding(chunkText);
+      const vectorString = `[${embeddingArray.join(',')}]`;
+
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO "KnowledgeChunk" ("id", "workspaceId", "pageId", "content", "chunkIndex", "embedding", "createdAt", "updatedAt")
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::vector, NOW(), NOW())
+      `, page.workspaceId, pageId, chunkText, i, vectorString);
+    }
+
+    return { pageId, success: true, chunksCount: chunks.length };
   },
   { connection }
 );

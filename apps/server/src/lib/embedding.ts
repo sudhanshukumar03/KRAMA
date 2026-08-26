@@ -1,12 +1,20 @@
-let pipeline: any = null;
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+let genAI: GoogleGenerativeAI | null = null;
 
 export async function getEmbedding(text: string): Promise<number[]> {
-  if (!pipeline) {
-    console.log(`[Embedding] Loading Xenova/all-MiniLM-L6-v2 (lazy load)...`);
-    const { pipeline: transformersPipeline } = await import('@xenova/transformers');
-    pipeline = await transformersPipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-    console.log(`[Embedding] Model loaded successfully.`);
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not defined");
   }
-  const output = await pipeline(text, { pooling: 'mean', normalize: true });
-  return Array.from(output.data);
+
+  if (!genAI) {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  }
+
+  const embeddingModel = genAI.getGenerativeModel({
+    model: "text-embedding-004",
+  });
+
+  const result = await embeddingModel.embedContent(text);
+  return result.embedding.values;
 }

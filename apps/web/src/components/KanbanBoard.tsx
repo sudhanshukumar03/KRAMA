@@ -78,11 +78,11 @@ function IssueCard({ issue, index = 0, isDragging, onDelete, onClick }: { issue:
  <span className="font-mono text-[10px] text-muted font-bold tracking-wider group-hover:text-primary transition-colors">{issue.id}</span>
  <div className="flex items-center gap-1.5">
  {issue.blockedBy && (
- <span title="Blocked by dependencies" className="w-2 h-2 rounded-full bg-[#DC2626] animate-pulse" />
+ <span title="Blocked by dependencies" className="w-2 h-2 rounded-full bg-[#2563EB] animate-pulse" />
  )}
  <span className={cn("px-1.5 py-0.5 rounded font-mono text-[9px] font-bold uppercase tracking-widest border",
- isUrgent ?"bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/30 animate-pulse" 
- : isHigh ?"bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30" 
+ isUrgent ?"bg-[#EFF4FE] text-[#2563EB] border-[#2563EB]/30 animate-pulse" 
+ : isHigh ?"bg-[#EFF4FE] text-[#2563EB] border-[#2563EB]/30" 
  :"bg-surface-hover text-secondary border-border"
  )}>
  {issue.priority}
@@ -166,11 +166,11 @@ function Column({ id, title, issues, isLast, onDelete, onCreate, onClick, isProj
  !isLast &&"border-r border-border"
  )}>
  <div className={cn("px-4 py-3 font-medium text-body text-primary flex justify-between items-center border-b border-border/50 relative bg-transparent",
- title === "TODO" &&"border-t-2 border-t-[#6B7280]",
+ title === "TODO" &&"border-t-2 border-t-[#9CA3AF]",
  title === "IN_PROGRESS" &&"border-t-2 border-t-[#2563EB]",
- title === 'blocked' &&"border-t-2 border-t-[#DC2626]",
- title === 'review' &&"border-t-2 border-t-[#7C3AED]",
- title === "DONE" &&"border-t-2 border-t-[#109868]"
+ title === 'blocked' &&"border-t-2 border-t-[#2563EB]",
+ title === 'review' &&"border-t-2 border-t-[#2563EB]",
+ title === "DONE" &&"border-t-2 border-t-[#2563EB]"
  )}>
  <div className="flex items-center gap-2">
  {getStatusIcon(title)}
@@ -247,7 +247,7 @@ function IssueCreateModal({
   initialStatus: TaskStatus;
   allIssues: IssueWithRelations[];
   onClose: () => void;
-  onSubmit: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null }) => void;
+  onSubmit: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; dueDate?: string; scheduledDate?: string }) => void;
   isSubmitting: boolean;
 }) {
  const [title, setTitle] = useState('');
@@ -276,7 +276,7 @@ function IssueCreateModal({
  >
  <div
  onClick={e => e.stopPropagation()}
- className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
+ className="v4-card w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
  >
  <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50 shrink-0">
  <div className="flex items-center gap-2.5">
@@ -412,15 +412,20 @@ function IssueEditModal({
  issue: IssueWithRelations | null;
  allIssues: IssueWithRelations[];
  onClose: () => void;
-  onSubmit: (id: string, data: { title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; estimateMinutes?: number; blockedById?: string | null }) => void;
- isSubmitting: boolean;
+  onSubmit: (id: string, data: { title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; estimateMinutes?: number; blockedById?: string | null; dueDate?: string; scheduledDate?: string; metadata?: any }) => void;
+  isSubmitting: boolean;
 }) {
- const [title, setTitle] = useState('');
- const [description, setDescription] = useState('');
- const [status, setStatus] = useState<TaskStatus>("TODO");
- const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
- const [estimate, setEstimate] = useState(2);
- const [blockedById, setBlockedById] = useState<string | null>(null);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [status, setStatus] = useState<TaskStatus>("TODO");
+  const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
+  const [estimate, setEstimate] = useState(2);
+  const [blockedById, setBlockedById] = useState<string | null>(null);
+  const [dueDate, setDueDate] = useState('');
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [isPinned, setIsPinned] = useState(false);
+  const [newSubtask, setNewSubtask] = useState('');
+  const queryClient = useQueryClient();
 
  useEffect(() => {
  if (open && issue) {
@@ -430,7 +435,10 @@ function IssueEditModal({
  setPriority(issue.priority as TaskPriority || "MEDIUM");
  setEstimate(issue.estimateMinutes ?? 2);
   setBlockedById(issue.blockedBy ? issue.blockedBy.id : null);
- }
+  setDueDate(issue.dueDate ? new Date(issue.dueDate).toISOString().split('T')[0] : '');
+  setScheduledDate(issue.scheduledDate ? new Date(issue.scheduledDate).toISOString().split('T')[0] : '');
+  setIsPinned((issue.metadata as any)?.isPinned || false);
+  }
  }, [open, issue]);
 
  if (!open || !issue) return null;
@@ -438,13 +446,19 @@ function IssueEditModal({
   const handleSubmit = (e: React.FormEvent) => {
   e.preventDefault();
   if (!title.trim()) return;
+  
+  const updatedMetadata = { ...(issue.metadata as any || {}), isPinned };
+  
   onSubmit(issue.id, {
   title: title.trim(),
   description: description.trim(),
   status: status as TaskStatus,
   priority: priority as TaskPriority,
   estimateMinutes: Number(estimate) || 0,
-  blockedById
+  blockedById,
+  dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+  scheduledDate: scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
+  metadata: updatedMetadata
   });
   };
 
@@ -457,7 +471,7 @@ function IssueEditModal({
  >
  <div
  onClick={e => e.stopPropagation()}
- className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
+ className="v4-card w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
  >
  <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50 shrink-0">
  <div className="flex items-center gap-2.5">
@@ -476,6 +490,16 @@ function IssueEditModal({
  </div>
 
  <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+<div className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface-hover/30">
+  <div>
+    <h4 className="text-body font-medium text-primary">Pin to Weekly Timeline</h4>
+    <p className="text-caption text-secondary">Show this task in the pinned section of your Daily Schedule.</p>
+  </div>
+  <label className="relative inline-flex items-center cursor-pointer">
+    <input type="checkbox" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} className="sr-only peer" />
+    <div className="w-9 h-5 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2563EB]"></div>
+  </label>
+</div>
  <div>
  <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
  Task Title <span className="text-[#DC2626]">*</span>
@@ -565,6 +589,42 @@ function IssueEditModal({
  </select>
  <p className="text-badge text-secondary mt-1">Select a task that must be completed before this task can start.</p>
  </div>
+
+ <div className="grid grid-cols-2 gap-4">
+    <div>
+      <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">Scheduled Date</label>
+      <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-body text-primary focus:outline-none focus:border-primary transition-colors" />
+    </div>
+    <div>
+      <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">Due Date</label>
+      <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-body text-primary focus:outline-none focus:border-primary transition-colors" />
+    </div>
+  </div>
+  
+  <div className="pt-2">
+    <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5 flex items-center gap-2">Subtasks <span className="bg-surface border border-border px-1.5 rounded-full text-[10px]">{issue?.childTasks?.length || 0}</span></label>
+    <div className="space-y-2 mb-3">
+      {issue?.childTasks?.map((child: any) => (
+        <div key={child.id} className="flex items-center gap-2 p-2 rounded-lg border border-border bg-surface-hover/50 text-caption text-primary">
+          <div className={`w-3 h-3 rounded-full border ${child.status === 'DONE' ? 'bg-[#2563EB] border-[#2563EB]' : 'border-secondary'}`} />
+          <span className={child.status === 'DONE' ? 'line-through text-muted' : ''}>{child.title}</span>
+        </div>
+      ))}
+      {(!issue?.childTasks || issue.childTasks.length === 0) && <p className="text-caption text-muted italic">No subtasks yet.</p>}
+    </div>
+    <div className="flex gap-2">
+      <input type="text" value={newSubtask} onChange={e => setNewSubtask(e.target.value)} onKeyDown={async e => {
+        if (e.key === 'Enter' && newSubtask.trim()) {
+          e.preventDefault();
+          try {
+            await api.tasks.create({ title: newSubtask.trim(), parentTaskId: issue.id });
+            setNewSubtask('');
+            queryClient.invalidateQueries({ queryKey: ['issues'] });
+          } catch {}
+        }
+      }} placeholder="Add a subtask (press Enter)" className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-caption text-primary focus:outline-none focus:border-primary transition-colors" />
+    </div>
+  </div>
 
  <div className="pt-4 border-t border-border flex justify-end gap-3 shrink-0">
  <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
@@ -693,6 +753,7 @@ export function KanbanBoard() {
 
  const filteredIssues = useMemo(() => {
  return issues.filter(issue => {
+    if (issue.parentTaskId) return false;
  const matchesSearch = searchQuery === '' || issue.title.toLowerCase().includes(searchQuery.toLowerCase()) || issue.id.toLowerCase().includes(searchQuery.toLowerCase());
  const matchesPriority = priorityFilter === 'all' || issue.priority === priorityFilter;
  return matchesSearch && matchesPriority;
@@ -740,7 +801,7 @@ export function KanbanBoard() {
     let newPosition = activeIssueData.position;
 
     if (activeId !== overId) {
-      const statusIssues = issues.filter(i => i.status === newStatus).sort((a, b) => a.position - b.position);
+      const statusIssues = issues.filter(i => !i.parentTaskId && i.status === newStatus).sort((a, b) => a.position - b.position);
       
       if (STATUSES.includes(overId)) {
         // Dropped directly on an empty column or trailing space of a column
@@ -797,8 +858,8 @@ export function KanbanBoard() {
  </BaseButton>
  </div>
 
- {/* Interactive Filter & Search Bar */}
- <div className="bg-surface border border-border rounded-xl p-3 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+ {/* BOARD CONTROLS & FILTERS */}
+ <div className="v4-card p-3 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
  
  {/* Search Input */}
  <div className="relative flex-1 max-w-md">
@@ -836,7 +897,7 @@ export function KanbanBoard() {
 
  {/* Single Bounded Board Grid */}
  <div className="flex-1 overflow-x-auto pb-4">
- <div className="min-w-max h-full border border-border rounded-xl bg-surface shadow-sm flex overflow-hidden">
+ <div className="min-w-max h-full v4-card flex overflow-hidden">
  <DndContext 
  sensors={sensors} 
  collisionDetection={closestCorners} 
@@ -874,9 +935,15 @@ export function KanbanBoard() {
  issue={editingIssue}
  allIssues={issues}
  onClose={() => { setEditModalOpen(false); setEditingIssue(null); }}
- onSubmit={(id, data) => updateIssueDetailMutation.mutate({ id, data })}
+ onSubmit={(id, data) => updateIssueDetailMutation.mutate({ id, data: data as any })}
  isSubmitting={updateIssueDetailMutation.isPending}
  />
  </div>
  );
 }
+
+
+
+
+
+

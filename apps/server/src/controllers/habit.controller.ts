@@ -34,7 +34,10 @@ export const createHabit = async (req: Request, res: Response) => {
     return res.status(201).json(habit);
   } catch (error: any) {
     console.error('Habit Create Error:', error);
-    if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+    if (error.name === 'ZodError') {
+      console.error('Zod Validation Failed:', JSON.stringify(error.errors, null, 2));
+      return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+    }
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };

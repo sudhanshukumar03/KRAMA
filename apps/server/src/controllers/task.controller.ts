@@ -16,7 +16,7 @@ export const listTasks = async (req: Request, res: Response) => {
     return res.status(200).json(tasks);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -27,24 +27,36 @@ export const getTask = async (req: Request, res: Response) => {
     return res.status(200).json(task);
   } catch (error: any) {
     if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
 export const createTask = async (req: Request, res: Response) => {
   try {
-    const data = CreateTaskSchema.parse(req.body);
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || (req.body.workspaceId as string);
+    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+
+    const data = CreateTaskSchema.parse({ ...req.body, workspaceId });
+    if (req.body.parentTaskId !== undefined) {
+      (data as any).parentTaskId = req.body.parentTaskId;
+    }
     const task = await taskService.createTask(data, req.user!.id);
     return res.status(201).json(task);
   } catch (error: any) {
-    if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
-    return res.status(500).json({ message: 'Internal server error' });
+    if (error.name === 'ZodError') {
+      console.error('ZOD ERROR:', JSON.stringify(error.errors, null, 2));
+      return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+    }
+    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
 export const updateTask = async (req: Request, res: Response) => {
   try {
     const data = UpdateTaskSchema.parse(req.body);
+    if (req.body.metadata !== undefined) {
+      (data as any).metadata = req.body.metadata;
+    }
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || (data.workspaceId as string);
     const task = await taskService.updateTask((req.params.id as string), workspaceId, data, req.user!.id);
     return res.status(200).json(task);
@@ -53,7 +65,7 @@ export const updateTask = async (req: Request, res: Response) => {
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
     if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
     if (error.message.includes('Conflict')) return res.status(409).json({ message: error.message });
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -64,7 +76,7 @@ export const deleteTask = async (req: Request, res: Response) => {
     return res.status(200).json({ message: 'Task deleted' });
   } catch (error: any) {
     if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -77,7 +89,7 @@ export const reorderTask = async (req: Request, res: Response) => {
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
     if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
     if (error.message.includes('Conflict')) return res.status(409).json({ message: error.message });
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -88,7 +100,7 @@ export const completeTask = async (req: Request, res: Response) => {
     return res.status(200).json(task);
   } catch (error: any) {
     if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -100,6 +112,13 @@ export const restoreTask = async (req: Request, res: Response) => {
   } catch (error: any) {
     if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
     if (error.message.includes('Conflict')) return res.status(409).json({ message: error.message });
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+// force reload
+
+// reload again
+
+
+

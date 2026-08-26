@@ -17,8 +17,12 @@ export class HabitService {
 
   async createHabit(data: any, userId: string) {
     return runInTransaction(async (tx) => {
+      const { timeOfDay, ...restData } = data;
+      const metadata = timeOfDay ? { timeOfDay } : undefined;
+      
       const habit = await habitRepository.create({
-        ...data,
+        ...restData,
+        metadata,
         createdBy: userId,
         updatedBy: userId,
       }, tx);
@@ -39,10 +43,14 @@ export class HabitService {
         throw new Error('Conflict: version mismatch');
       }
 
-      const { version, workspaceId: _, ...updateData } = data;
+      const { timeOfDay, version, workspaceId: _, ...restData } = data;
+      const metadata = timeOfDay 
+        ? { ...(typeof existing.metadata === 'object' && existing.metadata ? existing.metadata : {}), timeOfDay } 
+        : existing.metadata;
 
       const habit = await habitRepository.update(id, {
-        ...updateData,
+        ...restData,
+        metadata,
         version: { increment: 1 },
         updatedBy: userId,
       }, tx);
@@ -107,6 +115,44 @@ export class HabitService {
       }, tx);
 
       domainEventBus.emitEvent('HABIT_LOGGED', { habitId: id, workspaceId, streak: updatedHabit.streak });
+      return updatedHabit;
+    });
+  }
+
+  async unlogHabitCompletion(id: string, workspaceId: string, userId: string, dateStr?: string, dateIso?: string) {
+    return runInTransaction(async (tx) => {
+      const existing = await habitRepository.findById(id, tx);
+      if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
+        throw new Error('Habit not found');
+      }
+
+      let targetDate = new Date();
+      if (dateIso) {
+        targetDate = new Date(dateIso);
+      } else if (dateStr) {
+        targetDate = new Date(dateStr);
+      }
+
+      const todayStart = new Date(targetDate.setHours(0, 0, 0, 0));
+      const todayEnd = new Date(targetDate.setHours(23, 59, 59, 999));
+
+      const completionsToday = await habitRepository.getCompletionCountToday(id, todayStart, todayEnd, tx);
+      if (completionsToday === 0) {
+        throw new Error('Habit not logged for today');
+      }
+
+      await habitRepository.removeCompletionToday(id, todayStart, todayEnd, tx);
+
+      // Decrement streak, but don't let it go below 0
+      const newStreak = Math.max(0, existing.streak - completionsToday);
+      
+      const updatedHabit = await habitRepository.update(id, {
+        streak: newStreak,
+        version: { increment: 1 },
+        updatedBy: userId,
+      }, tx);
+
+      domainEventBus.emitEvent('HABIT_UNLOGGED', { habitId: id, workspaceId, streak: updatedHabit.streak });
       return updatedHabit;
     });
   }

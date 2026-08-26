@@ -110,7 +110,7 @@ export const api = {
     logout: () => fetchApi<any>('/auth/logout', { method: 'POST' }),
     refresh: () => fetchApi<any>('/auth/refresh', { method: 'POST' }),
     me: () => fetchApi<any>('/auth/me', { method: 'GET' }),
-    updatePreferences: (timerPreferences: Record<string, any>) => fetchApi<any>('/auth/me/preferences', { method: 'PATCH', body: JSON.stringify({ timerPreferences }) }),
+    updatePreferences: (body: Record<string, any>) => fetchApi<any>('/auth/me/preferences', { method: 'PATCH', body: JSON.stringify(body) }),
   },
   workspaces: {
     list: () => fetchApi<Workspace[]>('/workspaces'),
@@ -195,16 +195,17 @@ export const api = {
     query: (q: string) => fetchApi<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}`),
   },
   decisions: {
-    list: async () => [] as DecisionWithRelations[], // Stubbed for Stage 6
-    create: async (_data?: any) => { throw new Error('Not implemented yet'); },
-    update: async (_id?: string, _data?: any) => { throw new Error('Not implemented yet'); },
-    delete: async (_id?: string) => { throw new Error('Not implemented yet'); },
+    list: () => fetchApi<DecisionWithRelations[]>('/decisions'),
+    create: (data: Record<string, any>) => fetchApi<DecisionWithRelations>('/decisions', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, any>) => fetchApi<DecisionWithRelations>(`/decisions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => fetchApi<{ success: boolean }>(`/decisions/${id}`, { method: 'DELETE' }),
     restore: async (_snapshot: any) => { throw new Error('Not implemented yet'); },
   },
   ai: {
     complete: (data: Record<string, any>) => fetchApi<any>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),
     ragQuery: (data: Record<string, any>) => fetchApi<any>('/ai/rag-query', { method: 'POST', body: JSON.stringify(data) }),
     config: () => fetchApi<any>('/ai/config'),
+    analyzeTelemetry: (data: Record<string, any>) => fetchApi<{ insight: string }>('/ai/analyze-telemetry', { method: 'POST', body: JSON.stringify(data) }),
     getDashboardInsight: (force?: boolean) => fetchApi<{ insight: string }>(`/ai/dashboard-insight${force ? '?force=true' : ''}`)
   },
   knowledgeGraph: {
@@ -224,5 +225,17 @@ export const api = {
     overview: (range: string) => fetchApi<any[]>(`/analytics/overview?range=${range}`, { method: 'GET' }),
     focusHistory: (range: string) => fetchApi<any[]>(`/analytics/focus-history?range=${range}`, { method: 'GET' }),
     habitHeatmap: (habitId: string, range: string) => fetchApi<any[]>(`/analytics/habit-heatmap?habitId=${habitId}&range=${range}`, { method: 'GET' })
+  },
+  planner: {
+    getWeek: (start: string, end: string) => fetchApi<any>(`/planner/week?start=${start}&end=${end}`),
+    getHolidays: (country: string, region: string | null, start: string, end: string) => {
+      let url = `/planner/holidays?country=${country}&start=${start}&end=${end}`;
+      if (region) url += `&region=${region}`;
+      return fetchApi<any>(url);
+    },
+    createTimeBlock: (data: any) => fetchApi<any>('/planner/time-blocks', { method: 'POST', body: JSON.stringify(data) }),
+    updateTimeBlock: (id: string, data: any) => fetchApi<any>(`/planner/time-blocks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    deleteTimeBlock: (id: string) => fetchApi<any>(`/planner/time-blocks/${id}`, { method: 'DELETE' }),
+    toggleRoutine: (data: any) => fetchApi<any>('/planner/routine-occurrences', { method: 'PATCH', body: JSON.stringify(data) })
   }
 };

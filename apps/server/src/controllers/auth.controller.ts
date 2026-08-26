@@ -148,28 +148,35 @@ export const updatePreferences = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
     const userId = req.user.id;
-    const { timerPreferences } = req.body;
+    const { timerPreferences, locationConfig } = req.body;
 
-    if (!timerPreferences) {
-      return res.status(400).json({ message: 'timerPreferences object is required' });
+    if (!timerPreferences && !locationConfig) {
+      return res.status(400).json({ message: 'No valid fields provided' });
     }
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return res.status(404).json({ message: 'User not found' });
     
     const currentMetadata = (user.metadata as Record<string, any>) || {};
+    
+    const updateData: any = {};
+    if (timerPreferences) {
+      updateData.metadata = {
+        ...currentMetadata,
+        timerPreferences: {
+          ...(currentMetadata.timerPreferences || {}),
+          ...timerPreferences
+        }
+      };
+    }
+    if (locationConfig) {
+      updateData.countryCode = locationConfig.countryCode;
+      updateData.regionCode = locationConfig.regionCode;
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: {
-        metadata: {
-          ...currentMetadata,
-          timerPreferences: {
-            ...(currentMetadata.timerPreferences || {}),
-            ...timerPreferences
-          }
-        }
-      },
+      data: updateData,
       select: userAuthSelect
     });
 

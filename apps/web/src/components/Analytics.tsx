@@ -33,13 +33,13 @@ export function Analytics() {
   };
 
   return (
-    <div className="h-full flex flex-col p-8 lg:p-12 max-w-7xl mx-auto space-y-8 overflow-y-auto custom-scrollbar animate-in fade-in duration-500">
+    <div className="h-full flex flex-col p-6 md:p-8 max-w-7xl mx-auto space-y-8 overflow-y-auto custom-scrollbar animate-in fade-in duration-500 bg-canvas">
       
       {/* Header */}
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-3xl font-semibold text-primary mb-2 tracking-tight flex items-center gap-3">
-            <TrendingUp className="w-8 h-8 text-[#EA580C]" />
+            <TrendingUp className="w-8 h-8 text-[#2563EB]" />
             Workspace Analytics
           </h1>
           <p className="text-secondary text-lg">Velocity, Focus, and Streaks over time.</p>
@@ -68,7 +68,7 @@ export function Analytics() {
         <div className="lg:col-span-2 space-y-6">
           
           {/* Velocity Trend Chart */}
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+          <div className="v4-card p-6 shadow-sm">
             <h2 className="text-card-title text-primary mb-6 flex items-center gap-2">
               <Activity className="w-5 h-5 text-secondary" />
               Velocity Trend (Tasks/Week)
@@ -90,7 +90,7 @@ export function Analytics() {
           </div>
 
           {/* Deep Work Trend Chart */}
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+          <div className="v4-card p-6 shadow-sm">
             <h2 className="text-card-title text-primary mb-6 flex items-center gap-2">
               <Zap className="w-5 h-5 text-secondary" />
               Deep Work Trend (Hours)
@@ -115,7 +115,7 @@ export function Analytics() {
 
         {/* Right Column (Focus History Log) */}
         <div className="space-y-6">
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm min-h-[600px] flex flex-col">
+          <div className="v4-card p-6 shadow-sm min-h-[600px] flex flex-col">
             <h2 className="text-card-title text-primary mb-4 flex items-center gap-2">
               <Clock className="w-5 h-5 text-secondary" />
               Focus History
@@ -142,7 +142,7 @@ export function Analytics() {
                           </span>
                         )}
                       </div>
-                      <span className="text-xs font-mono text-[#0D9488] bg-[#0D9488]/10 px-2 py-0.5 rounded border border-[#0D9488]/20">
+                      <span className="text-xs font-mono text-[#2563EB] bg-[#2563EB]/10 px-2 py-0.5 rounded border border-[#2563EB]/20">
                         {Math.round(session.duration / 60)}m
                       </span>
                     </div>
@@ -160,3 +160,4 @@ export function Analytics() {
     </div>
   );
 }
+

@@ -11,13 +11,13 @@ export type GoalPace = {
 
 // Helper to compute pace strictly from real snapshot deltas or creation timestamps
 export function computeGoalPace(goal: GoalWithRelations): GoalPace {
-  // @ts-ignore (goal.status might not be fully typed everywhere yet)
-  if (goal.status === 'COMPLETED') {
+  // @ts-ignore ((goal as any).metadata?.status || (goal as any).status might not be fully typed everywhere yet)
+  if ((goal as any).metadata?.status || (goal as any).status === 'COMPLETED') {
     return { status: 'completed', requiredPace: 0, actualPace: 0, badge: 'Completed', projectedDate: null, daysRemaining: 0 };
   }
   // @ts-ignore
-  if (goal.status === 'PAUSED' || goal.status === 'CANCELED') {
-    return { status: 'stalled', requiredPace: 0, actualPace: 0, badge: goal.status === 'PAUSED' ? 'Paused' : 'Canceled', projectedDate: null, daysRemaining: 0 };
+  if ((goal as any).metadata?.status || (goal as any).status === 'PAUSED' || (goal as any).metadata?.status || (goal as any).status === 'CANCELED') {
+    return { status: 'stalled', requiredPace: 0, actualPace: 0, badge: (goal as any).metadata?.status || (goal as any).status === 'PAUSED' ? 'Paused' : 'Canceled', projectedDate: null, daysRemaining: 0 };
   }
 
   if (goal.progress >= 100) {

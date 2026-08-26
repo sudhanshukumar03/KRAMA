@@ -84,10 +84,10 @@ export const createProject = async (req: Request, res: Response) => {
 export const updateProject = async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
-    const data = UpdateProjectSchema.parse(req.body);
+    const workspaceId = (req.headers['x-workspace-id'] || req.query.workspaceId) as string; if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' }); const data = UpdateProjectSchema.parse(req.body);
 
     const existing = await prisma.project.findUnique({ where: { id } });
-    if (!existing || existing.deletedAt || existing.workspaceId !== data.workspaceId) {
+    if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
       return res.status(404).json({ message: 'Project not found' });
     }
 
@@ -95,7 +95,7 @@ export const updateProject = async (req: Request, res: Response) => {
       return res.status(409).json({ message: 'Conflict: version mismatch' });
     }
 
-    const { version, workspaceId, ...updateData } = data;
+    const { version, workspaceId: bodyWorkspaceId, ...updateData } = data;
 
     const project = await prisma.project.update({
       where: { id },
