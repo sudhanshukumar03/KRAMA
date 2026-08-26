@@ -25,9 +25,11 @@ export const CreateTaskSchema = WorkspaceScoped.extend({
   status: z.enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'CANCELED']).default('TODO'),
   priority: z.enum(['NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
   blockedById: z.string().uuid().nullable().optional(),
+  parentTaskId: z.string().uuid().nullable().optional(),
   estimateMinutes: z.number().int().min(0).optional(),
   scheduledDate: z.string().datetime().nullable().optional(),
   dueDate: z.string().datetime().nullable().optional(),
+  metadata: z.record(z.any()).nullable().optional(),
 });
 
 export const UpdateTaskSchema = CreateTaskSchema.partial().extend({
@@ -111,3 +113,19 @@ export const ReorderSchema = WorkspaceScoped.extend({
 export const HabitLogSchema = z.object({
   date: z.string().datetime(), // Day logged
 });
+
+export const CreateDecisionSchema = WorkspaceScoped.extend({
+  title: z.string().min(1).max(255),
+  rationale: z.string().nullable().optional(),
+  outcomes: z.string().nullable().optional(),
+  options: z.array(z.string()).nullable().optional(),
+  metadata: z.union([z.string(), z.record(z.any())]).nullable().optional(),
+  createdAt: z.string().datetime().optional()
+});
+
+export const UpdateDecisionSchema = CreateDecisionSchema.partial().extend({
+  version: z.number().int().min(1).optional(),
+});
+
+
+

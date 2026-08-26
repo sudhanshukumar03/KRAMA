@@ -42,7 +42,7 @@ test('verify drag and drop and dependencies', async ({ page }) => {
   if (count < 3) {
     console.log("Creating 3 tasks for testing...");
     for (let i = 1; i <= 3; i++) {
-      const newBtn = page.locator('button:has-text("New Directive")');
+      const newBtn = page.locator('button:has-text("New Task"), button:has-text("New Issue")');
       if (await newBtn.count() > 0) {
         await newBtn.first().click();
         await page.waitForTimeout(500);

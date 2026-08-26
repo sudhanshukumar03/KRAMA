@@ -76,7 +76,7 @@ export function SprintView() {
  <div className="p-8 max-w-6xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 pb-20">
  
  {/* Main Sprint Banner */}
- <div className="mb-6 bg-surface border border-border rounded-xl p-8 relative overflow-hidden shadow-sm">
+ <div className="mb-6 v4-card p-8 relative overflow-hidden shadow-sm">
  {/* Progress Background */}
  <div className="absolute top-0 left-0 h-1.5 bg-[#E5E8EC] w-full" />
  <div className="absolute top-0 left-0 h-1.5 bg-[#2563EB] transition-all duration-400 ease-out" style={{ width: `${progress}%` }} />
@@ -115,15 +115,15 @@ export function SprintView() {
 
  <div className="bg-surface-hover p-3.5 rounded-lg border border-border/60">
  <div className="text-badge font-mono text-secondary uppercase tracking-[0.02em] mb-1 flex items-center gap-1.5">
- <CheckCircle2 className="w-3.5 h-3.5 text-[#0D9488]" /> Burned Down
+ <CheckCircle2 className="w-3.5 h-3.5 text-[#2563EB]" /> Burned Down
  </div>
- <div className="text-xl font-mono font-bold text-[#0D9488]">{completedPoints} pts</div>
+ <div className="text-xl font-mono font-bold text-[#2563EB]">{completedPoints} pts</div>
  <div className="text-[10px] text-secondary mt-0.5">{remainingPoints} pts remaining</div>
  </div>
 
  <div className="bg-surface-hover p-3.5 rounded-lg border border-border/60">
  <div className="text-badge font-mono text-secondary uppercase tracking-[0.02em] mb-1 flex items-center gap-1.5">
- <Flame className="w-3.5 h-3.5 text-[#EA580C]" /> Velocity Pacing
+ <Flame className="w-3.5 h-3.5 text-[#2563EB]" /> Velocity Pacing
  </div>
  <div className="text-xl font-mono font-bold text-primary">{Math.round(velocityPacing)} pts/wk</div>
  <div className="text-[10px] text-secondary mt-0.5">Projected weekly output</div>
@@ -156,7 +156,7 @@ export function SprintView() {
  </span>
  </div>
 
- <div className="bg-surface border border-border rounded-xl overflow-hidden divide-y divide-border shadow-sm">
+ <div className="v4-card overflow-hidden divide-y divide-border shadow-sm">
  {sprintIssues.map(issue => (
  <div key={issue.id} className="p-4 hover:bg-surface-hover transition-colors duration-150 flex gap-3.5 items-start cursor-pointer group">
  <div className="mt-1">
@@ -168,7 +168,7 @@ export function SprintView() {
  <span className="capitalize bg-surface-hover px-1.5 py-0.2 rounded border border-border">{issue.status.replace('_', ' ')}</span>
  <span>•</span>
  <span className={cn("px-1.5 py-0.2 rounded uppercase font-bold text-[9px] border",
- issue.priority === "URGENT" ?"bg-red-50 text-[#DC2626] border-[#DC2626]/20" :"bg-surface-hover text-secondary border-border"
+ issue.priority === "URGENT" ?"bg-blue-500/10 text-[#2563EB] border-[#2563EB]/20" :"bg-surface-hover text-secondary border-border"
  )}>{issue.priority}</span>
  <span>•</span>
  <span className="text-primary font-medium">{issue.estimateMinutes || 3}h pt</span>
@@ -199,12 +199,12 @@ export function SprintView() {
  <div className="space-y-4">
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-2">
- <div className="w-7 h-7 rounded-lg bg-[#0D9488]/10 flex items-center justify-center text-[#0D9488]">
+ <div className="w-7 h-7 rounded-lg bg-[#2563EB]/10 flex items-center justify-center text-[#2563EB]">
  <ListTodo className="w-4 h-4 stroke-[1.75]" />
  </div>
  <h2 className="text-section text-primary mb-3 ">Completed</h2>
  </div>
- <span className="text-caption font-mono text-[#0D9488] bg-[#0D9488]/10 px-2 py-0.5 rounded font-medium">
+ <span className="text-caption font-mono text-[#2563EB] bg-[#2563EB]/10 px-2 py-0.5 rounded font-medium">
  {doneIssues.length} done
  </span>
  </div>
@@ -213,7 +213,7 @@ export function SprintView() {
  {doneIssues.map(issue => (
  <div key={issue.id} className="p-4 flex gap-3.5 items-start text-muted group hover:bg-surface transition-colors">
  <div className="mt-1">
- <div className="w-4 h-4 rounded bg-[#0D9488] flex items-center justify-center shadow-2xs">
+ <div className="w-4 h-4 rounded bg-[#2563EB] flex items-center justify-center shadow-2xs">
  <Check className="w-3 h-3 text-white stroke-[3]" />
  </div>
  </div>
@@ -242,3 +242,4 @@ export function SprintView() {
  </div>
  );
 }
+

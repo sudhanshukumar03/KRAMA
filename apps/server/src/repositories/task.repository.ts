@@ -7,7 +7,7 @@ export class TaskRepository implements BaseRepository<Task, Prisma.TaskUnchecked
   async findById(id: string, tx?: TxClient): Promise<Task | null> {
     return (tx || prisma).task.findUnique({
       where: { id },
-      include: { project: { include: { goal: true } }, sprint: true },
+      include: { project: { include: { goal: true } }, sprint: true, childTasks: true, blockedBy: true },
     });
   }
 
@@ -28,7 +28,7 @@ export class TaskRepository implements BaseRepository<Task, Prisma.TaskUnchecked
 
     return (tx || prisma).task.findMany({
       where,
-      include: { project: { include: { goal: true } }, sprint: true, blockedBy: true },
+      include: { project: { include: { goal: true } }, sprint: true, blockedBy: true, childTasks: true },
       orderBy: { position: 'asc' },
     });
   }
@@ -45,7 +45,7 @@ export class TaskRepository implements BaseRepository<Task, Prisma.TaskUnchecked
   async create(data: Prisma.TaskUncheckedCreateInput, tx?: TxClient): Promise<Task> {
     return (tx || prisma).task.create({
       data,
-      include: { project: { include: { goal: true } }, sprint: true },
+      include: { project: { include: { goal: true } }, sprint: true, childTasks: true, blockedBy: true },
     });
   }
 
@@ -53,7 +53,7 @@ export class TaskRepository implements BaseRepository<Task, Prisma.TaskUnchecked
     return (tx || prisma).task.update({
       where: { id },
       data,
-      include: { project: { include: { goal: true } }, sprint: true },
+      include: { project: { include: { goal: true } }, sprint: true, childTasks: true, blockedBy: true },
     });
   }
 
@@ -63,3 +63,6 @@ export class TaskRepository implements BaseRepository<Task, Prisma.TaskUnchecked
 }
 
 export const taskRepository = new TaskRepository();
+
+
+

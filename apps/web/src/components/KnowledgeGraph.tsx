@@ -87,12 +87,74 @@ export function KnowledgeGraph() {
         <ForceGraph2D
           ref={graphRef}
           graphData={data}
-          nodeLabel="label"
-          nodeColor={(node: any) => getNodeColor(node.type)}
           nodeRelSize={6}
-          linkColor={() => '#E5E7EB'}
+          linkColor={() => '#E2E8F0'} // Slate-200
+          linkWidth={1.5}
           onNodeClick={handleNodeClick}
           cooldownTicks={100}
+          nodeCanvasObject={(node: any, ctx: any, globalScale: number) => {
+            const label = node.label || 'Unknown';
+            const fontSize = Math.max(12 / globalScale, 2);
+            ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+            
+            const textWidth = ctx.measureText(label).width;
+            const paddingX = 16 / globalScale;
+            const paddingY = 10 / globalScale;
+            const width = textWidth + paddingX;
+            const height = fontSize + paddingY;
+            
+            // Premium Shadow
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
+            ctx.shadowBlur = 8 / globalScale;
+            ctx.shadowOffsetY = 2 / globalScale;
+            
+            // Draw rounded rect (Pill)
+            ctx.fillStyle = '#FFFFFF'; // Pure white card background
+            ctx.beginPath();
+            ctx.roundRect(
+              node.x - width / 2,
+              node.y - height / 2,
+              width,
+              height,
+              height / 2
+            );
+            ctx.fill();
+            
+            // Reset shadow for text and border
+            ctx.shadowColor = 'transparent';
+            
+            // Draw border
+            ctx.strokeStyle = getNodeColor(node.type);
+            ctx.lineWidth = 1.5 / globalScale;
+            ctx.stroke();
+
+            // Draw Text
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#1E293B'; // Slate-800 for high readability
+            ctx.fillText(label, node.x, node.y);
+          }}
+          nodePointerAreaPaint={(node: any, color: string, ctx: any, globalScale: number) => {
+            const label = node.label || 'Unknown';
+            const fontSize = Math.max(12 / globalScale, 2);
+            ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+            const textWidth = ctx.measureText(label).width;
+            const paddingX = 16 / globalScale;
+            const paddingY = 10 / globalScale;
+            const width = textWidth + paddingX;
+            const height = fontSize + paddingY;
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.roundRect(
+              node.x - width / 2,
+              node.y - height / 2,
+              width,
+              height,
+              height / 2
+            );
+            ctx.fill();
+          }}
         />
       </div>
     </div>

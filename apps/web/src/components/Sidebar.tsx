@@ -30,7 +30,6 @@ const executionLoopItems = [
 
 const systemItems = [
   { name: 'Analytics', path: '/app/analytics', icon: TrendingUp, shortcut: 'S N', badgeKey: null },
-  { name: 'AI Assistant', path: '/app/ai', icon: Sparkles, shortcut: 'S A', badgeKey: null },
 ];
 
 export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
@@ -283,3 +282,4 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  </>
  );
 }
+

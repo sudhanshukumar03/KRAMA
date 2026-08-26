@@ -256,7 +256,7 @@ function HabitCreateModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+        className="v4-card w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50">
           <div className="flex items-center gap-2.5">
@@ -471,6 +471,7 @@ function HabitEditModal({
     expectedDurationMinutes: number;
     scheduledDays: number[];
     timeOfDay: string;
+    version: number;
   }) => void;
   isSubmitting: boolean;
   goals: any[];
@@ -483,7 +484,7 @@ function HabitEditModal({
   const [category, setCategory] = useState(initialData?.category || "PRODUCTIVITY");
   const [difficulty, setDifficulty] = useState(initialData?.difficulty || "MEDIUM");
   const [expectedDurationMinutes, setDuration] = useState(initialData?.expectedDurationMinutes || 15);
-  const [timeOfDay, setTimeOfDay] = useState(initialData?.timeOfDay || "morning");
+  const [timeOfDay, setTimeOfDay] = useState(initialData?.metadata?.timeOfDay || initialData?.timeOfDay || "morning");
   const [scheduledDays, setScheduledDays] = useState<number[]>(initialData?.scheduledDays || [0, 1, 2, 3, 4, 5, 6]);
 
   if (!open) return null;
@@ -501,6 +502,7 @@ function HabitEditModal({
       expectedDurationMinutes,
       scheduledDays,
       timeOfDay,
+      version: initialData?.version || 1,
     });
   };
 
@@ -522,7 +524,7 @@ function HabitEditModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+        className="v4-card w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50">
           <div className="flex items-center gap-2.5">
@@ -885,10 +887,12 @@ export function HabitTracker() {
     return true;
   });
 
-  const morningHabits = habits.filter((h) => h.timeOfDay === "morning" && isHabitScheduledToday(h));
-  const afternoonHabits = habits.filter((h) => h.timeOfDay === "afternoon" && isHabitScheduledToday(h));
-  const eveningHabits = habits.filter((h) => h.timeOfDay === "evening" && isHabitScheduledToday(h));
-  const anytimeHabits = habits.filter((h) => h.timeOfDay === "anytime" && isHabitScheduledToday(h));
+  const getHabitTime = (h: any) => h.metadata?.timeOfDay || h.timeOfDay || "anytime";
+  
+  const morningHabits = habits.filter((h) => getHabitTime(h) === "morning" && isHabitScheduledToday(h));
+  const afternoonHabits = habits.filter((h) => getHabitTime(h) === "afternoon" && isHabitScheduledToday(h));
+  const eveningHabits = habits.filter((h) => getHabitTime(h) === "evening" && isHabitScheduledToday(h));
+  const anytimeHabits = habits.filter((h) => getHabitTime(h) === "anytime" && isHabitScheduledToday(h));
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",

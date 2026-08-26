@@ -18,7 +18,7 @@ export const getKnowledgeGraph = async (req: Request, res: Response) => {
       prisma.project.findMany({ where: baseWhere, select: { id: true, name: true, goalId: true, status: true } }),
       prisma.goal.findMany({ where: baseWhere, select: { id: true, title: true, type: true, progress: true } }),
       prisma.habit.findMany({ where: baseWhere, select: { id: true, name: true } }),
-      prisma.page.findMany({ where: baseWhere, select: { id: true, title: true, projectId: true, parentId: true } }),
+      prisma.page.findMany({ where: baseWhere, select: { id: true, title: true, linkedProjectId: true, parentPageId: true } }),
     ]);
 
     const nodes: any[] = [];
@@ -48,11 +48,11 @@ export const getKnowledgeGraph = async (req: Request, res: Response) => {
     // Map Pages
     pages.forEach(p => {
       nodes.push({ id: p.id, label: p.title, type: 'page' });
-      if (p.projectId) {
-        edges.push({ source: p.id, target: p.projectId, type: 'references' });
+      if (p.linkedProjectId) {
+        edges.push({ source: p.id, target: p.linkedProjectId, type: 'references' });
       }
-      if (p.parentId) {
-        edges.push({ source: p.id, target: p.parentId, type: 'child_of' });
+      if (p.parentPageId) {
+        edges.push({ source: p.id, target: p.parentPageId, type: 'child_of' });
       }
     });
 
@@ -61,7 +61,10 @@ export const getKnowledgeGraph = async (req: Request, res: Response) => {
       nodes.push({ id: h.id, label: h.name, type: 'habit' });
     });
 
-    return res.status(200).json({ nodes, edges });
+    const validNodeIds = new Set(nodes.map(n => n.id));
+    const validEdges = edges.filter(e => validNodeIds.has(e.source) && validNodeIds.has(e.target));
+
+    return res.status(200).json({ nodes, edges: validEdges });
   } catch (error: any) {
     console.error('[Knowledge Graph] Error fetching graph:', error);
     return res.status(500).json({ message: 'Internal server error' });

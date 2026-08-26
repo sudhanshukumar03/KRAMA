@@ -33,16 +33,17 @@ export const createGoal = async (req: Request, res: Response) => {
     const goal = await goalService.createGoal(data, req.user!.id);
     return res.status(201).json(goal);
   } catch (error: any) {
+    console.error('Goal Create Error:', error);
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ message: 'Internal server error', error: error.message, stack: error.stack });
   }
 };
 
 export const updateGoal = async (req: Request, res: Response) => {
   try {
-    const data = UpdateGoalSchema.parse(req.body);
+    const workspaceId = (req.headers['x-workspace-id'] || req.query.workspaceId) as string; if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' }); const data = UpdateGoalSchema.parse(req.body);
     // @ts-ignore
-    const goal = await goalService.updateGoal(req.params.id as string, data.workspaceId, data, req.user!.id);
+    const goal = await goalService.updateGoal(req.params.id as string, workspaceId, data, req.user!.id);
     return res.status(200).json(goal);
   } catch (error: any) {
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });

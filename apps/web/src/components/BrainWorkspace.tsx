@@ -350,7 +350,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
   {/* Floating AI RAG Entry Point (Violet #7C3AED / #A78BFA Identity) */}
   <button
   type="button"
-  onClick={() => { window.location.href = '/app/ai?mode=rag'; }}
+  onClick={() => { window.dispatchEvent(new CustomEvent('open-ai-assistant', { detail: { mode: 'rag' } })); }}
   className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#A78BFA] text-white text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs hover:opacity-95 transition-all cursor-pointer hover:scale-105 active:scale-95"
   title="Ask AI about your notes"
   >
