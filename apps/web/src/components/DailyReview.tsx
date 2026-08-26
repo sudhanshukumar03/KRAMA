@@ -11,9 +11,9 @@ import { useAuth } from '../contexts/AuthContext';
 const MOOD_OPTIONS = [
  { label: 'Flow State', icon: Sparkles, desc: 'Peak execution velocity', color: 'text-primary ', bg: 'bg-surface-elevated/10 border-border' },
  { label: 'Deep Focus', icon: Brain, desc: 'Sustained cognitive immersion', color: 'text-blue-500 ', bg: 'bg-blue-500/10 border-blue-500/20' },
- { label: 'Calm & Steady', icon: Activity, desc: 'Nominal operational output', color: 'text-emerald-500', bg: 'bg-emerald-500/10 border-emerald-500/20' },
- { label: 'Fatigued', icon: Clock, desc: 'Low momentum / evening drift', color: 'text-amber-500', bg: 'bg-amber-500/10 border-amber-500/20' },
- { label: 'Blocked / Risk', icon: AlertCircle, desc: 'System impediment detected', color: 'text-red-600 ', bg: 'bg-red-500/10 border-red-500/20' }
+ { label: 'Calm & Steady', icon: Activity, desc: 'Nominal operational output', color: 'text-[#2563EB]', bg: 'bg-[#2563EB]/10 border-[#2563EB]/20' },
+ { label: 'Fatigued', icon: Clock, desc: 'Low momentum / evening drift', color: 'text-[#2563EB]', bg: 'bg-[#2563EB]/10 border-[#2563EB]/20' },
+ { label: 'Blocked / Risk', icon: AlertCircle, desc: 'System impediment detected', color: 'text-[#2563EB] ', bg: 'bg-[#2563EB]/10 border-[#2563EB]/20' }
 ];
 
 const ENERGY_OPTIONS = [
@@ -23,9 +23,9 @@ const ENERGY_OPTIONS = [
 ];
 
 const getThemes = (prefs?: { sprint?: number, deep?: number, quick?: number }) => [
- { id: 'sprint', label: `${prefs?.sprint || 25}m Focus Sprint`, mins: prefs?.sprint || 25, icon: Rocket, color: 'border-border hover:border-border bg-surface-hover text-secondary ', activeColor: 'bg-surface-hover text-primary border-border ring-2 ring-amber-500/50 font-bold', badge: 'POMODORO SPRINT', desc: 'High-intensity Pomodoro sprint for rapid code execution' },
+ { id: 'sprint', label: `${prefs?.sprint || 25}m Focus Sprint`, mins: prefs?.sprint || 25, icon: Rocket, color: 'border-border hover:border-border bg-surface-hover text-secondary ', activeColor: 'bg-surface-hover text-primary border-border ring-2 ring-[#2563EB]/50 font-bold', badge: 'POMODORO SPRINT', desc: 'High-intensity Pomodoro sprint for rapid code execution' },
  { id: 'deep', label: `${prefs?.deep || 45}m Deep Work`, mins: prefs?.deep || 45, icon: Brain, color: 'border-blue-500/30 hover:border-blue-500 bg-blue-500/10 text-blue-500 ', activeColor: 'bg-blue-500 text-white border-blue-500 ring-2 ring-blue-500/50 font-bold', badge: 'COGNITIVE IMMERSION', desc: 'Sustained focus for complex architecture & refactoring' },
- { id: 'quick', label: `${prefs?.quick || 15}m Quick Pulse`, mins: prefs?.quick || 15, icon: Zap, color: 'border-emerald-500/30 hover:border-emerald-500 bg-emerald-500/10 text-emerald-500', activeColor: 'bg-emerald-500 text-white border-emerald-500 ring-2 ring-emerald-500/50 font-bold', badge: 'RAPID REFACTOR', desc: 'Short maintenance burst, PR reviews, and bug squashing' },
+ { id: 'quick', label: `${prefs?.quick || 15}m Quick Pulse`, mins: prefs?.quick || 15, icon: Zap, color: 'border-[#2563EB]/30 hover:border-[#2563EB] bg-[#2563EB]/10 text-[#2563EB]', activeColor: 'bg-[#2563EB] text-white border-[#2563EB] ring-2 ring-[#2563EB]/50 font-bold', badge: 'RAPID REFACTOR', desc: 'Short maintenance burst, PR reviews, and bug squashing' },
  { id: 'stopwatch', label: 'Open Stopwatch', mins: 0, icon: Clock, color: 'border-blue-500/30 hover:border-blue-500 bg-blue-500/10 text-blue-500 ', activeColor: 'bg-blue-500 text-white border-blue-500 ring-2 ring-blue-500/50 font-bold', badge: 'UNBOUNDED FLOW', desc: 'Count up indefinitely without time constraints' },
  { id: 'custom', label: `Custom Timer`, mins: -1, icon: Settings, color: 'border-purple-500/30 hover:border-purple-500 bg-purple-500/10 text-purple-500 ', activeColor: 'bg-purple-500 text-white border-purple-500 ring-2 ring-purple-500/50 font-bold', badge: 'CUSTOM TARGET', desc: 'Ad-hoc configurable minute target' }
 ];
@@ -50,7 +50,9 @@ export function DailyReview() {
  const [newWin, setNewWin] = useState('');
  const [newBlocker, setNewBlocker] = useState('');
  const [notes, setNotes] = useState(todayLog?.notes || '');
- const [shutdownComplete, setShutdownComplete] = useState(false);
+ const [localShutdownComplete, setLocalShutdownComplete] = useState(false);
+ const isShutdownComplete = localShutdownComplete || (todayLog?.metadata as any)?.isShutdownComplete || false;
+ const [tomorrowPriority, setTomorrowPriority] = useState<string>('');
 
  // Theme-Based Focus Timer State
  const [timerRunning, setTimerRunning] = useState(false);
@@ -66,8 +68,21 @@ export function DailyReview() {
     quick: user?.metadata?.timerPreferences?.quick || 15
   });
 
+  const [aiDebrief, setAiDebrief] = useState<string | null>(null);
+
+  const analyzeTelemetryMutation = useMutation({
+    mutationFn: (data: { mood: string, energy: string, reflection: string, sessionSeconds: number, wins: number }) => api.ai.analyzeTelemetry(data),
+    onSuccess: (res: { insight: string }) => {
+      setAiDebrief(res.insight);
+      setLocalShutdownComplete(true);
+      toast.success("AI Sunset Sentinel analysis complete.");
+      saveLogMutation.mutate({ aiDebrief: res.insight, isShutdownComplete: true });
+    },
+    onError: () => toast.error("Failed to generate telemetry insight.")
+  });
+
   const savePrefsMutation = useMutation({
-    mutationFn: (prefs: Record<string, number>) => api.auth.updatePreferences(prefs),
+    mutationFn: (prefs: Record<string, number>) => api.auth.updatePreferences({ timerPreferences: prefs }),
     onSuccess: (data) => {
       updateUser(data.user);
       setShowTimerSettings(false);
@@ -108,6 +123,8 @@ export function DailyReview() {
  if (todayLog.blockers) setBlockers(todayLog.blockers);
  if (todayLog.notes !== null && todayLog.notes !== undefined) setNotes(todayLog.notes);
  if (todayLog.deepWorkMinutes !== undefined) setSecondsElapsed((todayLog.deepWorkMinutes ?? 0) * 60);
+ if ((todayLog.metadata as any)?.aiDebrief) setAiDebrief((todayLog.metadata as any).aiDebrief);
+ if ((todayLog.metadata as any)?.tomorrowPriority) setTomorrowPriority((todayLog.metadata as any).tomorrowPriority);
  }
  }, [todayLog]);
 
@@ -135,7 +152,7 @@ export function DailyReview() {
   });
 
   const saveLogMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (extraMetadata?: any) => {
       const payload = {
         date: new Date(),
         mood: selectedMood,
@@ -143,7 +160,14 @@ export function DailyReview() {
         deepWorkMinutes: Math.floor(secondsElapsed / 60),
         wins,
         blockers,
-        notes
+        notes,
+        metadata: {
+          ...(todayLog?.metadata as object || {}),
+          aiDebrief,
+          tomorrowPriority,
+          isShutdownComplete,
+          ...extraMetadata
+        }
       };
       if (todayLog) {
         return api.dailyLogs.update(todayLog.id, payload);
@@ -228,9 +252,11 @@ export function DailyReview() {
  };
 
  const handleEveningShutdown = () => {
- saveLogMutation.mutate();
- setShutdownComplete(true);
- toast.success(`🌙 Evening Shutdown Complete! Logged ${wins.length} wins and banked ${Math.floor(secondsElapsed / 60)}m of deep work. All systems archived for tomorrow.`);
+   if (!selectedMood || !selectedEnergy || !notes.trim()) {
+     toast.error("Please log your mood, energy, and notes first!");
+     return;
+   }
+   analyzeTelemetryMutation.mutate({ mood: selectedMood, energy: selectedEnergy, reflection: notes, sessionSeconds: secondsElapsed, wins: wins.length });
  };
 
  if (isLoading) return <LoadingState variant="default" title="Loading Daily Review" description="Syncing your habits and logs..." />;
@@ -284,7 +310,7 @@ export function DailyReview() {
  {activeTheme.badge}
  </span>
  <span className="text-caption uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
- <span className="w-2 h-2 rounded-full bg-[#109868] animate-ping inline-block" /> ACTIVE SESSION
+ <span className="w-2 h-2 rounded-full bg-[#2563EB] animate-ping inline-block" /> ACTIVE SESSION
  </span>
  </div>
 
@@ -333,7 +359,7 @@ export function DailyReview() {
  handleCompleteSessionEarly();
  setIsFullScreenFocus(false);
  }}
- className="px-6 py-4 rounded-full bg-[#109868] hover:opacity-90 text-white font-mono text-body font-bold flex items-center gap-2 transition-all cursor-pointer hover:scale-105 shadow-xl"
+ className="px-6 py-4 rounded-full bg-[#2563EB] hover:opacity-90 text-white font-mono text-body font-bold flex items-center gap-2 transition-all cursor-pointer hover:scale-105 shadow-xl"
  >
  <CheckCircle2 className="w-5 h-5 stroke-[1.5]" /> Bank & Finish
  </button>
@@ -354,6 +380,7 @@ export function DailyReview() {
  </div>
  )}
  
+ <fieldset disabled={isShutdownComplete} className="contents">
  {/* AMBER REFLECTION IDENTITY HEADER (#F59E0B / #FBBF24) */}
  <div className="v4-card mb-8 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
  <div className="flex items-center gap-4">
@@ -374,7 +401,7 @@ export function DailyReview() {
  <span className="text-caption font-mono font-bold text-primary bg-surface-hover px-3.5 py-2 rounded-xl border border-border shadow-2xs">
  {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
  </span>
- <BaseButton onClick={() => saveLogMutation.mutate()} disabled={saveLogMutation.isPending} className="cursor-pointer bg-primary hover:opacity-90 text-surface font-bold whitespace-nowrap">
+ <BaseButton onClick={() => saveLogMutation.mutate({})} disabled={saveLogMutation.isPending} className="cursor-pointer bg-primary hover:opacity-90 text-surface font-bold whitespace-nowrap">
  <Save className="w-4 h-4 mr-1.5 stroke-[1.5]" />
  {saveLogMutation.isPending ? 'Saving...' : 'Save Review'}
  </BaseButton>
@@ -382,9 +409,9 @@ export function DailyReview() {
  </div>
 
  {/* AI SUNSET SENTINEL BANNER (Amber Reflection Identity) */}
- <div className="mb-8 v4-card p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
- <div className="flex items-start gap-3.5">
- <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 border border-border">
+ <div className="mb-8 v4-card p-5 flex flex-col md:flex-row items-start justify-between gap-4">
+ <div className="flex items-start gap-3.5 flex-1">
+ <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 border border-border mt-1">
  <Wand2 className="w-5 h-5 stroke-[1.5]" />
  </div>
  <div>
@@ -398,14 +425,37 @@ export function DailyReview() {
  ?" Outstanding momentum! Calibrate your energy levels below before executing your evening shutdown."
  :" Review your open blockers and note carryover architecture tasks for tomorrow morning."}
  </p>
+ {aiDebrief && (
+ <div className="mt-4 p-4 bg-surface border border-border rounded-xl shadow-sm">
+ <p className="text-body text-primary font-serif italic">"{aiDebrief}"</p>
+ </div>
+ )}
  </div>
  </div>
  <button
  type="button"
- onClick={() => toast.success("✨ AI Reflection Insight: Your highest velocity correlates with 45m Deep Work sprints in the morning.")}
- className="px-3.5 py-2 rounded-xl bg-surface hover:bg-surface-hover text-primary font-mono text-caption font-bold border border-border shadow-2xs transition-all shrink-0 cursor-pointer flex items-center gap-1.5"
+ onClick={() => {
+ if (!selectedMood || !selectedEnergy || !notes.trim()) {
+ toast.error("Please log your mood, energy, and notes first!");
+ return;
+ }
+ analyzeTelemetryMutation.mutate({
+ mood: selectedMood,
+ energy: selectedEnergy,
+ reflection: notes,
+ sessionSeconds: secondsElapsed,
+ wins: wins.length
+ });
+ }}
+ disabled={analyzeTelemetryMutation.isPending}
+ className="px-3.5 py-2 mt-1 md:mt-0 rounded-xl bg-surface hover:bg-surface-hover text-primary font-mono text-caption font-bold border border-border shadow-2xs transition-all shrink-0 cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
  >
- <Sparkles className="w-3.5 h-3.5 text-primary stroke-[1.5]" /> Analyze Flow Telemetry
+ {analyzeTelemetryMutation.isPending ? (
+ <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+ ) : (
+ <Sparkles className="w-3.5 h-3.5 text-primary stroke-[1.5]" /> 
+ )}
+ {analyzeTelemetryMutation.isPending ? "Analyzing..." : "Analyze Flow Telemetry"}
  </button>
  </div>
 
@@ -415,7 +465,7 @@ export function DailyReview() {
  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-border">
  <div className="flex items-center gap-3.5">
  <div className="w-11 h-11 rounded-xl bg-surface-hover flex items-center justify-center shrink-0 border border-border shadow-2xs">
- <Brain className="w-5 h-5 text-amber-500 stroke-[1.5]" />
+ <Brain className="w-5 h-5 text-[#2563EB] stroke-[1.5]" />
  </div>
  <div>
  <div className="flex items-center gap-2 mb-0.5">
@@ -431,11 +481,11 @@ export function DailyReview() {
  <div className="flex items-center gap-3 self-start sm:self-auto">
  <button 
  onClick={() => setIsFullScreenFocus(true)} 
- className="text-amber-500 hover:opacity-80 font-mono text-caption font-bold flex items-center gap-1.5 bg-surface-elevated/10 px-3.5 py-2 rounded-xl transition-colors cursor-pointer border border-border shadow-2xs"
+ className="text-[#2563EB] hover:opacity-80 font-mono text-caption font-bold flex items-center gap-1.5 bg-surface-elevated/10 px-3.5 py-2 rounded-xl transition-colors cursor-pointer border border-border shadow-2xs"
  >
  <Maximize2 className="w-3.5 h-3.5 stroke-[1.5]" /> Full Screen
  </button>
- <div className="bg-surface-hover border border-border px-3.5 py-2 rounded-xl flex items-center gap-2 text-amber-500 text-caption font-mono font-bold shadow-2xs">
+ <div className="bg-surface-hover border border-border px-3.5 py-2 rounded-xl flex items-center gap-2 text-[#2563EB] text-caption font-mono font-bold shadow-2xs">
  <Trophy className="w-3.5 h-3.5 text-primary stroke-[1.5]" /> Banked Today: {Math.floor(secondsElapsed / 3600)}h {Math.floor((secondsElapsed % 3600) / 60)}m
  </div>
  </div>
@@ -474,7 +524,7 @@ export function DailyReview() {
  setShowTaskDropdown(false);
  toast.info(`Target set: ${issue.title}`);
  }}
- className="w-full text-left px-2.5 py-1.5 rounded-lg text-caption text-primary hover:bg-surface-elevated/10 hover:text-amber-500 :text-primary truncate transition-colors flex items-center gap-2 cursor-pointer font-medium"
+ className="w-full text-left px-2.5 py-1.5 rounded-lg text-caption text-primary hover:bg-surface-elevated/10 hover:text-[#2563EB] :text-primary truncate transition-colors flex items-center gap-2 cursor-pointer font-medium"
  >
  <span className="w-1.5 h-1.5 rounded-full bg-surface-elevated shrink-0" /> {issue.title}
  </button>
@@ -489,7 +539,7 @@ export function DailyReview() {
  }}
  className="w-full text-left px-2.5 py-1.5 rounded-lg text-caption text-primary hover:bg-surface-hover hover:text-primary truncate transition-colors flex items-center gap-2 cursor-pointer font-medium"
  >
- <span className="w-1.5 h-1.5 rounded-full bg-[#109868] shrink-0" /> {habit.name}
+ <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] shrink-0" /> {habit.name}
  </button>
  ))}
  {projects.map(proj => (
@@ -688,7 +738,7 @@ export function DailyReview() {
  {sessionSeconds > 0 && (
  <button
  onClick={handleCompleteSessionEarly}
- className="w-10 h-10 rounded-full border border-emerald-500/30 text-emerald-500 flex items-center justify-center hover:bg-emerald-500/10 transition-colors cursor-pointer shrink-0"
+ className="w-10 h-10 rounded-full border border-[#2563EB]/30 text-[#2563EB] flex items-center justify-center hover:bg-[#2563EB]/10 transition-colors cursor-pointer shrink-0"
  title="Bank Session"
  >
  <CheckCircle2 className="w-4 h-4 stroke-[2]" />
@@ -747,7 +797,7 @@ export function DailyReview() {
  {opt.desc}
  </div>
  </div>
- {isSelected && <Check className="w-4 h-4 ml-auto text-emerald-500 shrink-0 stroke-[2.5]" />}
+ {isSelected && <Check className="w-4 h-4 ml-auto text-[#2563EB] shrink-0 stroke-[2.5]" />}
  </div>
  );
  })}
@@ -815,19 +865,19 @@ export function DailyReview() {
  {/* Wins */}
  <div className="space-y-3">
  <label className="text-caption font-mono font-bold text-primary uppercase tracking-wider flex items-center justify-between">
- <span className="flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5 text-emerald-500 stroke-[1.5]" /> Today's Recorded Wins</span>
- <span className="text-emerald-500 font-bold">{wins.length} Logged</span>
+ <span className="flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5 text-[#2563EB] stroke-[1.5]" /> Today's Recorded Wins</span>
+ <span className="text-[#2563EB] font-bold">{wins.length} Logged</span>
  </label>
  <div className="v4-card p-5 min-h-[180px] flex flex-col justify-between gap-4">
  <div className="space-y-2">
  {wins.map((win, i) => (
  <div key={i} className="flex items-center justify-between gap-2 bg-surface-hover/80 px-3.5 py-2.5 rounded-xl border border-border/80 group">
  <span className="text-body font-medium text-primary flex items-center gap-2.5">
- <span className="w-2 h-2 rounded-full bg-[#109868] shrink-0" /> {win}
+ <span className="w-2 h-2 rounded-full bg-[#2563EB] shrink-0" /> {win}
  </span>
  <button 
  onClick={() => setWins(wins.filter((_, idx) => idx !== i))}
- className="text-muted hover:text-red-600 :text-red-400 text-caption opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-1 font-bold"
+ className="text-muted hover:text-[#2563EB] :text-blue-400 text-caption opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-1 font-bold"
  >
  &times;
  </button>
@@ -842,9 +892,9 @@ export function DailyReview() {
  onChange={(e) => setNewWin(e.target.value)}
  onKeyDown={(e) => e.key === 'Enter' && addWin()}
  placeholder="Add a new engineering win or PR milestone..."
- className="flex-1 px-3.5 py-2 text-caption bg-surface-hover border border-border rounded-xl focus:outline-none focus:border-[#109868] focus:bg-surface text-primary font-medium"
+ className="flex-1 px-3.5 py-2 text-caption bg-surface-hover border border-border rounded-xl focus:outline-none focus:border-[#2563EB] focus:bg-surface text-primary font-medium"
  />
- <button onClick={addWin} className="px-4 py-2 bg-[#109868] text-white rounded-xl text-caption font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs">
+ <button onClick={addWin} className="px-4 py-2 bg-[#2563EB] text-white rounded-xl text-caption font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs">
  <Plus className="w-3.5 h-3.5 stroke-[1.5]" /> Add
  </button>
  </div>
@@ -854,19 +904,19 @@ export function DailyReview() {
  {/* Blockers */}
  <div className="space-y-3">
  <label className="text-caption font-mono font-bold text-primary uppercase tracking-wider flex items-center justify-between">
- <span className="flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-red-600 stroke-[1.5]" /> Blockers & Technical Risks</span>
- <span className="text-red-600 font-bold">{blockers.length} Logged</span>
+ <span className="flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-[#2563EB] stroke-[1.5]" /> Blockers & Technical Risks</span>
+ <span className="text-[#2563EB] font-bold">{blockers.length} Logged</span>
  </label>
  <div className="v4-card p-5 min-h-[180px] flex flex-col justify-between gap-4">
  <div className="space-y-2">
  {blockers.map((blocker, i) => (
  <div key={i} className="flex items-center justify-between gap-2 bg-surface-hover/80 px-3.5 py-2.5 rounded-xl border border-border/80 group">
  <span className="text-body font-medium text-primary flex items-center gap-2.5">
- <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" /> {blocker}
+ <span className="w-2 h-2 rounded-full bg-[#2563EB] shrink-0" /> {blocker}
  </span>
  <button 
  onClick={() => setBlockers(blockers.filter((_, idx) => idx !== i))}
- className="text-muted hover:text-red-600 :text-red-400 text-caption opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-1 font-bold"
+ className="text-muted hover:text-[#2563EB] :text-blue-400 text-caption opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-1 font-bold"
  >
  &times;
  </button>
@@ -881,9 +931,9 @@ export function DailyReview() {
  onChange={(e) => setNewBlocker(e.target.value)}
  onKeyDown={(e) => e.key === 'Enter' && addBlocker()}
  placeholder="Add a blocker, bug, or carryover risk..."
- className="flex-1 px-3.5 py-2 text-caption bg-surface-hover border border-border rounded-xl focus:outline-none focus:border-red-500 focus:bg-surface text-primary font-medium"
+ className="flex-1 px-3.5 py-2 text-caption bg-surface-hover border border-border rounded-xl focus:outline-none focus:border-[#2563EB] focus:bg-surface text-primary font-medium"
  />
- <button onClick={addBlocker} className="px-4 py-2 bg-primary text-canvas rounded-xl text-caption font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs">
+ <button onClick={addBlocker} className="px-4 py-2 bg-[#2563EB] text-white rounded-xl text-caption font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs">
  <Plus className="w-3.5 h-3.5 stroke-[1.5]" /> Add
  </button>
  </div>
@@ -900,13 +950,39 @@ export function DailyReview() {
  <textarea 
  value={notes}
  onChange={(e) => setNotes(e.target.value)}
- className="w-full bg-card border border-border rounded-2xl p-5 min-h-[140px] text-body text-primary focus:outline-none focus:border-border focus:ring-1 focus:ring-primary resize-none placeholder:text-muted transition-all shadow-xs font-sans leading-relaxed"
+ className="w-full v4-card p-5 min-h-[140px] text-body text-primary focus:outline-none focus:border-border focus:ring-1 focus:ring-primary resize-none placeholder:text-muted transition-all shadow-xs font-sans leading-relaxed"
  placeholder="Record key architecture reflections, design notes, or carryover tasks for tomorrow morning's execution loop..."
  />
  </div>
+ </fieldset>
+
+ {/* TOMORROW'S PRIORITY (Only after shutdown) */}
+ {isShutdownComplete && (
+ <div className="space-y-3 mb-10 animate-in fade-in slide-in-from-bottom-2 duration-300">
+ <label className="text-caption font-mono font-bold text-primary uppercase tracking-wider flex items-center justify-between">
+ <span className="flex items-center gap-1.5"><Target className="w-4 h-4 text-primary stroke-[1.5]" /> Tomorrow's Priority</span>
+ <span className="text-secondary text-caption font-mono">Set your singular focus for tomorrow</span>
+ </label>
+ <div className="flex flex-col sm:flex-row gap-3">
+   <input 
+     value={tomorrowPriority}
+     onChange={(e) => setTomorrowPriority(e.target.value)}
+     className="w-full v4-card p-4 text-body text-primary focus:outline-none focus:border-border focus:ring-1 focus:ring-primary placeholder:text-muted transition-all shadow-sm flex-1"
+     placeholder="What is your highest-leverage execution target for tomorrow?"
+   />
+   <button 
+     onClick={() => saveLogMutation.mutate({})} 
+     disabled={saveLogMutation.isPending}
+     className="px-6 py-4 sm:py-2 bg-[#2563EB] text-white rounded-xl text-caption font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer shrink-0 shadow-md whitespace-nowrap"
+   >
+     <Save className="w-4 h-4 stroke-[1.5]" /> {saveLogMutation.isPending ? 'Saving...' : 'Save Target'}
+   </button>
+ </div>
+ </div>
+ )}
 
  {/* HERO MOMENT: 1-CLICK EVENING SHUTDOWN & DAY-END CELEBRATION */}
- <div className="bg-surface border-2 border-border rounded-2xl p-6 md:p-8 shadow-md flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+ <div className="v4-card p-6 md:p-8 shadow-md flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
  <div className="absolute -right-10 -bottom-10 w-40 h-40 hidden pointer-events-none" />
  <div className="flex items-center gap-4 text-center md:text-left">
  <div className="w-14 h-14 rounded-2xl bg-surface-hover text-primary flex items-center justify-center shrink-0 shadow-md border border-border">
@@ -914,10 +990,10 @@ export function DailyReview() {
  </div>
  <div>
  <h3 className="text-card text-primary mb-2 ">
- {shutdownComplete ?"🌙 Evening Shutdown Complete — All Systems nominal." :"Ready for 1-Click Evening Shutdown?"}
+ {isShutdownComplete ?"🌙 Evening Shutdown Complete — All Systems nominal." :"Ready for 1-Click Evening Shutdown?"}
  </h3>
  <p className="text-caption text-secondary font-mono max-w-xl">
- {shutdownComplete 
+ {isShutdownComplete 
  ?"Today's telemetry has been archived. Step away from the workstation and recharge for tomorrow's execution loop."
  :"Lock in today's Pomodoro logs, win metrics, and mood calibration. Disconnect with complete peace of mind."}
  </p>
@@ -926,12 +1002,12 @@ export function DailyReview() {
 
  <button
  onClick={handleEveningShutdown}
- disabled={shutdownComplete || saveLogMutation.isPending}
+ disabled={isShutdownComplete || saveLogMutation.isPending}
  className={cn("px-6 py-4 rounded-2xl font-mono text-body font-bold flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-lg shrink-0 w-full md:w-auto",
- shutdownComplete ?"bg-[#109868] text-white cursor-default" :"bg-primary hover:bg-primary/90 text-surface hover:scale-105 active:scale-95"
+ isShutdownComplete ?"bg-[#2563EB] text-white cursor-default" :"bg-primary hover:bg-primary/90 text-surface hover:scale-105 active:scale-95"
  )}
  >
- {shutdownComplete ? (
+ {isShutdownComplete ? (
  <>
  <CheckCircle2 className="w-5 h-5 stroke-[1.5]" /> Systems Archived for Today
  </>
@@ -946,3 +1022,4 @@ export function DailyReview() {
  </div>
  );
 }
+

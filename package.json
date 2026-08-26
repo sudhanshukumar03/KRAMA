@@ -1,31 +1,32 @@
 {
-  "name": "krama-os",
-  "version": "1.0.0",
-  "private": true,
-  "engines": {
-    "node": ">=20.0.0",
-    "pnpm": ">=9.0.0"
-  },
-  "scripts": {
-    "dev": "pnpm --parallel -r run dev",
-    "build": "pnpm -r run build",
-    "lint": "pnpm -r run lint"
-  },
-  "devDependencies": {
-    "@playwright/test": "^1.62.1",
-    "concurrently": "^8.2.2",
-    "typescript": "^5.5.3"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@prisma/client",
-      "@prisma/engines",
-      "bcrypt",
-      "esbuild",
-      "prisma"
-    ]
-  },
-  "dependencies": {
-    "@tailwindcss/typography": "^0.5.20"
-  }
+    "name":  "krama-os",
+    "version":  "1.0.0",
+    "private":  true,
+    "engines":  {
+                    "node":  "\u003e=20.0.0",
+                    "pnpm":  "\u003e=9.0.0"
+                },
+    "scripts":  {
+                    "dev":  "pnpm --parallel -r run dev",
+                    "build":  "pnpm -r run build",
+                    "lint":  "pnpm -r run lint",
+                    "holidays:sync":  "pnpm --filter server holidays:sync"
+                },
+    "devDependencies":  {
+                            "@playwright/test":  "^1.62.1",
+                            "concurrently":  "^8.2.2",
+                            "typescript":  "^5.5.3"
+                        },
+    "pnpm":  {
+                 "onlyBuiltDependencies":  [
+                                               "@prisma/client",
+                                               "@prisma/engines",
+                                               "bcrypt",
+                                               "esbuild",
+                                               "prisma"
+                                           ]
+             },
+    "dependencies":  {
+                         "@tailwindcss/typography":  "^0.5.20"
+                     }
 }

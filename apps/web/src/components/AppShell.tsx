@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { GlobalErrorBoundary } from './ui/GlobalErrorBoundary';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { Analytics } from './Analytics';
 import { Sidebar } from './Sidebar';
@@ -11,7 +12,7 @@ import { Projects } from './Projects';
 import { SprintView } from './SprintView';
 import { DailyReview } from './DailyReview';
 import { ProjectDetail } from './ProjectDetail';
-import { WeeklyPlanner } from './WeeklyPlanner';
+import { PlannerPage } from './planner/PlannerPage';
 import { TimelineView } from './TimelineView';
 import { HabitTracker } from './HabitTracker';
 import { DecisionLog } from './DecisionLog';
@@ -25,7 +26,7 @@ import { useTheme } from '../lib/theme';
 export function AppShell() {
  const navigate = useNavigate();
  const { theme, toggleTheme } = useTheme();
- const [activePrefix, setActivePrefix] = useState<'g' | 'e' | 't' | null>(null);
+ const [activePrefix, setActivePrefix] = useState<'g' | 'e' | 't' | 's' | null>(null);
  const [showCheatsheet, setShowCheatsheet] = useState(false);
  const [isOffline, setIsOffline] = useState(false);
  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -116,16 +117,19 @@ export function AppShell() {
  else if (key === 'h') navigate('/app/habits');
  } else if (activePrefix === 't') {
  if (key === 't') toggleTheme();
- }
+ } else if (activePrefix === 's') {
+  if (key === 'n') navigate('/app/analytics');
+  else if (key === 'a') window.dispatchEvent(new CustomEvent('open-ai-assistant'));
+  }
  setActivePrefix(null);
  clearTimeout(timeoutId);
  return;
  }
 
  // Start new chord
- if (key === 'g' || key === 'e' || key === 't') {
+ if (key === 'g' || key === 'e' || key === 't' || key === 's') {
  e.preventDefault();
- setActivePrefix(key as 'g' | 'e' | 't');
+ setActivePrefix(key as 'g' | 'e' | 't' | 's');
  timeoutId = setTimeout(() => {
  setActivePrefix(null);
  }, 2000);
@@ -256,7 +260,7 @@ export function AppShell() {
 
  {/* Mobile Top Header */}
  {!focusMode && (
- <div className="md:hidden flex items-center justify-between p-3 bg-surface border-b border-border z-40 shrink-0">
+ <div className="md:hidden flex items-center justify-between p-3 bg-sidebar backdrop-blur-2xl border-b border-border z-40 shrink-0">
  <div className="flex items-center gap-2">
  <button
  onClick={() => setMobileMenuOpen(true)}
@@ -281,8 +285,8 @@ export function AppShell() {
  </div>
  )}
 
- <main className="flex-1 overflow-y-auto bg-canvas relative animate-in fade-in duration-150">
- <Routes>
+ <main className="flex-1 overflow-y-auto bg-canvas relative animate-in fade-in duration-150 p-6 md:p-10">
+ <GlobalErrorBoundary><Routes>
  <Route path="/" element={<Dashboard />} />
  <Route path="/brain/*" element={<BrainWorkspace />} />
  <Route path="/goals/*" element={<Goals />} />
@@ -290,17 +294,17 @@ export function AppShell() {
  <Route path="/projects/:id" element={<ProjectDetail />} />
  <Route path="/board/*" element={<KanbanBoard />} />
  <Route path="/sprint/*" element={<SprintView />} />
- <Route path="/planner/*" element={<WeeklyPlanner />} />
+ <Route path="/planner/*" element={<PlannerPage />} />
  <Route path="/timeline/*" element={<TimelineView />} />
  <Route path="/review/*" element={<DailyReview />} />
  <Route path="/habits/*" element={<HabitTracker />} />
  <Route path="/analytics/*" element={<Analytics />} />
  <Route path="/decisions" element={<DecisionLog />} />
  <Route path="/graph" element={<KnowledgeGraph />} />
- <Route path="/ai" element={<AIAssistant />} />
- </Routes>
+ </Routes></GlobalErrorBoundary>
  </main>
  </div>
+ <AIAssistant />
 
  {/* NEW: Visual Two-Key Chord HUD Indicator */}
  {activePrefix && (
@@ -315,7 +319,9 @@ export function AppShell() {
  <span className="text-white font-medium animate-pulse">Waiting for key...</span>
  </div>
  <div className="text-[10px] text-muted pl-2 border-l border-white/10">
- {activePrefix === 'g' ? 'D (Dash), B (Brain), G (Goals), P (Proj)' : 'W (Plan), T (Time), K (Board), S (Sprint), R (Rev), H (Habit)'}
+ {activePrefix === 'g' ? 'D (Dash), B (Brain), G (Goals), P (Proj)' : 
+   activePrefix === 'e' ? 'W (Plan), T (Time), K (Board), S (Sprint), R (Rev), H (Habit)' :
+   activePrefix === 's' ? 'N (Analytics)' : 'T (Toggle Theme)'}
  </div>
  </div>
  )}

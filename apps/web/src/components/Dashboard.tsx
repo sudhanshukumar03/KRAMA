@@ -110,9 +110,9 @@ export function Dashboard() {
 
       {/* 4-Metric Overview Row */}
       {analyticsOverview && analyticsOverview.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="v4-card p-6 shadow-sm flex items-center gap-6">
+            <div className="w-10 h-10 rounded-lg bg-blue-600/10 flex items-center justify-center shrink-0">
               <Activity className="w-5 h-5 text-blue-500" />
             </div>
             <div>
@@ -120,27 +120,27 @@ export function Dashboard() {
               <div className="text-xs text-secondary uppercase tracking-widest font-mono mt-0.5">Velocity (7d)</div>
             </div>
           </div>
-          <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-              <CheckSquare className="w-5 h-5 text-emerald-500" />
+          <div className="v4-card p-6 shadow-sm flex items-center gap-6">
+            <div className="w-10 h-10 rounded-lg bg-blue-800/10 flex items-center justify-center shrink-0">
+              <CheckSquare className="w-5 h-5 text-blue-800" />
             </div>
             <div>
               <div className="text-2xl font-semibold text-primary">{Math.round((analyticsOverview[analyticsOverview.length - 1].okrPace || 0) * 100)}%</div>
               <div className="text-xs text-secondary uppercase tracking-widest font-mono mt-0.5">OKR Pace</div>
             </div>
           </div>
-          <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
-              <Zap className="w-5 h-5 text-purple-500" />
+          <div className="v4-card p-6 shadow-sm flex items-center gap-6">
+            <div className="w-10 h-10 rounded-lg bg-blue-700/10 flex items-center justify-center shrink-0">
+              <Zap className="w-5 h-5 text-blue-700" />
             </div>
             <div>
               <div className="text-2xl font-semibold text-primary">{analyticsOverview[analyticsOverview.length - 1].deepWorkLogged || 0}h</div>
               <div className="text-xs text-secondary uppercase tracking-widest font-mono mt-0.5">Deep Work</div>
             </div>
           </div>
-          <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
-              <Flame className="w-5 h-5 text-orange-500" />
+          <div className="v4-card p-6 shadow-sm flex items-center gap-6">
+            <div className="w-10 h-10 rounded-lg bg-blue-600/10 flex items-center justify-center shrink-0">
+              <Flame className="w-5 h-5 text-blue-600" />
             </div>
             <div>
               <div className="text-2xl font-semibold text-primary">{analyticsOverview[analyticsOverview.length - 1].activeStreaks || 0}</div>
@@ -157,22 +157,22 @@ export function Dashboard() {
         <div className="lg:col-span-2 space-y-6">
           
           {/* AI Insight */}
-          <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-2xl p-6 relative overflow-hidden group shadow-sm hover:shadow-md transition-shadow flex flex-col">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-500/20 to-pink-500/20 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="relative z-10 flex gap-4 items-start">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0 shadow-inner">
-                <Sparkles className="w-5 h-5 text-purple-400" />
+          <div className="bg-gradient-to-r from-blue-600/10 to-blue-400/10 border border-blue-600/20 rounded-2xl p-6 relative overflow-hidden group shadow-sm hover:shadow-md transition-shadow flex flex-col">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-600/20 to-blue-400/20 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="relative z-10 flex gap-6 items-start">
+              <div className="w-10 h-10 rounded-xl bg-blue-700/20 flex items-center justify-center shrink-0 shadow-inner">
+                <Sparkles className="w-5 h-5 text-blue-500" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-card-title text-primary flex items-center gap-2">
                     Daily Insight
-                    {(insightLoading || regeneratingInsight) && <span className="inline-block w-4 h-4 rounded-full border-2 border-purple-500/20 border-t-purple-500 animate-spin" />}
+                    {(insightLoading || regeneratingInsight) && <span className="inline-block w-4 h-4 rounded-full border-2 border-blue-600/20 border-t-blue-600 animate-spin" />}
                   </h3>
                   <button 
                     onClick={handleRegenerateInsight}
                     disabled={insightLoading || regeneratingInsight}
-                    className="text-xs font-medium text-purple-500 bg-purple-500/10 hover:bg-purple-500/20 px-2 py-1 rounded-md flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0 ml-2"
+                    className="text-xs font-medium text-blue-700 bg-blue-700/10 hover:bg-blue-700/20 px-2 py-1 rounded-md flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0 ml-2"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${regeneratingInsight ? 'animate-spin' : ''}`} />
                     Regenerate
@@ -188,22 +188,22 @@ export function Dashboard() {
           </div>
 
           {/* Today's Focus Card */}
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+          <div className="v4-card p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-card-title text-primary flex items-center gap-2">
                 <Target className="w-5 h-5 text-secondary" />
                 Today's Focus
               </h2>
-              <button onClick={() => window.location.hash = '#/planner'} className="text-sm font-medium text-blue-500 hover:text-blue-600 px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 transition-colors">
+              <button onClick={() => window.location.hash = '#/planner'} className="text-sm font-medium text-blue-500 hover:text-blue-600 px-3 py-1.5 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 transition-colors">
                 Open Planner
               </button>
             </div>
             
             {topPriorityTask ? (
-              <div className="border border-border rounded-xl p-5 bg-surface flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="border border-border rounded-xl p-5 bg-surface flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex-1 min-w-0 pr-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-sm ${topPriorityTask.priority === 'URGENT' ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500'}`}>
+                    <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-sm ${topPriorityTask.priority === 'URGENT' ? 'bg-red-500/10 text-red-500' : 'bg-blue-600/10 text-blue-600'}`}>
                       {topPriorityTask.priority || 'NORMAL'}
                     </span>
                     {topPriorityTask.dueDate && (
@@ -221,7 +221,7 @@ export function Dashboard() {
                     <span className="font-mono">{progressPercent}%</span>
                   </div>
                   <div className="h-2 bg-surface-hover rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+                    <div className="h-full bg-blue-600 transition-all duration-500" style={{ width: `${progressPercent}%` }} />
                   </div>
                 </div>
               </div>
@@ -236,7 +236,7 @@ export function Dashboard() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Active Projects List */}
-            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+            <div className="v4-card p-6 shadow-sm">
               <h2 className="text-card-title text-primary mb-4 flex items-center gap-2">
                 <Briefcase className="w-5 h-5 text-secondary" />
                 Active Projects
@@ -255,7 +255,7 @@ export function Dashboard() {
                           <span>{p.progress || 0}%</span>
                         </div>
                         <div className="h-1.5 bg-surface-hover rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${p.progress || 0}%` }} />
+                          <div className="h-full bg-blue-600 transition-all duration-500" style={{ width: `${p.progress || 0}%` }} />
                         </div>
                       </div>
                     </div>
@@ -270,7 +270,7 @@ export function Dashboard() {
             </div>
 
             {/* Weekly Habit Matrix preview */}
-            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+            <div className="v4-card p-6 shadow-sm">
               <h2 className="text-card-title text-primary mb-4 flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-secondary" />
                 Habits Preview
@@ -315,7 +315,7 @@ export function Dashboard() {
           </div>
 
           {/* Activity Feed */}
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+          <div className="v4-card p-6 shadow-sm">
             <h2 className="text-card-title text-primary mb-4 flex items-center gap-2">
               <Clock className="w-5 h-5 text-secondary" />
               Recent Activity
@@ -330,17 +330,17 @@ export function Dashboard() {
           
           {/* Quick Capture (Moved here per spec) */}
           {data.features.quickCapture && (
-            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="v4-card p-6 shadow-sm hover:shadow-md transition-shadow">
               <h2 className="text-card-title text-primary mb-4 flex items-center gap-2">
                 <Target className="w-5 h-5 text-secondary" />
                 Quick Capture
               </h2>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { id: 'note', icon: FileText, label: 'Note', color: 'bg-purple-500/10 text-purple-500' },
-                  { id: 'task', icon: CheckSquare, label: 'Task', color: 'bg-blue-500/10 text-blue-500' },
+                  { id: 'note', icon: FileText, label: 'Note', color: 'bg-blue-700/10 text-blue-700' },
+                  { id: 'task', icon: CheckSquare, label: 'Task', color: 'bg-blue-600/10 text-blue-500' },
                   { id: 'idea', icon: Lightbulb, label: 'Idea', color: 'bg-amber-500/10 text-amber-500' },
-                  { id: 'link', icon: LinkIcon, label: 'Link', color: 'bg-emerald-500/10 text-emerald-500' }
+                  { id: 'link', icon: LinkIcon, label: 'Link', color: 'bg-blue-800/10 text-blue-800' }
                 ].map(item => (
                   <button
                     key={item.id}
@@ -359,7 +359,7 @@ export function Dashboard() {
 
           {/* Pomodoro Timer */}
           {data.features.pomodoro && (
-            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+            <div className="v4-card p-6 shadow-sm">
               <h2 className="text-card-title text-primary mb-6 flex items-center justify-center gap-2">
                 Focus Timer
               </h2>
@@ -368,7 +368,7 @@ export function Dashboard() {
           )}
 
           {/* Today's Tasks */}
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col max-h-[600px]">
+          <div className="v4-card p-6 shadow-sm flex flex-col max-h-[600px]">
             <h2 className="text-card-title text-primary mb-4 flex items-center gap-2 shrink-0">
               <CheckSquare className="w-5 h-5 text-secondary" />
               Due Today
@@ -389,7 +389,7 @@ export function Dashboard() {
                     <button 
                       onClick={() => toggleTaskMutation.mutate(task)}
                       disabled={toggleTaskMutation.isPending}
-                      className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${task.status === 'DONE' ? 'bg-blue-500 border-blue-500 text-white' : 'border-secondary hover:border-blue-500'}`}
+                      className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${task.status === 'DONE' ? 'bg-blue-600 border-blue-500 text-white' : 'border-secondary hover:border-blue-500'}`}
                     >
                       {task.status === 'DONE' && <CheckSquare className="w-3.5 h-3.5" />}
                     </button>
@@ -398,7 +398,7 @@ export function Dashboard() {
                         {task.title}
                       </p>
                       {task.priority && task.status !== 'DONE' && (
-                        <span className={`inline-block mt-1 text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-sm ${task.priority === 'URGENT' ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500'}`}>
+                        <span className={`inline-block mt-1 text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-sm ${task.priority === 'URGENT' ? 'bg-red-500/10 text-red-500' : 'bg-blue-600/10 text-blue-600'}`}>
                           {task.priority}
                         </span>
                       )}

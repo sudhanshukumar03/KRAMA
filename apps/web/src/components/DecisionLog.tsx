@@ -92,7 +92,7 @@ function DecisionModal({
  >
  <div
  onClick={e => e.stopPropagation()}
- className="bg-surface border border-border rounded-2xl w-full max-w-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200"
+ className="v4-card w-full max-w-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200"
  >
  {/* Modal Header */}
  <div className="flex items-center justify-between px-6 py-4 border-b border-border">
@@ -256,7 +256,7 @@ function DecisionCard({
  return (
  <div
  className={cn(
- 'bg-surface border border-border rounded-xl transition-all duration-150 hover:border-[#2563EB]/40 shadow-sm group',
+ 'v4-card transition-all duration-150 hover:border-[#2563EB]/40 shadow-sm group',
  expanded && 'border-[#2563EB]/30 shadow-md'
  )}
  >
@@ -573,7 +573,7 @@ export function DecisionLog() {
  ))}
  </div>
  ) : (
- <div className="border border-border rounded-xl bg-surface h-64 flex items-center justify-center shadow-sm">
+ <div className="v4-card h-64 flex items-center justify-center shadow-sm">
   <EmptyState
     icon={Scale}
     description={searchQuery || projectFilter ? 'No decisions match your filters.' : 'Decision logging will be available in a future update.'}
@@ -597,3 +597,4 @@ export function DecisionLog() {
  </div>
  );
 }
+

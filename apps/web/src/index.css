@@ -3,52 +3,51 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   
-  /* 1. Canvas & Surfaces (Design v4) */
-  --color-canvas: #F9FAFB;
-  --color-surface: #F3F4F6;
-  --color-card: #FFFFFF;
-  --color-sidebar: #FFFFFF;
-  --color-border: #E5E7EB;
+  /* 1. Canvas & Surfaces (Apple Premium Aesthetic) */
+  --color-canvas: #F5F5F7;      /* macOS/iOS signature background */
+  --color-surface: #FFFFFF;     /* Inner app background / secondary */
+  --color-card: #FFFFFF;        /* Pure white cards */
+  --color-sidebar: rgba(255, 255, 255, 0.75); /* Translucent sidebar for glass effect */
+  --color-border: rgba(0, 0, 0, 0.06); /* Razor-thin subtle borders */
   
   /* 2. Text & Accent */
-  --color-primary: #111827;
-  --color-secondary: #4B5563;
-  --color-muted: #6B7280;
-  --color-accent: #3B82F6;
-  --color-accent-tint: #93C5FD;
+  --color-primary: #1D1D1F;     /* Apple's signature dark text */
+  --color-secondary: #64748B;   /* Slate 500: Cool, clear, partially visible gray with a subtle blue/bright tint */
+  --color-muted: #94A3B8;       /* Slate 400: Crisp muted tone for icons */
+  --color-accent: #007AFF;      /* iOS Blue */
+  --color-accent-tint: #E5F1FF; 
   
-  /* 3. Category Accents (Design v4 Strict) */
-  --icon-blue: #3B82F6;
-  --icon-purple: #8B5CF6;
-  --icon-green: #10B981;
-  --icon-orange: #F97316;
-  --icon-red: #EF4444;
-  --icon-teal: #14B8A6;
-  
-
+  /* 3. Category Accents */
+  --icon-blue: #007AFF;
+  --icon-purple: #AF52DE;       /* iOS Purple */
+  --icon-green: #34C759;        /* iOS Green */
+  --icon-orange: #FF9500;       /* iOS Orange */
+  --icon-red: #FF3B30;          /* iOS Red */
+  --icon-teal: #5AC8FA;         /* iOS Light Blue */
   
   /* 4. Spacing, Radius & Shadows */
-  --radius-btn: 8px;
-  --radius-input: 8px;
-  --radius-card: 14px;
-  --radius-dialog: 16px;
-  --radius-sidebar: 16px;
+  --radius-btn: 9999px;         
+  --radius-input: 10px;         /* Apple style inputs */
+  --radius-card: 20px;          /* Smooth squarcles */
+  --radius-dialog: 24px;
+  --radius-sidebar: 20px;
   
-  --shadow-resting: 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-dark: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
-  --shadow-hover: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+  /* Ultra-soft, diffuse shadows like macOS */
+  --shadow-resting: 0 2px 14px -6px rgba(0, 0, 0, 0.05), 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-dark: 0 10px 40px -10px rgba(0, 0, 0, 0.12), 0 0 2px rgba(0, 0, 0, 0.06);
+  --shadow-hover: 0 8px 24px -6px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.04);
   
   /* 5. Motion Tokens */
-  --motion-duration: 150ms;
-  --motion-instant: 70ms;
-  --motion-fast: 110ms;
-  --motion-ui: 150ms;
-  --motion-comfort: 200ms;
+  --motion-duration: 250ms;     /* Slightly longer, smoother animations */
+  --motion-instant: 100ms;
+  --motion-fast: 150ms;
+  --motion-ui: 200ms;
+  --motion-comfort: 300ms;
 
-  --ease-out: ease-out;
-  --ease-in-out: ease-in-out;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* Apple's custom easing */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 @layer base {
@@ -57,35 +56,35 @@
     color: var(--color-primary);
     font-family: var(--font-sans);
     font-size: 14px;
-    font-weight: 400;
+    font-weight: 500; /* Slightly bolder base font for the modern look */
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
-    selection-background-color: rgba(59, 130, 246, 0.1);
+    selection-background-color: rgba(37, 99, 235, 0.1);
     selection-color: var(--icon-blue);
   }
 
   /* Focus Ring */
   *:focus-visible {
     outline: none !important;
-    box-shadow: 0 0 0 2px var(--color-canvas), 0 0 0 4px var(--icon-blue) !important;
+    box-shadow: 0 0 0 2px var(--color-card), 0 0 0 4px var(--color-accent) !important;
   }
 
   .dark {
     /* Canvas & Surfaces */
-    --color-canvas: #111827;
-    --color-surface: #1F2937;
-    --color-card: #1F2937;
-    --color-sidebar: #111827;
-    --color-border: #374151;
+    --color-canvas: #0F172A;
+    --color-surface: #1E293B;
+    --color-card: #1E293B;
+    --color-sidebar: #0F172A;
+    --color-border: #334155;
     
     /* Text */
-    --color-primary: #F9FAFB;
-    --color-secondary: #D1D5DB;
-    --color-muted: #9CA3AF;
+    --color-primary: #F8FAFC;
+    --color-secondary: #CBD5E1;
+    --color-muted: #64748B;
     
     /* Ensure shadows are subdued in dark mode */
-    --shadow-resting: 0 1px 2px rgba(0,0,0,0.5);
-    --shadow-hover: 0 4px 6px -1px rgba(0,0,0,0.5), 0 2px 4px -1px rgba(0,0,0,0.3);
+    --shadow-resting: 0 10px 40px -10px rgba(0,0,0,0.5);
+    --shadow-hover: 0 14px 45px -10px rgba(0,0,0,0.6);
   }
 }
 
@@ -93,14 +92,14 @@
   /* Design v4 Cards */
   .v4-card {
     background-color: var(--color-card);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border); /* Ultra thin Apple border */
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-resting);
-    transition: box-shadow var(--motion-fast) var(--ease-out);
+    transition: box-shadow var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
   }
-  
   .v4-card:hover {
     box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
   }
 
   /* Design v4 Icon Chips */

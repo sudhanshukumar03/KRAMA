@@ -1,9 +1,66 @@
+import { kramaAiService } from '../services/krama-ai.service';
+
+export const kramaChat = async (req: any, res: any) => {
+  try {
+    const { message, ragEnabled } = req.body;
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    const userId = req.user?.id || 'system';
+
+    if (!message) {
+      return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Message is required' });
+    }
+    if (!workspaceId) {
+      return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Workspace ID is required' });
+    }
+
+    const response = await kramaAiService.askKrama(message, workspaceId, userId, ragEnabled);
+    return res.json(response);
+  } catch (error) {
+    console.error('KRAMA AI ERROR:', error);
+    return res.status(500).json({ success: false, message: 'AI request failed' });
+  }
+};
+
 import type { Request, Response } from 'express';
 import { aiService } from '../services/ai.service';
 import { prisma } from '../prisma';
 import { logger } from '../utils/logger';
 import { getEmbedding } from '../lib/embedding';
 import { redisService } from '../services/redis.service';
+import { vectorSearch, keywordSearch, mergeAndRank } from '../services/rag/retriever';
+
+const KRAMA_SYSTEM_PROMPT = `You are KRAMA AI, an intelligent productivity assistant.
+Your job is to help the user think, plan, execute, and reflect.
+
+RESPONSE RULES:
+1. Be concise by default.
+2. Answer the user's actual question first.
+3. Do not repeat the user's question.
+4. Do not add unnecessary introductions or conclusions.
+5. Adapt the response format to the user's intent.
+
+FORMAT BY INTENT:
+Simple question: Give a direct answer in 1–4 sentences.
+Technical question: Answer, Why, Implementation/next step. (Include code only when useful)
+Problem/debugging: Problem, Root cause, Fix, Verification.
+Planning: Goal, Priorities, Steps, Next action.
+Decision: Recommendation, Why, Trade-offs.
+Analysis: Key finding, Evidence, Implication, Recommendation.
+
+When the user asks for code: Provide production-quality code. Explain only the important parts.
+When using retrieved knowledge: Answer using the retrieved context. Do not invent information. Mention uncertainty when context is insufficient.
+
+FORMATTING:
+- Use Markdown.
+- Prefer short paragraphs.
+- Use bullets for multiple items.
+- Use numbered lists for sequences.
+- Use tables only when comparison genuinely benefits from one.
+- Use headings only when they improve readability.
+- Avoid excessive emojis.
+- Never use "Sure!", "Absolutely!", or generic filler unless conversationally appropriate.
+
+IMPORTANT: Do not force every response into a template. The response should feel natural and context-aware.`;
 
 export const completeAiRequest = async (req: Request, res: Response) => {
   try {
@@ -88,7 +145,9 @@ export const completeAiRequest = async (req: Request, res: Response) => {
       contextStr += '</system_project_context>\n\n';
       
       const strippedPrompt = prompt.replace('@project', '').trim();
-      finalPrompt = contextStr + strippedPrompt;
+      finalPrompt = KRAMA_SYSTEM_PROMPT + '\n\n' + contextStr + strippedPrompt;
+    } else {
+      finalPrompt = KRAMA_SYSTEM_PROMPT + '\n\n' + prompt;
     }
 
     const completion = await aiService.complete({
@@ -144,7 +203,10 @@ export const getConfig = async (req: Request, res: Response) => {
   let provider = 'groq';
   let model = 'llama-3.1-8b-instant';
   
-  if (!process.env.GROQ_API_KEY && process.env.OPENAI_API_KEY) {
+  if (process.env.GEMINI_API_KEY) {
+    provider = 'gemini';
+    model = 'gemini-1.5-flash';
+  } else if (!process.env.GROQ_API_KEY && process.env.OPENAI_API_KEY) {
     provider = 'openai';
     model = 'gpt-4o-mini';
   } else if (!process.env.GROQ_API_KEY && process.env.ANTHROPIC_API_KEY) {
@@ -172,41 +234,88 @@ export const ragQuery = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Workspace ID is required' });
     }
 
-    // 1. Embed query
+    // 1. Generate query embedding
     const queryVector = await getEmbedding(prompt);
-    const vectorString = `[${queryVector.join(',')}]`;
 
-    // 2. Search pgvector
-    type TopPage = { id: string, title: string, content: string };
-    const topPages = await prisma.$queryRaw<TopPage[]>`
-      SELECT p.id, p.title, p.blocks::text as content
-      FROM "Page" p
-      JOIN "PageEmbedding" pe ON p.id = pe."pageId"
-      WHERE p."workspaceId" = ${workspaceId} AND p."deletedAt" IS NULL
-      ORDER BY pe.embedding <-> ${vectorString}::vector
-      LIMIT 3
-    `;
+    // 2. Retrieve candidates (Hybrid)
+    const vectorResults = await vectorSearch(workspaceId, queryVector, 20);
+    const keywordResults = await keywordSearch(workspaceId, prompt, 20);
 
-    // 3. Assemble Prompt
+    // 3. Merge and rank via RRF
+    const candidates = mergeAndRank(vectorResults, keywordResults);
+    
+    // 4. Rerank (take top 8)
+    const relevantChunks = candidates.slice(0, 8);
+
+    // 5. Gather structured context (Tasks/Goals)
+    const activeTasks = await prisma.task.findMany({
+      where: { workspaceId, status: { in: ['TODO', 'IN_PROGRESS'] } },
+      select: { title: true, status: true, priority: true, estimateMinutes: true },
+      take: 10
+    });
+
+    const activeGoals = await prisma.goal.findMany({
+      where: { workspaceId, progress: { lt: 100 } },
+      select: { title: true, progress: true },
+      take: 5
+    });
+
+    // 6. Assemble Prompts
     let contextStr = '';
-    if (topPages.length > 0) {
-      contextStr = topPages.map(p => `--- PAGE: ${p.title} ---\n${p.content}`).join('\n\n');
+    if (relevantChunks.length > 0) {
+      contextStr += '### BRAIN WORKSPACE NOTES ###\n';
+      contextStr += relevantChunks.map((c, i) => `[SOURCE ${i + 1}] PAGE_ID: ${c.pageId}\n${c.content}`).join('\n\n');
     } else {
-      contextStr = 'No relevant pages found in this workspace.';
+      contextStr += '### BRAIN WORKSPACE NOTES ###\nNo relevant notes found.\n';
     }
 
-    const augmentedPrompt = `Use the following workspace context to answer the user's question. If the context does not contain the answer, answer to the best of your knowledge but mention that you didn't find it in the user's notes.\n\nContext:\n${contextStr}\n\nQuestion: ${prompt}`;
+    contextStr += '\n\n### ACTIVE TASKS ###\n';
+    contextStr += activeTasks.length > 0 ? activeTasks.map(t => `- ${t.title} [${t.status}] (${t.priority})`).join('\n') : 'No active tasks.';
 
-    // 4. Call existing complete
+    contextStr += '\n\n### ACTIVE GOALS ###\n';
+    contextStr += activeGoals.length > 0 ? activeGoals.map(g => `- ${g.title} [${g.progress}%]`).join('\n') : 'No active goals.';
+
+    const systemPrompt = `${KRAMA_SYSTEM_PROMPT}
+
+You are answering questions using the user's private KRAMA knowledge base and structured project context.
+
+Rules:
+1. Use the provided sources when answering knowledge-base questions.
+2. Never invent information that is not supported by the sources.
+3. If the sources do not contain the answer, say so.
+4. Cite the source pages used in your answer like [SOURCE X].
+5. Do not expose internal database IDs unless necessary.
+6. Use the Active Tasks and Active Goals context to help answer productivity questions.
+
+Knowledge Base and Context:
+${contextStr}
+
+User question: ${prompt}`;
+
+    // 7. Call existing complete (which uses Gemini or defaults)
     const answer = await aiService.complete({
-      prompt: augmentedPrompt,
+      prompt: systemPrompt,
       workspaceId,
       userId: req.user!.id,
+      provider: req.body.provider,
+      model: req.body.model,
+    });
+
+    // We can fetch the actual Page titles for the sources
+    const pageIds = [...new Set(relevantChunks.map(c => c.pageId))];
+    const pages = await prisma.page.findMany({
+      where: { id: { in: pageIds } },
+      select: { id: true, title: true }
+    });
+    
+    const sources = relevantChunks.map(c => {
+      const page = pages.find(p => p.id === c.pageId);
+      return { id: c.pageId, title: page?.title || 'Unknown Page', chunkId: c.id };
     });
 
     return res.status(200).json({ 
       completion: answer, 
-      sources: topPages.map(p => ({ id: p.id, title: p.title })) 
+      sources: sources
     });
   } catch (error: any) {
     logger.error('Error in ragQuery', { error: error.message, stack: error.stack });
@@ -275,3 +384,45 @@ ${contextStr}`;
     });
   }
 };
+
+export const analyzeTelemetry = async (req: Request, res: Response) => {
+  try {
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    if (!workspaceId) {
+      return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Workspace ID is required' });
+    }
+
+    const { mood, energy, reflection, sessionSeconds, wins } = req.body;
+
+    const contextStr = await aiService.buildWorkspaceContext(workspaceId);
+    
+    let telemetryPrompt = `You are the AI Sunset Sentinel for Krama OS, an execution and productivity platform.
+The user is closing out their work session and has provided the following telemetry data:
+- Deep Focus Time Logged: ${Math.floor((sessionSeconds || 0) / 60)} minutes
+- Tasks Completed: ${wins || 0}
+- End of Session Mood: ${mood || 'Not specified'}
+- End of Session Energy: ${energy || 'Not specified'}
+- Text Reflection: "${reflection || 'No reflection provided'}"
+
+Workspace Context:
+${contextStr}
+
+Based on this telemetry and context, provide a highly tactical, 2-3 sentence debrief. Analyze the correlation between their focus time, mood, and reflection, and suggest what they should prioritize tomorrow morning or how they should recover tonight. Keep it concise, motivational, and highly specific. Ensure your response is completely unique each time by focusing on a different angle of the telemetry data or a unique motivational philosophy. Do not use generic phrases.`;
+
+    const answer = await aiService.complete({
+      prompt: telemetryPrompt,
+      workspaceId,
+      userId: req.user!.id,
+    });
+
+    return res.status(200).json({ insight: answer });
+  } catch (error: any) {
+    logger.error('Error in analyzeTelemetry', { error: error.message, stack: error.stack });
+    return res.status(500).json({ 
+      success: false, 
+      code: "AI_PROVIDER_ERROR", 
+      message: "Unable to generate telemetry insight." 
+    });
+  }
+};
+

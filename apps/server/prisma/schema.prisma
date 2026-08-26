@@ -55,6 +55,38 @@ enum HabitCategory {
   OTHER
 }
 
+enum TimeBlockType {
+  MEETING
+  PERSONAL
+  STUDY
+  WORK
+  HEALTH
+  ADMIN
+  OTHER
+}
+
+enum HolidayType {
+  NATIONAL
+  STATE
+  REGIONAL
+  FESTIVAL
+  RELIGIOUS
+  OPTIONAL
+  OBSERVANCE
+  INTERNATIONAL
+  BANK
+  SCHOOL
+  OTHER
+}
+
+enum SyncStatus {
+  LOCAL_ONLY
+  SYNC_PENDING
+  SYNCED
+  SYNC_ERROR
+  CONFLICT
+}
+
 // -----------------------------------------------------------------------------
 // CORE & MULTI-TENANCY
 // -----------------------------------------------------------------------------
@@ -72,6 +104,11 @@ model User {
   deletedAt        DateTime?
   version          Int       @default(1)
 
+  // Planner configuration
+  weeklyCapacityMinutes Int       @default(2400)
+  countryCode           String    @default("IN")
+  regionCode            String?
+
   memberships      WorkspaceMember[]
   sessions         Session[]
   dailyLogs        DailyLog[]
@@ -82,6 +119,8 @@ model User {
   activityLogs     ActivityLog[]
   focusSessions    FocusSession[]
   comments         Comment[]
+  timeBlocks       TimeBlock[]
+  milestones       Milestone[]
 }
 
 model Session {
@@ -248,7 +287,6 @@ model Goal {
   id               String    @id @default(uuid())
   title            String
   type             String    // yearly, quarterly
-  status           String    @default("ACTIVE") // ACTIVE, PAUSED, COMPLETED, CANCELED
   progress         Float     @default(0)
   targetDate       DateTime?
   icon             String?
@@ -295,7 +333,6 @@ model Habit {
   difficulty              HabitDifficulty @default(MEDIUM)
   cadence                 String          @default("daily")
   scheduledDays           Int[]           @default([0, 1, 2, 3, 4, 5, 6])
-  timeOfDay               String          @default("morning")
   metadata                Json?
 
   workspaceId             String
@@ -372,7 +409,7 @@ model Page {
   updatedBy        String?
   version          Int       @default(1)
   
-  embedding        PageEmbedding?
+  knowledgeChunks  KnowledgeChunk[]
 }
 
 model Decision {
@@ -554,10 +591,118 @@ model AiRequest {
   createdAt        DateTime  @default(now())
 }
 
-model PageEmbedding {
-  id         String   @id @default(uuid())
-  pageId     String   @unique
-  page       Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  embedding  Unsupported("vector(384)")
-  updatedAt  DateTime @updatedAt
+model KnowledgeChunk {
+  id          String   @id @default(cuid())
+
+  workspaceId String
+  pageId      String
+
+  content     String
+  chunkIndex  Int
+
+  embedding   Unsupported("vector(768)")?
+
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  page        Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([pageId])
 }
+
+// -----------------------------------------------------------------------------
+// PLANNER SYSTEM
+// -----------------------------------------------------------------------------
+
+model TimeBlock {
+  id          String        @id @default(uuid())
+  userId      String
+  title       String
+  date        DateTime
+  startTime   DateTime
+  endTime     DateTime
+  type        TimeBlockType
+  taskId      String?
+  projectId   String?
+  notes       String?
+  syncStatus  SyncStatus    @default(LOCAL_ONLY)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
+
+model RoutineOccurrence {
+  id          String    @id @default(uuid())
+  habitId     String
+  userId      String
+  date        DateTime
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([habitId, date])
+  @@index([userId, date])
+}
+
+model Milestone {
+  id          String    @id @default(uuid())
+  title       String
+  date        DateTime
+  completed   Boolean   @default(false)
+  projectId   String
+  userId      String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
+
+model Holiday {
+  id              String      @id @default(uuid())
+  name            String
+  localName       String?
+  description     String?
+  date            DateTime
+  countryCode     String
+  regionCode      String?
+  type            HolidayType
+  isOptional      Boolean     @default(false)
+  isPublicHoliday Boolean     @default(false)
+  source          String?
+  sourceId        String?
+  year            Int
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([countryCode, regionCode, date, name])
+  @@index([countryCode, regionCode, year])
+  @@index([countryCode, regionCode, date])
+}
+
+model ExternalItem {
+  id              String     @id @default(uuid())
+  userId          String
+  provider        String
+  externalId      String
+  entityType      String
+  internalId      String
+  syncStatus      SyncStatus @default(SYNCED)
+  lastSyncedAt    DateTime?
+  remoteUpdatedAt DateTime?
+  localUpdatedAt  DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([provider, externalId, userId])
+  @@index([userId, internalId])
+}
+

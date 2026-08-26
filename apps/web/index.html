@@ -14,3 +14,14 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+<script>window.addEventListener('error', function(e) {
+  const div = document.createElement('div');
+  div.id = 'debug-error';
+  div.style.position = 'fixed';
+  div.style.zIndex = '999999';
+  div.style.background = 'red';
+  div.style.color = 'white';
+  div.style.padding = '20px';
+  div.innerText = e.message + '\n' + e.filename + ':' + e.lineno + '\n' + (e.error ? e.error.stack : '');
+  document.body.appendChild(div);
+});</script>

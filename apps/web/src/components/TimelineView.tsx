@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
-import { Plus, Settings, Check, ChevronLeft, ChevronRight, Search, Clock, CalendarPlus, Flame, Sparkles, X } from 'lucide-react';
+import { Plus, Check, ChevronLeft, ChevronRight, Clock, CalendarPlus, Flame, Sparkles, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, parseLocalDate, formatLocalDate } from '../lib/utils';
 import { getIconForString } from '../lib/iconMap';
@@ -11,8 +11,6 @@ import { BaseButton } from './ui/BaseButton';
 import { useHabitCompletion } from '../hooks/useHabitCompletion';
 import { isHabitScheduledToday } from '../lib/habitFilters';
 
-const calendarDays = Array.from({ length: 31 }, (_, i) => i + 1);
-const weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
 function TimelineHabitRow({ habit }: { habit: any }) {
   const { isCompletedToday, toggleHabit, isPending } = useHabitCompletion(habit);
@@ -207,7 +205,7 @@ function ScheduleTaskModal({
   isSubmitting: boolean;
 }) {
   const [title, setTitle] = useState('');
-  const [priority, setPriority] = useState('normal');
+  const [priority, setPriority] = useState('MEDIUM');
   const [estimateHours, setEstimateHours] = useState(1);
   const [dueDate, setDueDate] = useState(defaultDate);
 
@@ -302,7 +300,7 @@ function ScheduleTaskModal({
  onChange={e => setPriority(e.target.value)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
  >
- <option value="normal">Normal</option>
+ <option value="MEDIUM">Normal</option>
  <option value="HIGH">High Priority</option>
  <option value="URGENT">Urgent / Blocker</option>
  </select>
@@ -331,13 +329,14 @@ export function TimelineView() {
  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
   const createRoutineMutation = useMutation({
-  mutationFn: (data: { name: string; cadence: string; category: string; difficulty: string; expectedDurationMinutes: number }) =>
+  mutationFn: (data: { name: string; cadence: string; category: string; difficulty: string; expectedDurationMinutes: number; timeOfDay: string }) =>
   api.habits.create({
   name: data.name,
   cadence: data.cadence,
   category: data.category,
   difficulty: data.difficulty,
   expectedDurationMinutes: data.expectedDurationMinutes,
+  metadata: { timeOfDay: data.timeOfDay },
   streak: 0
   }),
   onSuccess: (newHabit) => {
@@ -349,6 +348,14 @@ export function TimelineView() {
  toast.error('Failed to add routine');
  }
  });
+
+  const deleteIssueMutation = useMutation({
+    mutationFn: (id: string) => api.tasks.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      toast.success("Task permanently deleted");
+    }
+  });
 
   const scheduleTaskMutation = useMutation({
     mutationFn: (data: { title: string; priority: string; estimateMinutes: number; dueDate: string }) => 
@@ -410,128 +417,33 @@ export function TimelineView() {
     return false;
   });
 
- const pinnedTasks = issues.filter(i => i.priority === "URGENT" || i.priority === "HIGH").slice(0, 3);
 
  const timeString = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 
  return (
- <div className="p-6 md:p-8 h-full bg-canvas flex flex-col md:flex-row gap-6 overflow-y-auto overflow-x-hidden animate-in fade-in duration-150">
+ <div className="p-6 md:p-8 h-full bg-canvas flex flex-col xl:flex-row gap-6 overflow-y-auto overflow-x-hidden animate-in fade-in duration-150">
  
- {/* LEFT COLUMN: Sidebar (25%) */}
- <div className="w-full md:w-[25%] flex flex-col gap-6">
  
- {/* Brand */}
- <div className="flex items-center gap-2.5 mb-1">
- <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-medium text-body">
- K
- </div>
- <span className="font-medium tracking-tight text-xl text-primary">Krama</span>
- <button onClick={() => setScheduleModalOpen(true)} className="ml-auto w-6 h-6 rounded-full border border-border bg-surface flex items-center justify-center hover:border-primary transition-colors shadow-2xs" title="New Task">
- <Plus className="w-3.5 h-3.5 text-primary stroke-[2]" />
- </button>
- </div>
 
- {/* Weekly Pinned with Quick-Slot action */}
- <div>
- <div className="flex items-center justify-between mb-3">
- <h2 className="text-section text-primary mb-3 uppercase tracking-[0.02em]">Weekly Pinned</h2>
- <button className="text-badge font-medium text-[#2563EB] hover:text-[#1D4ED8] transition-colors">View all ({issues.length})</button>
- </div>
- <div className="space-y-2.5">
- {pinnedTasks.map(task => {
- const Icon = getIconForString(task.title);
- const isUrgent = task.priority === "URGENT";
- return (
- <div key={task.id} className="bg-surface rounded-xl p-3.5 border border-border shadow-sm flex flex-col gap-2 hover:border-[#2563EB] transition-all group">
- <div className="flex items-center justify-between gap-2">
- <div className="flex items-center gap-2.5 min-w-0">
- <div className="w-8 h-8 rounded-lg bg-surface-hover border border-border flex items-center justify-center shrink-0 group-hover:bg-[#EFF4FE] group-hover:border-[#2563EB]/30 transition-colors">
- <Icon className="w-3.5 h-3.5 text-primary group-hover:text-[#2563EB] transition-colors stroke-[1.75]" />
- </div>
- <div className="min-w-0">
- <div className="font-medium text-primary text-caption truncate">{task.title}</div>
- <div className="text-[10px] text-secondary">Due {new Date(task.dueDate || '').toLocaleDateString()}</div>
- </div>
- </div>
- <span className={cn("px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase tracking-widest shrink-0 border",
- isUrgent ?"bg-red-50 text-[#DC2626] border-[#DC2626]/20" :"bg-amber-50 text-amber-700 border-amber-200"
- )}>
- {task.priority}
- </span>
- </div>
-
- {/* Quick-Slot Button */}
- <button 
- onClick={() => toast.success(`Slotted"${task.title}" into Today's Schedule`)}
- className="w-full mt-1 py-1.5 px-2 bg-surface-hover hover:bg-[#2563EB] text-secondary hover:text-white rounded-md text-badge font-medium transition-all flex items-center justify-center gap-1.5 border border-border hover:border-[#2563EB] shadow-2xs group/btn"
- >
- <CalendarPlus className="w-3.5 h-3.5 stroke-[1.75] group-hover/btn:scale-110 transition-transform" />
- <span>Slot into Timeline &rarr;</span>
- </button>
- </div>
- );
- })}
- 
- {/* Ghost Add Card */}
- <button onClick={() => toast.info('Pin high-priority tasks to lock them into your weekly focus')} className="w-full bg-transparent border border-dashed border-[#D1D5DB] hover:border-[#2563EB] hover:bg-[#EFF4FE]/10 transition-all rounded-xl p-3 flex items-center justify-center gap-2 group">
- <Plus className="w-4 h-4 text-muted group-hover:text-[#2563EB] transition-colors stroke-[2]" />
- <span className="text-caption font-medium text-muted group-hover:text-[#2563EB] transition-colors">Add new weekly pin</span>
- </button>
- </div>
- </div>
-
- {/* Calendar Widget */}
- <div className="bg-surface border border-border rounded-xl p-4.5 shadow-sm mt-auto">
- <div className="flex items-center justify-between mb-4">
- <h3 className="text-card text-primary mb-2 flex items-center gap-1.5">
- <span>{targetDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
- </h3>
- <div className="flex gap-1">
- <button onClick={() => navigateDay(-30)} className="p-1 rounded hover:bg-surface-hover transition-colors"><ChevronLeft className="w-4 h-4 text-secondary stroke-[1.75]" /></button>
- <button onClick={() => navigateDay(30)} className="p-1 rounded hover:bg-surface-hover transition-colors"><ChevronRight className="w-4 h-4 text-secondary stroke-[1.75]" /></button>
- </div>
- </div>
- <div className="grid grid-cols-7 gap-1 mb-2">
- {weekdays.map(d => (
- <div key={d} className="text-center text-badge font-medium text-muted">{d}</div>
- ))}
- </div>
- <div className="grid grid-cols-7 gap-y-1.5 gap-x-1">
- <div className="col-span-2"></div>
- {calendarDays.map(d => {
- const isSelectedDay = d === targetDate.getDate();
- const isRealToday = d === new Date().getDate() && targetDate.getMonth() === new Date().getMonth();
- return (
- <div key={d} className="flex items-center justify-center">
- <div 
- onClick={() => {
- const newDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), d);
- const dateStr = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(newDate.getDate()).padStart(2, '0')}`;
- setSearchParams({ date: dateStr });
- }}
- className={cn("w-6 h-6 rounded-full flex items-center justify-center font-mono text-caption font-medium transition-colors cursor-pointer",
- isSelectedDay ?"bg-[#2563EB] text-white shadow-sm font-bold" : isRealToday ?"border border-[#2563EB] text-[#2563EB] font-bold" :"text-primary hover:bg-surface-hover"
- )}
- >
- {d}
- </div>
- </div>
- );
- })}
- </div>
- </div>
-
- </div>
-
- {/* CENTER COLUMN: Main Schedule (45%) */}
- <div className="w-full md:w-[45%] bg-surface border border-border rounded-xl p-6 md:p-8 shadow-sm flex flex-col relative">
+  {/* CENTER COLUMN: Main Schedule (45%) */}
+ <div className="w-full xl:flex-1 bg-surface border border-border rounded-xl p-6 md:p-8 shadow-sm flex flex-col relative">
  
  {/* Header Row */}
  <div className="flex items-start justify-between mb-6">
  <div>
  <div className="flex items-center gap-2 mb-1">
  <button onClick={() => navigateDay(-1)} title="Previous Day" className="p-1 rounded-full hover:bg-surface-hover transition-colors -ml-1"><ChevronLeft className="w-5 h-5 text-secondary stroke-[1.75]" /></button>
- <h1 className="text-title text-primary mb-4 ">Daily Schedule</h1>
+ <div className="flex items-center gap-4">
+    <h1 className="text-title text-primary m-0">Daily Schedule</h1>
+    <div className="px-3 py-1 bg-surface-hover border border-border rounded-lg flex items-center gap-3 shadow-sm ml-4">
+      <div className="text-caption font-medium text-[#2563EB] flex items-center gap-1.5">
+        <Sparkles className="w-3.5 h-3.5 fill-[#2563EB]" /> Live Horizon
+      </div>
+      <div className="text-sm font-mono font-bold text-primary">
+        {timeString}
+      </div>
+    </div>
+  </div>
  <button onClick={() => navigateDay(1)} title="Next Day" className="p-1 rounded-full hover:bg-surface-hover transition-colors"><ChevronRight className="w-5 h-5 text-secondary stroke-[1.75]" /></button>
  {!isViewingToday && (
  <button 
@@ -544,38 +456,17 @@ export function TimelineView() {
  </div>
  <p className="text-badge font-medium text-secondary uppercase tracking-[0.02em] pl-7 flex items-center gap-2">
  <span>{targetDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
- <span className="w-1 h-1 rounded-full bg-[#9CA3AF]" />
- <span className="text-[#2563EB] font-mono">{todayIssues.length} blocks planned</span>
  </p>
  </div>
  <div className="flex items-center gap-2.5">
  <button onClick={() => setScheduleModalOpen(true)} className="w-9 h-9 rounded-full bg-[#2563EB] text-white flex items-center justify-center hover:bg-[#1D4ED8] transition-colors shadow-sm" title="Add Time Block">
  <Plus className="w-4 h-4 stroke-[2]" />
  </button>
- <div className="flex items-center gap-2 p-1 pl-3 pr-1 bg-surface-hover border border-border rounded-full cursor-pointer hover:border-[#D1D5DB] transition-colors shadow-2xs" onClick={() => toast.info('Timeline settings & calendar preferences')} title="Settings">
- <Settings className="w-4 h-4 text-secondary stroke-[1.75]" />
- <div className="w-7 h-7 rounded-full bg-[#E5E8EC] flex items-center justify-center text-[10px] font-medium text-primary ml-1 font-mono">
- ME
- </div>
- </div>
+ 
  </div>
  </div>
 
- {/* NEW: Live Pulsing Current Time Indicator */}
- <div className="mb-6 py-2 px-3.5 bg-[#EFF4FE] border border-[#2563EB]/20 rounded-lg flex items-center justify-between shadow-2xs">
- <div className="flex items-center gap-2.5">
- <span className="relative flex h-2.5 w-2.5">
- <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#2563EB] opacity-75"></span>
- <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#2563EB]"></span>
- </span>
- <span className="text-caption font-medium text-[#2563EB] flex items-center gap-1.5">
- <Sparkles className="w-3.5 h-3.5 fill-[#2563EB]" /> Live Agenda Horizon
- </span>
- </div>
- <span className="text-caption font-mono font-bold text-[#2563EB] bg-surface px-2 py-0.5 rounded border border-[#2563EB]/20 shadow-2xs">
- {timeString}
- </span>
- </div>
+ 
 
  {/* Vertical Agenda */}
  <div className="relative flex-1">
@@ -618,7 +509,7 @@ export function TimelineView() {
   </div>
  
  {/* Event Card */}
- <div className={cn("rounded-xl p-3.5 transition-all flex items-center justify-between border cursor-pointer",
+ <div className={cn("flex-1 rounded-xl p-3.5 transition-all flex items-center justify-between border cursor-pointer group/card",
  isDone 
  ?"bg-surface-hover border-transparent opacity-80" 
  : isCurrent
@@ -654,9 +545,16 @@ export function TimelineView() {
  </div>
  </div>
  </div>
- <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-black/5 text-muted hover:text-primary">
- <Search className="w-4 h-4 stroke-[1.75]" />
- </button>
+ <button 
+    onClick={(e) => { 
+      e.stopPropagation(); 
+      deleteIssueMutation.mutate(issue.id);
+    }}      
+    className="opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-red-50 text-muted hover:text-red-600"
+    title="Permanently delete task"
+  >
+    <Trash2 className="w-4 h-4 stroke-[2]" />
+  </button>
  </div>
  </div>
  </div>
@@ -669,18 +567,9 @@ export function TimelineView() {
  </div>
 
  {/* RIGHT COLUMN: Widgets (30%) */}
- <div className="w-full md:w-[30%] flex flex-col gap-6">
+ <div className="w-full xl:w-[30%] flex flex-col gap-6">
  
- {/* Local Time */}
- <div className="px-4 py-3 bg-surface-hover border border-border rounded-xl flex items-center justify-between shadow-2xs">
- <div>
- <div className="text-badge font-medium text-muted uppercase tracking-[0.02em]">Local Time</div>
- <div className="text-caption text-secondary">Ready for deep work</div>
- </div>
- <div className="text-2xl font-medium tracking-tight text-primary font-mono">
- {timeString}
- </div>
- </div>
+ 
 
  {/* Habits Widget with Orange Category Tint (#EA580C) */}
  <div className="bg-surface border border-border rounded-xl p-5 shadow-sm flex-1 flex flex-col">
@@ -704,11 +593,11 @@ export function TimelineView() {
    <div className="space-y-4 flex-1">
    
    {/* Morning */}
-   {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "morning").length > 0 && (
+   {habits.filter(h => isHabitScheduledToday(h) && ((h.metadata as any)?.timeOfDay === "morning")).length > 0 && (
      <div>
        <div className="text-[10px] font-mono font-bold text-secondary uppercase mb-2">Morning</div>
        <div className="space-y-1">
-         {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "morning").map(habit => (
+         {habits.filter(h => isHabitScheduledToday(h) && ((h.metadata as any)?.timeOfDay === "morning")).map(habit => (
            <TimelineHabitRow key={habit.id} habit={habit} />
          ))}
        </div>
@@ -716,11 +605,11 @@ export function TimelineView() {
    )}
 
    {/* Afternoon */}
-   {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "afternoon").length > 0 && (
+   {habits.filter(h => isHabitScheduledToday(h) && ((h.metadata as any)?.timeOfDay === "afternoon")).length > 0 && (
      <div>
        <div className="text-[10px] font-mono font-bold text-secondary uppercase mb-2">Afternoon</div>
        <div className="space-y-1">
-         {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "afternoon").map(habit => (
+         {habits.filter(h => isHabitScheduledToday(h) && ((h.metadata as any)?.timeOfDay === "afternoon")).map(habit => (
            <TimelineHabitRow key={habit.id} habit={habit} />
          ))}
        </div>
@@ -728,11 +617,11 @@ export function TimelineView() {
    )}
 
    {/* Evening */}
-   {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "evening").length > 0 && (
+   {habits.filter(h => isHabitScheduledToday(h) && ((h.metadata as any)?.timeOfDay === "evening")).length > 0 && (
      <div>
        <div className="text-[10px] font-mono font-bold text-secondary uppercase mb-2">Evening</div>
        <div className="space-y-1">
-         {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "evening").map(habit => (
+         {habits.filter(h => isHabitScheduledToday(h) && ((h.metadata as any)?.timeOfDay === "evening")).map(habit => (
            <TimelineHabitRow key={habit.id} habit={habit} />
          ))}
        </div>
@@ -740,11 +629,11 @@ export function TimelineView() {
    )}
 
    {/* Anytime */}
-   {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "anytime").length > 0 && (
+   {habits.filter(h => isHabitScheduledToday(h) && (!(h.metadata as any)?.timeOfDay || (h.metadata as any)?.timeOfDay === "anytime")).length > 0 && (
      <div>
        <div className="text-[10px] font-mono font-bold text-secondary uppercase mb-2">Anytime</div>
        <div className="space-y-1">
-         {habits.filter(h => isHabitScheduledToday(h) && h.timeOfDay === "anytime").map(habit => (
+         {habits.filter(h => isHabitScheduledToday(h) && (!(h.metadata as any)?.timeOfDay || (h.metadata as any)?.timeOfDay === "anytime")).map(habit => (
            <TimelineHabitRow key={habit.id} habit={habit} />
          ))}
        </div>
