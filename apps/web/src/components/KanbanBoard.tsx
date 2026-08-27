@@ -1,21 +1,21 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { 
- DndContext, 
- DragOverlay, 
- closestCorners, 
- KeyboardSensor, 
- PointerSensor, 
- useSensor, 
+import {
+ DndContext,
+ DragOverlay,
+ closestCorners,
+ KeyboardSensor,
+ PointerSensor,
+ useSensor,
  useSensors
 } from '@dnd-kit/core';
 import type {
  DragStartEvent,
  DragEndEvent
 } from '@dnd-kit/core';
-import { 
- SortableContext, 
+import {
+ SortableContext,
  sortableKeyboardCoordinates,
  verticalListSortingStrategy
 } from '@dnd-kit/sortable';
@@ -63,10 +63,10 @@ function IssueCard({ issue, index = 0, isDragging, onDelete, onClick }: { issue:
  const staggerClass = `stagger-${Math.min(index + 1, 7)}`;
 
  return (
- <div 
- ref={setNodeRef} 
- style={style} 
- {...attributes} 
+ <div
+ ref={setNodeRef}
+ style={style}
+ {...attributes}
  {...listeners}
  onClick={() => onClick && onClick(issue)}
  className={cn(`p-3 v4-card text-body cursor-grab active:cursor-grabbing card-hover group relative ${!isDragging ? staggerClass : ''}`,
@@ -81,8 +81,8 @@ function IssueCard({ issue, index = 0, isDragging, onDelete, onClick }: { issue:
  <span title="Blocked by dependencies" className="w-2 h-2 rounded-full bg-[#2563EB] animate-pulse" />
  )}
  <span className={cn("px-1.5 py-0.5 rounded font-mono text-[9px] font-bold uppercase tracking-widest border",
- isUrgent ?"bg-[#EFF4FE] text-[#2563EB] border-[#2563EB]/30 animate-pulse" 
- : isHigh ?"bg-[#EFF4FE] text-[#2563EB] border-[#2563EB]/30" 
+ isUrgent ?"bg-[#EFF4FE] text-[#2563EB] border-[#2563EB]/30 animate-pulse"
+ : isHigh ?"bg-[#EFF4FE] text-[#2563EB] border-[#2563EB]/30"
  :"bg-surface-hover text-secondary border-border"
  )}>
  {issue.priority}
@@ -104,12 +104,12 @@ function IssueCard({ issue, index = 0, isDragging, onDelete, onClick }: { issue:
 
  {/* HOVER REVEAL SECTION: Linear-style progressive disclosure (hidden by default, slides down on hover) */}
  <div className="max-h-0 opacity-0 group-hover:max-h-48 group-hover:opacity-100 group-hover:mt-3 group-hover:pt-3 group-hover:border-t group-hover:border-border/60 transition-all duration-200 overflow-hidden space-y-2.5">
- 
+
  {/* Dependency Badges */}
  {hasDependencies && (
  <div className="flex flex-wrap gap-1.5">
   {issue.blockedBy && (
-  <span 
+  <span
   title={`Blocked by: ${issue.blockedBy.title}`}
   className="px-2 py-0.5 rounded bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
   >
@@ -118,7 +118,7 @@ function IssueCard({ issue, index = 0, isDragging, onDelete, onClick }: { issue:
   </span>
   )}
  {issue.blocking && issue.blocking.length > 0 && (
- <span 
+ <span
  title={`Blocking: ${issue.blocking.map((b: any) => b.title).join(', ')}`}
  className="px-2 py-0.5 rounded bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
  >
@@ -195,7 +195,7 @@ function Column({ id, title, issues, isLast, onDelete, onCreate, onClick, isProj
  </div>
 
  {/* Inline + Quick Add Button */}
- <button 
+ <button
     onClick={() => {
       if (isProjectsLoading) return;
       if (!hasProjects) {
@@ -400,7 +400,7 @@ function IssueCreateModal({
  );
 }
 
-function IssueEditModal({
+export function IssueEditModal({
  open,
  issue,
  allIssues,
@@ -446,9 +446,9 @@ function IssueEditModal({
   const handleSubmit = (e: React.FormEvent) => {
   e.preventDefault();
   if (!title.trim()) return;
-  
+
   const updatedMetadata = { ...(issue.metadata as any || {}), isPinned };
-  
+
   onSubmit(issue.id, {
   title: title.trim(),
   description: description.trim(),
@@ -600,7 +600,7 @@ function IssueEditModal({
       <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-body text-primary focus:outline-none focus:border-primary transition-colors" />
     </div>
   </div>
-  
+
   <div className="pt-2">
     <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5 flex items-center gap-2">Subtasks <span className="bg-surface border border-border px-1.5 rounded-full text-[10px]">{issue?.childTasks?.length || 0}</span></label>
     <div className="space-y-2 mb-3">
@@ -644,7 +644,7 @@ export function KanbanBoard() {
  const queryClient = useQueryClient();
  const { data: issues = [], isLoading: isLoadingIssues, isError } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
  const { data: projects = [], isLoading: isLoadingProjects } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
- 
+
  const [activeIssue, setActiveIssue] = useState<IssueWithRelations | null>(null);
  const [searchQuery, setSearchQuery] = useState('');
  const [priorityFilter, setPriorityFilter] = useState<'all' | "URGENT" | "HIGH" | "MEDIUM" | "LOW">('all');
@@ -733,7 +733,7 @@ export function KanbanBoard() {
  onMutate: async ({ id, data }) => {
  await queryClient.cancelQueries({ queryKey: ['issues'] });
  const previousIssues = queryClient.getQueryData<IssueWithRelations[]>(['issues']);
- queryClient.setQueryData<IssueWithRelations[]>(['issues'], old => 
+ queryClient.setQueryData<IssueWithRelations[]>(['issues'], old =>
  old?.map(issue => issue.id === id ? { ...issue, ...data } : issue)
  );
  return { previousIssues };
@@ -791,7 +791,7 @@ export function KanbanBoard() {
 
     let newStatus = activeIssueData.status;
     let overIssueData = issues.find(i => i.id === overId);
-    
+
     if (STATUSES.includes(overId)) {
       newStatus = overId as TaskStatus;
     } else if (overIssueData) {
@@ -802,7 +802,7 @@ export function KanbanBoard() {
 
     if (activeId !== overId) {
       const statusIssues = issues.filter(i => !i.parentTaskId && i.status === newStatus).sort((a, b) => a.position - b.position);
-      
+
       if (STATUSES.includes(overId)) {
         // Dropped directly on an empty column or trailing space of a column
         // Place at the bottom of that column
@@ -811,7 +811,7 @@ export function KanbanBoard() {
       } else {
         const filtered = statusIssues.filter(i => i.id !== activeId);
         let insertIndex = filtered.findIndex(i => i.id === overId);
-        
+
         // If moving down in the same column, dnd-kit overId represents the card we swap with
         const activeIndex = statusIssues.findIndex(i => i.id === activeId);
         if (activeIssueData.status === newStatus && activeIndex !== -1 && activeIndex < insertIndex) {
@@ -846,7 +846,7 @@ export function KanbanBoard() {
 
  return (
  <div className="p-4 sm:p-6 md:p-8 h-full flex flex-col bg-canvas animate-in fade-in duration-150 gap-6">
- 
+
  {/* Top Bar with Title and Action */}
  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
  <div>
@@ -860,7 +860,7 @@ export function KanbanBoard() {
 
  {/* BOARD CONTROLS & FILTERS */}
  <div className="v4-card p-3 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
- 
+
  {/* Search Input */}
  <div className="relative flex-1 max-w-md">
  <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 stroke-[1.5]" />
@@ -883,8 +883,8 @@ export function KanbanBoard() {
  key={pri}
  onClick={() => setPriorityFilter(pri)}
  className={cn("px-3 py-1 rounded-md text-caption font-mono font-bold capitalize transition-all shrink-0 cursor-pointer",
- priorityFilter === pri 
- ?"bg-primary text-surface shadow-2xs" 
+ priorityFilter === pri
+ ?"bg-primary text-surface shadow-2xs"
  :"bg-surface-hover text-secondary hover:text-primary border border-border"
  )}
  >
@@ -898,9 +898,9 @@ export function KanbanBoard() {
  {/* Single Bounded Board Grid */}
  <div className="flex-1 overflow-x-auto pb-4">
  <div className="min-w-max h-full v4-card flex overflow-hidden">
- <DndContext 
- sensors={sensors} 
- collisionDetection={closestCorners} 
+ <DndContext
+ sensors={sensors}
+ collisionDetection={closestCorners}
  onDragStart={handleDragStart}
  onDragEnd={handleDragEnd}
  >
@@ -910,7 +910,7 @@ export function KanbanBoard() {
  <Column key={status} id={status} title={status} issues={columnIssues} isLast={index === arr.length - 1} onDelete={handleDeleteIssue} onCreate={handleCreateIssue} onClick={handleEditIssue} isProjectsLoading={isLoadingProjects} hasProjects={projects.length > 0} />
  );
  })}
- 
+
  <DragOverlay dropAnimation={{
  duration: 150,
  easing: 'ease-out'
@@ -941,9 +941,3 @@ export function KanbanBoard() {
  </div>
  );
 }
-
-
-
-
-
-

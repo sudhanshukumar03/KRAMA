@@ -19,7 +19,7 @@ export class HabitService {
     return runInTransaction(async (tx) => {
       const { timeOfDay, ...restData } = data;
       const metadata = timeOfDay ? { timeOfDay } : undefined;
-      
+
       const habit = await habitRepository.create({
         ...restData,
         metadata,
@@ -44,8 +44,8 @@ export class HabitService {
       }
 
       const { timeOfDay, version, workspaceId: _, ...restData } = data;
-      const metadata = timeOfDay 
-        ? { ...(typeof existing.metadata === 'object' && existing.metadata ? existing.metadata : {}), timeOfDay } 
+      const metadata = timeOfDay
+        ? { ...(typeof existing.metadata === 'object' && existing.metadata ? existing.metadata : {}), timeOfDay }
         : existing.metadata;
 
       const habit = await habitRepository.update(id, {
@@ -76,19 +76,21 @@ export class HabitService {
     });
   }
 
-  async logHabitCompletion(id: string, workspaceId: string, userId: string) {
+  async logHabitCompletion(id: string, workspaceId: string, userId: string, dateStr?: string, dateIso?: string) {
     return runInTransaction(async (tx) => {
       const existing = await habitRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
         throw new Error('Habit not found');
       }
 
-      const now = new Date();
+      let now = new Date();
+      if (dateIso) now = new Date(dateIso);
+      else if (dateStr) now = new Date(dateStr);
 
-      const scheduled = existing.scheduledDays && existing.scheduledDays.length > 0 
-        ? existing.scheduledDays 
+      const scheduled = existing.scheduledDays && existing.scheduledDays.length > 0
+        ? existing.scheduledDays
         : [0, 1, 2, 3, 4, 5, 6];
-        
+
       if (!scheduled.includes(now.getDay())) {
         throw new Error('Habit not scheduled for today');
       }
@@ -145,7 +147,7 @@ export class HabitService {
 
       // Decrement streak, but don't let it go below 0
       const newStreak = Math.max(0, existing.streak - completionsToday);
-      
+
       const updatedHabit = await habitRepository.update(id, {
         streak: newStreak,
         version: { increment: 1 },

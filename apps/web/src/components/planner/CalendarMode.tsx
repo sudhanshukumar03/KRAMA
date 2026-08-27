@@ -1,130 +1,147 @@
-import { useState } from 'react';
-import { format, parseISO } from 'date-fns';
-import { useHolidays } from '../../hooks/useHolidays';
-import { COUNTRIES, INDIAN_STATES } from './LocationSettingsModal';
+import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday } from "date-fns";
+import { useHolidays } from "../../hooks/useHolidays";
+import { Calendar as CalendarIcon } from "lucide-react";
 
 interface Props {
-  data: any; // this is the week data, but CalendarMode now shows a full month or more!
-  days: Date[]; // Currently displayed week days, but we want full month in Calendar Mode
+  calendarDate: Date;
+  currentCountry: string;
+  currentRegion: string | null;
+  localOnly: boolean;
 }
 
-export function CalendarMode({ data, days }: Props) {
-  const [activeTab, setActiveTab] = useState<'india' | 'world'>('india');
-  
-  // For India tab
-  const defaultIndiaRegion = data.config?.countryCode === 'IN' ? (data.config?.regionCode || '') : '';
-  const [indiaRegion, setIndiaRegion] = useState(defaultIndiaRegion);
+export function CalendarMode({ calendarDate, currentCountry, currentRegion, localOnly }: Props) {
+  const { data: monthData, isLoading } = useHolidays(currentCountry, currentRegion, calendarDate);
 
-  // For World tab
-  const [worldCountry, setWorldCountry] = useState(data.config?.countryCode !== 'IN' ? data.config?.countryCode : 'US');
-  
-  // We use the first day of the week as the reference for the month being viewed
-  const referenceDate = days[0];
+  let holidays = monthData?.holidays || [];
+  if (localOnly) {
+    holidays = holidays.filter((h: any) => h.isPublicHoliday);
+  }
 
-  const currentCountry = activeTab === 'india' ? 'IN' : worldCountry;
-  const currentRegion = activeTab === 'india' ? (indiaRegion || null) : null;
+  const upcomingHolidays = holidays.filter((h: any) => parseISO(h.date) >= new Date(new Date().setHours(0,0,0,0)));
 
-  const { data: monthData, isLoading } = useHolidays(currentCountry, currentRegion, referenceDate);
+  // Calendar Grid Math
+  const monthStart = startOfMonth(calendarDate);
+  const monthEnd = endOfMonth(calendarDate);
 
-  const holidays = monthData?.holidays || [];
+  const startDate = new Date(monthStart);
+  startDate.setDate(startDate.getDate() - startDate.getDay() + (startDate.getDay() === 0 ? -6 : 1)); // Adjust for Monday start
 
-  const publicHolidays = holidays.filter((h: any) => h.isPublicHoliday);
-  const observances = holidays.filter((h: any) => !h.isPublicHoliday);
+  const endDate = new Date(monthEnd);
+  endDate.setDate(endDate.getDate() + (7 - endDate.getDay() === 7 ? 0 : 7 - endDate.getDay()));
+
+  const monthDays = eachDayOfInterval({ start: startDate, end: endDate });
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col h-full">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex bg-slate-100 p-1 rounded-xl">
-          <button
-            onClick={() => setActiveTab('india')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'india' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            India Holidays
-          </button>
-          <button
-            onClick={() => setActiveTab('world')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'world' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            World Calendar
-          </button>
-        </div>
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col">
+      <div className="flex gap-8">
 
-        <div>
-          {activeTab === 'india' ? (
-            <select
-              value={indiaRegion}
-              onChange={(e) => setIndiaRegion(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-            >
-              <option value="">All India (National Only)</option>
-              {INDIAN_STATES.map(s => <option key={s.code} value={s.code}>{s.name}</option>)}
-            </select>
-          ) : (
-            <select
-              value={worldCountry}
-              onChange={(e) => setWorldCountry(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-            >
-              {COUNTRIES.filter(c => c.code !== 'WORLD').map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
-            </select>
-          )}
-        </div>
-      </div>
+        {/* CALENDAR GRID */}
+        <div className="flex-1 flex flex-col">
+          <div className="grid grid-cols-7 gap-1 text-center text-xs mb-2 flex-shrink-0">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => (
+              <div key={i} className="font-bold text-slate-400 uppercase tracking-wider py-2">{d}</div>
+            ))}
+          </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <h2 className="text-xl font-bold text-slate-800 mb-4">{format(referenceDate, 'MMMM yyyy')}</h2>
-        
-        {isLoading ? (
-          <div className="text-slate-500 py-10 text-center animate-pulse">Loading calendar data...</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Public Holidays</h3>
-              {publicHolidays.length === 0 ? (
-                <p className="text-sm text-slate-500 italic">No public holidays this month.</p>
-              ) : (
-                <div className="space-y-4">
-                  {publicHolidays.map((h: any) => (
-                    <div key={h.id} className="flex gap-4 items-start">
-                      <div className="w-12 h-12 rounded-xl bg-pink-50 border border-pink-100 flex flex-col items-center justify-center flex-shrink-0 text-pink-600">
-                        <span className="text-[10px] font-bold uppercase">{format(parseISO(h.date), 'MMM')}</span>
-                        <span className="text-base font-black leading-none">{format(parseISO(h.date), 'd')}</span>
+          <div className="grid grid-cols-7 gap-2">
+            {monthDays.map(day => {
+              const dayHolidays = holidays.filter((h: any) => isSameDay(parseISO(h.date), day));
+
+              return (
+                <div
+                  key={day.toISOString()}
+                  className={"border rounded-xl p-2 flex flex-col " + (isSameMonth(day, calendarDate) ? "bg-white border-slate-200" : "bg-slate-50 border-slate-100 opacity-50")}
+                >
+                  <div className={"text-sm font-semibold mb-1 " + (isToday(day) ? "flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white" : "text-slate-700")}>
+                    {format(day, "d")}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    {dayHolidays.map((h: any) => (
+                      <div
+                        key={h.id}
+                        className={"text-[10px] leading-tight px-1.5 py-1 rounded " + (h.type === "PUBLIC_HOLIDAY" ? "bg-rose-50 text-rose-700 border border-rose-100" : "bg-emerald-50 text-emerald-700 border border-emerald-100")}
+                      >
+                        {h.name}
                       </div>
-                      <div>
-                        <div className="text-sm font-bold text-slate-700">{h.name}</div>
-                        <div className="text-xs font-medium text-pink-600 uppercase tracking-wider mt-0.5">{h.type.replace('_', ' ')}</div>
-                        {h.description && <div className="text-xs text-slate-500 mt-1 line-clamp-2">{h.description}</div>}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              )}
+              );
+            })}
+          </div>
+        </div>
+
+        {/* UPCOMING HOLIDAYS & MANAGEMENT */}
+        <div className="w-80 flex-shrink-0 flex flex-col gap-6">
+
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
+            <div className="flex items-center gap-2 mb-4">
+              <CalendarIcon size={18} className="text-pink-500" />
+              <h3 className="font-bold text-slate-800">Upcoming Holidays</h3>
             </div>
 
-            <div>
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Festivals & Observances</h3>
-              {observances.length === 0 ? (
-                <p className="text-sm text-slate-500 italic">No observances this month.</p>
+            <div className="space-y-3">
+              {isLoading ? (
+                <div className="text-sm text-slate-400 animate-pulse">Loading...</div>
+              ) : upcomingHolidays.length === 0 ? (
+                <div className="text-sm text-slate-400 py-4 text-center italic">No upcoming holidays found.</div>
               ) : (
-                <div className="space-y-4">
-                  {observances.map((h: any) => (
-                    <div key={h.id} className="flex gap-4 items-start">
-                      <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center flex-shrink-0 text-slate-500">
-                        <span className="text-[10px] font-bold uppercase">{format(parseISO(h.date), 'MMM')}</span>
-                        <span className="text-base font-black leading-none">{format(parseISO(h.date), 'd')}</span>
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold text-slate-700">{h.name}</div>
-                        <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">{h.type.replace('_', ' ')}</div>
-                        {h.description && <div className="text-xs text-slate-500 mt-1 line-clamp-2">{h.description}</div>}
-                      </div>
+                upcomingHolidays.slice(0, 8).map((h: any) => (
+                  <div key={h.id} className="flex gap-3 items-start bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                    <div className="w-10 h-10 rounded-lg bg-pink-50 border border-pink-100 flex flex-col items-center justify-center flex-shrink-0 text-pink-600">
+                      <span className="text-[9px] font-bold uppercase">{format(parseISO(h.date), "MMM")}</span>
+                      <span className="text-sm font-black leading-none">{format(parseISO(h.date), "d")}</span>
                     </div>
-                  ))}
-                </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-700 leading-tight">{h.name}</div>
+                      <div className="text-[10px] font-semibold text-pink-600 uppercase tracking-wider mt-1">{h.type.replace("_", " ")}</div>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </div>
-        )}
+
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-slate-800">Holiday Sources</h3>
+              <button className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Manage</button>
+            </div>
+            <p className="text-xs text-slate-500 mb-0">
+              Manage which calendars and event sources populate your Planner.
+            </p>
+          </div>
+
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
+            <h3 className="font-bold text-slate-800 mb-4">Holiday Categories</h3>
+            <div className="space-y-3">
+              {[
+                { label: "Public Holidays", color: "text-rose-500", icon: "🔴", checked: true },
+                { label: "Festivals", color: "text-orange-500", icon: "🏵️", checked: true },
+                { label: "Regional Holidays", color: "text-purple-500", icon: "📍", checked: true },
+                { label: "Observances", color: "text-emerald-500", icon: "👁️", checked: true },
+                { label: "Optional Holidays", color: "text-slate-400", icon: "🗓️", checked: false }
+              ].map((cat) => (
+                <label key={cat.label} className="flex items-center justify-between cursor-pointer group">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[12px]">{cat.icon}</span>
+                    <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 transition-colors">{cat.label}</span>
+                  </div>
+                  <div className={"w-4 h-4 rounded border flex items-center justify-center " + (cat.checked ? "bg-blue-600 border-blue-600" : "bg-white border-slate-300")}>
+                    {cat.checked ? (
+                      <svg viewBox="0 0 14 14" className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 7.5 5.5 10 11 4" />
+                      </svg>
+                    ) : (
+                      <div className="w-2 h-0.5 bg-slate-300 rounded-full" />
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   );
