@@ -9,9 +9,10 @@ interface QuickCaptureModalProps {
   open: boolean;
   onClose: () => void;
   defaultMode?: 'note' | 'task' | 'idea' | 'link';
+  defaultScheduledDate?: Date;
 }
 
-export function QuickCaptureModal({ open, onClose, defaultMode = 'task' }: QuickCaptureModalProps) {
+export function QuickCaptureModal({ open, onClose, defaultMode = 'task', defaultScheduledDate }: QuickCaptureModalProps) {
   const [mode, setMode] = useState(defaultMode);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -23,12 +24,14 @@ export function QuickCaptureModal({ open, onClose, defaultMode = 'task' }: Quick
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() && mode !== 'link') return;
-    
+
     setIsSubmitting(true);
     try {
       if (mode === 'task') {
-        await api.tasks.create({ title, description: content });
-        toast.success('Task created', { action: { label: 'Undo', onClick: () => {} } });
+        await api.tasks.create({ title, description: content, scheduledDate: defaultScheduledDate?.toISOString() });
+        toast.success('Task created');
+          queryClient.invalidateQueries({ queryKey: ['planner'] });
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
       } else if (mode === 'note') {
         await api.pages.create({ title, content });
         toast.success('Note created', { action: { label: 'Undo', onClick: () => {} } });
@@ -60,7 +63,7 @@ export function QuickCaptureModal({ open, onClose, defaultMode = 'task' }: Quick
   return (
     <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150" onClick={onClose}>
       <div onClick={e => e.stopPropagation()} className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden">
-        
+
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-hover/50">
           <div className="flex gap-2">
             {tabs.map(t => (

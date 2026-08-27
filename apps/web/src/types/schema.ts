@@ -29,6 +29,7 @@ export type { TaskStatus, TaskPriority };
 export type Habit = PrismaHabit & {
   linkedGoal?: Goal | null;
   completions?: HabitCompletion[];
+  pinnedToPlanner?: boolean;
 };
 
 export type {
@@ -130,4 +131,3 @@ export interface SearchResult {
   url: string;
   badge?: string;
 }
-

@@ -1,74 +1,137 @@
 // =============================================================================
-// PLANNER MATRIX — KRAMA OS
+// PLANNER MATRIX - KRAMA OS
 // =============================================================================
-// The core 7-day grid with: Holidays, Routines, Tasks, Schedule, Projects
+// The core 7-day grid with: Routines, Tasks, Schedule, Projects
 
-import { format, isSameDay, parseISO } from 'date-fns';
-import { Plus } from 'lucide-react';
-import type { PlannerData } from '../../types/planner';
+import { format, isSameDay, parseISO } from "date-fns";
+import { Plus, CheckCircle2, Circle, ChevronDown } from "lucide-react";
+import { useState } from "react";
+import type { PlannerData } from "../../types/planner";
 
 const BLOCK_COLORS: Record<string, string> = {
-  MEETING:  'bg-violet-50 border-violet-200 text-violet-800',
-  PERSONAL: 'bg-orange-50 border-orange-200 text-orange-800',
-  STUDY:    'bg-blue-50 border-blue-200 text-blue-800',
-  WORK:     'bg-slate-50 border-slate-200 text-slate-800',
-  HEALTH:   'bg-emerald-50 border-emerald-200 text-emerald-800',
-  ADMIN:    'bg-gray-50 border-gray-200 text-gray-800',
-  OTHER:    'bg-neutral-50 border-neutral-200 text-neutral-800',
+  MEETING:  "bg-violet-50 border-violet-200 text-violet-800",
+  PERSONAL: "bg-orange-50 border-orange-200 text-orange-800",
+  STUDY:    "bg-blue-50 border-blue-200 text-blue-800",
+  WORK:     "bg-slate-50 border-slate-200 text-slate-800",
+  HEALTH:   "bg-emerald-50 border-emerald-200 text-emerald-800",
+  ADMIN:    "bg-gray-50 border-gray-200 text-gray-800",
+  OTHER:    "bg-neutral-50 border-neutral-200 text-neutral-800",
 };
 
+type MatrixCategory = "routines" | "tasks" | "timeBlocks" | "projects";
+
+const DEFAULT_EXPANDED: Record<MatrixCategory, boolean> = {
+  routines: false,
+  tasks: false,
+  timeBlocks: false,
+  projects: false,
+};
+
+const MATRIX_COLLAPSE_STORAGE_KEY = "krama.planner.matrix.expanded.v1";
+
 const LEGEND = [
-  { label: 'Sync / Meeting', color: 'bg-violet-500' },
-  { label: 'Personal',       color: 'bg-orange-500' },
-  { label: 'Study',          color: 'bg-blue-500' },
-  { label: 'Work',           color: 'bg-slate-500' },
-  { label: 'Health',         color: 'bg-emerald-500' },
-  { label: 'Other',          color: 'bg-neutral-500' },
-  { label: 'Completed',      color: 'bg-green-500' },
-  { label: 'Planned',        color: 'bg-blue-400' },
-  { label: 'Holiday',        color: 'bg-pink-500' },
+  { label: "Sync / Meeting", color: "bg-violet-500" },
+  { label: "Personal",       color: "bg-orange-500" },
+  { label: "Study",          color: "bg-blue-500" },
+  { label: "Work",           color: "bg-slate-500" },
+  { label: "Health",         color: "bg-emerald-500" },
+  { label: "Other",          color: "bg-neutral-500" },
+  { label: "Completed",      color: "bg-green-500" },
+  { label: "Planned",        color: "bg-blue-400" },
 ];
 
 interface Props {
   data: PlannerData;
   days: Date[];
   occurrenceFor: (routineId: string, day: Date) => any;
-  onToggleRoutine: (occ: any) => void;
+  onToggleRoutine: (occurrence: any) => void;
   onAddTimeBlock: (day: Date) => void;
   onAddTask?: (day: Date) => void;
   onAddRoutine?: (day: Date) => void;
+  onAddProject?: (day: Date) => void;
+  onToggleTask?: (task: any, e: React.MouseEvent) => void;
+  onClickTask?: (task: any) => void;
 }
 
-function dateKey(d: Date) {
-  return format(d, 'yyyy-MM-dd');
+function dateKey(date: Date) {
+  return format(date, "yyyy-MM-dd");
 }
 
-export function PlannerMatrix({ data, days, occurrenceFor, onToggleRoutine, onAddTimeBlock, onAddTask, onAddRoutine }: Props) {
+function formatMinutes(mins: number | undefined | null) {
+  if (!mins) return null;
+  if (mins < 60) return mins + "m";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? h + "h " + m + "m" : h + "h";
+}
+
+function safeTimeFormat(dateString: string) {
+  try {
+    return format(parseISO(dateString), "HH:mm");
+  } catch (e) {
+    return "";
+  }
+}
+
+export function PlannerMatrix({
+  data,
+  days,
+  occurrenceFor,
+  onToggleRoutine,
+  onAddTimeBlock,
+  onAddTask,
+  onAddRoutine,
+  onAddProject,
+  onToggleTask,
+  onClickTask
+}: Props) {
   const today = new Date();
+  const [expandedState, setExpandedState] = useState<Record<MatrixCategory, boolean>>(() => {
+    try {
+      const stored = localStorage.getItem(MATRIX_COLLAPSE_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (typeof parsed === "object" && parsed !== null) {
+          return { ...DEFAULT_EXPANDED, ...parsed };
+        }
+      }
+    } catch (e) {}
+    return DEFAULT_EXPANDED;
+  });
+
+  const handleToggle = (key: MatrixCategory) => {
+    setExpandedState((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      try {
+        localStorage.setItem(MATRIX_COLLAPSE_STORAGE_KEY, JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
 
   return (
     <>
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col">
         <div className="overflow-x-auto">
-          <div className="min-w-[1100px]">
+          <div className="min-w-[1100px] flex flex-col">
 
-            {/* ── DAY HEADERS ── */}
-            <div className="grid grid-cols-[180px_repeat(7,minmax(130px,1fr))] bg-slate-50 border-b border-slate-200">
+            {/* DAY HEADERS */}
+            <div className="grid grid-cols-[180px_repeat(7,minmax(130px,1fr))] bg-slate-50 border-b border-slate-200 flex-shrink-0">
               <div className="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 Categories
               </div>
               {days.map((day) => {
                 const isToday = isSameDay(day, today);
                 return (
-                  <div key={dateKey(day)} className={`border-l border-slate-200 p-3 ${isToday ? 'bg-blue-50' : ''}`}>
+                  <div key={dateKey(day)} className={"border-l border-slate-200 p-3 " + (isToday ? "bg-blue-50/50" : "")}>
                     <div className="text-[11px] font-bold uppercase text-slate-400">
-                      {format(day, 'EEE')}
+                      {format(day, "EEE")}
                     </div>
-                    <div className="text-base font-semibold text-slate-800 mt-0.5">
-                      {format(day, 'MMM d')}
+                    <div className={"text-base font-semibold mt-0.5 " + (isToday ? "text-blue-600" : "text-slate-800")}>
+                      {format(day, "MMM d")}
                     </div>
                     {isToday && (
-                      <span className="mt-1 inline-block rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                      <span className="mt-1 inline-block rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
                         TODAY
                       </span>
                     )}
@@ -77,208 +140,242 @@ export function PlannerMatrix({ data, days, occurrenceFor, onToggleRoutine, onAd
               })}
             </div>
 
-            {/* ── ALL DAY / HOLIDAYS ── */}
-            <MatrixRow label="All Day / Holidays">
-          {days.map((day) => {
-            const holidays = data.holidays.filter((h: any) => isSameDay(parseISO(h.date), day));
-            return (
-              <div key={dateKey(day)} className="border-l border-slate-200 p-1.5 min-h-[48px] flex flex-col gap-1">
-                {holidays.map((h: any) => {
-                  let bgClass = "bg-slate-50 border-slate-200 text-slate-600";
-                  let typeText = h.type.replace("_", " ");
-                  
-                  if (h.isPublicHoliday) {
-                    bgClass = "bg-pink-50 border-pink-200 text-pink-700 font-bold";
-                    typeText = "Public Holiday";
-                  } else if (h.type === "FESTIVAL") {
-                    bgClass = "bg-orange-50 border-orange-200 text-orange-700";
-                  } else if (h.isOptional) {
-                    bgClass = "bg-white border-dashed border-slate-300 text-slate-500";
-                  }
-                  
+            <div>
+              {/* ROUTINES */}
+              <MatrixRow label="Routines" subtitle={`${data.routines.length} routines`} categoryKey="routines" isExpanded={expandedState.routines} onToggle={() => handleToggle("routines")} itemCount={data.occurrences ? data.occurrences.length : 0}>
+                {days.map((day) => {
+                  const isPast = day < new Date(today.setHours(0,0,0,0));
                   return (
-                    <div key={h.id} className={`rounded-lg border px-2 py-1.5 text-[11px] leading-tight ${bgClass}`} title={h.description}>
-                      <div>{h.name}</div>
-                      <div className="text-[9px] uppercase opacity-80 mt-0.5">{typeText}</div>
+                    <div key={dateKey(day)} className="border-l border-slate-200 p-2 min-h-[72px]">
+                      <div className="space-y-1.5">
+                        {data.routines.map((routine: any) => {
+                          const occ = occurrenceFor(routine.id, day);
+                          if (!occ) return null;
+                          return (
+                            <button
+                              key={occ.id}
+                              onClick={() => onToggleRoutine(occ)}
+                              className={"flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors border " +
+                                (occ.completed ? "bg-emerald-50 border-emerald-100 text-emerald-700" :
+                                 isPast ? "bg-slate-50 border-slate-100 text-slate-400" : "bg-white border-slate-200 text-slate-600 hover:border-blue-300")}
+                            >
+                              <span className="truncate">{routine.name}</span>
+                              <div className={"flex h-3.5 w-3.5 items-center justify-center rounded-full border " +
+                                (occ.completed ? "bg-emerald-500 border-emerald-500" :
+                                 isPast ? "bg-slate-100 border-slate-200" : "bg-white border-slate-300")}>
+                                {occ.completed && (
+                                  <svg viewBox="0 0 14 14" className="h-2.5 w-2.5 text-white" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 7.5 5.5 10 11 4" />
+                                  </svg>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                        {onAddRoutine && (
+                          <button
+                            onClick={() => onAddRoutine(day)}
+                            className="flex w-full justify-center rounded-lg border border-dashed border-slate-300 py-1 text-slate-400 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors mt-1"
+                            title="Assign Routine"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
-              </div>
-            );
-          })}
-        </MatrixRow>
+              </MatrixRow>
 
-            {/* ── ROUTINES ── */}
-            <MatrixRow label={`Routines`} subtitle={`${data.routines.length} routines`}>
-              {days.map((day) => (
-                <div key={dateKey(day)} className="border-l border-slate-200 p-2">
-                  <div className="flex flex-col items-center gap-1.5">
-                    {data.routines.map((routine) => {
-                      const occ = occurrenceFor(routine.id, day);
-                      return (
+              {/* TASKS */}
+              <MatrixRow label="Tasks" subtitle={`${data.tasks.length} tasks`} categoryKey="tasks" isExpanded={expandedState.tasks} onToggle={() => handleToggle("tasks")} itemCount={data.tasks.length}>
+                {days.map((day) => {
+                  const dayTasks = data.tasks.filter(
+                    (t) => (t.scheduledDate && isSameDay(parseISO(t.scheduledDate), day)) ||
+                           (!t.scheduledDate && t.dueDate && isSameDay(parseISO(t.dueDate), day))
+                  );
+                  return (
+                    <div key={dateKey(day)} className="border-l border-slate-200 p-2 min-h-[72px]">
+                      <div className="space-y-1.5">
+                        {dayTasks.map((task) => {
+                          const isDone = task.status === "DONE";
+                          const estString = formatMinutes(task.estimateMinutes);
+                          return (
+                            <button
+                              key={task.id}
+                              onClick={() => onClickTask && onClickTask(task)}
+                              className={"w-full text-left flex items-start gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium border transition-colors group " +
+                                (isDone ? "bg-slate-50 border-slate-100 text-slate-400" : "bg-white border-slate-200 hover:border-indigo-300 shadow-sm")}
+                            >
+                              <div
+                                className="mt-0.5 shrink-0 cursor-pointer"
+                                onClick={(e) => {
+                                  if (onToggleTask) onToggleTask(task, e);
+                                }}
+                              >
+                                {isDone ? (
+                                  <CheckCircle2 size={12} className="text-slate-400" />
+                                ) : (
+                                  <Circle size={12} className="text-slate-300 group-hover:text-indigo-500" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0 flex flex-col">
+                                <span className={"truncate " + (isDone ? "line-through" : "text-slate-700")}>
+                                  {task.title}
+                                </span>
+                                {estString && (
+                                  <span className={"text-[9px] mt-0.5 " + (isDone ? "text-slate-400" : "text-indigo-500 font-bold")}>
+                                    {estString}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                        {onAddTask && (
+                          <button
+                            onClick={() => onAddTask(day)}
+                            className="flex w-full justify-center rounded-lg border border-dashed border-slate-300 py-1 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors mt-1"
+                            title="Add Task"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </MatrixRow>
+
+              {/* SCHEDULE / TIME BLOCKS */}
+              <MatrixRow label="Time Blocks" subtitle="(planned time)" categoryKey="timeBlocks" isExpanded={expandedState.timeBlocks} onToggle={() => handleToggle("timeBlocks")} itemCount={data.timeBlocks.length}>
+                {days.map((day) => {
+                  const dayBlocks = data.timeBlocks.filter(
+                    (b) => isSameDay(parseISO(b.date), day)
+                  );
+                  return (
+                    <div key={dateKey(day)} className="border-l border-slate-200 p-1.5 min-h-[72px]">
+                      <div className="space-y-1.5">
+                        {dayBlocks.map((block) => (
+                          <div
+                            key={block.id}
+                            className={"rounded-lg px-2 py-1.5 border shadow-sm " + (BLOCK_COLORS[block.type] || BLOCK_COLORS.OTHER)}
+                          >
+                            <div className="mt-0.5 text-[11px] font-bold leading-tight truncate">
+                              {block.title}
+                            </div>
+                            <div className="flex items-center justify-between mt-1">
+                              <span className="text-[9px] font-bold tracking-tight opacity-75">
+                                {safeTimeFormat(block.startTime)} — {safeTimeFormat(block.endTime)}
+                              </span>
+                            </div>
+                            <div className="mt-1 text-[8.5px] font-black uppercase tracking-wider opacity-60">
+                              {block.type}
+                            </div>
+                          </div>
+                        ))}
                         <button
-                          key={routine.id}
-                          disabled={!occ}
-                          onClick={() => occ && onToggleRoutine(occ)}
-                          title={routine.name}
-                          className="transition-transform hover:scale-110 disabled:opacity-30"
+                          onClick={() => onAddTimeBlock(day)}
+                          className="flex w-full justify-center rounded-lg border border-dashed border-slate-300 py-1.5 text-slate-400 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                         >
-                          <span className={`grid h-7 w-7 place-items-center rounded-full border text-xs font-bold ${
-                            occ?.completed
-                              ? 'border-emerald-500 bg-emerald-500 text-white'
-                              : 'border-slate-300 text-slate-400 hover:border-slate-400'
-                          }`}>
-                            {occ?.completed ? '✓' : '○'}
-                          </span>
+                          <Plus size={14} />
                         </button>
-                      );
-                    })}
-                    {data.routines.length === 0 && !onAddRoutine && (
-                      <span className="text-[10px] text-slate-300">—</span>
-                    )}
-                    {onAddRoutine && (
-                      <button
-                        onClick={() => onAddRoutine(day)}
-                        className="mt-1 flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-slate-300 text-slate-400 hover:border-emerald-400 hover:text-emerald-600 transition-colors"
-                        title="Add Routine"
-                      >
-                        <Plus size={12} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </MatrixRow>
+                      </div>
+                    </div>
+                  );
+                })}
+              </MatrixRow>
 
-            {/* ── TASKS ── */}
-            <MatrixRow label="Tasks" subtitle={`${data.tasks.length} tasks`}>
-              {days.map((day) => {
-                const dayTasks = data.tasks.filter(
-                  (t) => t.dueDate && isSameDay(parseISO(t.dueDate), day)
-                );
-                return (
-                  <div key={dateKey(day)} className="border-l border-slate-200 p-2 min-h-[64px]">
-                    <div className="space-y-1.5">
-                      {dayTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className={`rounded-lg px-2 py-1.5 text-[11px] font-medium border ${
-                            task.completed
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 line-through'
-                              : 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                          }`}
-                        >
-                          {task.title}
+              {/* PROJECTS / MILESTONES */}
+              <MatrixRow label="Projects / Milestones" subtitle={`${data.projects.length} project${data.projects.length !== 1 ? "s" : ""}`} categoryKey="projects" isExpanded={expandedState.projects} onToggle={() => handleToggle("projects")} itemCount={data.milestones.length}>
+                {days.map((day) => {
+                  const dayMilestones = data.milestones.filter(
+                    (m) => isSameDay(parseISO(m.date), day)
+                  );
+                  return (
+                    <div key={dateKey(day)} className="border-l border-slate-200 p-2 min-h-[56px] space-y-1.5">
+                      {dayMilestones.map((m) => (
+                        <div key={m.id} className="rounded-lg bg-emerald-50 border border-emerald-200 px-2 py-1.5 text-[10px] font-bold text-emerald-800 shadow-sm flex items-center justify-between">
+                          <span className="truncate">{m.title}</span>
                         </div>
                       ))}
-                      {onAddTask && (
+                      {onAddProject && (
                         <button
-                          onClick={() => onAddTask(day)}
-                          className="flex w-full justify-center rounded-lg border border-dashed border-slate-300 py-1 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-colors mt-1"
-                          title="Add Task"
+                          onClick={() => onAddProject(day)}
+                          className="flex w-full justify-center rounded-lg border border-dashed border-slate-300 py-1 text-slate-400 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors mt-1"
+                          title="Assign Project"
                         >
                           <Plus size={12} />
                         </button>
                       )}
                     </div>
-                  </div>
-                );
-              })}
-            </MatrixRow>
+                  );
+                })}
+              </MatrixRow>
+            </div>
+          </div>
+        </div>
 
-            {/* ── SCHEDULED TIME BLOCKS ── */}
-            <MatrixRow label="Time Blocks" subtitle="Planned time">
-              {days.map((day) => {
-                const blocks = data.timeBlocks.filter((b) => isSameDay(parseISO(b.date), day));
-                return (
-                  <div key={dateKey(day)} className="border-l border-slate-200 p-2 min-h-[140px]">
-                    <div className="space-y-1.5">
-                      {blocks.map((block) => (
-                        <div
-                          key={block.id}
-                          className={`rounded-lg border p-2 text-[11px] ${BLOCK_COLORS[block.type] || BLOCK_COLORS.OTHER}`}
-                        >
-                          <div className="font-semibold">{block.title}</div>
-                          <div className="mt-0.5 opacity-70">
-                            {safeTimeFormat(block.startTime)} — {safeTimeFormat(block.endTime)}
-                          </div>
-                          <div className="mt-0.5 text-[9px] uppercase tracking-wide opacity-50">
-                            {block.type}
-                          </div>
-                        </div>
-                      ))}
-                      <button
-                        onClick={() => onAddTimeBlock(day)}
-                        className="flex w-full justify-center rounded-lg border border-dashed border-slate-300 py-1.5 text-slate-400 hover:border-blue-400 hover:text-blue-600 transition-colors"
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </MatrixRow>
-
-            {/* ── PROJECTS / MILESTONES ── */}
-            <MatrixRow label="Projects / Milestones" subtitle={`${data.projects.length} projects`}>
-              {days.map((day) => {
-                const dayMilestones = data.milestones.filter(
-                  (m) => isSameDay(parseISO(m.date), day)
-                );
-                return (
-                  <div key={dateKey(day)} className="border-l border-slate-200 p-2 min-h-[48px]">
-                    {dayMilestones.map((m) => (
-                      <div key={m.id} className="rounded-lg bg-emerald-50 border border-emerald-200 px-2 py-1.5 text-[11px] font-medium text-emerald-700 mb-1">
-                        ◆ {m.title}
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-            </MatrixRow>
+        {/* LEGEND */}
+        <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 text-[11px] font-semibold text-slate-500 flex-shrink-0">
+          <div className="flex gap-4 flex-wrap">
+            {LEGEND.map((item) => (
+              <span key={item.label} className="flex items-center gap-1.5">
+                <span className={"w-2.5 h-2.5 rounded-full shadow-sm " + item.color} />
+                {item.label}
+              </span>
+            ))}
+          </div>
+          <div className="text-slate-400 hover:text-blue-600 cursor-pointer flex items-center gap-1 transition-colors">
+            0% scheduled <span className="text-[13px] leading-none ml-1">→</span>
           </div>
         </div>
       </section>
-
-      {/* ── LEGEND ── */}
-      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-[11px] text-slate-500 mt-3">
-        <div className="flex gap-4 flex-wrap">
-          {LEGEND.map((item) => (
-            <span key={item.label} className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${item.color}`} />
-              {item.label}
-            </span>
-          ))}
-        </div>
-        <span className="font-mono font-medium">
-          {data.capacity.completionPercent}% scheduled
-        </span>
-      </div>
     </>
   );
 }
 
-// ── Sub-components ──
-
-function MatrixRow({ label, subtitle, children }: { label: string; subtitle?: string; children: React.ReactNode }) {
+function MatrixRow({
+  label,
+  subtitle,
+  categoryKey,
+  isExpanded,
+  onToggle,
+  itemCount,
+  children,
+}: {
+  label: string;
+  subtitle: string;
+  categoryKey: MatrixCategory;
+  isExpanded: boolean;
+  onToggle: () => void;
+  itemCount: number;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="grid grid-cols-[180px_repeat(7,minmax(130px,1fr))] border-t border-slate-200">
-      <div className="p-3 flex flex-col justify-center">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
-        {subtitle && <span className="text-[10px] text-slate-400 mt-0.5">{subtitle}</span>}
-      </div>
-      {children}
+    <div className="grid grid-cols-[180px_repeat(7,minmax(130px,1fr))] border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50 transition-colors">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="p-4 flex flex-col justify-center text-left hover:bg-slate-100/60 transition-colors"
+        aria-expanded={isExpanded}
+        aria-controls={`planner-row-${categoryKey}`}
+      >
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-800">
+          <span className="inline-flex items-center gap-1.5">
+            <ChevronDown size={13} className={isExpanded ? "rotate-0 transition-transform" : "-rotate-90 transition-transform"} />
+            {label}
+          </span>
+        </div>
+        <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+          {subtitle} · {itemCount}
+        </div>
+      </button>
+      {isExpanded ? (
+        children
+      ) : (
+        <div id={`planner-row-${categoryKey}`} className="col-span-7 min-h-[56px] border-l border-slate-200 bg-slate-50/40" />
+      )}
     </div>
   );
 }
-
-function safeTimeFormat(timeStr: string): string {
-  try {
-    const d = parseISO(timeStr);
-    return format(d, 'HH:mm');
-  } catch {
-    // If it's already "HH:mm" format
-    return timeStr;
-  }
-}
-

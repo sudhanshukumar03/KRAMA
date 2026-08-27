@@ -28,7 +28,10 @@ export interface PlannerTask {
   id: string;
   title: string;
   completed: boolean;
+  status?: string;
+  scheduledDate?: string | null;
   dueDate?: string | null;
+  estimateMinutes?: number | null;
 }
 
 export interface TimeBlock {

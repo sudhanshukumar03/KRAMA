@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { X } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { X, Pin } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { toast } from 'sonner';
 
@@ -10,104 +9,65 @@ interface Props {
 }
 
 export function RoutineModal({ open, onClose }: Props) {
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState('PRODUCTIVITY');
-  const [duration, setDuration] = useState(15);
   const queryClient = useQueryClient();
 
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      // Create habit using the existing API
-      return api.habits.create({
-        name: name.trim(),
-        category,
-        expectedDurationMinutes: duration,
-        cadence: 'daily',
-        difficulty: 'MEDIUM',
-        scheduledDays: [0, 1, 2, 3, 4, 5, 6], // Default all days for a planner creation
-        timeOfDay: 'anytime'
-      });
-    },
+  const { data: habits = [], isLoading } = useQuery({
+    queryKey: ['habits'],
+    queryFn: api.habits.list,
+    enabled: open,
+  });
+
+  const pinMutation = useMutation({
+    mutationFn: (id: string) => api.habits.update(id, { pinnedToPlanner: true }),
     onSuccess: () => {
-      toast.success('Routine created');
+      toast.success('Routine pinned to planner');
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
-      setName('');
       onClose();
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Failed to create routine');
-    }
+      toast.error(err.message || 'Failed to pin routine');
+    },
   });
 
   if (!open) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    createMutation.mutate();
-  };
+  const unpinnedHabits = habits.filter((h: any) => !h.pinnedToPlanner);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150" onClick={onClose}>
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-sm shadow-2xl animate-in slide-in-from-bottom-4 duration-200" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-800">Add Routine</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg p-1.5 transition-colors">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
+        <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
+          <h2 className="text-sm font-bold text-slate-800">Pin Routine</h2>
+          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors">
             <X size={16} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div>
-            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Routine Name</label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={e => setName(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm"
-              placeholder="e.g., Morning Meditaton, Workout"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Category</label>
-              <select
-                value={category}
-                onChange={e => setCategory(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 text-sm bg-white"
-              >
-                <option value="PRODUCTIVITY">Productivity</option>
-                <option value="HEALTH">Health</option>
-                <option value="LEARNING">Learning</option>
-                <option value="MINDFULNESS">Mindfulness</option>
-              </select>
+        <div className="p-4 overflow-y-auto">
+          {isLoading ? (
+            <div className="text-center text-sm text-slate-500 py-4">Loading routines...</div>
+          ) : unpinnedHabits.length === 0 ? (
+            <div className="text-center py-6 px-4">
+              <p className="text-sm text-slate-600 font-medium mb-2">No available routines to pin.</p>
+              <p className="text-[11px] text-slate-500">Go to the Daily Schedule to create more routines and habits, or unpin some to see them here.</p>
             </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Duration (m)</label>
-              <input
-                type="number"
-                min="1"
-                required
-                value={duration}
-                onChange={e => setDuration(parseInt(e.target.value) || 15)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 text-sm"
-              />
+          ) : (
+            <div className="space-y-2">
+              {unpinnedHabits.map((habit: any) => (
+                <button
+                  key={habit.id}
+                  onClick={() => pinMutation.mutate(habit.id)}
+                  disabled={pinMutation.isPending}
+                  className="w-full flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition-colors text-left disabled:opacity-50"
+                >
+                  <span className="text-sm font-medium text-slate-700 truncate">{habit.name}</span>
+                  <Pin size={14} className="text-slate-400" />
+                </button>
+              ))}
             </div>
-          </div>
-
-          <div className="pt-2">
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="w-full bg-emerald-600 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50"
-            >
-              {createMutation.isPending ? 'Saving...' : 'Save Routine'}
-            </button>
-          </div>
-        </form>
+          )}
+        </div>
       </div>
     </div>
   );
