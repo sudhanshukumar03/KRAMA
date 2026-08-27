@@ -1,21 +1,7 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import {
-  CheckCircle2,
-  Clock,
-  TrendingUp,
-  Flame,
-  Sparkles,
-  Plus,
-  Sun,
-  Sunset,
-  Moon,
-  Check,
-  X,
-  Trash2,
-  Edit2,
-} from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Check, CheckCircle2, Flame, TrendingUp, Plus, Clock, Sun, Sunset, Moon, Trash2, Pin, PinOff, Edit2, Sparkles, X } from 'lucide-react';
 import { ConfirmDeleteButton } from "./ui/ConfirmDeleteButton";
 import { toast } from "sonner";
 import { BaseButton } from "./ui/BaseButton";
@@ -46,10 +32,10 @@ function HabitMainListItem({ habit, deleteMutation }: { habit: any; deleteMutati
       )}
     >
       <div className="flex items-center gap-3">
-        <button 
-          type="button" 
+        <button
+          type="button"
           data-testid="habit-checkbox"
-          className="focus:outline-none" 
+          className="focus:outline-none"
           disabled={isPending}
           onClick={(e) => {
             e.stopPropagation();
@@ -93,7 +79,7 @@ function HabitMainListItem({ habit, deleteMutation }: { habit: any; deleteMutati
 
 function HabitTrackerRow({ habit, index }: { habit: any; index: number }) {
   const { isCompletedToday, toggleHabit, isPending } = useHabitCompletion(habit);
-  
+
   return (
     <div
       onClick={() => {
@@ -111,9 +97,9 @@ function HabitTrackerRow({ habit, index }: { habit: any; index: number }) {
       <div className="w-5 text-right text-badge font-mono text-muted">
         {(index + 1).toString().padStart(2, "0")}
       </div>
-      <button 
-        type="button" 
-        className="focus:outline-none" 
+      <button
+        type="button"
+        className="focus:outline-none"
         disabled={isPending}
         onClick={(e) => {
           e.stopPropagation();
@@ -158,8 +144,8 @@ function generate30DayPattern(habit: any) {
     createdAt.getMonth(),
     createdAt.getDate(),
   ).getTime();
-  const scheduled = habit.scheduledDays && habit.scheduledDays.length > 0 
-    ? habit.scheduledDays 
+  const scheduled = habit.scheduledDays && habit.scheduledDays.length > 0
+    ? habit.scheduledDays
     : [0, 1, 2, 3, 4, 5, 6];
 
   for (let i = 29; i >= 0; i--) {
@@ -244,7 +230,7 @@ function HabitCreateModal({
   ];
 
   const toggleDay = (day: number) => {
-    setScheduledDays(prev => 
+    setScheduledDays(prev =>
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
     );
   };
@@ -512,7 +498,7 @@ function HabitEditModal({
   ];
 
   const toggleDay = (day: number) => {
-    setScheduledDays(prev => 
+    setScheduledDays(prev =>
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
     );
   };
@@ -800,6 +786,32 @@ export function HabitTracker() {
     },
   });
 
+
+  const togglePinHabitMutation = useMutation({
+    mutationFn: (data: { id: string; pinned: boolean }) => api.habits.update(data.id, { pinnedToPlanner: data.pinned }),
+    onMutate: async ({ id, pinned }) => {
+      await queryClient.cancelQueries({ queryKey: ["habits"] });
+      const previousHabits = queryClient.getQueryData<any[]>(["habits"]);
+      if (previousHabits) {
+        queryClient.setQueryData(
+          ["habits"],
+          previousHabits.map((h) => (h.id === id ? { ...h, pinnedToPlanner: pinned } : h))
+        );
+      }
+      return { previousHabits };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousHabits) {
+        queryClient.setQueryData(["habits"], context.previousHabits);
+      }
+      toast.error("Failed to pin habit");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["habits"] });
+      queryClient.invalidateQueries({ queryKey: ["planner"] });
+    },
+  });
+
   const editHabitMutation = useMutation({
     mutationFn: (data: {
       id: string;
@@ -888,7 +900,7 @@ export function HabitTracker() {
   });
 
   const getHabitTime = (h: any) => h.metadata?.timeOfDay || h.timeOfDay || "anytime";
-  
+
   const morningHabits = habits.filter((h) => getHabitTime(h) === "morning" && isHabitScheduledToday(h));
   const afternoonHabits = habits.filter((h) => getHabitTime(h) === "afternoon" && isHabitScheduledToday(h));
   const eveningHabits = habits.filter((h) => getHabitTime(h) === "evening" && isHabitScheduledToday(h));
@@ -1197,7 +1209,7 @@ export function HabitTracker() {
                 </span>
               )}
             </div>
-            
+
             {/* Anytime */}
             <div className="v4-card p-5">
               <h3 className="text-card text-primary mb-2 uppercase tracking-[0.02em] flex items-center justify-between">
@@ -1266,8 +1278,18 @@ export function HabitTracker() {
                   <span className="text-caption font-mono font-medium text-secondary bg-surface-hover px-2 py-1 rounded border border-border">
                     {habit.streak}d streak
                   </span>
-                  <button
-                    onClick={() => handleEditHabit(habit)}
+
+                    <button
+                      onClick={() => togglePinHabitMutation.mutate({ id: habit.id, pinned: !habit.pinnedToPlanner })}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors ${habit.pinnedToPlanner ? "bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-100 hover:border-indigo-300" : "bg-surface border-border hover:border-primary text-secondary hover:text-primary"}`}
+                      title={habit.pinnedToPlanner ? "Unpin from planner" : "Pin to planner"}
+                      aria-label={habit.pinnedToPlanner ? "Unpin from planner" : "Pin to planner"}
+                    >
+                      {habit.pinnedToPlanner ? <Pin className="w-4 h-4 fill-current" /> : <PinOff className="w-4 h-4" />}
+                    </button>
+                    <button
+                      onClick={() => handleEditHabit(habit)}
+
                     className="w-8 h-8 rounded-lg flex items-center justify-center bg-surface border border-border hover:border-primary text-secondary hover:text-primary transition-colors"
                     title="Edit Habit"
                   >

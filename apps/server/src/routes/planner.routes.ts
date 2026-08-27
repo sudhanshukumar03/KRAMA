@@ -2,7 +2,6 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../prisma';
 import { calculateCapacity } from '../services/capacity.service';
-import { HolidaySyncService } from '../services/holidays/HolidaySyncService';
 import { requireAuth } from '../middlewares/auth.middleware';
 
 const router: Router = Router();
@@ -40,7 +39,7 @@ router.get('/week', async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     const workspaceId = getWorkspaceId(req);
-    
+
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
@@ -61,7 +60,6 @@ router.get('/week', async (req: Request, res: Response) => {
       timeBlocks,
       projects,
       milestones,
-      holidays,
       syncRecord,
     ] = await Promise.all([
       prisma.habit.findMany({
@@ -93,17 +91,7 @@ router.get('/week', async (req: Request, res: Response) => {
       prisma.milestone.findMany({
         where: { userId, date: { gte: weekStart, lte: weekEnd } },
       }),
-      prisma.holiday.findMany({
-        where: {
-          countryCode: user.countryCode || 'IN',
-          OR: [
-            { regionCode: null },
-            { regionCode: user.regionCode || '' }
-          ],
-          date: { gte: weekStart, lte: weekEnd },
-        },
-        orderBy: { date: 'asc' },
-      }),
+
       prisma.externalItem.findFirst({
         where: { userId },
         orderBy: { updatedAt: 'desc' },
@@ -115,7 +103,7 @@ router.get('/week', async (req: Request, res: Response) => {
       timeBlocks
     );
 
-    const routines = habits.map(h => ({
+    const routines = habits.filter((h: any) => h.pinnedToPlanner).map(h => ({
       id: h.id,
       name: h.name,
     }));
@@ -126,13 +114,13 @@ router.get('/week', async (req: Request, res: Response) => {
     for (let i = 0; i < 7; i++) {
       const dayOfWeek = currentDay.getDay(); // 0 = Sun, 1 = Mon, etc.
       const dateStr = currentDay.toISOString().split('T')[0] as string;
-      
+
       for (const habit of habits) {
         if (habit.scheduledDays && habit.scheduledDays.includes(dayOfWeek)) {
-          const completion = habitCompletions.find(c => 
+          const completion = habitCompletions.find(c =>
             c.habitId === habit.id && c.completedAt.toISOString().startsWith(dateStr)
           );
-          
+
           occurrences.push({
             id: completion ? completion.id : `${habit.id}-${dateStr}`,
             habitId: habit.id,
@@ -149,8 +137,11 @@ router.get('/week', async (req: Request, res: Response) => {
     const plannerTasks = tasks.map(t => ({
       id: t.id,
       title: t.title,
+      status: t.status,
       completed: t.status === 'DONE',
-      dueDate: (t.scheduledDate || t.dueDate)?.toISOString() || null,
+      scheduledDate: t.scheduledDate?.toISOString() || null,
+      dueDate: t.dueDate?.toISOString() || null,
+      estimateMinutes: t.estimateMinutes,
     }));
 
     const plannerProjects = projects.map(p => ({
@@ -171,7 +162,6 @@ router.get('/week', async (req: Request, res: Response) => {
       timeBlocks,
       projects: plannerProjects,
       milestones,
-      holidays,
       capacity,
       syncStatus: syncRecord
         ? {
@@ -211,6 +201,20 @@ router.post('/time-blocks', async (req: Request, res: Response) => {
       return res.status(400).json({ code: 'INVALID_TIME_RANGE', message: 'End time must be after start time' });
     }
 
+    // Server-side overlap check
+    const overlapping = await prisma.timeBlock.findFirst({
+      where: {
+        userId,
+        date: body.date,
+        OR: [
+          { startTime: { lt: endTime }, endTime: { gt: startTime } },
+        ],
+      },
+    });
+    if (overlapping) {
+      return res.status(409).json({ message: "Time block overlaps with an existing block on this date" });
+    }
+
     const timeBlock = await prisma.timeBlock.create({
       data: {
         userId,
@@ -248,17 +252,32 @@ router.patch('/time-blocks/:id', async (req: Request, res: Response) => {
 
     const body = timeBlockSchema.partial().parse(req.body);
     const date = body.date ?? existing.date;
-    
+
     const startTime = body.startTime
       ? createDateTime(date, body.startTime)
       : existing.startTime;
-    
+
     const endTime = body.endTime
       ? createDateTime(date, body.endTime)
       : existing.endTime;
 
     if (endTime <= startTime) {
       return res.status(400).json({ code: 'INVALID_TIME_RANGE', message: 'End time must be after start time' });
+    }
+
+    // Server-side overlap check for patch
+    const overlapping = await prisma.timeBlock.findFirst({
+      where: {
+        userId,
+        date,
+        id: { not: existing.id },
+        OR: [
+          { startTime: { lt: endTime }, endTime: { gt: startTime } },
+        ],
+      },
+    });
+    if (overlapping) {
+      return res.status(409).json({ message: "Time block overlaps with an existing block on this date" });
     }
 
     const updated = await prisma.timeBlock.update({
@@ -337,10 +356,10 @@ router.patch('/routine-occurrences', async (req: Request, res: Response) => {
     } else {
       // Delete completions for that day
       await prisma.habitCompletion.deleteMany({
-        where: { 
-          userId, 
-          habitId: body.habitId, 
-          completedAt: { gte: new Date(`${dateStr}T00:00:00.000Z`), lte: new Date(`${dateStr}T23:59:59.999Z`) } 
+        where: {
+          userId,
+          habitId: body.habitId,
+          completedAt: { gte: new Date(`${dateStr}T00:00:00.000Z`), lte: new Date(`${dateStr}T23:59:59.999Z`) }
         }
       });
     }
@@ -353,6 +372,3 @@ router.patch('/routine-occurrences', async (req: Request, res: Response) => {
 });
 
 export default router;
-
-
-
