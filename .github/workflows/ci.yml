@@ -34,7 +34,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-          --requirepass "krama_redis_secret"
 
     steps:
       - uses: actions/checkout@v4
@@ -72,6 +71,6 @@ jobs:
         run: npx playwright test
         env:
           DATABASE_URL: "postgresql://krama_user:krama_password@localhost:5433/krama_os?schema=public"
-          REDIS_URL: "redis://:krama_redis_secret@localhost:6379"
+          REDIS_URL: "redis://localhost:6379"
           JWT_SECRET: "krama_super_secret_jwt_key_2026"
           PORT: 3000
