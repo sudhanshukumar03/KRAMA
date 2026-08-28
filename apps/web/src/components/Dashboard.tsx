@@ -12,7 +12,7 @@ import { EmptyState } from './ui/EmptyState';
 import { 
   Target, Sparkles, CheckSquare, Clock, Link as LinkIcon, FileText, Lightbulb, Activity, Flame, Zap, RefreshCw, Briefcase, Calendar
 } from 'lucide-react';
-import { isHabitScheduledToday } from '../lib/habitFilters';
+import { isHabitScheduledToday, isHabitScheduledForDay } from '../lib/habitFilters';
 import { toast } from 'sonner';
 
 export function Dashboard() {
@@ -292,7 +292,7 @@ export function Dashboard() {
                             const dateStr = d.toDateString();
                             const isCompleted = h.completions?.some((c: any) => new Date(c.completedAt).toDateString() === dateStr);
                             const dayNum = d.getDay();
-                            const isScheduled = !h.scheduledDays || h.scheduledDays.includes(dayNum === 0 ? 7 : dayNum);
+                            const isScheduled = isHabitScheduledForDay(h, dayNum);
                             
                             let boxClass = 'bg-surface-hover border border-border'; // default/missed/not scheduled
                             if (isCompleted) boxClass = 'bg-[#EA580C]'; // completed (orange brand color)

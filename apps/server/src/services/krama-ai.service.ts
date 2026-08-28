@@ -60,7 +60,7 @@ export class KramaAIService {
   }
 
   private async detectIntent(message: string): Promise<AIIntent> {
-    const model = this.genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    
     const prompt = `
 You are the intent router for KRAMA OS.
 Classify the user's request into exactly ONE category:
@@ -76,8 +76,8 @@ summary: Requests to summarize KRAMA information.
 
 User: ${message}
 Return ONLY the category word.`;
-    const result = await model.generateContent(prompt);
-    const value = result.response.text().trim().toLowerCase();
+    const interaction = await this.client.interactions.create({ model: 'gemini-3.7-flash', input: prompt });
+    const value = (interaction.output_text || '').trim().toLowerCase();
     const valid: AIIntent[] = ["general", "knowledge", "productivity", "planning", "task", "summary"];
     return valid.includes(value as AIIntent) ? (value as AIIntent) : "general";
   }
@@ -87,7 +87,7 @@ Return ONLY the category word.`;
       prisma.goal.findMany({ where: { workspaceId }, take: 10, orderBy: { createdAt: "desc" } }),
       prisma.project.findMany({ where: { workspaceId }, take: 10, orderBy: { createdAt: "desc" } }),
       prisma.task.findMany({ where: { workspaceId, status: { not: "DONE" } }, take: 20, orderBy: { createdAt: "desc" } }),
-      prisma.task.findMany({ where: { workspaceId, isBlocked: true }, take: 10 }),
+      prisma.task.findMany({ where: { workspaceId, blockedById: { not: null } }, take: 10 }),
     ]);
     return { goals, projects, tasks, blockers };
   }
@@ -158,7 +158,7 @@ Return ONLY valid JSON matching this schema:
   }
 
   private async generateKramaResponse(prompt: string): Promise<AIResponse> {
-    const interaction = await this.client.interactions.create({ model: "gemini-3.7-flash", input: prompt, config: { responseMimeType: "application/json" } });
+    const interaction = await this.client.interactions.create({ model: "gemini-3.7-flash", input: prompt });
     const raw = interaction.output_text || "";
     let parsed: unknown;
     try {

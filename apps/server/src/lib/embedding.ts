@@ -8,5 +8,5 @@ export async function getEmbedding(text: string): Promise<number[]> {
     model: 'text-embedding-004',
     contents: text,
   });
-  return result.embeddings[0].values;
+  return result.embeddings?.[0]?.values ?? [];
 }

@@ -87,22 +87,21 @@ class GroqProvider implements AIProvider {
   }
 }
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 class GeminiProvider implements AIProvider {
-  private client: GoogleGenerativeAI;
+  private client: GoogleGenAI;
   constructor() {
     if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured.");
-    this.client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    this.client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   }
   async complete(prompt: string, model: string): Promise<ProviderResponse> {
-    const geminiModel = this.client.getGenerativeModel({ model });
-    const result = await geminiModel.generateContent(prompt);
+    const interaction = await this.client.interactions.create({ model, input: prompt });
     
     // Estimate tokens since Gemini SDK doesn't return exact token counts in the same format
     // A rough heuristic is ~4 characters per token
     const promptTokens = Math.ceil(prompt.length / 4);
-    const completionText = result.response.text();
+    const completionText = interaction.output_text || '';
     const completionTokens = Math.ceil(completionText.length / 4);
 
     return {
