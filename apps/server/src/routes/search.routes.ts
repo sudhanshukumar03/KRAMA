@@ -26,7 +26,7 @@ router.get('/', async (req: Request, res: Response) => {
           deletedAt: null,
           OR: [
             { title: { contains: q, mode: 'insensitive' } },
-            { description: { contains: q, mode: 'insensitive' } },
+            
           ],
         },
         take: 10,
@@ -39,7 +39,7 @@ router.get('/', async (req: Request, res: Response) => {
           deletedAt: null,
           OR: [
             { title: { contains: q, mode: 'insensitive' } },
-            { content: { contains: q, mode: 'insensitive' } },
+            
           ],
         },
         take: 10,
@@ -62,7 +62,7 @@ router.get('/', async (req: Request, res: Response) => {
           deletedAt: null,
           OR: [
             { name: { contains: q, mode: 'insensitive' } },
-            { description: { contains: q, mode: 'insensitive' } },
+            
           ],
         },
         take: 10,

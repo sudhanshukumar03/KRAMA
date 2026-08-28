@@ -90,7 +90,7 @@ export const completeAiRequest = async (req: Request, res: Response) => {
       const activeGoals = await prisma.goal.findMany({
         where: {
           workspaceId,
-          status: { not: 'COMPLETED' }
+          progress: { lt: 100 }
         }
       });
 

@@ -20,7 +20,7 @@ async function main() {
   let workspace = await prisma.workspace.findFirst();
   if (!workspace) {
     workspace = await prisma.workspace.create({
-      data: { name: 'Test Workspace', slug: 'test-ws-' + Date.now() }
+      data: { name: 'Test Workspace', createdBy: 'system' }
     });
   }
 
