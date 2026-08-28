@@ -1,58 +1,56 @@
 {
-    "name":  "server",
-    "version":  "1.0.0",
-    "description":  "",
-    "main":  "index.js",
-    "scripts":  {
-                    "dev":  "concurrently \"tsx watch src/index.ts\" \"tsx watch src/worker.ts\"",
-                    "start":  "tsx src/index.ts",
-                    "worker":  "tsx src/worker.ts",
-                    "build":  "tsc",
-                    "test":  "echo \"Error: no test specified\" \u0026\u0026 exit 1",
-                    "seed":  "tsx src/seed.ts",
-                    "holidays:sync":  "ts-node src/scripts/sync-holidays.ts"
-                },
-    "prisma":  {
-                   "seed":  "tsx src/seed.ts"
-               },
-    "keywords":  [
-
-                 ],
-    "author":  "",
-    "license":  "ISC",
-    "type":  "module",
-    "dependencies":  {
-                         "@anthropic-ai/sdk":  "^0.115.0",
-                         "@google/generative-ai":  "^0.24.1",
-                         "@krama/types":  "workspace:*",
-                         "@krama/validation":  "workspace:*",
-                         "@prisma/client":  "^6.19.3",
-                         "@xenova/transformers":  "^2.17.2",
-                         "bcrypt":  "^6.0.0",
-                         "bullmq":  "^6.0.0",
-                         "cookie-parser":  "^1.4.7",
-                         "cors":  "^2.8.6",
-                         "dotenv":  "^17.4.2",
-                         "express":  "^5.2.1",
-                         "express-rate-limit":  "^8.6.1",
-                         "helmet":  "^8.3.0",
-                         "ioredis":  "^5.11.1",
-                         "jwt-simple":  "^0.5.6",
-                         "openai":  "^7.2.0",
-                         "prisma":  "^6.19.3",
-                         "rate-limit-redis":  "^6.0.0",
-                         "redis":  "^6.1.0",
-                         "zod":  "^4.4.3"
-                     },
-    "devDependencies":  {
-                            "@types/bcrypt":  "^6.0.0",
-                            "@types/cookie-parser":  "^1.4.10",
-                            "@types/cors":  "^2.8.19",
-                            "@types/express":  "^5.0.6",
-                            "@types/jwt-simple":  "^0.5.36",
-                            "@types/node":  "^24.13.3",
-                            "concurrently":  "^8.2.2",
-                            "tsx":  "^4.23.1",
-                            "typescript":  "^6.0.3"
-                        }
+    "name": "server",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "dev": "concurrently \"tsx watch src/index.ts\" \"tsx watch src/worker.ts\"",
+        "start": "tsx src/index.ts",
+        "worker": "tsx src/worker.ts",
+        "build": "tsc",
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "seed": "tsx src/seed.ts",
+        "holidays:sync": "ts-node src/scripts/sync-holidays.ts"
+    },
+    "prisma": {
+        "seed": "tsx src/seed.ts"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "module",
+    "dependencies": {
+        "@anthropic-ai/sdk": "^0.115.0",
+        "@google/genai": "^2.19.0",
+        "@krama/types": "workspace:*",
+        "@krama/validation": "workspace:*",
+        "@prisma/client": "^6.19.3",
+        "@xenova/transformers": "^2.17.2",
+        "bcrypt": "^6.0.0",
+        "bullmq": "^6.0.0",
+        "cookie-parser": "^1.4.7",
+        "cors": "^2.8.6",
+        "dotenv": "^17.4.2",
+        "express": "^5.2.1",
+        "express-rate-limit": "^8.6.1",
+        "helmet": "^8.3.0",
+        "ioredis": "^5.11.1",
+        "jwt-simple": "^0.5.6",
+        "openai": "^7.2.0",
+        "prisma": "^6.19.3",
+        "rate-limit-redis": "^6.0.0",
+        "redis": "^6.1.0",
+        "zod": "^4.4.3"
+    },
+    "devDependencies": {
+        "@types/bcrypt": "^6.0.0",
+        "@types/cookie-parser": "^1.4.10",
+        "@types/cors": "^2.8.19",
+        "@types/express": "^5.0.6",
+        "@types/jwt-simple": "^0.5.36",
+        "@types/node": "^24.13.3",
+        "concurrently": "^8.2.2",
+        "tsx": "^4.23.1",
+        "typescript": "^6.0.3"
+    }
 }

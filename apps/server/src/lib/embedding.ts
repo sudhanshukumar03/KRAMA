@@ -1,20 +1,12 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-let genAI: GoogleGenerativeAI | null = null;
-
+import { GoogleGenAI } from '@google/genai';
+let client: GoogleGenAI | null = null;
 export async function getEmbedding(text: string): Promise<number[]> {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not defined");
+  if (!client) {
+    client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   }
-
-  if (!genAI) {
-    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  }
-
-  const embeddingModel = genAI.getGenerativeModel({
-    model: "text-embedding-004",
+  const result = await client.models.embedContent({
+    model: 'text-embedding-004',
+    contents: text,
   });
-
-  const result = await embeddingModel.embedContent(text);
-  return result.embedding.values;
+  return result.embeddings[0].values;
 }

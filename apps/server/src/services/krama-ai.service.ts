@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { prisma } from '../prisma';
 import { vectorSearch } from './rag/retriever';
@@ -53,10 +53,10 @@ export type AIResponse = z.infer<typeof AIResponseSchema>;
 export type AIIntent = "general" | "knowledge" | "productivity" | "planning" | "task" | "summary";
 
 export class KramaAIService {
-  private genAI: GoogleGenerativeAI;
+  private client: GoogleGenAI;
 
   constructor() {
-    this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+    this.client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
   }
 
   private async detectIntent(message: string): Promise<AIIntent> {
@@ -158,9 +158,8 @@ Return ONLY valid JSON matching this schema:
   }
 
   private async generateKramaResponse(prompt: string): Promise<AIResponse> {
-    const model = this.genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { responseMimeType: "application/json" } });
-    const result = await model.generateContent(prompt);
-    const raw = result.response.text();
+    const interaction = await this.client.interactions.create({ model: "gemini-3.7-flash", input: prompt, config: { responseMimeType: "application/json" } });
+    const raw = interaction.output_text || "";
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
