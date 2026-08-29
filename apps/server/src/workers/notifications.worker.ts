@@ -40,3 +40,7 @@ notificationsWorker.on('completed', (job) => {
 notificationsWorker.on('failed', (job, err) => {
   console.error(`[Worker:Notifications] Job ${job?.id} failed:`, err);
 });
+
+notificationsWorker.on('error', () => {
+  // Suppress uncaught redis connection error spam
+});

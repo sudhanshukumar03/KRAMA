@@ -65,3 +65,7 @@ sprintReportWorker.on('completed', (job, result) => {
 sprintReportWorker.on('failed', (job, err) => {
   console.error(`[Worker:SprintReport] Failed:`, err);
 });
+
+sprintReportWorker.on('error', () => {
+  // Suppress uncaught redis connection error spam
+});

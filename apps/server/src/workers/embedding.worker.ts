@@ -58,3 +58,7 @@ embeddingWorker.on('completed', (job, result) => {
 embeddingWorker.on('failed', (job, err) => {
   console.error(`[Worker:Embedding] Failed:`, err);
 });
+
+embeddingWorker.on('error', () => {
+  // Suppress uncaught redis connection error spam
+});

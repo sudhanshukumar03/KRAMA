@@ -6,40 +6,42 @@ import { embeddingWorker } from './workers/embedding.worker';
 
 import { habitStreakQueue, sprintReportQueue, analyticsQueue } from './queues';
 
-// Schedule repeatable jobs
+// Schedule repeatable jobs safely
 const scheduleJobs = async () => {
-  console.log('Scheduling repeatable jobs...');
-  
-  // Nightly at midnight UTC
-  await habitStreakQueue.upsertJobScheduler('recalculate-streaks-job', {
-    pattern: '0 0 * * *'
-  }, {
-    name: 'recalculate-streaks'
-  });
+  try {
+    // Nightly at midnight UTC
+    await habitStreakQueue.upsertJobScheduler('recalculate-streaks-job', {
+      pattern: '0 0 * * *'
+    }, {
+      name: 'recalculate-streaks'
+    });
 
-  // Nightly at 1 AM UTC
-  await analyticsQueue.upsertJobScheduler('aggregate-analytics-job', {
-    pattern: '0 1 * * *'
-  }, {
-    name: 'aggregate-analytics'
-  });
+    // Nightly at 1 AM UTC
+    await analyticsQueue.upsertJobScheduler('aggregate-analytics-job', {
+      pattern: '0 1 * * *'
+    }, {
+      name: 'aggregate-analytics'
+    });
 
-  // Weekly on Sunday at 2 AM UTC
-  await sprintReportQueue.upsertJobScheduler('generate-sprint-reports-job', {
-    pattern: '0 2 * * 0'
-  }, {
-    name: 'generate-sprint-reports'
-  });
+    // Weekly on Sunday at 2 AM UTC
+    await sprintReportQueue.upsertJobScheduler('generate-sprint-reports-job', {
+      pattern: '0 2 * * 0'
+    }, {
+      name: 'generate-sprint-reports'
+    });
 
-  console.log('Jobs scheduled successfully.');
+    console.log('[Worker] Repeatable jobs scheduled.');
+  } catch (err: any) {
+    console.warn('[Worker] Could not register scheduler (Redis offline):', err?.message || err);
+  }
 };
 
-scheduleJobs().catch(console.error);
+scheduleJobs().catch(() => {});
 
 // Handle shutdown
 const shutdown = async () => {
   console.log('Shutting down workers...');
-  await Promise.all([
+  await Promise.allSettled([
     notificationsWorker.close(),
     habitStreakWorker.close(),
     sprintReportWorker.close(),
@@ -53,4 +55,5 @@ const shutdown = async () => {
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
-console.log('KRAMA OS Background Workers started.');
+console.log('KRAMA OS Background Workers initialized.');
+

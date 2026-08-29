@@ -24,23 +24,29 @@ export const notificationsQueue = new Queue(QUEUE_NAMES.NOTIFICATIONS, {
   connection,
   defaultJobOptions,
 });
+notificationsQueue.on('error', () => {});
 
 export const habitStreakQueue = new Queue(QUEUE_NAMES.HABIT_STREAK, {
   connection,
   defaultJobOptions,
 });
+habitStreakQueue.on('error', () => {});
 
 export const sprintReportQueue = new Queue(QUEUE_NAMES.SPRINT_REPORT, {
   connection,
   defaultJobOptions,
 });
+sprintReportQueue.on('error', () => {});
 
 export const analyticsQueue = new Queue(QUEUE_NAMES.ANALYTICS, {
   connection,
   defaultJobOptions,
 });
+analyticsQueue.on('error', () => {});
 
 export const embeddingQueue = new Queue(QUEUE_NAMES.EMBEDDING, {
   connection,
   defaultJobOptions,
 });
+embeddingQueue.on('error', () => {});
+

@@ -90,3 +90,7 @@ habitStreakWorker.on('completed', (job, result) => {
 habitStreakWorker.on('failed', (job, err) => {
   console.error(`[Worker:HabitStreak] Failed:`, err);
 });
+
+habitStreakWorker.on('error', () => {
+  // Suppress uncaught redis connection error spam
+});

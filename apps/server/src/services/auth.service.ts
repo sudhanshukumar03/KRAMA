@@ -127,11 +127,20 @@ export class AuthService {
   async revokeAllSessions(userId: string): Promise<void> {
     const sessions = await sessionRepository.findActiveByUserId(userId);
 
-    const pipeline = redisService.client.multi();
-    for (const s of sessions) {
-      pipeline.del(`session:${s.refreshTokenHash}`);
+    if (redisService.isConnected && redisService.client.isOpen) {
+      try {
+        const pipeline = redisService.client.multi();
+        for (const s of sessions) {
+          pipeline.del(`session:${s.refreshTokenHash}`);
+        }
+        await pipeline.exec();
+      } catch {
+        // Ignore pipeline error
+      }
     }
-    await pipeline.exec();
+    for (const s of sessions) {
+      await redisService.del(`session:${s.refreshTokenHash}`);
+    }
 
     await sessionRepository.updateManyActiveByUserId(userId, { revokedAt: new Date() });
   }

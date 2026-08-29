@@ -112,3 +112,7 @@ analyticsWorker.on('completed', (job, result) => {
 analyticsWorker.on('failed', (job, err) => {
   console.error(`[Worker:Analytics] Failed:`, err);
 });
+
+analyticsWorker.on('error', () => {
+  // Suppress uncaught redis connection error spam
+});
