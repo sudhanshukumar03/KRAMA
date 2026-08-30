@@ -1,1 +1,0 @@
-import { PrismaClient } from '@prisma/client'; const prisma = new PrismaClient(); async function main() { await prisma.task.updateMany({ data: { dueDate: new Date() } }); } main().catch(console.error).finally(() => prisma.$disconnect());
