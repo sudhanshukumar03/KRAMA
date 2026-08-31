@@ -12,7 +12,7 @@ const NarrativeResponseSchema = z.object({
     entityType: z.enum(['task', 'habit', 'goal']),
     action: z.enum(['complete', 'create', 'update_progress']),
     title: z.string().describe("Title or name of the entity"),
-    metadata: z.record(z.any()).optional().describe("Additional data like new progress percentage, priority, etc."),
+    metadata: z.record(z.string(), z.any()).optional().describe("Additional data like new progress percentage, priority, etc."),
     confidence: z.number().describe("Confidence from 0 to 1 that this is what the user meant")
   }))
 });

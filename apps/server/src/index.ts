@@ -65,7 +65,7 @@ import decisionRoutes from './routes/decision.routes';
 import plannerRoutes from './routes/planner.routes';
 import holidayRoutes from './routes/holiday.routes';
 import searchRoutes from './routes/search.routes';
-import oauthRoutes from './routes/oauth.routes';
+import { oauthRoutes } from './routes/oauth.routes';
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);

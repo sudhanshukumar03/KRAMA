@@ -11,7 +11,7 @@ export class TaskService {
       where: { workspaceId },
       orderBy: [
         { status: 'asc' },
-        { sortOrder: 'asc' },
+        { position: 'asc' },
         { createdAt: 'asc' }
       ]
     });
@@ -29,7 +29,7 @@ export class TaskService {
       
       await prisma.task.update({
         where: { id: task.id },
-        data: { sortOrder: currentOrder }
+        data: { position: currentOrder }
       });
     }
   }
