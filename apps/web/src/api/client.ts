@@ -215,6 +215,12 @@ export const api = {
     list: () => fetchApi<any[]>('/notifications', { method: 'GET' }),
     markAsRead: (id: string) => fetchApi<any>(`/notifications/${id}/read`, { method: 'PATCH' })
   },
+  automations: {
+    list: () => fetchApi<any[]>('/automations'),
+    create: (data: Record<string, any>) => fetchApi<any>('/automations', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, any>) => fetchApi<any>(`/automations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) => fetchApi<{ success: boolean }>(`/automations/${id}`, { method: 'DELETE' }),
+  },
   dashboard: {
     get: () => fetchApi<any>('/dashboard', { method: 'GET' })
   },

@@ -6,7 +6,8 @@ import { toast } from 'sonner';
 import { 
   Home, BookOpen, Target, FolderKanban, Network,
   Calendar, Clock4, KanbanSquare, Clock, CalendarCheck, TrendingUp,
-  Sparkles, Scale, Search, LogOut, Moon, Sun, Download, X, Bell
+  Sparkles, Scale, Search, LogOut, Moon, Sun, Download, X, Bell,
+  Zap
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -32,6 +33,7 @@ const executionLoopItems = [
 const systemItems = [
   { name: 'Decision Log', path: '/app/decisions', icon: Scale, shortcut: 'S D', badgeKey: null },
   { name: 'Analytics', path: '/app/analytics', icon: TrendingUp, shortcut: 'S N', badgeKey: null },
+    { name: 'Automations', path: '/app/automations', icon: Zap, shortcut: 'S A', badgeKey: null },
 ];
 
 export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {

@@ -40,7 +40,7 @@ export const createSpace = async (req: Request, res: Response) => {
 
 export const updateSpace = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { name, icon, metadata } = req.body;
     
     const space = await prisma.space.update({
@@ -56,7 +56,7 @@ export const updateSpace = async (req: Request, res: Response) => {
 
 export const deleteSpace = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     await prisma.space.delete({ where: { id } });
     return res.status(200).json({ success: true });
   } catch (error) {

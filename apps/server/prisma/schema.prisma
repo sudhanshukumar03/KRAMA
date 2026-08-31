@@ -92,21 +92,21 @@ enum SyncStatus {
 // -----------------------------------------------------------------------------
 
 model User {
-  id               String    @id @default(uuid())
-  email            String    @unique
-  name             String?
-  passwordHash     String
-  emailVerifiedAt  DateTime?
-  metadata         Json?
-  
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  deletedAt        DateTime?
-  version          Int       @default(1)
+  id              String    @id @default(uuid())
+  email           String    @unique
+  name            String?
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  metadata        Json?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  version   Int       @default(1)
 
   // Planner configuration
-  weeklyCapacityMinutes Int       @default(2400)
-  countryCode           String    @default("IN")
+  weeklyCapacityMinutes Int     @default(2400)
+  countryCode           String  @default("IN")
   regionCode            String?
 
   memberships      WorkspaceMember[]
@@ -115,7 +115,7 @@ model User {
   notifications    Notification[]
   aiRequests       AiRequest[]
   habitCompletions HabitCompletion[]
-  tasksAssigned    Task[]    @relation("TaskAssignee")
+  tasksAssigned    Task[]            @relation("TaskAssignee")
   activityLogs     ActivityLog[]
   focusSessions    FocusSession[]
   comments         Comment[]
@@ -137,46 +137,47 @@ model Session {
 }
 
 model Workspace {
-  id               String    @id @default(uuid())
-  name             String
-  metadata         Json?
-  
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  deletedAt        DateTime?
-  createdBy        String?
-  updatedBy        String?
-  version          Int       @default(1)
-  productivityScore Int      @default(0)
+  id       String @id @default(uuid())
+  name     String
+  metadata Json?
 
-  members          WorkspaceMember[]
-  projects         Project[]
-  goals            Goal[]
-  habits           Habit[]
-  spaces           Space[]
-  pages            Page[]
-  tasks            Task[]
-  sprints          Sprint[]
-  dailyLogs        DailyLog[]
-  sprintReports    SprintReport[]
-  analytics        WorkspaceAnalytics[]
-  notifications    Notification[]
-  aiRequests       AiRequest[]
-  activityLogs     ActivityLog[]
-  labels           Label[]
-  focusSessions    FocusSession[]
-  decisions        Decision[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+  createdBy         String?
+  updatedBy         String?
+  version           Int       @default(1)
+  productivityScore Int       @default(0)
+
+  members         WorkspaceMember[]
+  projects        Project[]
+  goals           Goal[]
+  habits          Habit[]
+  spaces          Space[]
+  pages           Page[]
+  tasks           Task[]
+  sprints         Sprint[]
+  dailyLogs       DailyLog[]
+  sprintReports   SprintReport[]
+  analytics       WorkspaceAnalytics[]
+  notifications   Notification[]
+  aiRequests      AiRequest[]
+  activityLogs    ActivityLog[]
+  labels          Label[]
+  focusSessions   FocusSession[]
+  decisions       Decision[]
+  automationRules AutomationRule[]
 }
 
 model WorkspaceMember {
-  id           String    @id @default(uuid())
-  userId       String
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspaceId  String
-  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  role         Role      @default(MEMBER)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role        Role      @default(MEMBER)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@unique([userId, workspaceId])
 }
@@ -186,97 +187,97 @@ model WorkspaceMember {
 // -----------------------------------------------------------------------------
 
 model Project {
-  id               String    @id @default(uuid())
+  id               String  @id @default(uuid())
   name             String
   problemStatement String?
-  status           String    @default("active")
+  status           String  @default("active")
   metadata         Json?
 
-  workspaceId      String
-  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  icon             String?
-  goalId           String?
-  goal             Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
-  spaceId          String?
-  space            Space?    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  icon        String?
+  goalId      String?
+  goal        Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  spaceId     String?
+  space       Space?    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
 
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  deletedAt        DateTime?
-  createdBy        String?
-  updatedBy        String?
-  version          Int       @default(1)
-  position         Float     @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+  version   Int       @default(1)
+  position  Float     @default(0)
 
-  tasks            Task[]
-  pages            Page[]    @relation("ProjectPages")
-  sprints          Sprint[]
-  focusSessions    FocusSession[]
+  tasks         Task[]
+  pages         Page[]         @relation("ProjectPages")
+  sprints       Sprint[]
+  focusSessions FocusSession[]
 }
 
 model Task {
-  id               String       @id @default(uuid())
-  title            String
-  description      String?
-  status           TaskStatus   @default(TODO)
-  priority         TaskPriority @default(MEDIUM)
-  estimateMinutes  Int?
-  scheduledDate    DateTime?
-  dueDate          DateTime?
-  metadata         Json?
+  id              String       @id @default(uuid())
+  title           String
+  description     String?
+  status          TaskStatus   @default(TODO)
+  priority        TaskPriority @default(MEDIUM)
+  estimateMinutes Int?
+  scheduledDate   DateTime?
+  dueDate         DateTime?
+  metadata        Json?
 
-  workspaceId      String
-  workspace        Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  projectId        String?
-  project          Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  sprintId         String?
-  sprint           Sprint?      @relation(fields: [sprintId], references: [id], onDelete: SetNull)
-  assigneeId       String?
-  assignee         User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  sprintId    String?
+  sprint      Sprint?   @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  assigneeId  String?
+  assignee    User?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
 
-  blockedById      String?
-  blockedBy        Task?        @relation("TaskDependencies", fields: [blockedById], references: [id])
-  blocking         Task[]       @relation("TaskDependencies")
+  blockedById String?
+  blockedBy   Task?   @relation("TaskDependencies", fields: [blockedById], references: [id])
+  blocking    Task[]  @relation("TaskDependencies")
 
-  parentTaskId     String?
-  parentTask       Task?        @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
-  childTasks       Task[]       @relation("TaskHierarchy")
+  parentTaskId String?
+  parentTask   Task?   @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
+  childTasks   Task[]  @relation("TaskHierarchy")
 
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  deletedAt        DateTime?
-  createdBy        String?
-  updatedBy        String?
-  version          Int       @default(1)
-  position         Float     @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+  version   Int       @default(1)
+  position  Float     @default(0)
 
-  labels           LabelsOnTasks[]
-  comments         Comment[]
-  focusSessions    FocusSession[]
+  labels        LabelsOnTasks[]
+  comments      Comment[]
+  focusSessions FocusSession[]
 }
 
 model Sprint {
-  id             String    @id @default(uuid())
-  name           String
-  startDate      DateTime
-  endDate        DateTime
-  status         String    @default("planning") // planning, active, completed
-  metadata       Json?
+  id        String   @id @default(uuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  status    String   @default("planning") // planning, active, completed
+  metadata  Json?
 
-  workspaceId    String
-  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  projectId      String?
-  project        Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  deletedAt      DateTime?
-  createdBy      String?
-  updatedBy      String?
-  version        Int       @default(1)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+  version   Int       @default(1)
 
-  tasks          Task[]
-  report         SprintReport?
+  tasks  Task[]
+  report SprintReport?
 }
 
 // -----------------------------------------------------------------------------
@@ -284,43 +285,43 @@ model Sprint {
 // -----------------------------------------------------------------------------
 
 model Goal {
-  id               String    @id @default(uuid())
-  title            String
-  type             String    // yearly, quarterly
-  progress         Float     @default(0)
-  targetDate       DateTime?
-  icon             String?
-  metadata         Json?
+  id         String    @id @default(uuid())
+  title      String
+  type       String // yearly, quarterly
+  progress   Float     @default(0)
+  targetDate DateTime?
+  icon       String?
+  metadata   Json?
 
-  workspaceId      String
-  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  spaceId          String?
-  space            Space?    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  spaceId     String?
+  space       Space?    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
 
-  parentGoalId     String?
-  parentGoal       Goal?     @relation("GoalHierarchy", fields: [parentGoalId], references: [id])
-  childGoals       Goal[]    @relation("GoalHierarchy")
+  parentGoalId String?
+  parentGoal   Goal?   @relation("GoalHierarchy", fields: [parentGoalId], references: [id])
+  childGoals   Goal[]  @relation("GoalHierarchy")
 
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  deletedAt        DateTime?
-  createdBy        String?
-  updatedBy        String?
-  version          Int       @default(1)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+  version   Int       @default(1)
 
-  projects         Project[]
-  habits           Habit[]
-  snapshots        GoalProgressSnapshot[]
+  projects  Project[]
+  habits    Habit[]
+  snapshots GoalProgressSnapshot[]
 }
 
 model GoalProgressSnapshot {
-  id               String    @id @default(uuid())
-  goalId           String
-  goal             Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  progress         Float
-  notes            String?
-  date             DateTime  @default(now())
-  createdAt        DateTime  @default(now())
+  id        String   @id @default(uuid())
+  goalId    String
+  goal      Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  progress  Float
+  notes     String?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 model Habit {
@@ -335,31 +336,31 @@ model Habit {
   scheduledDays           Int[]           @default([0, 1, 2, 3, 4, 5, 6])
   metadata                Json?
 
-  workspaceId             String
-  workspace               Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  linkedGoalId            String?
-  linkedGoal              Goal?           @relation(fields: [linkedGoalId], references: [id], onDelete: SetNull)
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  linkedGoalId String?
+  linkedGoal   Goal?     @relation(fields: [linkedGoalId], references: [id], onDelete: SetNull)
 
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
-  deletedAt               DateTime?
-  createdBy               String?
-  updatedBy               String?
-  version                 Int       @default(1)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+  version   Int       @default(1)
 
-  completions             HabitCompletion[]
+  completions HabitCompletion[]
 }
 
 model HabitCompletion {
-  id             String    @id @default(uuid())
-  habitId        String
-  habit          Habit     @relation(fields: [habitId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  completedAt    DateTime  @default(now())
-  notes          String?
-  metadata       Json?
+  id      String @id @default(uuid())
+  habitId String
+  habit   Habit  @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  completedAt DateTime @default(now())
+  notes       String?
+  metadata    Json?
 }
 
 // -----------------------------------------------------------------------------
@@ -367,63 +368,63 @@ model HabitCompletion {
 // -----------------------------------------------------------------------------
 
 model Space {
-  id             String    @id @default(uuid())
-  name           String
-  icon           String?
-  metadata       Json?
+  id       String  @id @default(uuid())
+  name     String
+  icon     String?
+  metadata Json?
 
-  workspaceId    String
-  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  deletedAt      DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
-  pages          Page[]
-  projects       Project[]
-  goals          Goal[]
+  pages    Page[]
+  projects Project[]
+  goals    Goal[]
 }
 
 model Page {
-  id               String    @id @default(uuid())
-  title            String
-  icon             String?
-  blocks           Json?     // Editor JSON
-  metadata         Json?
+  id       String  @id @default(uuid())
+  title    String
+  icon     String?
+  blocks   Json? // Editor JSON
+  metadata Json?
 
-  workspaceId      String
-  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  spaceId          String?
-  space            Space?    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  spaceId     String?
+  space       Space?    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
 
-  parentPageId     String?
-  parentPage       Page?     @relation("PageHierarchy", fields: [parentPageId], references: [id])
-  childPages       Page[]    @relation("PageHierarchy")
-  linkedProjectId  String?
-  linkedProject    Project?  @relation("ProjectPages", fields: [linkedProjectId], references: [id])
+  parentPageId    String?
+  parentPage      Page?    @relation("PageHierarchy", fields: [parentPageId], references: [id])
+  childPages      Page[]   @relation("PageHierarchy")
+  linkedProjectId String?
+  linkedProject   Project? @relation("ProjectPages", fields: [linkedProjectId], references: [id])
 
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  deletedAt        DateTime?
-  createdBy        String?
-  updatedBy        String?
-  version          Int       @default(1)
-  
-  knowledgeChunks  KnowledgeChunk[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+  version   Int       @default(1)
+
+  knowledgeChunks KnowledgeChunk[]
 }
 
 model Decision {
-  id               String    @id @default(uuid())
-  title            String
-  rationale        String?
-  outcomes         String?
-  options          Json?
-  metadata         Json?
+  id        String  @id @default(uuid())
+  title     String
+  rationale String?
+  outcomes  String?
+  options   Json?
+  metadata  Json?
 
-  workspaceId      String
-  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 // -----------------------------------------------------------------------------
@@ -431,7 +432,7 @@ model Decision {
 // -----------------------------------------------------------------------------
 
 model DailyLog {
-  id              String    @id @default(uuid())
+  id              String   @id @default(uuid())
   date            DateTime
   wins            String[]
   blockers        String[]
@@ -441,66 +442,66 @@ model DailyLog {
   notes           String?
   metadata        Json?
 
-  workspaceId     String
-  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
-  createdBy       String?
-  updatedBy       String?
-  version         Int       @default(1)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+  version   Int       @default(1)
 
   @@unique([userId, workspaceId, date])
 }
 
 model FocusSession {
-  id              String    @id @default(uuid())
-  startTime       DateTime
-  endTime         DateTime?
-  duration        Int       // duration in seconds
-  completed       Boolean   @default(false)
-  type            String    @default("pomodoro") // 'pomodoro' | 'short_break' | 'long_break'
-  
-  projectId       String?
-  project         Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  taskId          String?
-  task            Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspaceId     String
-  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id        String    @id @default(uuid())
+  startTime DateTime
+  endTime   DateTime?
+  duration  Int // duration in seconds
+  completed Boolean   @default(false)
+  type      String    @default("pomodoro") // 'pomodoro' | 'short_break' | 'long_break'
 
-  createdAt       DateTime  @default(now())
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 }
 
 model SprintReport {
-  id              String    @id @default(uuid())
-  sprintId        String
-  sprint          Sprint    @relation(fields: [sprintId], references: [id], onDelete: Cascade)
-  workspaceId     String
-  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  generatedAt     DateTime  @default(now())
-  tasksCompleted  Int
-  tasksPlanned    Int
-  metadata        Json?
+  id             String    @id @default(uuid())
+  sprintId       String
+  sprint         Sprint    @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  generatedAt    DateTime  @default(now())
+  tasksCompleted Int
+  tasksPlanned   Int
+  metadata       Json?
 
   @@unique([sprintId])
 }
 
 model WorkspaceAnalytics {
-  id              String    @id @default(uuid())
-  workspaceId     String
-  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  date            DateTime
-  weeklyVelocity  Int
-  activeStreaks   Int
-  okrPace         Float
-  deepWorkLogged  Int
-  metadata        Json?
+  id             String    @id @default(uuid())
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  date           DateTime
+  weeklyVelocity Int
+  activeStreaks  Int
+  okrPace        Float
+  deepWorkLogged Int
+  metadata       Json?
 
   @@unique([workspaceId, date])
 }
@@ -510,60 +511,60 @@ model WorkspaceAnalytics {
 // -----------------------------------------------------------------------------
 
 model Notification {
-  id              String    @id @default(uuid())
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspaceId     String
-  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  title           String
-  message         String
-  read            Boolean   @default(false)
-  actionUrl       String?
-  metadata        Json?
-  createdAt       DateTime  @default(now())
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title       String
+  message     String
+  read        Boolean   @default(false)
+  actionUrl   String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
 }
 
 model ActivityLog {
-  id              String    @id @default(uuid())
-  action          String
-  entityType      String
-  entityId        String
-  metadata        Json?
+  id         String @id @default(uuid())
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
 
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspaceId     String
-  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime  @default(now())
+  createdAt DateTime @default(now())
 }
 
 model Comment {
-  id              String    @id @default(uuid())
-  content         String
-  taskId          String?
-  task            Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  authorId        String
-  author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id        String   @id @default(uuid())
+  content   String
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Label {
-  id              String    @id @default(uuid())
-  name            String
-  color           String?
-  workspaceId     String
-  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid())
+  name        String
+  color       String?
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  tasks           LabelsOnTasks[]
+  tasks LabelsOnTasks[]
 }
 
 model LabelsOnTasks {
-  taskId          String
-  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  labelId         String
-  label           Label     @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  taskId  String
+  task    Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  labelId String
+  label   Label  @relation(fields: [labelId], references: [id], onDelete: Cascade)
 
   @@id([taskId, labelId])
 }
@@ -592,22 +593,22 @@ model AiRequest {
 }
 
 model KnowledgeChunk {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
   workspaceId String
   pageId      String
 
-  content     String
-  chunkIndex  Int
+  content    String
+  chunkIndex Int
 
-  embedding   Unsupported("vector(768)")?
+  embedding Unsupported("vector(768)")?
 
-  metadata    Json?
+  metadata Json?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  page        Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
   @@index([pageId])
@@ -618,21 +619,21 @@ model KnowledgeChunk {
 // -----------------------------------------------------------------------------
 
 model TimeBlock {
-  id          String        @id @default(uuid())
-  userId      String
-  title       String
-  date        DateTime
-  startTime   DateTime
-  endTime     DateTime
-  type        TimeBlockType
-  taskId      String?
-  projectId   String?
-  notes       String?
-  syncStatus  SyncStatus    @default(LOCAL_ONLY)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id         String        @id @default(uuid())
+  userId     String
+  title      String
+  date       DateTime
+  startTime  DateTime
+  endTime    DateTime
+  type       TimeBlockType
+  taskId     String?
+  projectId  String?
+  notes      String?
+  syncStatus SyncStatus    @default(LOCAL_ONLY)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, date])
 }
@@ -652,16 +653,16 @@ model RoutineOccurrence {
 }
 
 model Milestone {
-  id          String    @id @default(uuid())
-  title       String
-  date        DateTime
-  completed   Boolean   @default(false)
-  projectId   String
-  userId      String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String   @id @default(uuid())
+  title     String
+  date      DateTime
+  completed Boolean  @default(false)
+  projectId String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, date])
 }
@@ -706,3 +707,22 @@ model ExternalItem {
   @@index([userId, internalId])
 }
 
+model AutomationRule {
+  id          String  @id @default(uuid())
+  workspaceId String
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+
+  triggerType   String
+  conditions    Json?
+  actionType    String
+  actionPayload Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}

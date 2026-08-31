@@ -19,6 +19,7 @@ import { TimelineView } from './TimelineView';
 import { HabitTracker } from './HabitTracker';
 import { DecisionLog } from './DecisionLog';
 import { KnowledgeGraph } from './KnowledgeGraph';
+import { AutomationRules } from './AutomationRules';
 import { AIAssistant } from './AIAssistant';
 import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun, Search, Sparkles, Bell, Check } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -215,6 +216,7 @@ export function AppShell() {
  <Route path="/analytics/*" element={<Analytics />} />
  <Route path="/decisions" element={<DecisionLog />} />
  <Route path="/graph" element={<KnowledgeGraph />} />
+                <Route path="/automations" element={<AutomationRules />} />
  </Routes></GlobalErrorBoundary>
  </main>
  </div>

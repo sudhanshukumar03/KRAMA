@@ -48,6 +48,7 @@ app.get('/health', (req, res) => {
 
 import authRoutes from './routes/auth.routes';
 import workspaceRoutes from './routes/workspace.routes';
+import automationRoutes from './routes/automation.routes';
 import projectRoutes from './routes/project.routes';
 import taskRoutes from './routes/task.routes';
 import pageRoutes from './routes/page.routes';

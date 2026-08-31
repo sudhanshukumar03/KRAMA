@@ -1,3 +1,4 @@
+import { evaluateEvent } from '../services/automation.service';
 import type { Request, Response } from 'express';
 import { CreateTaskSchema, UpdateTaskSchema, ReorderSchema } from '@krama/validation';
 import { taskService } from '../services/task.service';
@@ -139,7 +140,7 @@ export const rebalanceTasks = async (req: Request, res: Response) => {
 
 export const addComment = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { content } = req.body;
     const userId = req.user!.id;
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
@@ -159,7 +160,7 @@ export const addComment = async (req: Request, res: Response) => {
         authorId: userId
       },
       include: {
-        author: { select: { name: true, image: true } }
+        author: { select: { name: true } }
       }
     });
 
