@@ -33,7 +33,7 @@ router.get('/google/callback', async (req: any, res: any) => {
     res.redirect('http://localhost:5173/app/planner?sync=success');
   } catch (error: any) {
     console.error('Google OAuth Callback Error:', error);
-    res.redirect(http://localhost:5173/app/planner?sync=error&message=\);
+    res.redirect(`http://localhost:5173/app/planner?sync=error&message=${encodeURIComponent(error.message)}`);
   }
 });
 

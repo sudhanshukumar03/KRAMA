@@ -1,3 +1,4 @@
+import { prisma } from '../prisma';
 import { taskRepository } from '../repositories/task.repository';
 import { TaskStatus, TaskPriority } from '@prisma/client';
 import { domainEventBus } from '../events/eventBus';
@@ -31,7 +32,7 @@ export class TaskService {
         data: { sortOrder: currentOrder }
       });
     }
-  },
+  }
 
   async listTasks(workspaceId: string, filters: { projectId?: string; sprintId?: string; status?: string }) {
     return taskRepository.findManyByWorkspace(workspaceId, {
