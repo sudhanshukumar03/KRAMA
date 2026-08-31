@@ -21,7 +21,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../api/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { IssueEditModal } from '../KanbanBoard';
-import { COUNTRIES, INDIAN_STATES } from './LocationSettingsModal';
+import { LocationSettingsModal, COUNTRIES, INDIAN_STATES } from './LocationSettingsModal';
 
 export function PlannerPage() {
   const [mode, setMode] = useState<'plan' | 'calendar'>('plan');
@@ -90,17 +90,17 @@ export function PlannerPage() {
     });
   };
 
-  const handleAddTimeBlock = (day: Date) => {
+  const handleAddTimeBlock = (day?: Date) => {
     setSelectedDay(day);
     setTimeBlockModalOpen(true);
   };
 
-  const handleAddTask = (day: Date) => {
+  const handleAddTask = (day?: Date) => {
     setCaptureDate(day);
     setCaptureOpen(true);
   };
 
-  const handleAddRoutine = (_day: Date) => {
+  const handleAddRoutine = (_day?: Date) => {
     setRoutineModalOpen(true);
   };
 
@@ -209,10 +209,10 @@ export function PlannerPage() {
         localOnly={localOnly}
         onLocalOnlyChange={setLocalOnly}
         countryRegion={countryRegionStr}
-          isGoogleConnected={isGoogleConnected}
-          onDisconnectGoogle={handleDisconnectGoogle}
-          onSyncGoogle={handleSyncGoogleNow}
-          isSyncingGoogle={isSyncingGoogle}
+          
+          
+          
+          
       />
 
       <div className="mt-6 flex flex-col">

@@ -64,10 +64,10 @@ interface Props {
   days: Date[];
   occurrenceFor: (routineId: string, day: Date) => any;
   onToggleRoutine: (occurrence: any) => void;
-  onAddTimeBlock: (day: Date) => void;
-  onAddTask?: (day: Date) => void;
-  onAddRoutine?: (day: Date) => void;
-  onAddProject?: (day: Date) => void;
+  onAddTimeBlock: (day?: Date) => void;
+  onAddTask?: (day?: Date) => void;
+  onAddRoutine?: (day?: Date) => void;
+  onAddProject?: (day?: Date) => void;
   onToggleTask?: (task: any, e: React.MouseEvent) => void;
   onClickTask?: (task: any) => void;
   onClickTimeBlock?: (block: any) => void;

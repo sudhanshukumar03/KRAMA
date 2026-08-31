@@ -140,7 +140,10 @@ export const api = {
     delete: (id: string) => fetchApi<{ message: string }>(`/goals/${id}`, { method: 'DELETE' }),
     restore: (id: string) => fetchApi<any>(`/goals/${id}/restore`, { method: 'POST' }),
   },
-  projects: {
+  roadmapItems: {
+      list: () => fetchApi<any[]>('/roadmap-items'),
+    },
+    projects: {
     list: () => fetchApi<ProjectWithRelations[]>('/projects'),
     create: (data: Record<string, any>) => fetchApi<ProjectWithRelations>('/projects', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<ProjectWithRelations>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
@@ -159,7 +162,9 @@ export const api = {
     delete: (id: string) => fetchApi<{ message: string }>(`/tasks/${id}`, { method: 'DELETE' }),
     restore: (id: string) => fetchApi<any>(`/tasks/${id}/restore`, { method: 'POST' }),
     complete: (id: string) => fetchApi<IssueWithRelations>(`/tasks/${id}/complete`, { method: 'PATCH' }),
+      addComment: (id: string, content: string) => fetchApi<any>(`/tasks/${id}/comments`, { method: 'POST', body: JSON.stringify({ content }) }),
   },
+  
   sprints: {
     list: () => fetchApi<Sprint[]>('/sprints'),
     create: (data: Record<string, any>) => fetchApi<Sprint>('/sprints', { method: 'POST', body: JSON.stringify(data) }),

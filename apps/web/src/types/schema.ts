@@ -109,6 +109,7 @@ export type IssueWithRelations = Issue & {
   blockedBy?: Issue | null;
   blocking?: Issue[];
   labels?: Label[];
+  comments?: any[];
 };
 
 export type SpaceWithRelations = Space & {
