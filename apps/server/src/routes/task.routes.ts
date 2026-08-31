@@ -1,6 +1,6 @@
 import type { Router } from 'express';
 import express from 'express';
-import { listTasks, getTask, createTask, updateTask, deleteTask, reorderTask, completeTask, restoreTask, rebalanceTasks } from '../controllers/task.controller';
+import { addComment, listTasks, getTask, createTask, updateTask, deleteTask, reorderTask, completeTask, restoreTask, rebalanceTasks } from '../controllers/task.controller';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 
 const router: Router = express.Router();
@@ -25,5 +25,6 @@ router.patch('/:id/reorder', requireWorkspaceRole('MEMBER'), reorderTask);
 router.patch('/:id/complete', requireWorkspaceRole('MEMBER'), completeTask);
 router.post('/:id/restore', requireWorkspaceRole('MEMBER'), restoreTask);
 router.post('/rebalance', requireWorkspaceRole('MEMBER'), rebalanceTasks);
+router.post('/:id/comments', requireWorkspaceRole('MEMBER'), addComment);
 
 export default router;

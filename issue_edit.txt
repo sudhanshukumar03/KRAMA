@@ -1,0 +1,240 @@
+export function IssueEditModal({
+ open,
+ issue,
+ allIssues,
+ onClose,
+ onSubmit,
+ isSubmitting,
+}: {
+ open: boolean;
+ issue: IssueWithRelations | null;
+ allIssues: IssueWithRelations[];
+ onClose: () => void;
+  onSubmit: (id: string, data: { title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; estimateMinutes?: number; blockedById?: string | null; dueDate?: string; scheduledDate?: string; metadata?: any }) => void;
+  isSubmitting: boolean;
+}) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [status, setStatus] = useState<TaskStatus>("TODO");
+  const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
+  const [estimate, setEstimate] = useState(2);
+  const [blockedById, setBlockedById] = useState<string | null>(null);
+  const [dueDate, setDueDate] = useState('');
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [isPinned, setIsPinned] = useState(false);
+  const [newSubtask, setNewSubtask] = useState('');
+  const queryClient = useQueryClient();
+
+ useEffect(() => {
+ if (open && issue) {
+ setTitle(issue.title || '');
+ setDescription(issue.description || '');
+ setStatus(issue.status as TaskStatus || "TODO");
+ setPriority(issue.priority as TaskPriority || "MEDIUM");
+ setEstimate(issue.estimateMinutes ?? 2);
+  setBlockedById(issue.blockedBy ? issue.blockedBy.id : null);
+  setDueDate(issue.dueDate ? new Date(issue.dueDate).toISOString().split('T')[0] : '');
+  setScheduledDate(issue.scheduledDate ? new Date(issue.scheduledDate).toISOString().split('T')[0] : '');
+  setIsPinned((issue.metadata as any)?.isPinned || false);
+  }
+ }, [open, issue]);
+
+ if (!open || !issue) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!title.trim()) return;
+
+  const updatedMetadata = { ...(issue.metadata as any || {}), isPinned };
+
+  onSubmit(issue.id, {
+  title: title.trim(),
+  description: description.trim(),
+  status: status as TaskStatus,
+  priority: priority as TaskPriority,
+  estimateMinutes: Number(estimate) || 0,
+  blockedById,
+  dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+  scheduledDate: scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
+  metadata: updatedMetadata
+  });
+  };
+
+ const otherIssues = allIssues.filter(i => i.id !== issue.id);
+
+ return (
+ <div
+ onClick={onClose}
+ className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
+ >
+ <div
+ onClick={e => e.stopPropagation()}
+ className="v4-card w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
+ >
+ <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50 shrink-0">
+ <div className="flex items-center gap-2.5">
+ <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
+ <ListChecks className="w-4 h-4 stroke-[2]" />
+ </div>
+ <h3 className="text-card text-primary mb-2 ">Edit Task #{issue.id.slice(-4)}</h3>
+ </div>
+ <button
+ onClick={onClose}
+ type="button"
+ className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors"
+ >
+ <X className="w-4 h-4" />
+ </button>
+ </div>
+
+ <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+<div className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface-hover/30">
+  <div>
+    <h4 className="text-body font-medium text-primary">Pin to Weekly Timeline</h4>
+    <p className="text-caption text-secondary">Show this task in the pinned section of your Daily Schedule.</p>
+  </div>
+  <label className="relative inline-flex items-center cursor-pointer">
+    <input type="checkbox" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} className="sr-only peer" />
+    <div className="w-9 h-5 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2563EB]"></div>
+  </label>
+</div>
+ <div>
+ <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
+ Task Title <span className="text-[#DC2626]">*</span>
+ </label>
+ <input
+ type="text"
+ value={title}
+ onChange={e => setTitle(e.target.value)}
+ required
+ autoFocus
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+ />
+ </div>
+
+ <div>
+ <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
+ Description
+ </label>
+ <textarea
+ value={description}
+ onChange={e => setDescription(e.target.value)}
+ rows={3}
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all resize-none"
+ />
+ </div>
+
+ <div className="grid grid-cols-3 gap-4">
+ <div>
+ <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
+ Column / Status
+ </label>
+ <select
+ value={status}
+ onChange={e => setStatus(e.target.value as TaskStatus)}
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+ >
+ {STATUSES.map(s => (
+ <option key={s} value={s}>{s.replace('_', ' ')}</option>
+ ))}
+ </select>
+ </div>
+
+ <div>
+ <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
+ Priority
+ </label>
+ <select
+ value={priority}
+ onChange={e => setPriority(e.target.value as TaskPriority)}
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
+ >
+ <option value="LOW">Low</option>
+ <option value="MEDIUM">Medium</option>
+ <option value="HIGH">High</option>
+ <option value="URGENT">Urgent</option>
+ </select>
+ </div>
+
+ <div>
+ <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
+ Estimate (hrs)
+ </label>
+ <input
+ type="number"
+ min="0"
+ max="100"
+ value={estimate}
+ onChange={e => setEstimate(Number(e.target.value))}
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+ />
+ </div>
+ </div>
+
+ <div>
+ <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5 flex items-center gap-1.5">
+ <AlertCircle className="w-3.5 h-3.5 text-[#DC2626]" /> Dependencies (Blocked By)
+ </label>
+ <select
+   value={blockedById || ""}
+   onChange={e => setBlockedById(e.target.value || null)}
+   className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+ >
+   <option value="">None (No Dependency)</option>
+   {otherIssues.map(other => (
+     <option key={other.id} value={other.id}>#{other.id.slice(-4)} - {other.title}</option>
+   ))}
+ </select>
+ <p className="text-badge text-secondary mt-1">Select a task that must be completed before this task can start.</p>
+ </div>
+
+ <div className="grid grid-cols-2 gap-4">
+    <div>
+      <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">Scheduled Date</label>
+      <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-body text-primary focus:outline-none focus:border-primary transition-colors" />
+    </div>
+    <div>
+      <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">Due Date</label>
+      <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-body text-primary focus:outline-none focus:border-primary transition-colors" />
+    </div>
+  </div>
+
+  <div className="pt-2">
+    <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5 flex items-center gap-2">Subtasks <span className="bg-surface border border-border px-1.5 rounded-full text-[10px]">{issue?.childTasks?.length || 0}</span></label>
+    <div className="space-y-2 mb-3">
+      {issue?.childTasks?.map((child: any) => (
+        <div key={child.id} className="flex items-center gap-2 p-2 rounded-lg border border-border bg-surface-hover/50 text-caption text-primary">
+          <div className={`w-3 h-3 rounded-full border ${child.status === 'DONE' ? 'bg-[#2563EB] border-[#2563EB]' : 'border-secondary'}`} />
+          <span className={child.status === 'DONE' ? 'line-through text-muted' : ''}>{child.title}</span>
+        </div>
+      ))}
+      {(!issue?.childTasks || issue.childTasks.length === 0) && <p className="text-caption text-muted italic">No subtasks yet.</p>}
+    </div>
+    <div className="flex gap-2">
+      <input type="text" value={newSubtask} onChange={e => setNewSubtask(e.target.value)} onKeyDown={async e => {
+        if (e.key === 'Enter' && newSubtask.trim()) {
+          e.preventDefault();
+          try {
+            await api.tasks.create({ title: newSubtask.trim(), parentTaskId: issue.id });
+            setNewSubtask('');
+            queryClient.invalidateQueries({ queryKey: ['issues'] });
+          } catch {}
+        }
+      }} placeholder="Add a subtask (press Enter)" className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-caption text-primary focus:outline-none focus:border-primary transition-colors" />
+    </div>
+  </div>
+
+ <div className="pt-4 border-t border-border flex justify-end gap-3 shrink-0">
+ <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+ Cancel
+ </BaseButton>
+ <BaseButton type="submit" disabled={isSubmitting || !title.trim()}>
+ {isSubmitting ? 'Saving...' : 'Save Changes'}
+ </BaseButton>
+ </div>
+ </form>
+ </div>
+ </div>
+ );
+}
+

@@ -33,23 +33,7 @@ export function AppShell() {
  const [isOffline, setIsOffline] = useState(false);
  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
  const [focusMode, setFocusMode] = useState(false);
- const [showNotifications, setShowNotifications] = useState(false);
  const queryClient = useQueryClient();
-
- const { data: notifications = [] } = useQuery({
-   queryKey: ['notifications'],
-   queryFn: api.notifications.list,
-   refetchInterval: 30000,
- });
-
- const markAsReadMutation = useMutation({
-   mutationFn: api.notifications.markAsRead,
-   onSuccess: () => {
-     queryClient.invalidateQueries({ queryKey: ['notifications'] });
-   }
- });
-
- const unreadCount = notifications.filter(n => !n.read).length;
 
  useEffect(() => {
  const handleOffline = () => setIsOffline(true);
