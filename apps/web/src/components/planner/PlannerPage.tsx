@@ -1,4 +1,4 @@
-// =============================================================================
+﻿// =============================================================================
 // PLANNER PAGE ?" KRAMA OS
 // =============================================================================
 // Top-level page component orchestrating the planner system
@@ -17,6 +17,7 @@ import { RoutineModal } from './RoutineModal';
 import { QuickCaptureModal } from '../ui/QuickCaptureModal';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../api/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { IssueEditModal } from '../KanbanBoard';
@@ -208,6 +209,8 @@ export function PlannerPage() {
         localOnly={localOnly}
         onLocalOnlyChange={setLocalOnly}
         countryRegion={countryRegionStr}
+          isGoogleConnected={isGoogleConnected}
+          onDisconnectGoogle={handleDisconnectGoogle}
       />
 
       <div className="mt-6 flex flex-col">
@@ -242,3 +245,4 @@ export function PlannerPage() {
     </div>
   );
 }
+

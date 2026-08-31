@@ -19,6 +19,8 @@ interface Props {
   onLocalOnlyChange?: (val: boolean) => void;
   countryRegion?: string;
   rightSlot?: React.ReactNode;
+  isGoogleConnected?: boolean;
+  onDisconnectGoogle?: () => void;
 }
 
 export function PlannerHeader({

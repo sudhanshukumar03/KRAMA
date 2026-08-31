@@ -1,11 +1,16 @@
-# -*- coding: utf-8 -*-
-import codecs
+with open('apps/web/src/components/planner/PlannerPage.tsx', 'r') as f:
+    text = f.read()
 
-filepath = 'apps/web/src/components/planner/PlannerPage.tsx'
-with codecs.open(filepath, 'r', 'utf-8') as f:
-    content = f.read()
+target = '''      const res = await fetch('/api/v1/oauth/google/disconnect', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': \Bearer \\
+        }
+      });
+      if (!res.ok) throw new Error('Failed to disconnect');'''
 
-content = content.replace("onClickTask={handleClickTask}", "onClickTask={handleClickTask}\n                  onAddMilestone={() => setMilestoneModalOpen(true)}")
+replacement = '''      await api.oauth.disconnectGoogle();'''
 
-with codecs.open(filepath, 'w', 'utf-8') as f:
-    f.write(content)
+text = text.replace(target, replacement)
+with open('apps/web/src/components/planner/PlannerPage.tsx', 'w') as f:
+    f.write(text)

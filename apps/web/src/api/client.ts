@@ -201,6 +201,9 @@ export const api = {
     delete: (id: string) => fetchApi<{ success: boolean }>(`/decisions/${id}`, { method: 'DELETE' }),
     restore: async (_snapshot: any) => { throw new Error('Not implemented yet'); },
   },
+  oauth: {
+    disconnectGoogle: () => fetchApi<{ success: boolean }>('/oauth/google/disconnect', { method: 'DELETE' }),
+  },
   ai: {
     complete: (data: Record<string, any>) => fetchApi<any>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),
     ragQuery: (data: Record<string, any>) => fetchApi<any>('/ai/rag-query', { method: 'POST', body: JSON.stringify(data) }),
