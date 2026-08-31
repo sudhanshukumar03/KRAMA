@@ -398,15 +398,24 @@ export function TimelineView() {
  const navigateDay = (offsetDays: number) => {
  const nextDate = new Date(targetDate);
  nextDate.setDate(targetDate.getDate() + offsetDays);
- const dateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDate.getDate()).padStart(2, '0')}`;
+ const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
  setSearchParams({ date: dateStr });
  };
 
+  const targetDateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+  const { data: plannerData } = useQuery({ 
+    queryKey: ['plannerWeek', targetDateStr], 
+    queryFn: () => api.planner.getWeek(targetDateStr, targetDateStr) 
+  });
  if (isLoading) return <LoadingState title="Loading Daily Timeline..." description="Scheduling time-blocked blocks and habit routines..." />;
 
  const targetStart = new Date(new Date(targetDate).setHours(0, 0, 0, 0));
  const targetEnd = new Date(new Date(targetDate).setHours(23, 59, 59, 999));
  const isViewingToday = targetDate.toDateString() === new Date().toDateString();
+
+
+  
+  const timeBlocks = plannerData?.timeBlocks || [];
 
   const todayIssues = issues.filter(i => {
     const date = i.scheduledDate ? new Date(i.scheduledDate) : i.dueDate ? new Date(i.dueDate) : null;
@@ -416,6 +425,30 @@ export function TimelineView() {
     if (date.getTime() < targetStart.getTime() && i.status !== "DONE") return true;
     return false;
   });
+
+  const linkedTaskIds = new Set(timeBlocks.map((tb: any) => tb.taskId).filter(Boolean));
+  const unlinkedIssues = todayIssues.filter(i => !linkedTaskIds.has(i.id));
+
+  const agendaItems = [
+    ...unlinkedIssues.map(issue => {
+      const issueDate = issue.scheduledDate ? new Date(issue.scheduledDate) : issue.dueDate ? new Date(issue.dueDate) : null;
+      const isCarriedOver = issueDate && issueDate.getTime() < targetStart.getTime();
+      return {
+        type: 'task' as const,
+        id: issue.id,
+        sortTime: 0,
+        data: issue,
+        isCarriedOver
+      };
+    }),
+    ...timeBlocks.map((tb: any) => ({
+      type: 'timeblock' as const,
+      id: tb.id,
+      sortTime: new Date(tb.startTime).getTime(),
+      data: tb,
+      linkedTask: issues.find(i => i.id === tb.taskId)
+    }))
+  ].sort((a, b) => a.sortTime - b.sortTime);
 
 
  const timeString = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
@@ -470,7 +503,7 @@ export function TimelineView() {
 
  {/* Vertical Agenda */}
  <div className="relative flex-1">
- {todayIssues.length === 0 ? (
+ {agendaItems.length === 0 ? (
  <div className="py-12 text-center flex flex-col items-center justify-center">
  <Clock className="w-6 h-6 text-muted mb-2 stroke-[1.5]" />
  <p className="text-body font-medium text-primary mb-1">No events scheduled for today</p>
@@ -481,84 +514,141 @@ export function TimelineView() {
  </div>
  ) : (
  <div className="space-y-4">
- {todayIssues.map((issue, idx) => {
- const isDone = issue.status === "DONE" || issue.status === "REVIEW";
- const Icon = getIconForString(issue.title);
- const isCurrent = idx === 0 && !isDone;
- 
-  const issueDate = issue.scheduledDate ? new Date(issue.scheduledDate) : issue.dueDate ? new Date(issue.dueDate) : null;
-  const isCarriedOver = issueDate && issueDate.getTime() < targetStart.getTime();
- 
- return (
-  <div key={issue.id} className="relative group/timeline">
-  <div className="absolute left-[39px] -top-2 -bottom-6 w-[2px] bg-border group-last/timeline:hidden" />
-  
-  <div className="flex items-start gap-4 relative">
-  <div className="w-[80px] shrink-0 text-right pt-2.5">
-  <div className="text-[11px] font-medium text-primary">
-  {isCarriedOver ? 'Overdue' : 'Unscheduled'}
-  </div>
-  </div>
-  
-  {/* Timeline Dot */}
-  <div className={cn("w-8 h-8 rounded-full ring-4 ring-white flex items-center justify-center transition-colors z-10",
-  isDone ?"bg-primary" : isCurrent ?"bg-[#2563EB] ring-2 ring-[#EFF4FE]" :"bg-surface border-2 border-[#2563EB]"
-  )}>
-  {isDone && <Check className="w-2.5 h-2.5 text-white stroke-[2]" />}
-  {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-surface animate-pulse" />}
-  </div>
- 
- {/* Event Card */}
- <div className={cn("flex-1 rounded-xl p-3.5 transition-all flex items-center justify-between border cursor-pointer group/card",
- isDone 
- ?"bg-surface-hover border-transparent opacity-80" 
- : isCurrent
- ?"bg-surface border-[#2563EB] ring-1 ring-[#2563EB]/20 shadow-md"
- :"bg-surface border-border hover:border-[#2563EB] shadow-sm"
- )}>
- <div className="flex items-center gap-3.5">
- <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors",
- isDone ?"bg-surface border border-border" : isCurrent ?"bg-[#2563EB] text-white shadow-xs" :"bg-[#EFF4FE] border border-[#2563EB]/20"
- )}>
- <Icon className={cn("w-4 h-4 stroke-[1.75]", isDone ?"text-muted" : isCurrent ?"text-white" :"text-[#2563EB]")} />
- </div>
- <div>
- <div className="flex items-center gap-2">
- <h3 className={cn("font-medium text-body mb-0.5",
- isDone ?"text-muted line-through decoration-[#D1D5DB]" :"text-primary"
- )}>
- {issue.title}
- </h3>
- {isCurrent && (
- <span className="px-1.5 py-0.2 rounded bg-[#EFF4FE] text-[#2563EB] text-[9px] font-mono font-bold uppercase tracking-widest border border-[#2563EB]/20">
- In Progress Now
- </span>
- )}
- {isCarriedOver && (
- <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 text-[9px] font-mono font-bold uppercase tracking-widest border border-amber-200">
- Carried Over
- </span>
- )}
- </div>
- <div className="text-badge text-secondary font-mono">
- {issue.estimateMinutes ? `${issue.estimateMinutes}h Block` : 'Scheduled Task'} • {idx === 0 ? '09:00 - 11:00' : idx === 1 ? '11:30 - 12:30' : '14:00 - 16:00'}
- </div>
- </div>
- </div>
- <button 
-    onClick={(e) => { 
-      e.stopPropagation(); 
-      deleteIssueMutation.mutate(issue.id);
-    }}      
-    className="opacity-0 group-hover/card:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-red-50 text-muted hover:text-red-600"
-    title="Permanently delete task"
-  >
-    <Trash2 className="w-4 h-4 stroke-[2]" />
-  </button>
- </div>
- </div>
- </div>
- );
+ {agendaItems.map((item, idx) => {
+   
+   if (item.type === 'task') {
+     const issue = item.data;
+     const isDone = issue.status === "DONE" || issue.status === "REVIEW";
+     const Icon = getIconForString(issue.title);
+     const isCurrent = false;
+     
+     return (
+       <div key={'task-'+issue.id} className="relative group/timeline">
+         <div className="absolute left-[39px] -top-2 -bottom-6 w-[2px] border-l-2 border-dashed border-border group-last/timeline:hidden" />
+         
+         <div className="flex items-start gap-4 relative">
+           <div className="w-[80px] shrink-0 text-right pt-2.5">
+             <div className="text-[11px] font-medium text-primary">
+               {item.isCarriedOver ? 'Overdue' : 'Unscheduled'}
+             </div>
+           </div>
+           
+           <div className={cn("w-8 h-8 rounded-full ring-4 ring-white flex items-center justify-center transition-colors z-10",
+             isDone ? "bg-primary" : "bg-surface border-2 border-dashed border-border"
+           )}>
+             {isDone && <Check className="w-2.5 h-2.5 text-slate-400 stroke-[2]" />}
+           </div>
+          
+           <div className={cn("flex-1 rounded-xl p-3.5 transition-all flex items-center justify-between border border-dashed cursor-pointer group/card",
+             isDone ? "bg-surface border-border/50 opacity-60" : "bg-surface border-border hover:border-primary shadow-sm"
+           )}>
+             <div className="flex items-center gap-3.5">
+               <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                 isDone ? "bg-surface border border-border" : "bg-surface border border-dashed border-border"
+               )}>
+                 <Icon className={cn("w-4 h-4 stroke-[1.75]", isDone ? "text-muted" : "text-primary")} />
+               </div>
+               <div>
+                 <div className="flex items-center gap-2">
+                   <h3 className={cn("font-medium text-body mb-0.5",
+                     isDone ? "text-muted line-through decoration-[#D1D5DB]" : "text-primary"
+                   )}>
+                     {issue.title}
+                   </h3>
+                   {item.isCarriedOver && (
+                     <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 text-[9px] font-mono font-bold uppercase tracking-widest border border-amber-200">
+                       Carried Over
+                     </span>
+                   )}
+                 </div>
+                 <div className="text-badge text-secondary font-mono">
+                   {issue.estimateMinutes ? `${issue.estimateMinutes}m` : 'Task'}
+                 </div>
+               </div>
+             </div>
+             <button onClick={(e) => { e.stopPropagation(); deleteIssueMutation.mutate(issue.id); }} className="w-8 h-8 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-all shrink-0">
+               <Trash2 className="w-4 h-4" />
+             </button>
+           </div>
+         </div>
+       </div>
+     );
+   }
+
+   const tb = item.data;
+   const hasLinkedTask = !!item.linkedTask;
+   const issueTitle = hasLinkedTask ? item.linkedTask.title : tb.title;
+   const issueObj = hasLinkedTask ? item.linkedTask : tb;
+   const isDone = hasLinkedTask ? (issueObj.status === "DONE" || issueObj.status === "REVIEW") : false;
+   const Icon = getIconForString(issueTitle);
+   
+   const now = currentTime.getTime();
+   const tbStart = new Date(tb.startTime).getTime();
+   const tbEnd = new Date(tb.endTime).getTime();
+   const isCurrent = now >= tbStart && now <= tbEnd;
+   const isPast = now > tbEnd;
+
+   const formatTime = (iso: string) => {
+     return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+   };
+
+   return (
+     <div key={'tb-'+tb.id} className="relative group/timeline">
+       <div className="absolute left-[39px] -top-2 -bottom-6 w-[2px] bg-border group-last/timeline:hidden" />
+       
+       <div className="flex items-start gap-4 relative">
+         <div className="w-[80px] shrink-0 text-right pt-2.5 flex flex-col gap-0.5">
+           <div className="text-[12px] font-bold text-primary">
+             {formatTime(tb.startTime)}
+           </div>
+           <div className="text-[10px] font-medium text-secondary">
+             {formatTime(tb.endTime)}
+           </div>
+         </div>
+         
+         <div className={cn("w-8 h-8 rounded-full ring-4 ring-white flex items-center justify-center transition-colors z-10",
+           isDone ? "bg-primary" : isCurrent ? "bg-[#2563EB] ring-2 ring-[#EFF4FE]" : isPast ? "bg-surface border-2 border-border" : "bg-surface border-2 border-[#2563EB]"
+         )}>
+           {isDone && <Check className="w-2.5 h-2.5 text-white stroke-[2]" />}
+           {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-surface animate-pulse" />}
+         </div>
+        
+         <div className={cn("flex-1 rounded-xl p-3.5 transition-all flex items-center justify-between border cursor-pointer group/card",
+           isDone ? "bg-surface border-border/50 opacity-60" : isCurrent ? "bg-surface border-[#2563EB] ring-1 ring-[#2563EB]/20 shadow-md" : "bg-surface border-border hover:border-primary shadow-sm"
+         )}>
+           <div className="flex items-center gap-3.5">
+             <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors",
+               isDone ? "bg-surface border border-border" : isCurrent ? "bg-[#2563EB] text-white shadow-xs" : "bg-[#EFF4FE] border border-[#2563EB]/20"
+             )}>
+               <Icon className={cn("w-4 h-4 stroke-[1.75]", isDone ? "text-muted" : isCurrent ? "text-white" : "text-[#2563EB]")} />
+             </div>
+             <div>
+               <div className="flex items-center gap-2">
+                 <h3 className={cn("font-medium text-body mb-0.5",
+                   isDone ? "text-muted line-through decoration-[#D1D5DB]" : "text-primary"
+                 )}>
+                   {issueTitle}
+                 </h3>
+                 {isCurrent && (
+                   <span className="px-1.5 py-0.2 rounded bg-[#EFF4FE] text-[#2563EB] text-[9px] font-mono font-bold uppercase tracking-widest border border-[#2563EB]/20">
+                     In Progress Now
+                   </span>
+                 )}
+                 {hasLinkedTask && (
+                   <span className="px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 text-[9px] font-mono font-bold uppercase tracking-widest border border-purple-200">
+                     Linked Task
+                   </span>
+                 )}
+               </div>
+               <div className="text-badge text-secondary font-mono flex items-center gap-1.5">
+                 <span className="px-1.5 py-0.5 bg-surface-hover rounded border border-border">{tb.type} Block</span>
+               </div>
+             </div>
+           </div>
+         </div>
+       </div>
+     </div>
+   );
  })}
  </div>
   )}

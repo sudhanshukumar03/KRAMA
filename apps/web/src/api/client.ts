@@ -204,6 +204,7 @@ export const api = {
   ai: {
     complete: (data: Record<string, any>) => fetchApi<any>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),
     ragQuery: (data: Record<string, any>) => fetchApi<any>('/ai/rag-query', { method: 'POST', body: JSON.stringify(data) }),
+    narrative: (data: Record<string, any>) => fetchApi<any>('/ai/narrative', { method: 'POST', body: JSON.stringify(data) }),
     config: () => fetchApi<any>('/ai/config'),
     analyzeTelemetry: (data: Record<string, any>) => fetchApi<{ insight: string }>('/ai/analyze-telemetry', { method: 'POST', body: JSON.stringify(data) }),
     getDashboardInsight: (force?: boolean) => fetchApi<{ insight: string }>(`/ai/dashboard-insight${force ? '?force=true' : ''}`)

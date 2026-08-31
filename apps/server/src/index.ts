@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
@@ -65,6 +65,7 @@ import decisionRoutes from './routes/decision.routes';
 import plannerRoutes from './routes/planner.routes';
 import holidayRoutes from './routes/holiday.routes';
 import searchRoutes from './routes/search.routes';
+import oauthRoutes from './routes/oauth.routes';
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);
@@ -72,6 +73,8 @@ app.use('/api/v1/workspaces', workspaceRoutes);
 app.use('/api/v1/projects', projectRoutes);
 app.use('/api/v1/tasks', taskRoutes);
 app.use('/api/v1/pages', pageRoutes);
+app.use('/api/v1/oauth', oauthRoutes);
+
 app.use('/api/v1/goals', goalRoutes);
 app.use('/api/v1/habits', habitRoutes);
 app.use('/api/v1/sprints', sprintRoutes);
@@ -85,6 +88,7 @@ app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/decisions', decisionRoutes);
 app.use('/api/v1/planner/holidays', holidayRoutes);
 app.use('/api/v1/planner', plannerRoutes);
+app.use('/api/v1/oauth', oauthRoutes);
 app.use('/api/v1/search', searchRoutes);
 
 app.use('/api/v1', (req, res) => {
@@ -109,3 +113,4 @@ app.listen(PORT, async () => {
   await ensureLocalUser();
   console.log(`[Server] KRAMA OS Backend running on port ${PORT}`);
 });
+

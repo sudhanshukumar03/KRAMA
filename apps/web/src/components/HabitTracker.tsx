@@ -921,7 +921,7 @@ export function HabitTracker() {
   return (
     <div className="flex flex-col lg:flex-row h-full w-full bg-canvas animate-in fade-in duration-150 overflow-y-auto lg:overflow-hidden">
       {/* LEFT COLUMN: Main Content */}
-      <div className="flex-1 lg:h-full lg:overflow-y-auto p-4 sm:p-6 lg:p-12 relative border-b lg:border-b-0 lg:border-r border-border">
+      <div className="flex-1 lg:h-full lg:overflow-y-auto p-6 sm:p-10 lg:p-20 relative border-b lg:border-b-0 lg:border-r border-border">
         {/* Header with Category Tile (#EA580C Orange) */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
           <div className="flex items-center gap-3.5">

@@ -90,6 +90,20 @@ export function usePlannerWeek() {
     },
   });
 
+  const updateTimeBlockMutation = useMutation({
+    mutationFn: (args: { id: string, data: any }) => api.planner.updateTimeBlock(args.id, args.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planner', 'week', weekStart] });
+    },
+  });
+
+  const deleteTimeBlockMutation = useMutation({
+    mutationFn: (id: string) => api.planner.deleteTimeBlock(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planner', 'week', weekStart] });
+    },
+  });
+
   return {
     data,
     isLoading,
@@ -104,5 +118,7 @@ export function usePlannerWeek() {
     occurrenceFor,
     toggleRoutineMutation,
     createTimeBlockMutation,
+    updateTimeBlockMutation,
+    deleteTimeBlockMutation,
   };
 }

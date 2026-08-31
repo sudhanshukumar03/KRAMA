@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Save, Brain, Zap, Smile, Play, Pause, RotateCcw, Plus, Sparkles, Check, Clock, Trophy, AlertTriangle, FileText, Activity, AlertCircle, Maximize2, Minimize2, Rocket, Target, Settings, ListTodo, CheckCircle2, ChevronDown, FolderKanban, Moon, Wand2, Sunset } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
+import { DailyNarrativeAssistant } from './ui/DailyNarrativeAssistant';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
@@ -199,7 +200,7 @@ export function DailyReview() {
  setSecondsRemaining(prevRem => {
  if (prevRem <= 1) {
  setTimerRunning(false);
- toast.success(`🎉 Completed Focus Session:"${focusTask}"! +${activeTheme.label} added to your daily score.`);
+ toast.success(`ðŸŽ‰ Completed Focus Session:"${focusTask}"! +${activeTheme.label} added to your daily score.`);
  return totalThemeSeconds;
  }
  return prevRem - 1;
@@ -238,7 +239,7 @@ export function DailyReview() {
  const handleCompleteSessionEarly = () => {
  setTimerRunning(false);
  const minsLogged = Math.max(1, Math.floor(sessionSeconds / 60));
- toast.success(`✅ Completed"${focusTask}" early! Banked ${minsLogged}m of deep work to your score.`);
+ toast.success(`âœ… Completed"${focusTask}" early! Banked ${minsLogged}m of deep work to your score.`);
  setSessionSeconds(0);
  setSecondsRemaining(totalThemeSeconds);
  autoSaveTimerMutation.mutate(Math.floor(secondsElapsed / 60));
@@ -315,7 +316,7 @@ export function DailyReview() {
  </div>
 
  <div className="text-card sm:text-2xl font-bold text-gray-200 mb-8 px-6 py-2.5 rounded-2xl bg-white/5 border border-white/10 max-w-xl truncate">
- 🎯 {focusTask}
+ ðŸŽ¯ {focusTask}
  </div>
 
  <h1 className="text-title text-white mb-4 sm: md: drop-shadow-2xl">
@@ -380,6 +381,8 @@ export function DailyReview() {
  </div>
  )}
  
+ <DailyNarrativeAssistant />
+
  <fieldset disabled={isShutdownComplete} className="contents">
  {/* AMBER REFLECTION IDENTITY HEADER (#F59E0B / #FBBF24) */}
  <div className="v4-card mb-8 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -637,7 +640,7 @@ export function DailyReview() {
  <div className="flex items-center justify-between mb-2.5">
  <Icon className={cn("w-4 h-4 stroke-[1.5]", isSelected ?"text-white" :"text-primary group-hover:scale-110 transition-transform")} />
  <span className="text-badge font-mono font-bold opacity-90 uppercase">
- {t.mins === -1 ? `${Math.max(1, customMins || 1)}m` : t.mins === 0 ? '∞' : `${t.mins}m`}
+ {t.mins === -1 ? `${Math.max(1, customMins || 1)}m` : t.mins === 0 ? 'âˆž' : `${t.mins}m`}
  </span>
  </div>
  <div>
@@ -716,7 +719,7 @@ export function DailyReview() {
  const nextRunning = !timerRunning;
  setTimerRunning(nextRunning);
  if (nextRunning) {
- toast.success(`🚀 Started ${activeTheme.label} on"${focusTask}"!`);
+ toast.success(`ðŸš€ Started ${activeTheme.label} on"${focusTask}"!`);
  } else if (!nextRunning && sessionSeconds > 0) {
  autoSaveTimerMutation.mutate(Math.floor(secondsElapsed / 60));
  toast.info(`Paused focus timer at ${displayTime}`);
@@ -990,7 +993,7 @@ export function DailyReview() {
  </div>
  <div>
  <h3 className="text-card text-primary mb-2 ">
- {isShutdownComplete ?"🌙 Evening Shutdown Complete — All Systems nominal." :"Ready for 1-Click Evening Shutdown?"}
+ {isShutdownComplete ?"ðŸŒ™ Evening Shutdown Complete â€” All Systems nominal." :"Ready for 1-Click Evening Shutdown?"}
  </h3>
  <p className="text-caption text-secondary font-mono max-w-xl">
  {isShutdownComplete 
@@ -1022,4 +1025,6 @@ export function DailyReview() {
  </div>
  );
 }
+
+
 

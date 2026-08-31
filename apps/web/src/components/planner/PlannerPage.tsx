@@ -16,6 +16,7 @@ import { TimeBlockModal } from './TimeBlockModal';
 import { RoutineModal } from './RoutineModal';
 import { QuickCaptureModal } from '../ui/QuickCaptureModal';
 import { toast } from 'sonner';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { IssueEditModal } from '../KanbanBoard';
@@ -43,6 +44,7 @@ export function PlannerPage() {
   const [routineModalOpen, setRoutineModalOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [captureDate, setCaptureDate] = useState<Date | undefined>(undefined);
   const [editingTask, setEditingTask] = useState<any | null>(null);
 
@@ -140,6 +142,12 @@ export function PlannerPage() {
 
   return (
     <div className="p-4 md:p-6 bg-[#f7f8fb] min-h-screen pb-20">
+      <LocationSettingsModal 
+        open={locationModalOpen} 
+        onClose={() => setLocationModalOpen(false)} 
+        currentCountry={data?.config?.countryCode || 'IN'} 
+        currentRegion={data?.config?.regionCode || ''} 
+      />
       <QuickCaptureModal
         open={captureOpen}
         onClose={() => setCaptureOpen(false)}

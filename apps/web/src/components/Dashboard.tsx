@@ -98,7 +98,7 @@ export function Dashboard() {
   const progressPercent = totalToday === 0 ? 0 : Math.round((completedToday / totalToday) * 100);
 
   return (
-    <div className="h-full flex flex-col p-8 lg:p-12 max-w-7xl mx-auto space-y-8 overflow-y-auto custom-scrollbar animate-in fade-in duration-500">
+    <div className="h-full flex flex-col p-10 lg:p-16 max-w-[1400px] mx-auto space-y-12 overflow-y-auto custom-scrollbar animate-in fade-in duration-500">
       
       {/* Header */}
       <div className="flex items-end justify-between">

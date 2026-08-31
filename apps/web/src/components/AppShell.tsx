@@ -7,6 +7,8 @@ import { KanbanBoard } from './KanbanBoard';
 import { BrainWorkspace } from './BrainWorkspace';
 import { Dashboard } from './Dashboard';
 import { CommandPalette } from './CommandPalette';
+import { FocusTimerWidget } from './FocusTimerWidget';
+
 import { Goals } from './Goals';
 import { Projects } from './Projects';
 import { SprintView } from './SprintView';
@@ -146,6 +148,8 @@ export function AppShell() {
  return (
  <div className="flex flex-col md:flex-row h-screen w-full bg-canvas text-primary overflow-hidden font-sans select-none">
  <CommandPalette />
+      <FocusTimerWidget />
+
  {!focusMode && (
  <Sidebar 
  mobileOpen={mobileMenuOpen} 
@@ -154,80 +158,6 @@ export function AppShell() {
  )}
  
  <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
- {/* TOP NAVIGATION (Sticky Glass) */}
- <header className="sticky top-0 z-40 w-full glass-panel h-16 flex items-center justify-between px-6 shrink-0 shadow-sm border-b-0 border-l-0 border-r-0 rounded-none border-t-0 border-[rgba(15,23,42,0.06)] dark:border-[rgba(255,255,255,0.06)]">
-   <div className="flex items-center gap-4">
-     <span className="text-body font-medium text-secondary">Workspace</span>
-     <span className="text-muted">/</span>
-     <span className="text-body font-semibold text-primary capitalize">{location.pathname.split('/')[2] || 'Dashboard'}</span>
-   </div>
-    <div className="flex items-center gap-4 relative">
-      <button className="krama-btn krama-btn-ghost text-secondary px-3 py-1.5" onClick={() => window.dispatchEvent(new CustomEvent('open-cmdk'))}>
-        <Search className="w-4 h-4 mr-2" />
-        Search
-        <kbd className="ml-2 font-mono text-[10px] bg-surface-hover px-1 rounded border border-border">⌘K</kbd>
-      </button>
-      <button className="krama-btn-icon krama-btn-ghost flex items-center justify-center text-secondary">
-        <Sparkles className="w-4 h-4" />
-      </button>
-
-      {/* Notification Bell */}
-      <div className="relative">
-        <button 
-          className="krama-btn-icon krama-btn-ghost flex items-center justify-center text-secondary relative"
-          onClick={() => setShowNotifications(!showNotifications)}
-        >
-          <Bell className="w-4 h-4" />
-          {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-          )}
-        </button>
-
-        {showNotifications && (
-          <div className="absolute right-0 mt-2 w-80 bg-surface border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
-            <div className="p-3 border-b border-border bg-surface-hover flex items-center justify-between">
-              <span className="font-semibold text-primary text-sm">Notifications</span>
-              {unreadCount > 0 && (
-                <span className="text-xs text-muted bg-surface px-2 py-0.5 rounded-full border border-border">
-                  {unreadCount} unread
-                </span>
-              )}
-            </div>
-            <div className="max-h-[300px] overflow-y-auto">
-              {notifications.length === 0 ? (
-                <div className="p-4 text-center text-sm text-muted">No notifications</div>
-              ) : (
-                notifications.map((n: any) => (
-                  <div key={n.id} className={`p-3 border-b border-border last:border-0 hover:bg-surface-hover transition-colors ${!n.read ? 'bg-[#3B82F6]/5' : ''}`}>
-                    <div className="flex justify-between gap-2">
-                      <div className="text-sm font-medium text-primary line-clamp-1">{n.title}</div>
-                      {!n.read && (
-                        <button 
-                          onClick={() => markAsReadMutation.mutate(n.id)}
-                          className="text-muted hover:text-[#3B82F6] transition-colors"
-                          title="Mark as read"
-                        >
-                          <Check className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="text-xs text-secondary mt-1 line-clamp-2">{n.message}</div>
-                    <div className="text-[10px] text-muted mt-2">
-                      {new Date(n.createdAt).toLocaleDateString()} {new Date(n.createdAt).toLocaleTimeString()}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center text-caption font-bold text-primary">
-        ME
-      </div>
-    </div>
- </header>
 
  {/* Focus Mode Floating Badge */}
  {focusMode && (

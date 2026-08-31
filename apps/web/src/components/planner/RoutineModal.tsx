@@ -35,7 +35,7 @@ export function RoutineModal({ open, onClose }: Props) {
   const unpinnedHabits = habits.filter((h: any) => !h.pinnedToPlanner);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
         <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
           <h2 className="text-sm font-bold text-slate-800">Pin Routine</h2>

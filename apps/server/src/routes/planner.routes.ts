@@ -1,3 +1,4 @@
+import { fetchHolidays } from '../services/holidays.service';
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../prisma';
@@ -61,6 +62,7 @@ router.get('/week', async (req: Request, res: Response) => {
       projects,
       milestones,
       syncRecord,
+      holidaysList,
     ] = await Promise.all([
       prisma.habit.findMany({
         where: { workspaceId, deletedAt: null },
@@ -76,6 +78,7 @@ router.get('/week', async (req: Request, res: Response) => {
           OR: [
             { scheduledDate: { gte: weekStart, lte: weekEnd } },
             { dueDate: { gte: weekStart, lte: weekEnd } },
+            { scheduledDate: null, status: { not: 'DONE' } },
           ],
         },
         orderBy: { dueDate: 'asc' },
@@ -96,11 +99,31 @@ router.get('/week', async (req: Request, res: Response) => {
         where: { userId },
         orderBy: { updatedAt: 'desc' },
       }),
+      fetchHolidays(user.countryCode || 'IN', weekStart.getFullYear()),
     ]);
+
+    const holidayBlocks = (holidaysList || []).filter((h: any) => {
+      const hDate = new Date(h.date);
+      return hDate >= weekStart && hDate <= weekEnd;
+    }).map((h: any) => {
+      const hDate = new Date(h.date);
+      return {
+        id: 'holiday-' + h.name,
+        title: h.name,
+        date: hDate,
+        startTime: new Date(hDate.getTime() + 1000 * 60 * 60 * 8), // 8 AM placeholder
+        endTime: new Date(hDate.getTime() + 1000 * 60 * 60 * 9), // 9 AM placeholder
+        type: 'OTHER',
+        isExternal: true,
+        source: 'Holiday'
+      };
+    });
+
+    const allTimeBlocks = [...timeBlocks, ...holidayBlocks].sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
     const capacity = calculateCapacity(
       user.weeklyCapacityMinutes,
-      timeBlocks
+      allTimeBlocks
     );
 
     const routines = habits.filter((h: any) => h.pinnedToPlanner).map(h => ({
@@ -159,7 +182,7 @@ router.get('/week', async (req: Request, res: Response) => {
       routines,
       occurrences,
       tasks: plannerTasks,
-      timeBlocks,
+      timeBlocks: allTimeBlocks,
       projects: plannerProjects,
       milestones,
       capacity,
@@ -371,4 +394,85 @@ router.patch('/routine-occurrences', async (req: Request, res: Response) => {
   }
 });
 
+
+// Milestones
+router.post('/milestones', async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const schema = z.object({
+      title: z.string().min(1),
+      date: z.coerce.date(),
+      projectId: z.string().min(1),
+    });
+    
+    const body = schema.parse(req.body);
+    const date = startOfDay(body.date);
+
+    const milestone = await prisma.milestone.create({
+      data: {
+        userId,
+        title: body.title,
+        date: date,
+        projectId: body.projectId,
+      },
+    });
+
+    return res.json(milestone);
+  } catch (error) {
+    console.error('Create milestone:', error);
+    return res.status(400).json({ message: 'Unable to create milestone' });
+  }
+});
+
+router.patch('/milestones/:id', async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const schema = z.object({
+      title: z.string().min(1).optional(),
+      date: z.coerce.date().optional(),
+      projectId: z.string().min(1).optional(),
+      completed: z.boolean().optional(),
+    });
+    
+    const body = schema.parse(req.body);
+    const dataToUpdate: any = { ...body };
+    if (body.date) {
+      dataToUpdate.date = startOfDay(body.date);
+    }
+
+    const milestone = await prisma.milestone.update({
+      where: { id: req.params.id as string, userId },
+      data: dataToUpdate,
+    });
+
+    return res.json(milestone);
+  } catch (error) {
+    console.error('Update milestone:', error);
+    return res.status(400).json({ message: 'Unable to update milestone' });
+  }
+});
+
+router.delete('/milestones/:id', async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    await prisma.milestone.delete({
+      where: { id: req.params.id as string, userId },
+    });
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Delete milestone:', error);
+    return res.status(400).json({ message: 'Unable to delete milestone' });
+  }
+});
+
 export default router;
+
+
+
