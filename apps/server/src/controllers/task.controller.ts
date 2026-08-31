@@ -156,10 +156,10 @@ export const addComment = async (req: Request, res: Response) => {
       data: {
         content,
         taskId: id,
-        userId
+        authorId: userId
       },
       include: {
-        user: { select: { name: true, image: true } }
+        author: { select: { name: true, image: true } }
       }
     });
 
