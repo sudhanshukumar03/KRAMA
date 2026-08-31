@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wand2, CheckCircle2, ChevronRight, Check } from 'lucide-react';
+import { Wand2,  ChevronRight, Check } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { toast } from 'sonner';
@@ -33,7 +33,7 @@ export function DailyNarrativeAssistant() {
         if (action.entityType === 'task' && action.action === 'complete' && action.id) {
           await api.tasks.update(action.id, { status: 'DONE' });
         } else if (action.entityType === 'habit' && action.action === 'complete' && action.id) {
-          await api.habits.complete(action.id, { date: new Date().toISOString() });
+          await api.habits.complete(action.id, new Date().toISOString().split('T')[0], new Date().toISOString());
         } else if (action.entityType === 'goal' && action.action === 'update_progress' && action.id) {
           await api.goals.update(action.id, { progress: action.metadata?.progress || 100 });
         } else if (action.entityType === 'task' && action.action === 'create') {

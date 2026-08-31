@@ -1,12 +1,12 @@
-import React from 'react';
+
 import { Link, useLocation } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { toast } from 'sonner';
 import { 
-  Home, BookOpen, Target, FolderKanban, Network,
+  Home, BookOpen, Target, FolderKanban, Network, GraduationCap,
   Calendar, Clock4, KanbanSquare, Clock, CalendarCheck, TrendingUp,
-  Sparkles, Scale, Search, LogOut, Moon, Sun, Download, X, Bell,
+  Sparkles, Scale, Search, LogOut, Moon, Sun, Download, X, 
   Zap
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
@@ -33,13 +33,14 @@ const executionLoopItems = [
 const systemItems = [
   { name: 'Decision Log', path: '/app/decisions', icon: Scale, shortcut: 'S D', badgeKey: null },
   { name: 'Analytics', path: '/app/analytics', icon: TrendingUp, shortcut: 'S N', badgeKey: null },
-    { name: 'Automations', path: '/app/automations', icon: Zap, shortcut: 'S A', badgeKey: null },
+  { name: 'Skills', path: '/app/career', icon: GraduationCap, shortcut: 'S S', badgeKey: null },
+  { name: 'Automations', path: '/app/automations', icon: Zap, shortcut: 'S A', badgeKey: null },
 ];
 
 export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
  const location = useLocation();
  const { theme, toggleTheme } = useTheme();
- const queryClient = useQueryClient();
+ 
  const { user, logout } = useAuth();
 
  // Fetch live counts for badges
@@ -48,10 +49,6 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
  const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
  const { data: pages = [] } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
- const { data: notifications = [] } = useQuery({ queryKey: ['notifications'], queryFn: api.notifications.list, refetchInterval: 30000 });
- const markAsReadMutation = useMutation({ mutationFn: api.notifications.markAsRead, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['notifications'] }); } });
- const unreadCount = notifications.filter((n: any) => !n.read).length;
- const [showNotifs, setShowNotifs] = React.useState(false);
 
  const openIssuesCount = issues.filter(i => i.status !== "DONE" && i.status !== "REVIEW").length;
  const sprintIssuesCount = issues.filter(i => ["TODO", "IN_PROGRESS", "REVIEW"].includes(i.status)).length;

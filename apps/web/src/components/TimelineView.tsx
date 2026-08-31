@@ -514,14 +514,13 @@ export function TimelineView() {
  </div>
  ) : (
  <div className="space-y-4">
- {agendaItems.map((item, idx) => {
+ {agendaItems.map((item) => {
    
    if (item.type === 'task') {
      const issue = item.data;
      const isDone = issue.status === "DONE" || issue.status === "REVIEW";
      const Icon = getIconForString(issue.title);
-     const isCurrent = false;
-     
+          
      return (
        <div key={'task-'+issue.id} className="relative group/timeline">
          <div className="absolute left-[39px] -top-2 -bottom-6 w-[2px] border-l-2 border-dashed border-border group-last/timeline:hidden" />

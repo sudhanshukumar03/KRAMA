@@ -34,6 +34,35 @@ services:
       timeout: 5s
       retries: 5
 
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: krama-server
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://krama_user:krama_password@db:5432/krama_os
+      - REDIS_URL=redis://:krama_redis_secret@redis:6379
+      - JWT_SECRET=krama_super_secret_jwt_key
+      - PORT=3000
+      - FRONTEND_URL=http://localhost:8080
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: krama-web
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+
 volumes:
   postgres_data:
   redis_data:

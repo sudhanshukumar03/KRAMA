@@ -418,13 +418,13 @@ export function DecisionLog() {
 
  const deleteMutation = useMutation({
  mutationFn: (id: string) => api.decisions.delete(id),
- onSuccess: (result) => {
+ onSuccess: (_, id) => {
  queryClient.invalidateQueries({ queryKey: ['decisions'] });
  toast.success('Decision deleted', {
  action: {
  label: 'Undo',
  onClick: () => {
- api.decisions.restore(result).then(() => {
+ api.decisions.restore(id).then(() => {
  queryClient.invalidateQueries({ queryKey: ['decisions'] });
  toast.success('Decision restored');
  });

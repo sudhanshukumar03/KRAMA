@@ -1,5 +1,5 @@
 import type { 
-  Workspace, Space, ProjectWithRelations, IssueWithRelations, PageWithRelations, GoalWithRelations, Habit, Sprint, DailyLog, RoadmapItem, GoalProgressSnapshot, DecisionWithRelations, SearchResult
+  Workspace, Space, ProjectWithRelations, IssueWithRelations, PageWithRelations, GoalWithRelations, Habit, Sprint, DailyLog, DecisionWithRelations, SearchResult
 } from '../types/schema';
 import { toast } from 'sonner';
 
@@ -32,7 +32,7 @@ async function doRefresh(): Promise<string | null> {
   }
 }
 
-async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const executeRequest = async (token: string | null) => {
     const headers = new Headers(options.headers || {});
     if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -104,6 +104,23 @@ export const api = {
   setWorkspaceId: (wid: string | null) => { currentWorkspaceId = wid; },
   setGlobalLogoutHandler: (handler: () => void) => { globalLogoutHandler = handler; },
 
+  upload: {
+    file: async (file: File): Promise<{ success: boolean; url: string; key: string }> => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await fetch(`${API_BASE}/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${currentAccessToken}`,
+          ...(currentWorkspaceId ? { 'x-workspace-id': currentWorkspaceId } : {})
+        },
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Failed to upload file');
+      return res.json();
+    }
+  },
   auth: {
     signup: (data: Record<string, any>) => fetchApi<any>('/auth/signup', { method: 'POST', body: JSON.stringify(data) }),
     login: (data: Record<string, any>) => fetchApi<any>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
@@ -124,6 +141,16 @@ export const api = {
     create: (data: Partial<Space>) => fetchApi<Space>('/spaces', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Partial<Space>) => fetchApi<Space>(`/spaces/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ success: boolean }>(`/spaces/${id}`, { method: 'DELETE' }),
+  },
+  career: {
+    getData: () => fetchApi<any>('/career'),
+    createSkill: (data: any) => fetchApi<any>('/career/skills', { method: 'POST', body: JSON.stringify(data) }),
+    updateSkill: (id: string, data: any) => fetchApi<any>(`/career/skills/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteSkill: (id: string) => fetchApi<{ success: boolean }>(`/career/skills/${id}`, { method: 'DELETE' }),
+    createCert: (data: any) => fetchApi<any>('/career/certifications', { method: 'POST', body: JSON.stringify(data) }),
+    deleteCert: (id: string) => fetchApi<{ success: boolean }>(`/career/certifications/${id}`, { method: 'DELETE' }),
+    createMilestone: (data: any) => fetchApi<any>('/career/milestones', { method: 'POST', body: JSON.stringify(data) }),
+    deleteMilestone: (id: string) => fetchApi<{ success: boolean }>(`/career/milestones/${id}`, { method: 'DELETE' }),
   },
   pages: {
     list: () => fetchApi<PageWithRelations[]>('/pages'),
@@ -245,3 +272,4 @@ export const api = {
     toggleRoutine: (data: any) => fetchApi<any>('/planner/routine-occurrences', { method: 'PATCH', body: JSON.stringify(data) })
   }
 };
+

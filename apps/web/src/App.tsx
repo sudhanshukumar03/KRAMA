@@ -6,6 +6,7 @@ import { Login } from './components/Login';
 import { Signup } from './components/Signup';
 import { AuthGuard } from './components/AuthGuard';
 import { useTheme } from './lib/theme';
+import { SocketProvider } from './providers/SocketProvider';
 
 function App() {
   useTheme();
@@ -20,7 +21,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route element={<AuthGuard />}>
-          <Route path="/app/*" element={<AppShell />} />
+          <Route path="/app/*" element={<SocketProvider><AppShell /></SocketProvider>} />
         </Route>
       </Routes>
     </>

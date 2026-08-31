@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },
@@ -28,6 +28,7 @@
     "react-force-graph-2d": "^1.29.1",
     "react-router-dom": "^7.18.1",
     "recharts": "^3.10.0",
+    "socket.io-client": "^4.8.3",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0"
   },

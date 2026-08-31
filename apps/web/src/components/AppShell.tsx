@@ -20,10 +20,9 @@ import { HabitTracker } from './HabitTracker';
 import { DecisionLog } from './DecisionLog';
 import { KnowledgeGraph } from './KnowledgeGraph';
 import { AutomationRules } from './AutomationRules';
+import { SkillsModule } from './SkillsModule';
 import { AIAssistant } from './AIAssistant';
-import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun, Search, Sparkles, Bell, Check } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../api/client';
+import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 
 export function AppShell() {
@@ -34,7 +33,6 @@ export function AppShell() {
  const [isOffline, setIsOffline] = useState(false);
  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
  const [focusMode, setFocusMode] = useState(false);
- const queryClient = useQueryClient();
 
  useEffect(() => {
  const handleOffline = () => setIsOffline(true);
@@ -217,6 +215,7 @@ export function AppShell() {
  <Route path="/decisions" element={<DecisionLog />} />
  <Route path="/graph" element={<KnowledgeGraph />} />
                 <Route path="/automations" element={<AutomationRules />} />
+                <Route path="/career" element={<SkillsModule />} />
  </Routes></GlobalErrorBoundary>
  </main>
  </div>
@@ -300,3 +299,4 @@ export function AppShell() {
  </div>
  );
 }
+
