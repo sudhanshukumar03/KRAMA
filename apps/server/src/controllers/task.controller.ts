@@ -122,3 +122,16 @@ export const restoreTask = async (req: Request, res: Response) => {
 
 
 
+
+
+export const rebalanceTasks = async (req: Request, res: Response) => {
+  try {
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+    await taskService.rebalanceTasks(workspaceId);
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};

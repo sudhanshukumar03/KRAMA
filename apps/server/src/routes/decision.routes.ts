@@ -3,7 +3,8 @@ import {
   listDecisions, 
   createDecision, 
   updateDecision, 
-  deleteDecision 
+  deleteDecision,
+  restoreDecision
 } from '../controllers/decision.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 
@@ -15,6 +16,7 @@ router.get('/', listDecisions);
 router.post('/', createDecision);
 router.put('/:id', updateDecision);
 router.delete('/:id', deleteDecision);
+router.post('/:id/restore', restoreDecision);
 
 export default router;
 

@@ -120,10 +120,10 @@ export const api = {
     export: () => fetchApi<any>('/workspaces/export'),
   },
   spaces: {
-    list: async () => [] as Space[], // Stubbed for Stage 6
-    create: async () => { throw new Error('Not implemented yet'); },
-    update: async () => { throw new Error('Not implemented yet'); },
-    delete: async () => { throw new Error('Not implemented yet'); },
+    list: () => fetchApi<Space[]>('/spaces'),
+    create: (data: Partial<Space>) => fetchApi<Space>('/spaces', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<Space>) => fetchApi<Space>(`/spaces/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => fetchApi<{ success: boolean }>(`/spaces/${id}`, { method: 'DELETE' }),
   },
   pages: {
     list: () => fetchApi<PageWithRelations[]>('/pages'),
@@ -166,12 +166,6 @@ export const api = {
     update: (id: string, data: Record<string, any>) => fetchApi<Sprint>(`/sprints/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<void>(`/sprints/${id}`, { method: 'DELETE' }),
   },
-  roadmapItems: {
-    list: async () => [] as RoadmapItem[], // Stubbed for Stage 6
-    create: async () => { throw new Error('Not implemented yet'); },
-    update: async () => { throw new Error('Not implemented yet'); },
-    delete: async () => { throw new Error('Not implemented yet'); },
-  },
   habits: {
     list: () => fetchApi<Habit[]>('/habits'),
     create: (data: Record<string, any>) => fetchApi<Habit>('/habits', { method: 'POST', body: JSON.stringify(data) }),
@@ -187,10 +181,6 @@ export const api = {
     update: (id: string, data: Record<string, any>) => fetchApi<DailyLog>(`/daily-logs/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<void>(`/daily-logs/${id}`, { method: 'DELETE' }),
   },
-  snapshots: {
-    list: async () => [] as GoalProgressSnapshot[], // Stubbed
-    create: async () => { throw new Error('Not implemented yet'); },
-  },
   search: {
     query: (q: string) => fetchApi<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}`),
   },
@@ -199,10 +189,11 @@ export const api = {
     create: (data: Record<string, any>) => fetchApi<DecisionWithRelations>('/decisions', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<DecisionWithRelations>(`/decisions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ success: boolean }>(`/decisions/${id}`, { method: 'DELETE' }),
-    restore: async (_snapshot: any) => { throw new Error('Not implemented yet'); },
+    restore: (id: string) => fetchApi<{ success: boolean }>(`/decisions/${id}/restore`, { method: 'POST' }),
   },
   oauth: {
     disconnectGoogle: () => fetchApi<{ success: boolean }>('/oauth/google/disconnect', { method: 'DELETE' }),
+    syncGoogle: (start?: string, end?: string) => fetchApi<{ success: boolean }>('/oauth/google/sync', { method: 'POST', body: JSON.stringify({ start, end }) }),
   },
   ai: {
     complete: (data: Record<string, any>) => fetchApi<any>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),

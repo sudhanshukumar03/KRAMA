@@ -4,6 +4,35 @@ import { domainEventBus } from '../events/eventBus';
 import { runInTransaction } from '../prisma';
 
 export class TaskService {
+  
+  async rebalanceTasks(workspaceId: string): Promise<void> {
+    const tasks = await prisma.task.findMany({
+      where: { workspaceId },
+      orderBy: [
+        { status: 'asc' },
+        { sortOrder: 'asc' },
+        { createdAt: 'asc' }
+      ]
+    });
+    
+    let currentStatus = '';
+    let currentOrder = 0;
+    
+    for (const task of tasks) {
+      if (task.status !== currentStatus) {
+        currentStatus = task.status;
+        currentOrder = 1000;
+      } else {
+        currentOrder += 1000;
+      }
+      
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { sortOrder: currentOrder }
+      });
+    }
+  },
+
   async listTasks(workspaceId: string, filters: { projectId?: string; sprintId?: string; status?: string }) {
     return taskRepository.findManyByWorkspace(workspaceId, {
       ...filters,

@@ -21,6 +21,8 @@ interface Props {
   rightSlot?: React.ReactNode;
   isGoogleConnected?: boolean;
   onDisconnectGoogle?: () => void;
+  onSyncGoogle?: () => void;
+  isSyncingGoogle?: boolean;
 }
 
 export function PlannerHeader({

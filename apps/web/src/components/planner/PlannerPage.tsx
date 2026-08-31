@@ -211,6 +211,8 @@ export function PlannerPage() {
         countryRegion={countryRegionStr}
           isGoogleConnected={isGoogleConnected}
           onDisconnectGoogle={handleDisconnectGoogle}
+          onSyncGoogle={handleSyncGoogleNow}
+          isSyncingGoogle={isSyncingGoogle}
       />
 
       <div className="mt-6 flex flex-col">
