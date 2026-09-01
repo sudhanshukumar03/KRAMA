@@ -170,14 +170,14 @@ export class AiService {
       if (activeProvider === 'gemini') activeModel = 'gemini-1.5-flash-latest';
       else if (activeProvider === 'openai') activeModel = 'gpt-4o-mini';
       else if (activeProvider === 'anthropic') activeModel = 'claude-3-haiku-20240307';
-      else if (activeProvider === 'groq') activeModel = 'qwen/qwen3.6-27b';
+      else if (activeProvider === 'groq') activeModel = 'llama-3.1-8b-instant';
     }
     
     // If neither is provided, fallback based on available environment variables
     if (!activeProvider || !activeModel) {
       if (process.env.GROQ_API_KEY) {
           activeProvider = 'groq';
-          activeModel = 'qwen/qwen3.6-27b';
+          activeModel = 'llama-3.1-8b-instant';
         } else if (process.env.GEMINI_API_KEY) {
         activeProvider = 'gemini';
         activeModel = 'gemini-1.5-flash-latest';
@@ -189,7 +189,7 @@ export class AiService {
         activeModel = 'claude-3-haiku-20240307';
       } else {
         activeProvider = 'groq';
-        activeModel = 'qwen/qwen3.6-27b';
+        activeModel = 'llama-3.1-8b-instant';
       }
     }
     

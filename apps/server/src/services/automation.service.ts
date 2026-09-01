@@ -1,4 +1,5 @@
 import { prisma } from '../prisma';
+import { socketService } from './socket.service';
 
 export const evaluateEvent = async (
   workspaceId: string, 

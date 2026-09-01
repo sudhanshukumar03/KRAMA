@@ -10,6 +10,7 @@ export const CreateProjectSchema = WorkspaceScoped.extend({
   problemStatement: z.string().optional(),
   goalId: z.string().uuid().optional(),
   status: z.enum(['active', 'completed', 'archived']).default('active'),
+  skillIds: z.array(z.string()).optional(),
 });
 
 export const UpdateProjectSchema = CreateProjectSchema.partial().extend({
@@ -30,6 +31,7 @@ export const CreateTaskSchema = WorkspaceScoped.extend({
   scheduledDate: z.string().datetime().nullable().optional(),
   dueDate: z.string().datetime().nullable().optional(),
   metadata: z.record(z.any()).nullable().optional(),
+  skillIds: z.array(z.string()).optional(),
 });
 
 export const UpdateTaskSchema = CreateTaskSchema.partial().extend({
@@ -39,9 +41,11 @@ export const UpdateTaskSchema = CreateTaskSchema.partial().extend({
 
 export const CreateGoalSchema = WorkspaceScoped.extend({
   title: z.string().min(1).max(255),
-  type: z.enum(['yearly', 'quarterly']),
+  type: z.string(), // Allowing "SKILL" type
   status: z.enum(['ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELED']).optional().default('ACTIVE'),
   icon: z.string().optional(),
+  metadata: z.any().optional(),
+  skillIds: z.array(z.string()).optional(),
 });
 
 export const UpdateGoalSchema = CreateGoalSchema.partial().extend({
@@ -62,6 +66,7 @@ export const CreateHabitSchema = WorkspaceScoped.extend({
   cadence: z.enum(["daily", "weekly"]).optional(),
   scheduledDays: z.array(z.number().int().min(0).max(6)).optional(),
   timeOfDay: z.enum(["morning", "afternoon", "evening", "anytime"]).optional(),
+  skillIds: z.array(z.string()).optional(),
 });
 
 export const UpdateHabitSchema = CreateHabitSchema.partial().extend({

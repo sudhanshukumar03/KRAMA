@@ -2,7 +2,7 @@ import { kramaAiService } from '../services/krama-ai.service';
 
 export const kramaChat = async (req: any, res: any) => {
   try {
-    const { message, ragEnabled } = req.body;
+    const { message, ragEnabled, provider } = req.body;
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
     const userId = req.user?.id || 'system';
 
@@ -11,6 +11,21 @@ export const kramaChat = async (req: any, res: any) => {
     }
     if (!workspaceId) {
       return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Workspace ID is required' });
+    }
+
+    if (provider && provider !== 'gemini') {
+        const prompt = message;
+        if (ragEnabled) {
+            const queryVector = await getEmbedding(prompt);
+            const vectorResults = await vectorSearch(workspaceId, queryVector, 8);
+            const contextStr = vectorResults.map((c: any) => c.content).join('\n\n');
+            const systemPrompt = `Answer using only this context:\n${contextStr}\n\nQuestion: ${prompt}`;
+            const answer = await aiService.complete({ prompt: systemPrompt, workspaceId, userId, provider, model: req.body.model });
+            return res.json({ type: "direct", answer, sources: vectorResults.map((c:any) => ({ id: c.pageId, chunkId: c.id })) });
+        } else {
+            const answer = await aiService.complete({ prompt: message, workspaceId, userId, provider, model: req.body.model });
+            return res.json({ type: "direct", answer });
+        }
     }
 
     const response = await kramaAiService.askKrama(message, workspaceId, userId, ragEnabled);

@@ -76,7 +76,7 @@ summary: Requests to summarize KRAMA information.
 
 User: ${message}
 Return ONLY the category word.`;
-    const interaction = await this.client.interactions.create({ model: 'gemini-3.7-flash', input: prompt });
+    const interaction = await this.client.interactions.create({ model: 'gemini-3.6-flash', input: prompt });
     const value = (interaction.output_text || '').trim().toLowerCase();
     const valid: AIIntent[] = ["general", "knowledge", "productivity", "planning", "task", "summary"];
     return valid.includes(value as AIIntent) ? (value as AIIntent) : "general";
@@ -158,11 +158,16 @@ Return ONLY valid JSON matching this schema:
   }
 
   private async generateKramaResponse(prompt: string): Promise<AIResponse> {
-    const interaction = await this.client.interactions.create({ model: "gemini-3.7-flash", input: prompt });
+    const interaction = await this.client.interactions.create({ model: "gemini-3.6-flash", input: prompt });
     const raw = interaction.output_text || "";
+
+    let cleanRaw = raw.trim();
+    cleanRaw = cleanRaw.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    
     let parsed: unknown;
     try {
-      parsed = JSON.parse(raw);
+      parsed = JSON.parse(cleanRaw);
+
     } catch {
       return { type: "direct", answer: raw, sections: [], actions: [], sources: [] };
     }

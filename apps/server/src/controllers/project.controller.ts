@@ -1,3 +1,4 @@
+import { SkillService } from '../services/skill.service';
 import type { Request, Response } from 'express';
 import { CreateProjectSchema, UpdateProjectSchema, ReorderSchema } from '@krama/validation';
 
@@ -60,7 +61,15 @@ export const createProject = async (req: Request, res: Response) => {
     });
     const position = lastProject ? lastProject.position + 1.0 : 1.0;
 
-    const project = await prisma.project.create({
+    
+      if ((data as any).skillIds !== undefined) {
+        await SkillService.validateSkillLinking(req.user!.id, data.workspaceId, (data as any).skillIds);
+        const ids = (data as any).skillIds;
+        delete (data as any).skillIds;
+        (data as any).skills = { connect: ids.map((id: string) => ({ id })) };
+      }
+
+const project = await prisma.project.create({
       data: {
         ...data,
         position,
@@ -97,7 +106,15 @@ export const updateProject = async (req: Request, res: Response) => {
 
     const { version, workspaceId: bodyWorkspaceId, ...updateData } = data;
 
-    const project = await prisma.project.update({
+    
+      if ((data as any).skillIds !== undefined) {
+        await SkillService.validateSkillLinking(req.user!.id, (data.workspaceId || workspaceId) as string, (data as any).skillIds);
+        const ids = (data as any).skillIds;
+        delete (data as any).skillIds;
+        (updateData as any).skills = { set: ids.map((id: string) => ({ id })) };
+      }
+
+const project = await prisma.project.update({
       where: { id },
       data: {
         ...updateData,
@@ -205,3 +222,7 @@ export const restoreProject = async (req: Request, res: Response) => {
     console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+
+
+

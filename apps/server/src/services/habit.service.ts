@@ -1,3 +1,4 @@
+import { SkillService } from './skill.service';
 import { habitRepository } from '../repositories/habit.repository';
 import { domainEventBus } from '../events/eventBus';
 import { runInTransaction } from '../prisma';
@@ -20,7 +21,15 @@ export class HabitService {
       const { timeOfDay, ...restData } = data;
       const metadata = timeOfDay ? { timeOfDay } : undefined;
 
-      const habit = await habitRepository.create({
+      
+      if (data.skillIds !== undefined) {
+        await SkillService.validateSkillLinking(userId, data.workspaceId, data.skillIds);
+        const ids = data.skillIds;
+        delete data.skillIds;
+        (data as any).skills = { connect: ids.map((id: string) => ({ id })) };
+      }
+
+const habit = await habitRepository.create({
         ...restData,
         metadata,
         createdBy: userId,
@@ -48,7 +57,15 @@ export class HabitService {
         ? { ...(typeof existing.metadata === 'object' && existing.metadata ? existing.metadata : {}), timeOfDay }
         : existing.metadata;
 
-      const habit = await habitRepository.update(id, {
+      
+      if (data.skillIds !== undefined) {
+        await SkillService.validateSkillLinking(userId, workspaceId, data.skillIds);
+        const ids = data.skillIds;
+        delete data.skillIds;
+        (data as any).skills = { set: ids.map((id: string) => ({ id })) };
+      }
+
+const habit = await habitRepository.update(id, {
         ...restData,
         metadata,
         version: { increment: 1 },

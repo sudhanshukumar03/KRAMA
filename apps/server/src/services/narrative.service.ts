@@ -1,3 +1,4 @@
+import { SkillService } from './skill.service';
 import { GoogleGenAI } from '@google/genai';
 import { prisma } from '../prisma';
 import { z } from 'zod';
@@ -20,10 +21,11 @@ const NarrativeResponseSchema = z.object({
 export const narrativeService = {
   async processNarrative(narrative: string, workspaceId: string, userId: string) {
     // 1. Fetch user's active entities to match against
-    const [tasks, habits, goals] = await Promise.all([
+    const [tasks, habits, goals, skillsContext] = await Promise.all([
       prisma.task.findMany({ where: { workspaceId, status: { not: 'DONE' } }, select: { id: true, title: true, status: true } }),
       prisma.habit.findMany({ where: { workspaceId }, select: { id: true, name: true } }),
-      prisma.goal.findMany({ where: { workspaceId }, select: { id: true, title: true, progress: true } })
+      prisma.goal.findMany({ where: { workspaceId }, select: { id: true, title: true, progress: true } }),
+      SkillService.getUserSkillsForAiContext(userId)
     ]);
 
     const contextStr = `

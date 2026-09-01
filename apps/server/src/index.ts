@@ -1,4 +1,6 @@
 ﻿import express from 'express';
+import { createServer } from 'http';
+import { socketService } from './services/socket.service';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
@@ -49,6 +51,9 @@ app.get('/health', (req, res) => {
 import authRoutes from './routes/auth.routes';
 import workspaceRoutes from './routes/workspace.routes';
 import automationRoutes from './routes/automation.routes';
+import spaceRoutes from './routes/space.routes';
+import careerRoutes from './routes/career.routes';
+import uploadRoutes from './routes/upload.routes';
 import projectRoutes from './routes/project.routes';
 import taskRoutes from './routes/task.routes';
 import pageRoutes from './routes/page.routes';
@@ -92,6 +97,10 @@ app.use('/api/v1/planner', plannerRoutes);
 app.use('/api/v1/oauth', oauthRoutes);
 app.use('/api/v1/search', searchRoutes);
 
+app.use('/api/v1/automations', automationRoutes);
+app.use('/api/v1/spaces', spaceRoutes);
+app.use('/api/v1/career', careerRoutes);
+app.use('/api/v1/upload', uploadRoutes);
 app.use('/api/v1', (req, res) => {
   res.status(404).json({ message: 'Not found' });
 });
@@ -110,7 +119,9 @@ const PORT = process.env.PORT || 3000;
 
 import { ensureLocalUser } from './utils/bootstrap';
 
-app.listen(PORT, async () => {
+const httpServer = createServer(app);
+socketService.init(httpServer);
+httpServer.listen(PORT, async () => {
   await ensureLocalUser();
   console.log(`[Server] KRAMA OS Backend running on port ${PORT}`);
 });

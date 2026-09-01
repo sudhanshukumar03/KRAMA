@@ -1,20 +1,21 @@
-FROM node:20-alpine
 
+FROM node:24-alpine AS builder
 WORKDIR /app
-
-# Copy package files and install all dependencies (including tsx and Prisma)
-COPY package*.json ./
-RUN npm install
-
-# Copy Prisma schema and generate client
-COPY prisma ./prisma/
-RUN npx prisma generate
-
-# Copy TypeScript configuration and source code
-COPY tsconfig.json ./
-COPY src ./src/
-
+RUN corepack enable && corepack prepare pnpm@latest --activate
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages ./packages
+COPY apps/server ./apps/server
+COPY apps/web/package.json ./apps/web/package.json 
+RUN pnpm install --frozen-lockfile
+RUN cd apps/server && pnpm exec esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.js --external:@prisma/client --external:bcrypt --external:express --external:cors --external:jsonwebtoken --external:googleapis --external:socket.io --external:multer
+RUN pnpm --filter server deploy --legacy --prod /app/out
+RUN cd /app/out && npx prisma generate
+FROM node:24-alpine AS runner
+WORKDIR /app
+RUN apk add --no-cache openssl
 ENV NODE_ENV=production
-EXPOSE 3001
-
-CMD ["npm", "start"]
+COPY --from=builder /app/out ./
+COPY --from=builder /app/apps/server/dist ./dist
+COPY --from=builder /app/apps/server/prisma ./prisma
+EXPOSE 3000
+CMD ["node", "dist/index.js"]

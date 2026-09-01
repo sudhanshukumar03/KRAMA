@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Zap, Plus, Settings2, Trash2, ArrowRight, CheckCircle2, Play, Activity } from 'lucide-react';
+import { Zap, Plus, Settings2, Trash2, ArrowRight,  Play, Activity } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { LoadingState } from './ui/LoadingState';
 import { toast } from 'sonner';

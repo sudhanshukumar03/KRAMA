@@ -1,3 +1,4 @@
+import { SkillService } from './skill.service';
 import { goalRepository } from '../repositories/goal.repository';
 import { domainEventBus } from '../events/eventBus';
 import { runInTransaction } from '../prisma';
@@ -20,7 +21,15 @@ export class GoalService {
       const { status, ...restData } = data;
       const metadata = status ? { status } : undefined;
 
-      const goal = await goalRepository.create({
+      
+      if (data.skillIds !== undefined) {
+        await SkillService.validateSkillLinking(userId, data.workspaceId, data.skillIds);
+        const ids = data.skillIds;
+        delete data.skillIds;
+        (data as any).skills = { connect: ids.map((id: string) => ({ id })) };
+      }
+
+const goal = await goalRepository.create({
         ...restData,
         metadata,
         createdBy: userId,
@@ -47,7 +56,15 @@ export class GoalService {
       
       const newMetadata = status ? { ...(existingMetadata || {}), status } : existingMetadata;
 
-      const goal = await goalRepository.update(id, {
+      
+      if (data.skillIds !== undefined) {
+        await SkillService.validateSkillLinking(userId, workspaceId, data.skillIds);
+        const ids = data.skillIds;
+        delete data.skillIds;
+        (updateData as any).skills = { set: ids.map((id: string) => ({ id })) };
+      }
+
+const goal = await goalRepository.update(id, {
         ...updateData,
         ...(newMetadata !== undefined ? { metadata: newMetadata } : {}),
         version: { increment: 1 },
