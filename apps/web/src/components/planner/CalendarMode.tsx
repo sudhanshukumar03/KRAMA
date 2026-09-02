@@ -43,7 +43,7 @@ export function CalendarMode({ calendarDate, currentCountry, currentRegion, loca
         </div>
 
         <div className="grid grid-cols-7 auto-rows-fr gap-0 flex-1 overflow-hidden border-l border-t border-slate-100 dark:border-[#1E293B]">
-          {monthDays.map((day, idx) => {
+          {monthDays.map((day) => {
             const dayHolidays = holidays.filter((h: any) => isSameDay(parseISO(h.date), day));
             const isCurrentMonth = isSameMonth(day, calendarDate);
             const today = isToday(day);

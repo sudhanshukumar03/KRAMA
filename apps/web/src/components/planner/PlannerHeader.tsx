@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Globe, RefreshCw, ChevronDown, ArrowLeft, LayoutTemplate } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Globe, ArrowLeft, LayoutTemplate } from 'lucide-react';
 import React from 'react';
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
     lastSyncedAt?: string | null;
   } | null;
   calendarView?: 'month' | 'week' | 'list';
-  onCalendarViewChange?: (view: 'month' | 'week' | 'list') => void;
+  
   localOnly?: boolean;
   onLocalOnlyChange?: (val: boolean) => void;
   countryRegion?: string;
@@ -32,9 +32,6 @@ export function PlannerHeader({
   subtitle,
   weekRangeLabel,
   onNavigate,
-  syncStatus,
-  calendarView = 'month',
-  onCalendarViewChange,
   localOnly = false,
   onLocalOnlyChange,
   countryRegion = 'IN India',

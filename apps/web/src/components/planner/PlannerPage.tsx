@@ -16,8 +16,7 @@ import { TimeBlockModal } from './TimeBlockModal';
 import { RoutineModal } from './RoutineModal';
 import { QuickCaptureModal } from '../ui/QuickCaptureModal';
 import { toast } from 'sonner';
-import { useSearchParams } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { IssueEditModal } from '../KanbanBoard';
@@ -50,8 +49,7 @@ export function PlannerPage() {
   const [editingTask, setEditingTask] = useState<any | null>(null);
 
   // Calendar lifted states
-  const [calendarView, setCalendarView] = useState<'month'|'week'|'list'>('month');
-  const [localOnly, setLocalOnly] = useState(false);
+    const [localOnly, setLocalOnly] = useState(false);
   const activeTab: 'india' | 'world' = data?.config?.countryCode === 'IN' ? 'india' : 'world';
   const indiaRegion = data?.config?.countryCode === 'IN' ? (data?.config?.regionCode || '') : '';
   const worldCountry = data?.config?.countryCode !== 'IN' ? data?.config?.countryCode : 'US';
@@ -91,12 +89,12 @@ export function PlannerPage() {
   };
 
   const handleAddTimeBlock = (day?: Date) => {
-    setSelectedDay(day);
+    if (day) setSelectedDay(day);
     setTimeBlockModalOpen(true);
   };
 
   const handleAddTask = (day?: Date) => {
-    setCaptureDate(day);
+    if (day) setCaptureDate(day);
     setCaptureOpen(true);
   };
 
@@ -204,8 +202,6 @@ export function PlannerPage() {
         onNavigate={handleNavigate}
         syncStatus={data.syncStatus}
 
-        calendarView={calendarView}
-        onCalendarViewChange={setCalendarView}
         localOnly={localOnly}
         onLocalOnlyChange={setLocalOnly}
         countryRegion={countryRegionStr}

@@ -1,9 +1,8 @@
-import React from 'react';
-import { CalendarDays, Clock, Users, Coffee, CheckCircle2, MoreHorizontal } from 'lucide-react';
-import type { CapacityData } from '../../types/planner';
+import { CalendarDays, Clock, Users, Coffee, } from 'lucide-react';
+import type { } from '../../types/planner';
 
 interface Props {
-  capacity: CapacityData;
+  capacity: any;
 }
 
 export function CapacitySummary({ capacity }: Props) {

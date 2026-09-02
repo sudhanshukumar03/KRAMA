@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Calendar as CalendarIcon, Clock, Briefcase, User, GraduationCap, HeartPulse, Shield, Grid, Trash2 } from 'lucide-react';
-import type { CreateTimeBlockInput, TimeBlockType } from '../../types/planner';
+import type { TimeBlockType } from '../../types/planner';
 
 interface TimeBlockModalProps {
   open: boolean;

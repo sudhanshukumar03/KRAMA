@@ -109,18 +109,23 @@ model User {
   countryCode           String  @default("IN")
   regionCode            String?
 
-  memberships      WorkspaceMember[]
-  sessions         Session[]
-  dailyLogs        DailyLog[]
-  notifications    Notification[]
-  aiRequests       AiRequest[]
-  habitCompletions HabitCompletion[]
-  tasksAssigned    Task[]            @relation("TaskAssignee")
-  activityLogs     ActivityLog[]
-  focusSessions    FocusSession[]
-  comments         Comment[]
-  timeBlocks       TimeBlock[]
-  milestones       Milestone[]
+  memberships        WorkspaceMember[]
+  sessions           Session[]
+  dailyLogs          DailyLog[]
+  notifications      Notification[]
+  aiRequests         AiRequest[]
+  habitCompletions   HabitCompletion[]
+  tasksAssigned      Task[]              @relation("TaskAssignee")
+  activityLogs       ActivityLog[]
+  focusSessions      FocusSession[]
+  comments           Comment[]
+  timeBlocks         TimeBlock[]
+  milestones         Milestone[]
+  routineOccurrences RoutineOccurrence[]
+  externalItems      ExternalItem[]
+  skills             Skill[]
+  certifications     Certification[]
+  careerMilestones   CareerMilestone[]
 }
 
 model Session {
@@ -213,6 +218,9 @@ model Project {
   pages         Page[]         @relation("ProjectPages")
   sprints       Sprint[]
   focusSessions FocusSession[]
+  timeBlocks    TimeBlock[]
+  milestones    Milestone[]
+  skills        Skill[]
 }
 
 model Task {
@@ -254,6 +262,8 @@ model Task {
   labels        LabelsOnTasks[]
   comments      Comment[]
   focusSessions FocusSession[]
+  timeBlocks    TimeBlock[]
+  skills        Skill[]
 }
 
 model Sprint {
@@ -312,6 +322,7 @@ model Goal {
   projects  Project[]
   habits    Habit[]
   snapshots GoalProgressSnapshot[]
+  skills    Skill[]
 }
 
 model GoalProgressSnapshot {
@@ -348,7 +359,9 @@ model Habit {
   updatedBy String?
   version   Int       @default(1)
 
-  completions HabitCompletion[]
+  completions        HabitCompletion[]
+  routineOccurrences RoutineOccurrence[]
+  skills             Skill[]
 }
 
 model HabitCompletion {
@@ -633,7 +646,9 @@ model TimeBlock {
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task    Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@index([userId, date])
 }
@@ -647,6 +662,8 @@ model RoutineOccurrence {
   completedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  habit       Habit     @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([habitId, date])
   @@index([userId, date])
@@ -662,7 +679,8 @@ model Milestone {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([userId, date])
 }
@@ -702,6 +720,7 @@ model ExternalItem {
   localUpdatedAt  DateTime?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, externalId, userId])
   @@index([userId, internalId])
@@ -725,4 +744,49 @@ model AutomationRule {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
+}
+
+model Skill {
+  id           String   @id @default(uuid())
+  name         String
+  level        String?
+  currentLevel Int?     @default(1)
+  targetLevel  Int?     @default(5)
+  category     String?
+  status       String?  @default("LEARNING")
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  goals    Goal[]
+  projects Project[]
+  tasks    Task[]
+  habits   Habit[]
+}
+
+model Certification {
+  id           String    @id @default(uuid())
+  name         String
+  issuer       String?
+  dateObtained DateTime
+  expiryDate   DateTime?
+  url          String?
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model CareerMilestone {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  company     String?
+  type        String?
+  date        DateTime
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

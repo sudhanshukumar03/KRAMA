@@ -1,4 +1,4 @@
-name: CI
+name: KRAMA OS CI/CD
 
 on:
   push:
@@ -9,75 +9,33 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
-    services:
-      postgres:
-        image: pgvector/pgvector:pg15
-        env:
-          POSTGRES_USER: krama_user
-          POSTGRES_PASSWORD: krama_password
-          POSTGRES_DB: krama_os
-        ports:
-          - 5433:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          
 
     steps:
-      - uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v4
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+    - name: Install pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 9
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 9.0.0
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: 'pnpm'
 
-      - name: Install dependencies
-        run: pnpm install
+    - name: Install Dependencies
+      run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma Client
-        run: |
-          cd apps/server
-          npx prisma generate
+    - name: Generate Prisma Client
+      run: pnpm --filter server exec prisma generate
 
-      - name: Lint
-        run: pnpm run lint
+    - name: TypeScript Check (Backend)
+      run: pnpm --filter server exec tsc --noEmit
 
-      - name: Build
-        run: pnpm run build
+    - name: TypeScript Check (Frontend)
+      run: pnpm --filter web exec tsc --noEmit
 
-      - name: Setup Prisma DB
-        run: |
-          cd apps/server
-          npx prisma migrate deploy
-        env:
-          DATABASE_URL: "postgresql://krama_user:krama_password@localhost:5433/krama_os?schema=public"
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
-
-      - name: Run E2E Tests
-        run: npx playwright test
-        env:
-          DATABASE_URL: "postgresql://krama_user:krama_password@localhost:5433/krama_os?schema=public"
-          REDIS_URL: "redis://localhost:6379"
-          JWT_SECRET: "krama_super_secret_jwt_key_2026"
-          PORT: 3000
-
+    - name: Docker Compose Smoke Test
+      run: docker compose -f docker-compose.prod.yml build

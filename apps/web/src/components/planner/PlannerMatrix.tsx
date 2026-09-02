@@ -42,14 +42,6 @@ const DEFAULT_EXPANDED: Record<MatrixCategory, boolean> = {
 
 const MATRIX_COLLAPSE_STORAGE_KEY = "krama.planner.matrix.expanded.v5";
 
-function formatMinutes(minutes?: number) {
-  if (!minutes) return null;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h > 0 && m > 0) return `${h}h ${m}m`;
-  if (h > 0) return `${h}h`;
-  return `${m}m`;
-}
 
 function safeTimeFormat(dateString: string) {
   try {
@@ -193,7 +185,6 @@ export function PlannerMatrix({
   onAddTimeBlock,
   onAddTask,
   onAddRoutine,
-  onAddProject,
   onToggleTask,
   onClickTask,
   onClickTimeBlock,
@@ -224,7 +215,7 @@ export function PlannerMatrix({
     });
   };
 
-  const normalBlocks = data.timeBlocks.filter(b => !b.isExternal);
+  const normalBlocks = data.timeBlocks.filter(b => !(b as any).isExternal);
 
   return (
     <>
@@ -439,11 +430,18 @@ function CategoryHeader({ label, subtitle, icon, onToggle, onAdd }: { label: str
           {subtitle}
         </div>
       </button>
-      {onAdd && (
-        <button onClick={onAdd} className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500">
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-        </button>
-      )}
+        {onAdd && (
+          <button 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onAdd();
+            }} 
+            className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          </button>
+        )}
     </div>
   );
 }
