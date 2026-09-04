@@ -1,0 +1,9 @@
+node_modules
+apps/web/node_modules
+apps/server/node_modules
+packages/*/node_modules
+.git
+dist
+apps/server/dist
+apps/web/dist
+.env

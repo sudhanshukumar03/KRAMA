@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  db:
+    image: pgvector/pgvector:pg15
+    container_name: krama-prod-postgres
+    environment:
+      POSTGRES_USER: 
+      POSTGRES_PASSWORD: 
+      POSTGRES_DB: 
+    ports:
+      - "5435:5432"
+    volumes:
+      - prod_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U  -d "]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: krama-prod-redis
+    command: redis-server --requirepass  --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - prod_redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: krama-prod-server
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://:@db:5432/?schema=public
+      - REDIS_URL=redis://:@redis:6379
+      - JWT_SECRET=
+      - GEMINI_API_KEY=
+      - GROQ_API_KEY=
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: krama-prod-web
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  prod_postgres_data:
+  prod_redis_data:

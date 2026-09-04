@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1><div class="logo-dot"></div> KRAMA OS</h1>
+    <button id="logoutBtn" class="logout-btn hidden">Sign out</button>
+  </header>
+
+  <div id="authView" class="view active">
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="you@example.com">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="********">
+    </div>
+    <button id="loginBtn" class="btn-primary">Connect to KRAMA OS</button>
+    <div id="authMessage" class="message"></div>
+  </div>
+
+  <div id="appView" class="view">
+    <div class="tabs">
+      <button class="tab active" data-target="clipperView">Web Clipper</button>
+      <button class="tab" data-target="taskView">Quick Task</button>
+    </div>
+
+    <div id="clipperView" class="view active" style="padding-top: 16px;">
+      <div class="form-group">
+        <label>Workspace</label>
+        <select id="clipWorkspace"></select>
+      </div>
+      <div class="form-group">
+        <label>Title</label>
+        <input type="text" id="clipTitle">
+      </div>
+      <div class="form-group">
+        <label>Selected Text / Notes</label>
+        <textarea id="clipText"></textarea>
+      </div>
+      <button id="clipBtn" class="btn-primary">Save to Brain Workspace</button>
+      <div id="clipMessage" class="message"></div>
+    </div>
+
+    <div id="taskView" class="view" style="padding-top: 16px;">
+      <div class="form-group">
+        <label>Workspace</label>
+        <select id="taskWorkspace"></select>
+      </div>
+      <div class="form-group">
+        <label>Task Title</label>
+        <input type="text" id="taskTitle" placeholder="e.g. Review PR tomorrow">
+      </div>
+      <div class="form-group">
+        <label>Priority</label>
+        <select id="taskPriority">
+          <option value="LOW">Low</option>
+          <option value="MEDIUM" selected>Medium</option>
+          <option value="HIGH">High</option>
+          <option value="URGENT">Urgent</option>
+        </select>
+      </div>
+      <button id="taskBtn" class="btn-primary">Add to Kanban</button>
+      <div id="taskMessage" class="message"></div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
