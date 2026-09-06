@@ -1,6 +1,5 @@
 import { SkillService } from './skill.service';
 import { habitRepository } from '../repositories/habit.repository';
-import { domainEventBus } from '../events/eventBus';
 import { runInTransaction } from '../prisma';
 
 export class HabitService {
@@ -17,7 +16,7 @@ export class HabitService {
   }
 
   async createHabit(data: any, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const { timeOfDay, ...restData } = data;
       const metadata = timeOfDay ? { timeOfDay } : undefined;
 
@@ -36,13 +35,13 @@ const habit = await habitRepository.create({
         updatedBy: userId,
       }, tx);
 
-      domainEventBus.emitEvent('HABIT_CREATED', { habitId: habit.id, workspaceId: habit.workspaceId });
+      publishAfterCommit('HABIT_CREATED', { habitId: habit.id, workspaceId: habit.workspaceId });
       return habit;
     });
   }
 
   async updateHabit(id: string, workspaceId: string, data: any, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await habitRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
         throw new Error('Habit not found');
@@ -72,13 +71,13 @@ const habit = await habitRepository.update(id, {
         updatedBy: userId,
       }, tx);
 
-      domainEventBus.emitEvent('HABIT_UPDATED', { habitId: habit.id, workspaceId: habit.workspaceId });
+      publishAfterCommit('HABIT_UPDATED', { habitId: habit.id, workspaceId: habit.workspaceId });
       return habit;
     });
   }
 
   async deleteHabit(id: string, workspaceId: string, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await habitRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
         throw new Error('Habit not found');
@@ -88,13 +87,13 @@ const habit = await habitRepository.update(id, {
       // We also update the 'updatedBy' to trace who archived it
       await habitRepository.update(id, { updatedBy: userId }, tx);
 
-      domainEventBus.emitEvent('HABIT_DELETED', { habitId: habit.id, workspaceId: habit.workspaceId });
+      publishAfterCommit('HABIT_DELETED', { habitId: habit.id, workspaceId: habit.workspaceId });
       return habit;
     });
   }
 
   async logHabitCompletion(id: string, workspaceId: string, userId: string, dateStr?: string, dateIso?: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await habitRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
         throw new Error('Habit not found');
@@ -133,13 +132,13 @@ const habit = await habitRepository.update(id, {
         updatedBy: userId,
       }, tx);
 
-      domainEventBus.emitEvent('HABIT_LOGGED', { habitId: id, workspaceId, streak: updatedHabit.streak });
+      publishAfterCommit('HABIT_LOGGED', { habitId: id, workspaceId, streak: updatedHabit.streak });
       return updatedHabit;
     });
   }
 
   async unlogHabitCompletion(id: string, workspaceId: string, userId: string, dateStr?: string, dateIso?: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await habitRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
         throw new Error('Habit not found');
@@ -171,7 +170,7 @@ const habit = await habitRepository.update(id, {
         updatedBy: userId,
       }, tx);
 
-      domainEventBus.emitEvent('HABIT_UNLOGGED', { habitId: id, workspaceId, streak: updatedHabit.streak });
+      publishAfterCommit('HABIT_UNLOGGED', { habitId: id, workspaceId, streak: updatedHabit.streak });
       return updatedHabit;
     });
   }
@@ -182,7 +181,7 @@ const habit = await habitRepository.update(id, {
   }
 
   async restoreHabit(id: string, workspaceId: string, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await habitRepository.findById(id, tx);
       if (!existing) throw new Error('Habit not found');
       if (!existing.deletedAt || existing.workspaceId !== workspaceId) throw new Error('Conflict: nothing to restore');
@@ -192,7 +191,7 @@ const habit = await habitRepository.update(id, {
         updatedBy: userId
       }, tx);
 
-      domainEventBus.emitEvent('HABIT_RESTORED', { habitId: habit.id, workspaceId: habit.workspaceId });
+      publishAfterCommit('HABIT_RESTORED', { habitId: habit.id, workspaceId: habit.workspaceId });
       return habit;
     });
   }

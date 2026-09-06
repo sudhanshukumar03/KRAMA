@@ -46,7 +46,7 @@ test.describe.serial('Kanban Phase 3 Verification', () => {
     const select = page.locator('select').last();
     // Select 'Task 1' as the blocking task
     await select.selectOption({ index: 1 });
-    await page.click('button[type="submit"]', { hasText: 'Save Changes' });
+    await page.locator('button[type="submit"]', { hasText: 'Save Changes' }).click();
     
     // Make sure modal closed
     await expect(page.locator('h3', { hasText: 'Edit Task' })).toBeHidden();

@@ -2,7 +2,6 @@ import { SkillService } from './skill.service';
 import { prisma } from '../prisma';
 import { taskRepository } from '../repositories/task.repository';
 import { TaskStatus, TaskPriority } from '@prisma/client';
-import { domainEventBus } from '../events/eventBus';
 import { runInTransaction } from '../prisma';
 
 export class TaskService {
@@ -51,7 +50,7 @@ export class TaskService {
   }
 
   async createTask(data: any, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const maxPos = await taskRepository.findMaxPosition(data.workspaceId, tx);
       const position = maxPos + 1.0;
       if (data.skillIds !== undefined) {
@@ -77,13 +76,13 @@ export class TaskService {
         updatedBy: userId,
       }, tx);
 
-      domainEventBus.emitEvent('TASK_CREATED', { taskId: task.id, workspaceId: task.workspaceId });
+      publishAfterCommit('TASK_CREATED', { taskId: task.id, workspaceId: task.workspaceId });
       return task;
     });
   }
 
   async updateTask(id: string, workspaceId: string, data: any, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await taskRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
         throw new Error('Task not found');
@@ -116,17 +115,17 @@ export class TaskService {
         updatedBy: userId,
       }, tx);
 
-      domainEventBus.emitEvent('TASK_UPDATED', { taskId: task.id, workspaceId: task.workspaceId });
+      publishAfterCommit('TASK_UPDATED', { taskId: task.id, workspaceId: task.workspaceId });
       
       if (existing.status !== 'DONE' && updateData.status === 'DONE') {
-        domainEventBus.emitEvent('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId, userId });
+        publishAfterCommit('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId, userId });
       }
       return task;
     });
   }
 
   async deleteTask(id: string, workspaceId: string, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await taskRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
         throw new Error('Task not found');
@@ -137,7 +136,7 @@ export class TaskService {
         updatedBy: userId,
       }, tx);
 
-      domainEventBus.emitEvent('TASK_DELETED', { taskId: task.id, workspaceId: task.workspaceId });
+      publishAfterCommit('TASK_DELETED', { taskId: task.id, workspaceId: task.workspaceId });
       return task;
     });
   }
@@ -164,7 +163,7 @@ export class TaskService {
   }
 
   async completeTask(id: string, workspaceId: string, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await taskRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
         throw new Error('Task not found');
@@ -179,14 +178,14 @@ export class TaskService {
       }, tx);
 
       if (isNewlyCompleted) {
-        domainEventBus.emitEvent('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId, userId });
+        publishAfterCommit('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId, userId });
       }
       return task;
     });
   }
 
   async restoreTask(id: string, workspaceId: string, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await taskRepository.findById(id, tx);
       if (!existing) throw new Error('Task not found');
       if (!existing.deletedAt || existing.workspaceId !== workspaceId) throw new Error('Conflict: nothing to restore');
@@ -196,11 +195,10 @@ export class TaskService {
         updatedBy: userId
       }, tx);
 
-      domainEventBus.emitEvent('TASK_RESTORED', { taskId: task.id, workspaceId: task.workspaceId });
+      publishAfterCommit('TASK_RESTORED', { taskId: task.id, workspaceId: task.workspaceId });
       return task;
     });
   }
 }
 
 export const taskService = new TaskService();
-

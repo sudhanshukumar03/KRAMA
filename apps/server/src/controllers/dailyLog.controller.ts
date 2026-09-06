@@ -113,7 +113,7 @@ export const updateDailyLog = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Daily Log not found' });
     }
 
-    if (existing.version !== data.version) {
+    if (data.version !== undefined && existing.version !== data.version) {
       return res.status(409).json({ message: 'Conflict: version mismatch' });
     }
 

@@ -38,7 +38,7 @@ export class CalendarificHolidayProvider implements HolidayProvider {
 
       const queryParams = new URLSearchParams(params as any).toString();
       const response = await fetch(`${this.baseUrl}/holidays?${queryParams}`);
-      const responseData = await response.json();
+      const responseData = (await response.json()) as any;
 
       if (responseData?.meta?.code !== 200) {
         throw new Error(`Calendarific API error: ${responseData?.meta?.error_detail || "Unknown"}`);

@@ -3,10 +3,9 @@ import type { Request, Response } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { z } from 'zod';
 import { HolidaySyncService } from '../services/holidays/HolidaySyncService';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 
 const router: Router = Router();
-const prisma = new PrismaClient();
 const holidaySync = new HolidaySyncService();
 
 router.use(requireAuth);

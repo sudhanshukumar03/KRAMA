@@ -126,7 +126,7 @@ router.get('/week', async (req: Request, res: Response) => {
       allTimeBlocks
     );
 
-    const routines = habits.filter((h: any) => h.pinnedToPlanner).map(h => ({
+    const routines = habits.filter((h: any) => h.pinnedToPlanner).map((h: any) => ({
       id: h.id,
       name: h.name,
     }));
@@ -140,7 +140,7 @@ router.get('/week', async (req: Request, res: Response) => {
 
       for (const habit of habits) {
         if (habit.scheduledDays && habit.scheduledDays.includes(dayOfWeek)) {
-          const completion = habitCompletions.find(c =>
+          const completion = habitCompletions.find((c: any) =>
             c.habitId === habit.id && c.completedAt.toISOString().startsWith(dateStr)
           );
 
@@ -157,7 +157,7 @@ router.get('/week', async (req: Request, res: Response) => {
       currentDay.setDate(currentDay.getDate() + 1);
     }
 
-    const plannerTasks = tasks.map(t => ({
+    const plannerTasks = tasks.map((t: any) => ({
       id: t.id,
       title: t.title,
       status: t.status,
@@ -167,7 +167,7 @@ router.get('/week', async (req: Request, res: Response) => {
       estimateMinutes: t.estimateMinutes,
     }));
 
-    const plannerProjects = projects.map(p => ({
+    const plannerProjects = projects.map((p: any) => ({
       id: p.id,
       name: p.name,
     }));

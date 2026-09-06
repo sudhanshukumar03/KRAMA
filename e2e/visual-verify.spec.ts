@@ -1,14 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../apps/server/src/prisma';
 
 test.describe.serial('Section 3 UI Verification', () => {
   const userPassword = 'password123';
   const userEmail = `e2e_ui_${Date.now()}@krama.com`;
-  let prisma: PrismaClient;
-
-  test.beforeAll(async () => {
-    prisma = new PrismaClient();
-  });
 
   test.afterAll(async () => {
     await prisma.$disconnect();
@@ -75,7 +70,7 @@ test.describe.serial('Section 3 UI Verification', () => {
     await page.screenshot({ path: 'C:/Users/sksin/.gemini/antigravity/brain/8e1f5d8e-f1f4-4b09-b83e-db272bf4e796/goal_create_modal.png' });
     
     // Fill out the form and submit
-    await page.click('button[type="submit"]', { hasText: 'Create Goal' });
+    await page.locator('button[type="submit"]', { hasText: 'Create Goal' }).click();
     await expect(page.locator('text=Test Goal').first()).toBeVisible({ timeout: 10000 });
 
     // 3. Test Habit completion on Goals screen

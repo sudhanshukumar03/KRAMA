@@ -4,12 +4,32 @@ import { CreatePageSchema, UpdatePageSchema } from '@krama/validation';
 import { prisma } from '../prisma';
 import { embeddingQueue } from '../queues';
 
-function extractTextFromBlocks(blocksData: any): string {
-  if (!blocksData || !Array.isArray(blocksData.blocks)) return '';
-  return blocksData.blocks
-    .map((b: any) => b?.data?.text || '')
-    .filter(Boolean)
-    .join('\n');
+export function extractTextFromBlocks(blocksData: any): string {
+  if (!blocksData) return '';
+  // Support Editor.js format
+  if (Array.isArray(blocksData.blocks)) {
+    return blocksData.blocks
+      .map((b: any) => b?.data?.text || '')
+      .filter(Boolean)
+      .join('\n');
+  }
+  // Support Tiptap / ProseMirror format
+  if (Array.isArray(blocksData.content)) {
+    const extractRecursive = (node: any): string => {
+      if (!node) return '';
+      if (node.text) return node.text;
+      if (Array.isArray(node.content)) {
+        return node.content.map(extractRecursive).filter(Boolean).join(' ');
+      }
+      return '';
+    };
+    return blocksData.content
+      .map(extractRecursive)
+      .filter(Boolean)
+      .join('\n');
+  }
+  if (typeof blocksData === 'string') return blocksData;
+  return '';
 }
 
 export const listPages = async (req: Request, res: Response) => {
@@ -102,7 +122,7 @@ export const updatePage = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Page not found' });
     }
 
-    if (existing.version !== data.version) {
+    if (data.version !== undefined && existing.version !== data.version) {
       return res.status(409).json({ message: 'Conflict: version mismatch' });
     }
 

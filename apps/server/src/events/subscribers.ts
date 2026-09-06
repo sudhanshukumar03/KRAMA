@@ -1,15 +1,39 @@
 import { domainEventBus } from './eventBus';
 import { notificationsQueue } from '../queues';
+import { prisma } from '../prisma';
 
-domainEventBus.onEvent<{ taskId: string; workspaceId: string }>('TASK_COMPLETED', async (payload) => {
-  // We need to fetch the userId who completed the task. 
-  // Let's pass userId in the payload from task.service, or just fetch it here.
-  // Actually task.service doesn't pass userId in TASK_COMPLETED payload currently.
-  // Let's just queue it up and the worker will handle it. Wait, the worker expects userId!
-  // I should update task.service to include userId in TASK_COMPLETED.
+domainEventBus.onEvent<{ taskId: string; workspaceId: string; userId?: string }>('TASK_COMPLETED', async (payload) => {
+  let recipientId = payload.userId;
+
+  if (!recipientId) {
+    const task = await prisma.task.findUnique({
+      where: { id: payload.taskId },
+      select: {
+        assigneeId: true,
+        createdBy: true,
+      }
+    });
+
+    if (task?.assigneeId) {
+      recipientId = task.assigneeId;
+    } else if (task?.createdBy) {
+      recipientId = task.createdBy;
+    } else {
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: payload.workspaceId },
+        select: { createdBy: true }
+      });
+      recipientId = workspace?.createdBy ?? undefined;
+    }
+  }
+
+  if (!recipientId) {
+    throw new Error(`Cannot notify task completion: recipient could not be resolved for task ${payload.taskId} in workspace ${payload.workspaceId}`);
+  }
+
   await notificationsQueue.add('task-completion', {
     taskId: payload.taskId,
     workspaceId: payload.workspaceId,
-    userId: (payload as any).userId || '00000000-0000-4000-8000-000000000001', // fallback for local mode
+    userId: recipientId,
   });
 });

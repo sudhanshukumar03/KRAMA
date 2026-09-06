@@ -30,7 +30,7 @@ export async function fetchHolidays(countryCode: string, year: number) {
   // Fetch from Calendarific
   try {
     const res = await fetch(`https://calendarific.com/api/v2/holidays?api_key=${apiKey}&country=${countryCode}&year=${year}`);
-    const data = await res.json();
+    const data = (await res.json()) as any;
 
     if (data?.meta?.code === 200 && data?.response?.holidays) {
       const holidays = data.response.holidays.map((h: any) => {

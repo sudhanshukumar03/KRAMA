@@ -21,7 +21,8 @@
     "@google/genai": "^2.19.0",
     "@krama/types": "workspace:*",
     "@krama/validation": "workspace:*",
-    "@prisma/client": "^6.19.3",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "@xenova/transformers": "^2.17.2",
     "bcrypt": "^6.0.0",
     "bullmq": "^6.0.0",
@@ -36,13 +37,13 @@
     "jwt-simple": "^0.5.6",
     "multer": "^2.3.0",
     "openai": "^7.2.0",
-    "prisma": "^6.19.3",
+    "pg": "^8.23.0",
     "rate-limit-redis": "^6.0.0",
     "redis": "^6.1.0",
     "socket.io": "^4.8.3",
+    "tsx": "^4.19.0",
     "uuid": "^14.0.2",
-    "zod": "^4.4.3",
-    "tsx": "^4.19.0"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
@@ -52,9 +53,11 @@
     "@types/jwt-simple": "^0.5.36",
     "@types/multer": "^2.2.0",
     "@types/node": "^24.13.3",
+    "@types/pg": "^8.23.1",
     "@types/socket.io": "^3.0.2",
     "@types/uuid": "^11.0.0",
     "concurrently": "^8.2.2",
+    "prisma": "7.10.0",
     "tsx": "^4.23.1",
     "typescript": "^6.0.3"
   }

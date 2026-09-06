@@ -1,9 +1,7 @@
-import { PrismaClient } from '@prisma/client';
 import type { Holiday } from '@prisma/client';
-import type {  HolidayProvider, HolidayProviderInput  } from "./HolidayProvider";
+import type { HolidayProvider, HolidayProviderInput } from "./HolidayProvider";
 import { CalendarificHolidayProvider } from './CalendarificHolidayProvider';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../prisma';
 
 export class HolidaySyncService {
   private provider: HolidayProvider;

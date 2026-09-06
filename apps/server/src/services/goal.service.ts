@@ -1,6 +1,5 @@
 import { SkillService } from './skill.service';
 import { goalRepository } from '../repositories/goal.repository';
-import { domainEventBus } from '../events/eventBus';
 import { runInTransaction } from '../prisma';
 
 export class GoalService {
@@ -17,11 +16,10 @@ export class GoalService {
   }
 
   async createGoal(data: any, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const { status, ...restData } = data;
       const metadata = status ? { status } : undefined;
 
-      
       if (data.skillIds !== undefined) {
         await SkillService.validateSkillLinking(userId, data.workspaceId, data.skillIds);
         const ids = data.skillIds;
@@ -29,26 +27,26 @@ export class GoalService {
         (data as any).skills = { connect: ids.map((id: string) => ({ id })) };
       }
 
-const goal = await goalRepository.create({
+      const goal = await goalRepository.create({
         ...restData,
         metadata,
         createdBy: userId,
         updatedBy: userId,
       }, tx);
 
-      domainEventBus.emitEvent('GOAL_CREATED', { goalId: goal.id, workspaceId: goal.workspaceId });
+      publishAfterCommit('GOAL_CREATED', { goalId: goal.id, workspaceId: goal.workspaceId });
       return goal;
     });
   }
 
   async updateGoal(id: string, workspaceId: string, data: any, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await goalRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
         throw new Error('Goal not found');
       }
 
-      if (existing.version !== data.version) {
+      if (data.version !== undefined && existing.version !== data.version) {
         throw new Error('Conflict: version mismatch');
       }
 
@@ -56,7 +54,6 @@ const goal = await goalRepository.create({
       
       const newMetadata = status ? { ...(existingMetadata || {}), status } : existingMetadata;
 
-      
       if (data.skillIds !== undefined) {
         await SkillService.validateSkillLinking(userId, workspaceId, data.skillIds);
         const ids = data.skillIds;
@@ -64,7 +61,7 @@ const goal = await goalRepository.create({
         (updateData as any).skills = { set: ids.map((id: string) => ({ id })) };
       }
 
-const goal = await goalRepository.update(id, {
+      const goal = await goalRepository.update(id, {
         ...updateData,
         ...(newMetadata !== undefined ? { metadata: newMetadata } : {}),
         version: { increment: 1 },
@@ -81,13 +78,13 @@ const goal = await goalRepository.update(id, {
         });
       }
 
-      domainEventBus.emitEvent('GOAL_UPDATED', { goalId: goal.id, workspaceId: goal.workspaceId });
+      publishAfterCommit('GOAL_UPDATED', { goalId: goal.id, workspaceId: goal.workspaceId });
       return goal;
     });
   }
 
   async deleteGoal(id: string, workspaceId: string, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await goalRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
         throw new Error('Goal not found');
@@ -98,13 +95,13 @@ const goal = await goalRepository.update(id, {
         updatedBy: userId,
       }, tx);
 
-      domainEventBus.emitEvent('GOAL_DELETED', { goalId: goal.id, workspaceId: goal.workspaceId });
+      publishAfterCommit('GOAL_DELETED', { goalId: goal.id, workspaceId: goal.workspaceId });
       return goal;
     });
   }
 
   async restoreGoal(id: string, workspaceId: string, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await goalRepository.findById(id, tx);
       if (!existing) throw new Error('Goal not found');
       if (!existing.deletedAt || existing.workspaceId !== workspaceId) throw new Error('Conflict: nothing to restore');
@@ -114,7 +111,7 @@ const goal = await goalRepository.update(id, {
         updatedBy: userId
       }, tx);
 
-      domainEventBus.emitEvent('GOAL_RESTORED', { goalId: goal.id, workspaceId: goal.workspaceId });
+      publishAfterCommit('GOAL_RESTORED', { goalId: goal.id, workspaceId: goal.workspaceId });
       return goal;
     });
   }

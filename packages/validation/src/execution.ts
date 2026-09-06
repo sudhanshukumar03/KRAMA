@@ -50,7 +50,7 @@ export const CreateGoalSchema = WorkspaceScoped.extend({
 
 export const UpdateGoalSchema = CreateGoalSchema.partial().extend({
   progress: z.number().min(0).max(100).optional(),
-  version: z.number().int().min(1),
+  version: z.number().int().min(1).optional(),
 });
 
 export const CreateHabitSchema = WorkspaceScoped.extend({
@@ -70,7 +70,7 @@ export const CreateHabitSchema = WorkspaceScoped.extend({
 });
 
 export const UpdateHabitSchema = CreateHabitSchema.partial().extend({
-  version: z.number().int().min(1),
+  version: z.number().int().min(1).optional(),
 });
 
 export const CreatePageSchema = WorkspaceScoped.extend({
@@ -81,7 +81,7 @@ export const CreatePageSchema = WorkspaceScoped.extend({
 });
 
 export const UpdatePageSchema = CreatePageSchema.partial().extend({
-  version: z.number().int().min(1),
+  version: z.number().int().min(1).optional(),
 });
 
 export const CreateSprintSchema = WorkspaceScoped.extend({
@@ -107,7 +107,7 @@ export const CreateDailyLogSchema = WorkspaceScoped.extend({
 });
 
 export const UpdateDailyLogSchema = CreateDailyLogSchema.partial().extend({
-  version: z.number().int().min(1),
+  version: z.number().int().min(1).optional(),
 });
 
 export const ReorderSchema = WorkspaceScoped.extend({

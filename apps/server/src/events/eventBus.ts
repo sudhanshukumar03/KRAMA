@@ -16,12 +16,15 @@ class EventBus extends EventEmitter {
     this.emit(type, event);
   }
 
-  onEvent<T>(type: string, handler: (payload: T, event: DomainEvent) => void) {
-    this.on(type, (event: DomainEvent) => {
+  onEvent<T>(type: string, handler: (payload: T, event: DomainEvent) => void | Promise<void>) {
+    this.on(type, async (event: DomainEvent) => {
       try {
-        handler(event.payload, event);
+        await handler(event.payload, event);
       } catch (error) {
-        console.error(`Error handling event ${type}:`, error);
+        console.error(`[EventBus] Error handling event '${type}':`, error, {
+          payload: event.payload,
+          timestamp: event.timestamp,
+        });
       }
     });
   }

@@ -1,14 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../apps/server/src/prisma';
 
 test.describe.serial('Streak Synchronization Test', () => {
   const userPassword = 'password123';
   const userEmail = `streak_test_${Date.now()}@krama.com`;
-  let prisma: PrismaClient;
-
-  test.beforeAll(async () => {
-    prisma = new PrismaClient();
-  });
 
   test.afterAll(async () => {
     await prisma.$disconnect();
