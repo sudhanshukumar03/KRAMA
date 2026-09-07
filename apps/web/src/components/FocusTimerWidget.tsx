@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Play, Pause, Square,  ChevronDown } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '../api/client';
@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 export function FocusTimerWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [isActive, setIsActive] = useState(false);
-    const [timeLeft, setTimeLeft] = useState(25 * 60);
+  const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [mode, setMode] = useState<'pomodoro' | 'short_break' | 'long_break'>('pomodoro');
   const [startTime, setStartTime] = useState<Date | null>(null);
 
@@ -21,6 +21,19 @@ export function FocusTimerWidget() {
     }
   });
 
+  const handleComplete = useCallback(() => {
+    if (!startTime) return;
+    const duration = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
+    completeMutation.mutate({
+      startTime: startTime.toISOString(),
+      endTime: new Date().toISOString(),
+      duration,
+      type: mode
+    });
+    setStartTime(null);
+    setTimeLeft(mode === 'pomodoro' ? 25 * 60 : mode === 'short_break' ? 5 * 60 : 15 * 60);
+  }, [startTime, completeMutation, mode]);
+
   useEffect(() => {
     let interval: any = null;
     if (isActive && timeLeft > 0) {
@@ -32,7 +45,7 @@ export function FocusTimerWidget() {
       handleComplete();
     }
     return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
+  }, [isActive, timeLeft, handleComplete]);
 
   const handleStart = () => {
     if (!startTime) setStartTime(new Date());
@@ -48,19 +61,6 @@ export function FocusTimerWidget() {
     if (startTime) {
       handleComplete();
     }
-  };
-
-  const handleComplete = () => {
-    if (!startTime) return;
-    const duration = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
-    completeMutation.mutate({
-      startTime: startTime.toISOString(),
-      endTime: new Date().toISOString(),
-      duration,
-      type: mode
-    });
-    setStartTime(null);
-    setTimeLeft(mode === 'pomodoro' ? 25 * 60 : mode === 'short_break' ? 5 * 60 : 15 * 60);
   };
 
   const changeMode = (m: 'pomodoro' | 'short_break' | 'long_break') => {
