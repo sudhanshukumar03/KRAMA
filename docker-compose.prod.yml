@@ -37,6 +37,7 @@ services:
     build:
       context: .
       dockerfile: apps/server/Dockerfile
+    image: krama-server:prod
     container_name: krama-prod-server
     environment:
       - NODE_ENV=production
@@ -57,9 +58,7 @@ services:
     restart: unless-stopped
 
   worker:
-    build:
-      context: .
-      dockerfile: apps/server/Dockerfile
+    image: krama-server:prod
     container_name: krama-prod-worker
     command: ["node", "dist/worker.js"]
     environment:
