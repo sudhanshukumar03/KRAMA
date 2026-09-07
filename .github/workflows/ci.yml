@@ -30,12 +30,14 @@ jobs:
 
     - name: Generate Prisma Client
       run: pnpm --filter server exec prisma generate
+      env:
+        DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/krama?schema=public"
 
     - name: TypeScript Check (Backend)
       run: pnpm --filter server exec tsc --noEmit
 
     - name: TypeScript Check (Frontend)
-      run: pnpm --filter web exec tsc --noEmit
+      run: pnpm --filter client exec tsc -b
 
     - name: Docker Compose Smoke Test
       run: docker compose -f docker-compose.prod.yml build
