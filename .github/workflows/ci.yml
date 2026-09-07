@@ -45,4 +45,4 @@ jobs:
       run: pnpm --filter client exec tsc -b
 
     - name: Docker Compose Smoke Test
-      run: docker compose -f docker-compose.prod.yml build
+      run: docker compose -f docker-compose.prod.yml build --progress=plain

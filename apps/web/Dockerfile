@@ -13,6 +13,7 @@ COPY apps/web ./apps/web
 COPY apps/server/package.json ./apps/server/package.json
 
 # Install dependencies
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 RUN pnpm install --frozen-lockfile
 
 # Build the frontend
