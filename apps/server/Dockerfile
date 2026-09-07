@@ -8,6 +8,7 @@ COPY apps/server ./apps/server
 COPY apps/web/package.json ./apps/web/package.json 
 RUN pnpm install --frozen-lockfile
 RUN cd apps/server && pnpm exec esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.js --external:@prisma/client --external:bcrypt --external:express --external:cors --external:jsonwebtoken --external:googleapis --external:socket.io --external:multer
+RUN cd apps/server && pnpm exec esbuild src/worker.ts --bundle --platform=node --format=cjs --outfile=dist/worker.js --external:@prisma/client --external:bcrypt --external:bullmq --external:ioredis --external:@xenova/transformers
 RUN pnpm --filter server deploy --legacy --prod /app/out
 RUN cd /app/out && npx prisma generate
 FROM node:24-alpine AS runner
@@ -18,4 +19,5 @@ COPY --from=builder /app/out ./
 COPY --from=builder /app/apps/server/dist ./dist
 COPY --from=builder /app/apps/server/prisma ./prisma
 EXPOSE 3000
-CMD ["node", "dist/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+
