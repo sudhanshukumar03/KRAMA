@@ -29,6 +29,8 @@ jobs:
       run: pnpm install --frozen-lockfile
 
     - name: Generate Prisma Client
+      env:
+        DATABASE_URL: postgresql://localhost:5432/krama?schema=public
       run: pnpm --filter server exec prisma generate
 
     - name: TypeScript Check (Backend)
