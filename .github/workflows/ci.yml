@@ -35,6 +35,9 @@ jobs:
       env:
         DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/krama?schema=public"
 
+    - name: Build Shared Packages
+      run: pnpm --filter "./packages/*" run build
+
     - name: TypeScript Check (Backend)
       run: pnpm --filter server exec tsc --noEmit
 
