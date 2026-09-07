@@ -1,9 +1,11 @@
+// UI-only refactor — no data/logic changes
 import { useEffect, useState, useRef, useCallback } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { api } from '../api/client';
-import { Network } from 'lucide-react';
+import { Network, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { EmptyState } from './ui/EmptyState';
+import { PageHeader } from './ui/PageHeader';
+import { EmptyStateInline } from './ui/EmptyStateInline';
 
 interface GraphData {
   nodes: { id: string; label: string; type: string; status?: string }[];
@@ -53,37 +55,39 @@ export function KnowledgeGraph() {
     }
   }, [navigate]);
 
-  if (isLoading) return <div className="p-8 flex justify-center text-muted">Loading graph...</div>;
-  if (error) return <div className="p-8 text-danger">{error}</div>;
+  if (isLoading) return <div className="p-8 flex justify-center text-muted font-mono text-caption">Loading Knowledge Graph...</div>;
+  if (error) return <div className="p-8 text-error font-mono text-caption">{error}</div>;
 
-  if (data.nodes.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center h-full bg-canvas">
-        <EmptyState 
-          icon={Network}
-          title="No Knowledge Graph Data"
-          description="Create projects, tasks, habits, and notes to see how they connect."
-          actionLabel="Go to Dashboard"
-          onAction={() => navigate('/app/dashboard')}
-        />
-      </div>
-    );
-  }
+  const isEmpty = data.nodes.length === 0;
 
   return (
     <div className="h-full flex flex-col bg-canvas relative">
-      <div className="p-8 pb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-primary flex items-center gap-3">
-            <div className="v4-icon-chip v4-icon-chip-purple">
-              <Network className="w-5 h-5" />
-            </div>
-            Knowledge Graph
-          </h1>
-          <p className="text-muted mt-1 text-sm">Visualizing {data.nodes.length} entities and {data.links.length} relationships.</p>
-        </div>
+      <div className="p-4 sm:p-6 md:p-8 pb-0">
+        <PageHeader
+          icon={Network}
+          iconColorClass="bg-[#7C3AED] text-white"
+          title="Knowledge Graph"
+          statPill={{
+            icon: Sparkles,
+            label: isEmpty ? "0 entities" : `${data.nodes.length} entities • ${data.links.length} relationships`
+          }}
+          description="Interactive 2D topological visualization connecting projects, tasks, goals, and notes."
+          className="mb-4"
+        />
       </div>
-      <div className="flex-1 relative border-t border-border bg-card">
+
+      <div className="flex-1 relative border-t border-border bg-surface overflow-hidden">
+        {isEmpty ? (
+          <div className="h-full flex items-center justify-center p-8">
+            <EmptyStateInline
+              icon={Network}
+              title="No Knowledge Graph Entities"
+              description="Create projects, tasks, habits, and notes to see how they connect in the topology."
+              actionLabel="Go to Dashboard"
+              onAction={() => navigate('/app/')}
+            />
+          </div>
+        ) : (
         <ForceGraph2D
           ref={graphRef}
           graphData={data}
@@ -156,7 +160,8 @@ export function KnowledgeGraph() {
             ctx.fill();
           }}
         />
-      </div>
+      )}
     </div>
-  );
+  </div>
+);
 }

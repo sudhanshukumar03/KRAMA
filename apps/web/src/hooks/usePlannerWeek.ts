@@ -8,6 +8,7 @@ import { format, startOfWeek, addDays, isSameDay, parseISO } from 'date-fns';
 import { plannerApi } from '../api/plannerApi';
 import { api } from '../api/client';
 import type { RoutineOccurrence } from '../types/planner';
+import { toast } from 'sonner';
 
 function getWeekDays(referenceDate: Date): Date[] {
   const monday = startOfWeek(referenceDate, { weekStartsOn: 1 });
@@ -81,6 +82,9 @@ export function usePlannerWeek() {
       queryClient.invalidateQueries({ queryKey: ['planner', 'week', weekStart] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
     },
+    onError: (err: any) => {
+      toast.error('Failed to update routine: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+    }
   });
 
   const createTimeBlockMutation = useMutation({
@@ -88,6 +92,9 @@ export function usePlannerWeek() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planner', 'week', weekStart] });
     },
+    onError: (err: any) => {
+      toast.error('Failed to create time block: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+    }
   });
 
   const updateTimeBlockMutation = useMutation({
@@ -95,6 +102,9 @@ export function usePlannerWeek() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planner', 'week', weekStart] });
     },
+    onError: (err: any) => {
+      toast.error('Failed to update time block: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+    }
   });
 
   const deleteTimeBlockMutation = useMutation({
@@ -102,6 +112,9 @@ export function usePlannerWeek() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planner', 'week', weekStart] });
     },
+    onError: (err: any) => {
+      toast.error('Failed to delete time block: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+    }
   });
 
   return {

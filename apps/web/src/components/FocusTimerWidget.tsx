@@ -15,6 +15,9 @@ export function FocusTimerWidget() {
     mutationFn: (data: any) => api.focusSessions.complete(data),
     onSuccess: () => {
       toast.success('Focus session logged successfully!');
+    },
+    onError: (err: any) => {
+      toast.error('Failed to log focus session: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
     }
   });
 

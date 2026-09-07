@@ -4,51 +4,96 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  
-  /* 1. Canvas & Surfaces (Apple Premium Aesthetic) */
-  --color-canvas: #F5F5F7;      /* macOS/iOS signature background */
-  --color-surface: #FFFFFF;     /* Inner app background / secondary */
-  --color-card: #FFFFFF;        /* Pure white cards */
-  --color-sidebar: rgba(255, 255, 255, 0.75); /* Translucent sidebar for glass effect */
-  --color-border: rgba(0, 0, 0, 0.06); /* Razor-thin subtle borders */
-  
-  /* 2. Text & Accent */
-  --color-primary: #1D1D1F;     /* Apple's signature dark text */
-  --color-secondary: #64748B;   /* Slate 500: Cool, clear, partially visible gray with a subtle blue/bright tint */
-  --color-muted: #94A3B8;       /* Slate 400: Crisp muted tone for icons */
-  --color-accent: #007AFF;      /* iOS Blue */
-  --color-accent-tint: #E5F1FF; 
-  
-  /* 3. Category Accents */
-  --icon-blue: #007AFF;
-  --icon-purple: #AF52DE;       /* iOS Purple */
-  --icon-green: #34C759;        /* iOS Green */
-  --icon-orange: #FF9500;       /* iOS Orange */
-  --icon-red: #FF3B30;          /* iOS Red */
-  --icon-teal: #5AC8FA;         /* iOS Light Blue */
-  
-  /* 4. Spacing, Radius & Shadows */
-  --radius-btn: 9999px;         
-  --radius-input: 10px;         /* Apple style inputs */
-  --radius-card: 20px;          /* Smooth squarcles */
-  --radius-dialog: 24px;
-  --radius-sidebar: 20px;
-  
-  /* Ultra-soft, diffuse shadows like macOS */
-  --shadow-resting: 0 2px 14px -6px rgba(0, 0, 0, 0.05), 0 0 1px rgba(0, 0, 0, 0.04);
-  --shadow-dark: 0 10px 40px -10px rgba(0, 0, 0, 0.12), 0 0 2px rgba(0, 0, 0, 0.06);
-  --shadow-hover: 0 8px 24px -6px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.04);
-  
-  /* 5. Motion Tokens */
-  --motion-duration: 250ms;     /* Slightly longer, smoother animations */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* Typography Scale */
+  --text-badge: 10px;
+  --text-badge--line-height: 14px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-section: 16px;
+  --text-section--line-height: 24px;
+  --text-card: 18px;
+  --text-card--line-height: 26px;
+
+  /* 1. Canvas & Surfaces (Minimalist Palette) */
+  --color-canvas: #FAFAFA;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #F4F4F5;
+  --color-surface-elevated: #FFFFFF;
+  --color-card: #FFFFFF;
+
+  /* 2. Borders */
+  --color-border: #E4E4E7;
+  --color-border-subtle: #F4F4F5;
+  --color-border-strong: #D4D4D8;
+
+  /* 3. Text & Content */
+  --color-primary: #09090B;
+  --color-secondary: #71717A;
+  --color-muted: #A1A1AA;
+
+  /* 4. Single Cool Accent (Accent Scarcity: 10% rule) */
+  --color-accent: #2563EB;
+  --color-accent-hover: #1D4ED8;
+  --color-accent-tint: #EFF6FF;
+
+  /* 5. Semantic Status Colors */
+  --color-success: #16A34A;
+  --color-success-tint: #F0FDF4;
+  --color-warning: #D97706;
+  --color-warning-tint: #FFFBEB;
+  --color-error: #DC2626;
+  --color-error-tint: #FEF2F2;
+
+  /* 6. Categorical Palette (Domain Tagging: OKRs, Project Areas, Habit Types) */
+  --category-blue: #2563EB;
+  --category-purple: #7C3AED;
+  --category-green: #16A34A;
+  --category-orange: #EA580C;
+  --category-red: #DC2626;
+  --category-teal: #0D9488;
+
+  /* 7. Spacing, Radii & Geometry */
+  --radius-control: 4px;
+  --radius-btn: 8px;
+  --radius-input: 8px;
+  --radius-card: 14px;
+  --radius-dialog: 16px;
+
+  /* 8. Shadows (Discrete elevation system) */
+  --shadow-level-1: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-level-2: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  --shadow-level-3: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+
+  /* 9. Motion Tokens */
   --motion-instant: 100ms;
   --motion-fast: 150ms;
   --motion-ui: 200ms;
+  --motion-normal: 200ms;
   --motion-comfort: 300ms;
+  --motion-duration: 250ms;
 
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* Apple's custom easing */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  /* 10. Backward-Compatibility Aliases (Safe Migration) */
+  --color-sidebar: var(--color-surface);
+  --radius-sidebar: 0px;
+  --shadow-resting: var(--shadow-level-1);
+  --shadow-hover: var(--shadow-level-2);
+  --shadow-dark: var(--shadow-level-3);
+
+  --icon-blue: var(--category-blue);
+  --icon-purple: var(--category-purple);
+  --icon-green: var(--category-green);
+  --icon-orange: var(--category-orange);
+  --icon-red: var(--category-red);
+  --icon-teal: var(--category-teal);
 }
 
 @layer base {
@@ -57,68 +102,134 @@
     color: var(--color-primary);
     font-family: var(--font-sans);
     font-size: 14px;
-    font-weight: 500; /* Slightly bolder base font for the modern look */
+    font-weight: 400;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
-    selection-background-color: rgba(37, 99, 235, 0.1);
-    selection-color: var(--icon-blue);
+    selection-background-color: rgba(37, 99, 235, 0.15);
+    selection-color: var(--color-accent);
   }
 
-  /* Focus Ring */
+  /* Accessible, Restrained Focus Ring */
   *:focus-visible {
-    outline: none !important;
-    box-shadow: 0 0 0 2px var(--color-card), 0 0 0 4px var(--color-accent) !important;
+    outline: 2px solid var(--color-accent) !important;
+    outline-offset: 2px !important;
   }
 
   .dark {
-    /* Canvas & Surfaces */
-    --color-canvas: #0F172A;
-    --color-surface: #1E293B;
-    --color-card: #1E293B;
-    --color-sidebar: #0F172A;
-    --color-border: #334155;
-    
-    /* Text */
-    --color-primary: #F8FAFC;
-    --color-secondary: #CBD5E1;
-    --color-muted: #64748B;
-    
-    /* Ensure shadows are subdued in dark mode */
-    --shadow-resting: 0 10px 40px -10px rgba(0,0,0,0.5);
-    --shadow-hover: 0 14px 45px -10px rgba(0,0,0,0.6);
+    /* Layered Neutral Dark Canvas & Surfaces */
+    --color-canvas: #09090B;
+    --color-surface: #111113;
+    --color-surface-hover: #1F1F23;
+    --color-surface-elevated: #18181B;
+    --color-card: #111113;
+    --color-sidebar: #111113;
+
+    /* Dark Mode Borders */
+    --color-border: #27272A;
+    --color-border-subtle: #1F1F23;
+    --color-border-strong: #3F3F46;
+
+    /* Dark Mode Text */
+    --color-primary: #FAFAFA;
+    --color-secondary: #A1A1AA;
+    --color-muted: #71717A;
+
+    /* Dark Mode Accent (Slightly lighter blue for dark contrast) */
+    --color-accent: #3B82F6;
+    --color-accent-hover: #60A5FA;
+    --color-accent-tint: rgba(59, 130, 246, 0.15);
+
+    /* Dark Shadows */
+    --shadow-level-1: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+    --shadow-level-2: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+    --shadow-level-3: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+    --shadow-resting: var(--shadow-level-1);
+    --shadow-hover: var(--shadow-level-2);
+    --shadow-dark: var(--shadow-level-3);
   }
 }
 
 @layer components {
-  /* Design v4 Cards */
+  /* Krama Standard Cards & v4-card backwards-compatibility */
+  .krama-card,
   .v4-card {
     background-color: var(--color-card);
-    border: 1px solid var(--color-border); /* Ultra thin Apple border */
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow-resting);
-    transition: box-shadow var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
-  }
-  .v4-card:hover {
-    box-shadow: var(--shadow-hover);
-    transform: translateY(-2px);
+    box-shadow: var(--shadow-level-1);
+    transition: border-color var(--motion-fast) var(--ease-out),
+                box-shadow var(--motion-fast) var(--ease-out);
   }
 
-  /* Design v4 Icon Chips */
-  .v4-icon-chip {
+  .krama-card:hover,
+  .v4-card:hover {
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-level-2);
+  }
+
+  /* BaseButton Component Classes */
+  .krama-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    border-radius: var(--radius-btn);
+    transition: background-color var(--motion-fast) var(--ease-out),
+                border-color var(--motion-fast) var(--ease-out),
+                color var(--motion-fast) var(--ease-out),
+                box-shadow var(--motion-fast) var(--ease-out);
+  }
+
+  .krama-btn-primary {
+    background-color: var(--color-accent);
+    color: #FFFFFF;
+    border: 1px solid transparent;
+  }
+
+  .krama-btn-primary:hover {
+    background-color: var(--color-accent-hover);
+  }
+
+  .krama-btn-secondary {
+    background-color: var(--color-surface);
+    color: var(--color-primary);
+    border: 1px solid var(--color-border);
+  }
+
+  .krama-btn-secondary:hover {
+    background-color: var(--color-surface-hover);
+    border-color: var(--color-border-strong);
+  }
+
+  .krama-btn-ghost {
+    background-color: transparent;
+    color: var(--color-secondary);
+    border: 1px solid transparent;
+  }
+
+  .krama-btn-ghost:hover {
+    background-color: var(--color-surface-hover);
+    color: var(--color-primary);
+  }
+
+  /* Categorical Icon Chips (.v4-icon-chip & .krama-icon-chip) */
+  .v4-icon-chip,
+  .krama-icon-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-control);
     width: 32px;
     height: 32px;
   }
-  
-  .v4-icon-chip-blue { background-color: rgba(59, 130, 246, 0.1); color: var(--icon-blue); }
-  .v4-icon-chip-purple { background-color: rgba(139, 92, 246, 0.1); color: var(--icon-purple); }
-  .v4-icon-chip-green { background-color: rgba(16, 185, 129, 0.1); color: var(--icon-green); }
-  .v4-icon-chip-orange { background-color: rgba(249, 115, 22, 0.1); color: var(--icon-orange); }
-  .v4-icon-chip-red { background-color: rgba(239, 68, 68, 0.1); color: var(--icon-red); }
-  .v4-icon-chip-teal { background-color: rgba(20, 184, 166, 0.1); color: var(--icon-teal); }
+
+  .v4-icon-chip-blue, .krama-icon-chip-blue { background-color: rgba(37, 99, 235, 0.1); color: var(--category-blue); }
+  .v4-icon-chip-purple, .krama-icon-chip-purple { background-color: rgba(124, 58, 237, 0.1); color: var(--category-purple); }
+  .v4-icon-chip-green, .krama-icon-chip-green { background-color: rgba(22, 163, 74, 0.1); color: var(--category-green); }
+  .v4-icon-chip-orange, .krama-icon-chip-orange { background-color: rgba(234, 88, 12, 0.1); color: var(--category-orange); }
+  .v4-icon-chip-red, .krama-icon-chip-red { background-color: rgba(220, 38, 38, 0.1); color: var(--category-red); }
+  .v4-icon-chip-teal, .krama-icon-chip-teal { background-color: rgba(13, 148, 136, 0.1); color: var(--category-teal); }
 }
 
 @layer utilities {

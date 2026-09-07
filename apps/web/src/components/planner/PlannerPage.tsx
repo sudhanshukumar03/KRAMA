@@ -1,4 +1,4 @@
-﻿// =============================================================================
+// =============================================================================
 // PLANNER PAGE ?" KRAMA OS
 // =============================================================================
 // Top-level page component orchestrating the planner system
@@ -59,6 +59,9 @@ export function PlannerPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+    },
+    onError: (err: any) => {
+      toast.error('Failed to update task: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
     }
   });
 

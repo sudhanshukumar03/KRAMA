@@ -354,6 +354,9 @@ export function TimelineView() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       toast.success("Task permanently deleted");
+    },
+    onError: (err: any) => {
+      toast.error('Failed to delete task: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
     }
   });
 

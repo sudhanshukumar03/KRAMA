@@ -1,11 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Target, TrendingUp, BookOpen, AlertCircle, Plus, Star, Link as LinkIcon } from 'lucide-react';
 import { skillsApi } from '../api/skills';
-
-
-
-
+import { toast } from 'sonner';
 
 export function SkillsModule() {
   const [isAdding, setIsAdding] = useState(false);
@@ -17,6 +14,10 @@ export function SkillsModule() {
       queryClient.invalidateQueries({ queryKey: ['skills-overview'] });
       setIsAdding(false);
       setNewSkill({ name: '', targetLevel: 5, category: '' });
+      toast.success('Skill added successfully');
+    },
+    onError: (err: any) => {
+      toast.error('Failed to create skill: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
     }
   });
 

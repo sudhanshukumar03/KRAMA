@@ -1,3 +1,4 @@
+// UI-only refactor — no data/logic changes
 import React, { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
@@ -10,6 +11,7 @@ import type { PageWithRelations } from '../types/schema';
 import { cn } from '../lib/utils';
 import { EmptyState } from './ui/EmptyState';
 import { BaseButton } from './ui/BaseButton';
+import { PageHeader } from './ui/PageHeader';
 import { LoadingState } from './ui/LoadingState';
 import { ErrorState } from './ui/ErrorState';
 import { ConfirmDeleteButton } from './ui/ConfirmDeleteButton';
@@ -190,66 +192,86 @@ function Breadcrumbs({ page, pages }: { page: PageWithRelations, pages: PageWith
 function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelations[] }) {
  const queryClient = useQueryClient();
  const [title, setTitle] = useState(page.title || '');
- const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
- const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSaveErrorToastRef = useRef<number>(0);
 
- const handleTitleChange = (newTitle: string) => {
- setTitle(newTitle);
- if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
- titleDebounceRef.current = setTimeout(() => {
- api.pages.update(page.id, { title: newTitle }).then(() => {
- queryClient.invalidateQueries({ queryKey: ['pages'] });
- });
- }, 500);
- };
+  const handleTitleChange = (newTitle: string) => {
+    setTitle(newTitle);
+    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+    titleDebounceRef.current = setTimeout(() => {
+      api.pages.update(page.id, { title: newTitle })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['pages'] });
+        })
+        .catch((err: any) => {
+          toast.error('Failed to update page title: ' + (err?.response?.data?.message || err?.message || 'Unknown error'), {
+            id: 'brain-title-error',
+          });
+        });
+    }, 500);
+  };
 
- const editor = useEditor({
- extensions: [
- StarterKit,
- Placeholder.configure({ placeholder: 'Type / for commands, or start writing clean engineering thoughts...' })
- ],
- content: (page.blocks ? page.blocks as Content : ''),
- onUpdate: ({ editor }) => {
- const json = editor.getJSON();
- if (debounceRef.current) clearTimeout(debounceRef.current);
- debounceRef.current = setTimeout(() => {
- api.pages.update(page.id, { blocks: json as any });
- }, 500);
- },
- editorProps: {
- attributes: {
- class: 'prose prose-zinc max-w-none focus:outline-none min-h-[450px] text-primary leading-relaxed font-sans text-body',
- },
- },
- });
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Placeholder.configure({ placeholder: 'Type / for commands, or start writing clean engineering thoughts...' })
+    ],
+    content: (page.blocks ? page.blocks as Content : ''),
+    onUpdate: ({ editor }) => {
+      const json = editor.getJSON();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        api.pages.update(page.id, { blocks: json as any })
+          .catch((err: any) => {
+            const now = Date.now();
+            if (now - lastSaveErrorToastRef.current > 4000) {
+              lastSaveErrorToastRef.current = now;
+              toast.error('Failed to save page content: ' + (err?.response?.data?.message || err?.message || 'Unknown error'), {
+                id: 'brain-autosave-error',
+              });
+            }
+          });
+      }, 500);
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-zinc max-w-none focus:outline-none min-h-[450px] text-primary leading-relaxed font-sans text-body',
+      },
+    },
+  });
 
- // Calculate word count & reading time
- const textContent = editor ? editor.getText() : (page.title || '');
- const words = textContent.trim().split(/\s+/).filter((w: string) => w.length > 0);
- const wordCount = words.length;
- const charCount = textContent.length;
- const readTimeMins = Math.max(1, Math.ceil(wordCount / 200));
+  // Calculate word count & reading time
+  const textContent = editor ? editor.getText() : (page.title || '');
+  const words = textContent.trim().split(/\s+/).filter((w: string) => w.length > 0);
+  const wordCount = words.length;
+  const charCount = textContent.length;
+  const readTimeMins = Math.max(1, Math.ceil(wordCount / 200));
 
- if (!editor) return null;
+  if (!editor) return null;
 
- return (
- <div className="max-w-4xl mx-auto py-8 px-6 md:px-10 h-full overflow-y-auto animate-in fade-in duration-150 flex flex-col font-sans">
- <Breadcrumbs page={page} pages={pages} />
- 
- {/* NEUTRAL WHITE THINKING IDENTITY: Document Telemetry Header Bar */}
- <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-border">
- <div className="flex items-center gap-3.5">
- <div className="w-10 h-10 rounded-2xl bg-surface-hover border border-border flex items-center justify-center shrink-0 shadow-2xs hover:bg-surface-hover/80 transition-colors cursor-pointer">
- <IconPicker
- value={page.icon}
- onChange={(newIcon) => {
- api.pages.update(page.id, { icon: newIcon }).then(() => {
- queryClient.invalidateQueries({ queryKey: ['pages'] });
- });
- }}
- triggerClassName="border-none hover:border-none shadow-none bg-transparent hover:bg-transparent !p-0"
- />
- </div>
+  return (
+    <div className="max-w-4xl mx-auto py-8 px-6 md:px-10 h-full overflow-y-auto animate-in fade-in duration-150 flex flex-col font-sans">
+      <Breadcrumbs page={page} pages={pages} />
+      
+      {/* NEUTRAL WHITE THINKING IDENTITY: Document Telemetry Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-border">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-2xl bg-surface-hover border border-border flex items-center justify-center shrink-0 shadow-2xs hover:bg-surface-hover/80 transition-colors cursor-pointer">
+            <IconPicker
+              value={page.icon}
+              onChange={(newIcon) => {
+                api.pages.update(page.id, { icon: newIcon })
+                  .then(() => {
+                    queryClient.invalidateQueries({ queryKey: ['pages'] });
+                  })
+                  .catch((err: any) => {
+                    toast.error('Failed to update page icon: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+                  });
+              }}
+              triggerClassName="border-none hover:border-none shadow-none bg-transparent hover:bg-transparent !p-0"
+            />
+          </div>
  <div>
  <span className="text-caption font-mono font-bold text-primary block mb-0.5 uppercase tracking-wider">
  Neutral White Thinking Canvas • Live Specification
@@ -472,28 +494,19 @@ export function BrainWorkspace() {
  return (
  <div className="flex flex-col h-full w-full bg-canvas font-sans text-primary">
  
- {/* COMMAND CENTER BRAIN HEADER */}
- <div className="h-20 border-b border-border bg-surface px-6 md:px-8 flex items-center justify-between shrink-0 shadow-2xs">
- <div className="flex items-center gap-3.5">
- <div className="w-10 h-10 rounded-2xl bg-primary text-surface flex items-center justify-center shrink-0 shadow-2xs">
- <Brain className="w-5 h-5 stroke-[1.5]" />
- </div>
- <div>
- <div className="flex items-center gap-2.5 mb-0.5">
- <h1 className="text-title text-primary mb-4 ">Brain Workspace</h1>
- <span className="bg-surface-hover text-secondary border border-border px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
- <Sparkles className="w-3 h-3 text-[#7C3AED] stroke-[1.5]" /> {pages.length} Specs Tracked
- </span>
- </div>
- <p className="text-caption text-secondary font-mono">Neutral White thinking canvas for engineering specs, architecture RFCs, and meeting notes.</p>
- </div>
- </div>
- 
- <BaseButton onClick={handleCreateRootPage} className="shrink-0 cursor-pointer">
- <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" />
- New Document
- </BaseButton>
- </div>
+      <PageHeader
+        icon={Brain}
+        iconColorClass="bg-primary text-surface"
+        title="Brain Workspace"
+        statPill={{ icon: Sparkles, label: `${pages.length} Specs Tracked` }}
+        description="Neutral White thinking canvas for engineering specs, architecture RFCs, and meeting notes."
+        primaryAction={{
+          label: "New Document",
+          icon: Plus,
+          onClick: handleCreateRootPage,
+        }}
+        className="mb-0 rounded-none border-x-0 border-t-0 border-b bg-surface shadow-none"
+      />
 
  <div className="flex flex-1 overflow-hidden bg-surface">
  {/* Page Tree Sidebar Column */}

@@ -1,11 +1,13 @@
+// UI-only refactor — no data/logic changes
 import { useState } from "react";
 import { api } from "../api/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, CheckCircle2, Flame, TrendingUp, Plus, Clock, Sun, Sunset, Moon, Trash2, Pin, PinOff, Edit2, Sparkles, X } from 'lucide-react';
+import { Check, Flame, TrendingUp, Plus, Clock, Sun, Sunset, Moon, Trash2, Pin, PinOff, Edit2, Sparkles, X } from 'lucide-react';
 import { ConfirmDeleteButton } from "./ui/ConfirmDeleteButton";
 import { toast } from "sonner";
 import { BaseButton } from "./ui/BaseButton";
-import { EmptyState } from "./ui/EmptyState";
+import { PageHeader } from "./ui/PageHeader";
+import { EmptyStateInline } from "./ui/EmptyStateInline";
 import { LoadingState } from "./ui/LoadingState";
 import { ErrorState } from "./ui/ErrorState";
 import { cn } from "../lib/utils";
@@ -859,27 +861,6 @@ export function HabitTracker() {
     );
   }
 
-  if (habits.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center h-full">
-        <EmptyState
-          icon={Flame}
-          title="No habits created."
-          description="Create your first routine to start building your streak."
-          actionLabel="Create Habit"
-          onAction={handleCreateHabit}
-        />
-        <HabitCreateModal
-          open={createModalOpen}
-          onClose={() => setCreateModalOpen(false)}
-          onSubmit={(data) => createHabitMutation.mutate(data)}
-          isSubmitting={createHabitMutation.isPending}
-          goals={goals}
-        />
-      </div>
-    );
-  }
-
   const categoriesMap = new Map<string, number>();
   habits.forEach((h) => {
     const cat = h.category || "Uncategorized";
@@ -922,30 +903,24 @@ export function HabitTracker() {
     <div className="flex flex-col lg:flex-row h-full w-full bg-canvas animate-in fade-in duration-150 overflow-y-auto lg:overflow-hidden">
       {/* LEFT COLUMN: Main Content */}
       <div className="flex-1 lg:h-full lg:overflow-y-auto p-6 sm:p-10 lg:p-20 relative border-b lg:border-b-0 lg:border-r border-border">
-        {/* Header with Category Tile (#EA580C Orange) */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-[12px] bg-[#EA580C] text-white flex items-center justify-center shrink-0 shadow-sm">
-              <TrendingUp className="w-5 h-5 stroke-[1.75]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                <h1 className="text-title text-primary mb-4 ">Habits</h1>
-                <span className="bg-[#EA580C]/10 text-[#EA580C] border border-[#EA580C]/20 px-2 py-0.2 rounded text-[10px] font-medium uppercase tracking-[0.02em] flex items-center gap-1 font-mono">
-                  <Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" />{" "}
-                  {habits.length} routines
-                </span>
-              </div>
-              <p className="text-[13px] text-secondary">
-                Manage, track, and maintain consistency across your daily
-                routines.
-              </p>
-            </div>
-          </div>
-          <BaseButton onClick={handleCreateHabit}>
-            <Plus className="w-4 h-4 mr-1.5 stroke-[2]" /> New Habit
-          </BaseButton>
-        </div>
+        {/* Unified PageHeader */}
+        <PageHeader
+          icon={TrendingUp}
+          iconColorClass="text-[#EA580C]"
+          title="Habits & Rituals"
+          description="Manage, track, and maintain consistency across your daily routines."
+          statPill={{
+            icon: Flame,
+            label: `${habits.length} routines`,
+            colorClass: "bg-[#EA580C]/10 text-[#EA580C] border-[#EA580C]/20",
+          }}
+          primaryAction={{
+            label: "New Habit",
+            icon: Plus,
+            onClick: handleCreateHabit,
+          }}
+          className="mb-8"
+        />
 
         {/* Category Filters */}
         <div className="flex flex-wrap gap-2 mb-8">
@@ -1016,7 +991,29 @@ export function HabitTracker() {
 
         {/* Habit Cards Grid with NEW 30-Day Activity Heatmap */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-10">
-          {filteredHabits.map((habit) => {
+          {habits.length === 0 ? (
+            <div className="col-span-full">
+              <EmptyStateInline
+                icon={Flame}
+                title="No habits created yet"
+                description="Create your first routine to start building streaks and establishing consistency."
+                action={{
+                  label: "Create Habit",
+                  icon: Plus,
+                  onClick: handleCreateHabit,
+                }}
+              />
+            </div>
+          ) : filteredHabits.length === 0 ? (
+            <div className="col-span-full">
+              <EmptyStateInline
+                icon={Flame}
+                title="No matching habits"
+                description="No habits match your active category and difficulty filters."
+              />
+            </div>
+          ) : (
+            filteredHabits.map((habit) => {
             const Icon = resolveIcon(habit.icon);
             const heatmap = generate30DayPattern(habit);
 
@@ -1122,17 +1119,7 @@ export function HabitTracker() {
                 </div>
               </div>
             );
-          })}
-          {filteredHabits.length === 0 && (
-            <div className="col-span-full py-12">
-              <EmptyState
-                icon={CheckCircle2}
-                description="No habits found in this category"
-                actionLabel="Create Habit"
-                onAction={handleCreateHabit}
-              />
-            </div>
-          )}
+          }))}
         </div>
 
         {/* Routine Section */}

@@ -1,3 +1,4 @@
+// UI-only refactor — no data/logic changes
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
@@ -23,10 +24,11 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { IssueWithRelations, TaskStatus, TaskPriority } from '../types/schema';
 import { BaseButton } from './ui/BaseButton';
+import { PageHeader } from './ui/PageHeader';
 import { LoadingState } from './ui/LoadingState';
 import { ErrorState } from './ui/ErrorState';
 import { ConfirmDeleteButton } from './ui/ConfirmDeleteButton';
-import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks, Search, Filter, Plus, User, AlertCircle, X, MessageSquare } from 'lucide-react';
+import { Circle, CircleDot, CircleDashed, CheckCircle, CheckCircle2, ListChecks, Search, Filter, Plus, User, AlertCircle, X, MessageSquare, KanbanSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
@@ -902,19 +904,27 @@ export function KanbanBoard() {
     }
   };
 
+ const openIssuesCount = issues.filter((i: any) => i.status !== "DONE" && i.status !== "CANCELED").length;
+
  return (
  <div className="p-4 sm:p-6 md:p-8 h-full flex flex-col bg-canvas animate-in fade-in duration-150 gap-6">
 
- {/* Top Bar with Title and Action */}
- <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
- <div>
- <h1 className="text-title text-primary mb-4 ">Execution Board</h1>
- <p className="text-body text-secondary">Drag and drop directives across sprint stages. Bounded mission execution canvas.</p>
- </div>
- <BaseButton onClick={() => handleCreateIssue("TODO")}>
- <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" /> New Directive
- </BaseButton>
- </div>
+  {/* PageHeader with Execution Board Directives */}
+  <PageHeader
+    icon={KanbanSquare}
+    iconColorClass="text-[#2563EB]"
+    title="Execution Board"
+    description="Drag and drop directives across sprint stages. Bounded mission execution canvas."
+    statPill={{
+      label: `${openIssuesCount} active directives`,
+      colorClass: "bg-[#EFF4FE] text-[#2563EB] border-[#2563EB]/20"
+    }}
+    primaryAction={{
+      label: "New Directive",
+      icon: Plus,
+      onClick: () => handleCreateIssue("TODO")
+    }}
+  />
 
  {/* BOARD CONTROLS & FILTERS */}
  <div className="v4-card p-3 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">

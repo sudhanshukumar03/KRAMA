@@ -23,11 +23,14 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
  const [sliderVal, setSliderVal] = useState(goal.progress);
 
  const updateGoalMutation = useMutation({
- mutationFn: (newProgress: number) => api.goals.update(goal.id, { progress: newProgress }),
- onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['goals'] });
- setIsEditingProgress(false);
- }
+  mutationFn: (newProgress: number) => api.goals.update(goal.id, { progress: newProgress }),
+  onSuccess: () => {
+  queryClient.invalidateQueries({ queryKey: ['goals'] });
+  setIsEditingProgress(false);
+  },
+  onError: (err: any) => {
+  toast.error('Failed to update goal progress: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+  }
  });
 
  const handleDeleteGoal = async (e: React.MouseEvent) => {
@@ -361,6 +364,9 @@ export function Goals() {
   queryClient.invalidateQueries({ queryKey: ['habits'] });
   queryClient.invalidateQueries({ queryKey: ['snapshots'] });
   queryClient.invalidateQueries({ queryKey: ['goals'] });
+  },
+  onError: () => {
+    toast.error('Failed to complete routine');
   }
   });
 

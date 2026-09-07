@@ -1,20 +1,22 @@
+// UI-only refactor — no data/logic changes
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { Clock, Play, ListTodo, Flame, CheckCircle2, TrendingDown, Activity, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { EmptyState } from './ui/EmptyState';
+import { PageHeader } from './ui/PageHeader';
+import { EmptyStateInline } from './ui/EmptyStateInline';
 import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
 
 export function SprintView() {
- const queryClient = useQueryClient();
- const { data: sprints = [], isLoading: sprintsLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
- const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
- const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+  const queryClient = useQueryClient();
+  const { data: sprints = [], isLoading: sprintsLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
+  const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
+  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
 
- const handleStartSprint = async () => {
- try {
- if (projects.length === 0) {
+  const handleStartSprint = async () => {
+    try {
+      if (projects.length === 0) {
  toast.error('No project found. Create a project first!');
  return;
  }
@@ -38,28 +40,14 @@ export function SprintView() {
 
  const activeSprint = sprints[0];
 
- if (!activeSprint) {
- return (
- <div className="p-8 max-w-5xl mx-auto w-full h-full flex items-center justify-center bg-canvas animate-in fade-in duration-150">
- <EmptyState 
- icon={Clock}
- title="No Active Sprint"
- description="Plan a sprint to focus your execution."
- actionLabel="Start Sprint"
- onAction={handleStartSprint}
- />
- </div>
- );
- }
-
  // Calculate days remaining
- const end = new Date(activeSprint.endDate);
+ const end = activeSprint ? new Date(activeSprint.endDate) : new Date();
  const now = new Date();
- const daysRemaining = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 3600 * 24)));
+ const daysRemaining = activeSprint ? Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 3600 * 24))) : 0;
  const totalDays = 14;
  const dayOfSprint = Math.max(1, totalDays - daysRemaining);
 
- const activeSprintIssues = issues.filter(i => i.sprintId === activeSprint.id);
+ const activeSprintIssues = activeSprint ? issues.filter(i => i.sprintId === activeSprint.id) : [];
  const sprintIssues = activeSprintIssues.filter(i => ["TODO", "IN_PROGRESS", "REVIEW"].includes(i.status));
  const doneIssues = activeSprintIssues.filter(i => ["DONE"].includes(i.status));
  
@@ -74,6 +62,38 @@ export function SprintView() {
 
  return (
  <div className="p-8 max-w-6xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 pb-20">
+ <PageHeader
+ icon={Clock}
+ iconColorClass="text-[#2563EB]"
+ title="Sprint Execution"
+ description="Focused execution cycles for strategic engineering milestones."
+ statPill={{
+ label: activeSprint ? activeSprint.name : "No active sprint",
+ colorClass: activeSprint ? "bg-[#EFF4FE] text-[#2563EB] border-[#2563EB]/20" : "bg-surface text-secondary border-border"
+ }}
+ primaryAction={{
+ label: "Start Sprint",
+ icon: Play,
+ onClick: handleStartSprint
+ }}
+ className="mb-6"
+ />
+
+ {!activeSprint ? (
+ <div className="v4-card p-12">
+ <EmptyStateInline
+ icon={Clock}
+ title="No Active Sprint"
+ description="Plan a sprint to focus your team's execution cycle on key directives."
+ action={{
+ label: "Start Sprint",
+ icon: Play,
+ onClick: handleStartSprint
+ }}
+ />
+ </div>
+ ) : (
+ <>
  
  {/* Main Sprint Banner */}
  <div className="mb-6 v4-card p-8 relative overflow-hidden shadow-sm">
@@ -185,10 +205,11 @@ export function SprintView() {
  </div>
  ))}
  {sprintIssues.length === 0 && (
- <div className="h-48 flex items-center justify-center">
- <EmptyState 
+ <div className="p-6">
+ <EmptyStateInline 
  icon={Play}
- description="No active issues in this sprint."
+ title="No active issues"
+ description="No active issues in this sprint backlog."
  />
  </div>
  )}
@@ -228,18 +249,19 @@ export function SprintView() {
  </div>
  ))}
  {doneIssues.length === 0 && (
- <div className="h-48 flex items-center justify-center">
- <EmptyState 
+ <div className="p-6">
+ <EmptyStateInline 
  icon={ListTodo}
- description="No completed issues yet."
+ title="No completed issues"
+ description="No completed issues yet in this sprint."
  />
  </div>
  )}
  </div>
  </div>
-
  </div>
+ </>
+ )}
  </div>
  );
 }
-
