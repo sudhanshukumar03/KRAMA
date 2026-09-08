@@ -7,7 +7,21 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>client</title>
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAFAFA" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090B" />
+    <title>Krama OS</title>
+    <script>
+      (function() {
+        try {
+          var stored = localStorage.getItem('krama-theme');
+          var system = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (stored === 'dark' || (stored === 'system' && system) || (!stored && system)) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

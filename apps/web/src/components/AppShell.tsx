@@ -22,7 +22,7 @@ import { KnowledgeGraph } from './KnowledgeGraph';
 import { AutomationRules } from './AutomationRules';
 import { SkillsModule } from './SkillsModule';
 import { AIAssistant } from './AIAssistant';
-import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun } from 'lucide-react';
+import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun, Monitor } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 
 export function AppShell() {
@@ -189,7 +189,7 @@ export function AppShell() {
  className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover transition-colors border border-border"
  title="Toggle Theme"
  >
- {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-secondary" />}
+ {theme === 'system' ? <Monitor className="w-4 h-4 text-secondary" /> : theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-secondary" />}
  </button>
  <div className="text-[10px] font-mono text-[#0D9488] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0] flex items-center gap-1">
  <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" /> Online
