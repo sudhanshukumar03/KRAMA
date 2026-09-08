@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
+@import "./styles/theme.css";
+
 @custom-variant dark (&:where(.dark, .dark *));
 @plugin "@tailwindcss/typography";
 
@@ -19,57 +21,101 @@
   --text-card: 18px;
   --text-card--line-height: 26px;
 
-  /* 1. Canvas & Surfaces (Minimalist Palette) */
-  --color-canvas: #FAFAFA;
-  --color-surface: #FFFFFF;
-  --color-surface-hover: #F4F4F5;
-  --color-surface-elevated: #FFFFFF;
-  --color-card: #FFFFFF;
+  /* Surfaces & Canvas */
+  --color-bg-base: var(--bg-base);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-overlay: var(--surface-overlay);
 
-  /* 2. Borders */
-  --color-border: #E4E4E7;
-  --color-border-subtle: #F4F4F5;
-  --color-border-strong: #D4D4D8;
+  /* Text */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-on-accent: var(--text-on-accent);
+  --color-text-inverse: var(--text-inverse);
 
-  /* 3. Text & Content */
-  --color-primary: #09090B;
-  --color-secondary: #71717A;
-  --color-muted: #A1A1AA;
+  /* Borders */
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+  --color-ring: var(--ring);
 
-  /* 4. Single Cool Accent (Accent Scarcity: 10% rule) */
-  --color-accent: #2563EB;
-  --color-accent-hover: #1D4ED8;
-  --color-accent-tint: #EFF6FF;
+  /* Interactive & State */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-active: var(--accent-active);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-fg: var(--accent-fg);
+  
+  --color-state-hover: var(--state-hover);
+  --color-state-active: var(--state-active);
+  --color-state-selected: var(--state-selected);
+  --color-disabled-bg: var(--disabled-bg);
+  --color-disabled-fg: var(--disabled-fg);
 
-  /* 5. Semantic Status Colors */
-  --color-success: #16A34A;
-  --color-success-tint: #F0FDF4;
-  --color-warning: #D97706;
-  --color-warning-tint: #FFFBEB;
-  --color-error: #DC2626;
-  --color-error-tint: #FEF2F2;
+  /* Status */
+  --color-success-fg: var(--success-fg);
+  --color-success-bg: var(--success-bg);
+  --color-success-border: var(--success-border);
+  
+  --color-warning-fg: var(--warning-fg);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
+  
+  --color-info-fg: var(--info-fg);
+  --color-info-bg: var(--info-bg);
+  --color-info-border: var(--info-border);
 
-  /* 6. Categorical Palette (Domain Tagging: OKRs, Project Areas, Habit Types) */
-  --category-blue: #2563EB;
-  --category-purple: #7C3AED;
-  --category-green: #16A34A;
-  --category-orange: #EA580C;
-  --category-red: #DC2626;
-  --category-teal: #0D9488;
+  /* Domain Tokens */
+  --color-cat-routines: var(--cat-routines);
+  --color-cat-routines-bg: var(--cat-routines-bg);
+  --color-cat-tasks: var(--cat-tasks);
+  --color-cat-tasks-bg: var(--cat-tasks-bg);
+  --color-cat-timeblocks: var(--cat-timeblocks);
+  --color-cat-timeblocks-bg: var(--cat-timeblocks-bg);
+  --color-cat-projects: var(--cat-projects);
+  --color-cat-projects-bg: var(--cat-projects-bg);
 
-  /* 7. Spacing, Radii & Geometry */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+
+  --color-heat-0: var(--heat-0);
+  --color-heat-1: var(--heat-1);
+  --color-heat-2: var(--heat-2);
+  --color-heat-3: var(--heat-3);
+  --color-heat-4: var(--heat-4);
+
+  --color-graph-bg: var(--graph-bg);
+  --color-graph-node: var(--graph-node);
+  --color-graph-node-active: var(--graph-node-active);
+  --color-graph-edge: var(--graph-edge);
+  --color-graph-label: var(--graph-label);
+
+  /* Spacing, Radii & Geometry */
   --radius-control: 4px;
   --radius-btn: 8px;
   --radius-input: 8px;
   --radius-card: 14px;
   --radius-dialog: 16px;
 
-  /* 8. Shadows (Discrete elevation system) */
+  /* Shadows */
   --shadow-level-1: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-level-2: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
   --shadow-level-3: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
 
-  /* 9. Motion Tokens */
+  /* Motion Tokens */
   --motion-instant: 100ms;
   --motion-fast: 150ms;
   --motion-ui: 200ms;
@@ -81,19 +127,48 @@
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
-  /* 10. Backward-Compatibility Aliases (Safe Migration) */
-  --color-sidebar: var(--color-surface);
+  /* Backward-Compatibility Aliases */
+  --color-canvas: var(--bg-base);
+  --color-surface: var(--surface-1);
+  --color-surface-hover: var(--surface-2);
+  --color-surface-elevated: var(--surface-3);
+  --color-card: var(--surface-1);
+  --color-sidebar: var(--surface-1);
   --radius-sidebar: 0px;
+  
+  --color-border: var(--border-default);
+  
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+
+  --color-success: var(--success-fg);
+  --color-success-tint: var(--success-bg);
+  --color-warning: var(--warning-fg);
+  --color-warning-tint: var(--warning-bg);
+  --color-error: var(--danger-fg);
+  --color-error-tint: var(--danger-bg);
+
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-tint: var(--accent-subtle);
+
+  --category-blue: var(--cat-tasks);
+  --category-purple: var(--cat-routines);
+  --category-green: var(--success-fg);
+  --category-orange: var(--cat-projects);
+  --category-red: var(--danger-fg);
+  --category-teal: var(--cat-timeblocks);
+  
+  --icon-blue: var(--cat-tasks);
+  --icon-purple: var(--cat-routines);
+  --icon-green: var(--success-fg);
+  --icon-orange: var(--cat-projects);
+  --icon-red: var(--danger-fg);
+  --icon-teal: var(--cat-timeblocks);
+  
   --shadow-resting: var(--shadow-level-1);
   --shadow-hover: var(--shadow-level-2);
   --shadow-dark: var(--shadow-level-3);
-
-  --icon-blue: var(--category-blue);
-  --icon-purple: var(--category-purple);
-  --icon-green: var(--category-green);
-  --icon-orange: var(--category-orange);
-  --icon-red: var(--category-red);
-  --icon-teal: var(--category-teal);
 }
 
 @layer base {
@@ -105,47 +180,13 @@
     font-weight: 400;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
-    selection-background-color: rgba(37, 99, 235, 0.15);
-    selection-color: var(--color-accent);
+    selection-background-color: var(--color-accent-subtle);
+    selection-color: var(--color-accent-fg);
   }
 
-  /* Accessible, Restrained Focus Ring */
   *:focus-visible {
-    outline: 2px solid var(--color-accent) !important;
+    outline: 2px solid var(--color-ring) !important;
     outline-offset: 2px !important;
-  }
-
-  .dark {
-    /* Layered Neutral Dark Canvas & Surfaces */
-    --color-canvas: #09090B;
-    --color-surface: #111113;
-    --color-surface-hover: #1F1F23;
-    --color-surface-elevated: #18181B;
-    --color-card: #111113;
-    --color-sidebar: #111113;
-
-    /* Dark Mode Borders */
-    --color-border: #27272A;
-    --color-border-subtle: #1F1F23;
-    --color-border-strong: #3F3F46;
-
-    /* Dark Mode Text */
-    --color-primary: #FAFAFA;
-    --color-secondary: #A1A1AA;
-    --color-muted: #71717A;
-
-    /* Dark Mode Accent (Slightly lighter blue for dark contrast) */
-    --color-accent: #3B82F6;
-    --color-accent-hover: #60A5FA;
-    --color-accent-tint: rgba(59, 130, 246, 0.15);
-
-    /* Dark Shadows */
-    --shadow-level-1: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
-    --shadow-level-2: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-    --shadow-level-3: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
-    --shadow-resting: var(--shadow-level-1);
-    --shadow-hover: var(--shadow-level-2);
-    --shadow-dark: var(--shadow-level-3);
   }
 }
 
@@ -183,7 +224,7 @@
 
   .krama-btn-primary {
     background-color: var(--color-accent);
-    color: #FFFFFF;
+    color: var(--color-text-on-accent);
     border: 1px solid transparent;
   }
 
@@ -209,7 +250,7 @@
   }
 
   .krama-btn-ghost:hover {
-    background-color: var(--color-surface-hover);
+    background-color: var(--color-state-hover);
     color: var(--color-primary);
   }
 
@@ -224,12 +265,12 @@
     height: 32px;
   }
 
-  .v4-icon-chip-blue, .krama-icon-chip-blue { background-color: rgba(37, 99, 235, 0.1); color: var(--category-blue); }
-  .v4-icon-chip-purple, .krama-icon-chip-purple { background-color: rgba(124, 58, 237, 0.1); color: var(--category-purple); }
-  .v4-icon-chip-green, .krama-icon-chip-green { background-color: rgba(22, 163, 74, 0.1); color: var(--category-green); }
-  .v4-icon-chip-orange, .krama-icon-chip-orange { background-color: rgba(234, 88, 12, 0.1); color: var(--category-orange); }
-  .v4-icon-chip-red, .krama-icon-chip-red { background-color: rgba(220, 38, 38, 0.1); color: var(--category-red); }
-  .v4-icon-chip-teal, .krama-icon-chip-teal { background-color: rgba(13, 148, 136, 0.1); color: var(--category-teal); }
+  .v4-icon-chip-blue, .krama-icon-chip-blue { background-color: var(--cat-tasks-bg); color: var(--cat-tasks); }
+  .v4-icon-chip-purple, .krama-icon-chip-purple { background-color: var(--cat-routines-bg); color: var(--cat-routines); }
+  .v4-icon-chip-green, .krama-icon-chip-green { background-color: var(--success-bg); color: var(--success-fg); }
+  .v4-icon-chip-orange, .krama-icon-chip-orange { background-color: var(--cat-projects-bg); color: var(--cat-projects); }
+  .v4-icon-chip-red, .krama-icon-chip-red { background-color: var(--danger-bg); color: var(--danger-fg); }
+  .v4-icon-chip-teal, .krama-icon-chip-teal { background-color: var(--cat-timeblocks-bg); color: var(--cat-timeblocks); }
 }
 
 @layer utilities {
