@@ -55,7 +55,8 @@ if (typeof window !== 'undefined') {
       if (e.key === 'F5' || e.keyCode === 116) {
         e.preventDefault();
         e.stopPropagation();
-        const next = currentTheme === 'light' ? 'dark' : currentTheme === 'dark' ? 'system' : 'light';
+        const resolved = currentTheme === 'system' ? getSystemTheme() : currentTheme;
+        const next = resolved === 'light' ? 'dark' : 'light';
         setGlobalTheme(next, true);
       }
     },
@@ -83,7 +84,8 @@ export function useTheme() {
   }, []);
 
   const toggleTheme = () => {
-    const next = currentTheme === 'light' ? 'dark' : currentTheme === 'dark' ? 'system' : 'light';
+    const resolved = currentTheme === 'system' ? getSystemTheme() : currentTheme;
+    const next = resolved === 'light' ? 'dark' : 'light';
     setGlobalTheme(next, false);
   };
 

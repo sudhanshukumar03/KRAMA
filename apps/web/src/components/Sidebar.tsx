@@ -57,7 +57,7 @@ const systemItems: NavItem[] = [
 
 export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
  const location = useLocation();
- const { theme, toggleTheme } = useTheme();
+ const { theme, toggleTheme, resolvedTheme } = useTheme();
  const { user, logout } = useAuth();
  const [systemOpen, setSystemOpen] = useState(false);
 
@@ -265,15 +265,15 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  title="Toggle Theme"
  >
  <span className="flex items-center gap-2">
- {theme === 'dark' ? (
+ {resolvedTheme === 'dark' ? (
  <Sun className="w-3.5 h-3.5 text-warning" />
  ) : (
  <Moon className="w-3.5 h-3.5 text-muted group-hover:text-primary" />
  )}
- <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+ <span>{resolvedTheme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
  </span>
  <span className="text-badge font-mono text-muted uppercase">
- {theme === 'dark' ? 'Light' : 'Dark'}
+ {resolvedTheme === 'dark' ? 'Light' : 'Dark'}
  </span>
  </button>
 
