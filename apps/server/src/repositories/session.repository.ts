@@ -41,6 +41,19 @@ export class SessionRepository implements BaseRepository<Session, Prisma.Session
     });
   }
 
+  async findActiveByFamilyId(familyId: string, tx?: TxClient): Promise<Session[]> {
+    return (tx || prisma).session.findMany({
+      where: { familyId, revokedAt: null },
+    });
+  }
+
+  async updateManyActiveByFamilyId(familyId: string, data: Prisma.SessionUpdateManyMutationInput, tx?: TxClient): Promise<void> {
+    await (tx || prisma).session.updateMany({
+      where: { familyId, revokedAt: null },
+      data,
+    });
+  }
+
   async delete(id: string, tx?: TxClient): Promise<Session> {
     return (tx || prisma).session.delete({ where: { id } });
   }

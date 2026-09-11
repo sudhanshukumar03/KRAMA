@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 const API_BASE = '/api/v1';
 
 let currentAccessToken: string | null = null;
-let currentWorkspaceId: string | null = null;
+let currentWorkspaceId: string | null = typeof window !== 'undefined' ? localStorage.getItem('krama_active_workspace') : null;
 let globalLogoutHandler: (() => void) | null = null;
 
 // The single in-flight refresh promise to prevent race conditions during concurrent 401s
@@ -167,9 +167,6 @@ export const api = {
     delete: (id: string) => fetchApi<{ message: string }>(`/goals/${id}`, { method: 'DELETE' }),
     restore: (id: string) => fetchApi<any>(`/goals/${id}/restore`, { method: 'POST' }),
   },
-  roadmapItems: {
-      list: () => fetchApi<any[]>('/roadmap-items'),
-    },
     projects: {
     list: () => fetchApi<ProjectWithRelations[]>('/projects'),
     create: (data: Record<string, any>) => fetchApi<ProjectWithRelations>('/projects', { method: 'POST', body: JSON.stringify(data) }),
@@ -260,7 +257,11 @@ export const api = {
     habitHeatmap: (habitId: string, range: string) => fetchApi<any[]>(`/analytics/habit-heatmap?habitId=${habitId}&range=${range}`, { method: 'GET' })
   },
   planner: {
-    getWeek: (start: string, end: string) => fetchApi<any>(`/planner/week?start=${start}&end=${end}`),
+    getWeek: (start: string, end: string, workspaceId?: string | null) => {
+      let url = `/planner/week?start=${start}&end=${end}`;
+      if (workspaceId) url += `&workspaceId=${workspaceId}`;
+      return fetchApi<any>(url);
+    },
     getHolidays: (country: string, region: string | null, start: string, end: string) => {
       let url = `/planner/holidays?country=${country}&start=${start}&end=${end}`;
       if (region) url += `&region=${region}`;
@@ -269,7 +270,10 @@ export const api = {
     createTimeBlock: (data: any) => fetchApi<any>('/planner/time-blocks', { method: 'POST', body: JSON.stringify(data) }),
     updateTimeBlock: (id: string, data: any) => fetchApi<any>(`/planner/time-blocks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     deleteTimeBlock: (id: string) => fetchApi<any>(`/planner/time-blocks/${id}`, { method: 'DELETE' }),
-    toggleRoutine: (data: any) => fetchApi<any>('/planner/routine-occurrences', { method: 'PATCH', body: JSON.stringify(data) })
+    toggleRoutine: (data: any) => fetchApi<any>('/planner/routine-occurrences', { method: 'PATCH', body: JSON.stringify(data) }),
+    createMilestone: (data: any) => fetchApi<any>('/planner/milestones', { method: 'POST', body: JSON.stringify(data) }),
+    updateMilestone: (id: string, data: any) => fetchApi<any>(`/planner/milestones/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    deleteMilestone: (id: string) => fetchApi<any>(`/planner/milestones/${id}`, { method: 'DELETE' })
   }
 };
 

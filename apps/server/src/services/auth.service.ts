@@ -93,13 +93,15 @@ export class AuthService {
     return { accessToken, refreshToken, user: finalUser };
   }
 
-  async createSession(userId: string, ip?: string, userAgent?: string): Promise<{ accessToken: string; refreshToken: string }> {
+  async createSession(userId: string, ip?: string, userAgent?: string, familyId?: string): Promise<{ accessToken: string; refreshToken: string }> {
     const refreshToken = this.generateRefreshToken();
     const refreshTokenHash = this.hashRefreshToken(refreshToken);
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_S * 1000);
+    const newFamilyId = familyId || crypto.randomUUID();
 
     const session = await sessionRepository.create({
       userId,
+      familyId: newFamilyId,
       refreshTokenHash,
       expiresAt,
       ip,
@@ -108,7 +110,7 @@ export class AuthService {
 
     await redisService.set(
       `session:${refreshTokenHash}`,
-      JSON.stringify({ userId, expiresAt: expiresAt.toISOString(), sessionId: session.id }),
+      JSON.stringify({ userId, expiresAt: expiresAt.toISOString(), sessionId: session.id, familyId: newFamilyId }),
       REFRESH_TOKEN_EXPIRY_S
     );
 
@@ -165,22 +167,43 @@ export class AuthService {
   private async _executeRefresh(refreshToken: string, ip?: string, userAgent?: string) {
     const hash = this.hashRefreshToken(refreshToken);
     
+    if (redisService.isConnected && redisService.client.isOpen) {
+      const graceData = await redisService.get(`grace:${hash}`);
+      if (graceData) {
+        try {
+          const parsed = JSON.parse(graceData);
+          return { accessToken: parsed.accessToken, refreshToken: parsed.refreshToken };
+        } catch {}
+      }
+    }
+    
     // Atomically consume from Redis if present
     const deletedCount = await redisService.del(`session:${hash}`);
     let sessionData = null;
+    let dbSession = null;
 
     if (deletedCount === 1) {
-      // It was in Redis, and WE atomically deleted it.
-      // We must fetch it from DB to get the actual data since we deleted it without reading it.
-      // Or rather, we should have read it first? If we read then delete, it's not atomic.
-      // Wait, we can read from DB since it's the source of truth, and we know it was valid in Redis.
-      const dbSession = await sessionRepository.findByHash(hash);
+      dbSession = await sessionRepository.findByHash(hash);
       if (dbSession && !dbSession.revokedAt && dbSession.expiresAt > new Date()) {
-        sessionData = { userId: dbSession.userId, expiresAt: dbSession.expiresAt, sessionId: dbSession.id };
+        sessionData = { userId: dbSession.userId, expiresAt: dbSession.expiresAt, sessionId: dbSession.id, familyId: dbSession.familyId };
       }
     } else {
-      // Not in Redis (or already consumed). We MUST use an atomic test-and-set in Postgres.
-      // We update revokedAt to current time where it is currently null.
+      // We lost the race to delete in Redis, or Redis didn't have it.
+      // Another node might be creating the grace token right now. Wait briefly.
+      if (redisService.isConnected && redisService.client.isOpen) {
+        for (let i = 0; i < 3; i++) {
+          await new Promise(resolve => setTimeout(resolve, 400));
+          const retryGrace = await redisService.get(`grace:${hash}`);
+          if (retryGrace) {
+            try {
+              const parsed = JSON.parse(retryGrace);
+              return { accessToken: parsed.accessToken, refreshToken: parsed.refreshToken };
+            } catch {}
+          }
+        }
+      }
+
+      // If still no grace token, it might be genuine reuse or Redis was flushed. Fallback to DB.
       const now = new Date();
       const updatedCount = await prisma.session.updateMany({
         where: { refreshTokenHash: hash, revokedAt: null, expiresAt: { gt: now } },
@@ -188,15 +211,18 @@ export class AuthService {
       });
       
       if (updatedCount.count === 1) {
-        // We atomically consumed it! Now fetch the details to generate the new session.
-        const dbSession = await sessionRepository.findByHash(hash);
+        dbSession = await sessionRepository.findByHash(hash);
         if (dbSession) {
-          sessionData = { userId: dbSession.userId, expiresAt: dbSession.expiresAt, sessionId: dbSession.id };
+          sessionData = { userId: dbSession.userId, expiresAt: dbSession.expiresAt, sessionId: dbSession.id, familyId: dbSession.familyId };
         }
       }
     }
 
     if (!sessionData) {
+      dbSession = dbSession || await sessionRepository.findByHash(hash);
+      if (dbSession && dbSession.familyId) {
+        await this.revokeFamily(dbSession.familyId);
+      }
       throw new Error('Invalid or already consumed refresh token');
     }
 
@@ -206,7 +232,27 @@ export class AuthService {
     }
 
     // Create new
-    return this.createSession(sessionData.userId, ip, userAgent);
+    const newPair = await this.createSession(sessionData.userId, ip, userAgent, sessionData.familyId);
+    
+    if (redisService.isConnected && redisService.client.isOpen) {
+      await redisService.set(`grace:${hash}`, JSON.stringify(newPair), 10);
+    }
+    
+    return newPair;
+  }
+
+  async revokeFamily(familyId: string): Promise<void> {
+    const sessions = await sessionRepository.findActiveByFamilyId(familyId);
+    if (redisService.isConnected && redisService.client.isOpen) {
+      try {
+        const pipeline = redisService.client.multi();
+        for (const s of sessions) {
+          pipeline.del(`session:${s.refreshTokenHash}`);
+        }
+        await pipeline.exec();
+      } catch {}
+    }
+    await sessionRepository.updateManyActiveByFamilyId(familyId, { revokedAt: new Date() });
   }
 }
 

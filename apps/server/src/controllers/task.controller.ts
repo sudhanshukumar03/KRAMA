@@ -1,12 +1,12 @@
-import { evaluateEvent } from '../services/automation.service';
 import type { Request, Response } from 'express';
 import { CreateTaskSchema, UpdateTaskSchema, ReorderSchema } from '@krama/validation';
 import { taskService } from '../services/task.service';
+import { handleControllerError } from '../utils/errors';
 
 export const listTasks = async (req: Request, res: Response) => {
   try {
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
-    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+    if (!workspaceId) return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'workspaceId is required' });
 
     const tasks = await taskService.listTasks(workspaceId, {
       projectId: req.query.projectId as string,
@@ -16,8 +16,7 @@ export const listTasks = async (req: Request, res: Response) => {
     
     return res.status(200).json(tasks);
   } catch (error) {
-    console.error(error);
-    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
+    return handleControllerError(res, error, 'Failed to list tasks');
   }
 };
 
@@ -27,15 +26,14 @@ export const getTask = async (req: Request, res: Response) => {
     const task = await taskService.getTask((req.params.id as string), workspaceId);
     return res.status(200).json(task);
   } catch (error: any) {
-    if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
-    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
+    return handleControllerError(res, error, 'Failed to get task');
   }
 };
 
 export const createTask = async (req: Request, res: Response) => {
   try {
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || (req.body.workspaceId as string);
-    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+    if (!workspaceId) return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'workspaceId is required' });
 
     const data = CreateTaskSchema.parse({ ...req.body, workspaceId });
     if (req.body.parentTaskId !== undefined) {
@@ -44,11 +42,7 @@ export const createTask = async (req: Request, res: Response) => {
     const task = await taskService.createTask(data, req.user!.id);
     return res.status(201).json(task);
   } catch (error: any) {
-    if (error.name === 'ZodError') {
-      console.error('ZOD ERROR:', JSON.stringify(error.errors, null, 2));
-      return res.status(400).json({ message: 'Validation failed', errors: error.errors });
-    }
-    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
+    return handleControllerError(res, error, 'Failed to create task');
   }
 };
 
@@ -62,11 +56,7 @@ export const updateTask = async (req: Request, res: Response) => {
     const task = await taskService.updateTask((req.params.id as string), workspaceId, data, req.user!.id);
     return res.status(200).json(task);
   } catch (error: any) {
-    console.error('updateTask error:', error);
-    if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
-    if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
-    if (error.message.includes('Conflict')) return res.status(409).json({ message: error.message });
-    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
+    return handleControllerError(res, error, 'Failed to update task');
   }
 };
 
@@ -74,10 +64,9 @@ export const deleteTask = async (req: Request, res: Response) => {
   try {
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
     await taskService.deleteTask((req.params.id as string), workspaceId, req.user!.id);
-    return res.status(200).json({ message: 'Task deleted' });
+    return res.status(200).json({ success: true, message: 'Task deleted' });
   } catch (error: any) {
-    if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
-    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
+    return handleControllerError(res, error, 'Failed to delete task');
   }
 };
 
@@ -87,10 +76,7 @@ export const reorderTask = async (req: Request, res: Response) => {
     const task = await taskService.reorderTask((req.params.id as string), data.workspaceId, data, req.user!.id);
     return res.status(200).json(task);
   } catch (error: any) {
-    if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
-    if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
-    if (error.message.includes('Conflict')) return res.status(409).json({ message: error.message });
-    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
+    return handleControllerError(res, error, 'Failed to reorder task');
   }
 };
 
@@ -100,8 +86,7 @@ export const completeTask = async (req: Request, res: Response) => {
     const task = await taskService.completeTask((req.params.id as string), workspaceId, req.user!.id);
     return res.status(200).json(task);
   } catch (error: any) {
-    if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
-    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
+    return handleControllerError(res, error, 'Failed to complete task');
   }
 };
 
@@ -111,32 +96,20 @@ export const restoreTask = async (req: Request, res: Response) => {
     const task = await taskService.restoreTask((req.params.id as string), workspaceId, req.user!.id);
     return res.status(200).json(task);
   } catch (error: any) {
-    if (error.message === 'Task not found') return res.status(404).json({ message: error.message });
-    if (error.message.includes('Conflict')) return res.status(409).json({ message: error.message });
-    console.error("Task Controller Error:", error); return res.status(500).json({ message: 'Internal server error' });
+    return handleControllerError(res, error, 'Failed to restore task');
   }
 };
-
-// force reload
-
-// reload again
-
-
-
-
 
 export const rebalanceTasks = async (req: Request, res: Response) => {
   try {
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
-    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+    if (!workspaceId) return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'workspaceId is required' });
     await taskService.rebalanceTasks(workspaceId);
     return res.status(200).json({ success: true });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return handleControllerError(res, error, 'Failed to rebalance tasks');
   }
 };
-
 
 export const addComment = async (req: Request, res: Response) => {
   try {
@@ -145,13 +118,13 @@ export const addComment = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
 
-    if (!content) return res.status(400).json({ message: 'Content is required' });
+    if (!content) return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Content is required' });
 
     const { prisma } = await import('../prisma');
     
     // Check task exists
     const task = await prisma.task.findUnique({ where: { id, workspaceId } });
-    if (!task) return res.status(404).json({ message: 'Task not found' });
+    if (!task) return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Task not found' });
 
     const comment = await prisma.comment.create({
       data: {
@@ -166,7 +139,6 @@ export const addComment = async (req: Request, res: Response) => {
 
     return res.status(201).json(comment);
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return handleControllerError(res, error, 'Failed to add comment');
   }
 };

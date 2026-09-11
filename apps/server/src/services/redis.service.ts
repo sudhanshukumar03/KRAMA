@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { createClient } from 'redis';
 import type { RedisClientType } from 'redis';
 
@@ -12,11 +13,15 @@ class RedisService {
       url: process.env.REDIS_URL || 'redis://localhost:6379',
       socket: {
         reconnectStrategy: (retries: number) => {
+          if (retries > 5 && process.env.NODE_ENV !== 'test') {
+            console.error('[CRITICAL] Auth system requires Redis for distributed locking. In-memory fallback is disabled outside of tests.');
+            process.exit(1);
+          }
           if (!this.hasLoggedWarning) {
-            console.warn('[Redis] Redis server not reachable on localhost:6379. Operating with in-memory fallback cache.');
+            console.warn('[Redis] Redis server not reachable. Operating with in-memory fallback cache.');
             this.hasLoggedWarning = true;
           }
-          return Math.min(retries * 1000, 15000);
+          return Math.min(retries * 500, 5000);
         },
       },
     });
@@ -39,6 +44,14 @@ class RedisService {
     this.client.connect().catch(() => {
       this.isConnected = false;
     });
+  }
+
+  public async ensureConnected(timeoutMs = 5000): Promise<void> {
+    const start = Date.now();
+    while (!this.client.isOpen && (Date.now() - start) < timeoutMs) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await this.client.ping();
   }
 
   async get(key: string): Promise<string | null> {

@@ -108,23 +108,22 @@ model User {
   countryCode           String  @default("IN")
   regionCode            String?
 
-  memberships        WorkspaceMember[]
-  sessions           Session[]
-  dailyLogs          DailyLog[]
-  notifications      Notification[]
-  aiRequests         AiRequest[]
-  habitCompletions   HabitCompletion[]
-  tasksAssigned      Task[]              @relation("TaskAssignee")
-  activityLogs       ActivityLog[]
-  focusSessions      FocusSession[]
-  comments           Comment[]
-  timeBlocks         TimeBlock[]
-  milestones         Milestone[]
-  routineOccurrences RoutineOccurrence[]
-  externalItems      ExternalItem[]
-  skills             Skill[]
-  certifications     Certification[]
-  careerMilestones   CareerMilestone[]
+  memberships      WorkspaceMember[]
+  sessions         Session[]
+  dailyLogs        DailyLog[]
+  notifications    Notification[]
+  aiRequests       AiRequest[]
+  habitCompletions HabitCompletion[]
+  tasksAssigned    Task[]            @relation("TaskAssignee")
+  activityLogs     ActivityLog[]
+  focusSessions    FocusSession[]
+  comments         Comment[]
+  timeBlocks       TimeBlock[]
+  milestones       Milestone[]
+  externalItems    ExternalItem[]
+  skills           Skill[]
+  certifications   Certification[]
+  careerMilestones CareerMilestone[]
 }
 
 model Session {
@@ -132,6 +131,7 @@ model Session {
   userId           String
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   refreshTokenHash String    @unique
+  familyId         String
   expiresAt        DateTime
   userAgent        String?
   ip               String?
@@ -358,9 +358,8 @@ model Habit {
   updatedBy String?
   version   Int       @default(1)
 
-  completions        HabitCompletion[]
-  routineOccurrences RoutineOccurrence[]
-  skills             Skill[]
+  completions HabitCompletion[]
+  skills      Skill[]
 }
 
 model HabitCompletion {
@@ -370,9 +369,14 @@ model HabitCompletion {
   userId  String
   user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  date        DateTime
   completedAt DateTime @default(now())
+  offSchedule Boolean  @default(false)
   notes       String?
   metadata    Json?
+
+  @@unique([habitId, userId, date])
+  @@index([userId, date])
 }
 
 // -----------------------------------------------------------------------------
@@ -649,22 +653,6 @@ model TimeBlock {
   task    Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  @@index([userId, date])
-}
-
-model RoutineOccurrence {
-  id          String    @id @default(uuid())
-  habitId     String
-  userId      String
-  date        DateTime
-  completed   Boolean   @default(false)
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  habit       Habit     @relation(fields: [habitId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([habitId, date])
   @@index([userId, date])
 }
 

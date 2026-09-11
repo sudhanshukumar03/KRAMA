@@ -5,7 +5,7 @@ import type { RequestUser } from '@krama/types';
 
 import { prisma } from '../prisma';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'krama-os-secret-jwt-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET as string;
 
 export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
@@ -24,21 +24,23 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     const { sub: userId, sessionId, email, name } = payload;
 
     // Check Redis (Fast path)
-    // We don't have the refresh token hash here, but we can verify the session isn't revoked
-    // In our design, sessionId corresponds to Postgres Session ID.
-    // Wait, the spec says: "Middleware checks Redis first (fast path); if Redis is unexpectedly empty, do not fail open — fall back to a Postgres check before rejecting, in case Redis was flushed/restarted while sessions were still valid."
-    
-    // To implement this perfectly: we need to look up the session by ID in Postgres if we can't do it via Redis, because Redis keys are based on `refreshTokenHash`. 
-    // Wait, if Redis keys are `session:{refreshTokenHash}`, we can't look up by `sessionId` easily in Redis unless we also store `sessionById:{sessionId}`!
-    // Let's modify redis strategy to also set `sessionById:${sessionId}` OR just do a quick Postgres lookup for the session ID to ensure `revokedAt` is null.
-    // Actually, Postgres lookup by PK `id` is extremely fast.
-    const dbSession = await prisma.session.findUnique({
-      where: { id: sessionId },
-      select: { revokedAt: true }
-    });
+    const cacheKey = `session_revoked:${sessionId}`;
+    const cachedStatus = await redisService.get(cacheKey);
 
-    if (!dbSession || dbSession.revokedAt !== null) {
+    if (cachedStatus === 'true') {
       return res.status(401).json({ message: 'Unauthorized' });
+    } else if (cachedStatus !== 'false') {
+      const dbSession = await prisma.session.findUnique({
+        where: { id: sessionId },
+        select: { revokedAt: true }
+      });
+
+      if (!dbSession || dbSession.revokedAt !== null) {
+        await redisService.set(cacheKey, 'true', 3600); // cache revoked status for 1 hour
+        return res.status(401).json({ message: 'Unauthorized' });
+      } else {
+        await redisService.set(cacheKey, 'false', 300); // cache valid status for 5 minutes
+      }
     }
 
     req.user = { id: userId, email, name, sessionId } as RequestUser;

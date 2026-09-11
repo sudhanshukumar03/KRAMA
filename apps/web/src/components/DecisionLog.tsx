@@ -4,16 +4,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { toast } from 'sonner';
 import {
-  Scale,
-  Plus,
-  Search,
-  ChevronDown,
-  ChevronRight,
-  Trash2,
-  Edit,
-  Calendar,
-  FolderKanban,
-  X,
+ Scale,
+ Plus,
+ Search,
+ ChevronDown,
+ ChevronRight,
+ Trash2,
+ Edit,
+ Calendar,
+ FolderKanban,
+ X,
 } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { PageHeader } from './ui/PageHeader';
@@ -489,82 +489,82 @@ export function DecisionLog() {
  }
 
  return (
-    <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 pb-20">
-      {/* Page Header */}
-      <PageHeader
-        icon={Scale}
-        iconColorClass="bg-[#2563EB] text-white"
-        title="Decision Log"
-        statPill={{ label: `${sortedDecisions.length} Decisions Logged` }}
-        description="Track technical decisions, architectural context, and rationale for future reference."
-        primaryAction={{
-          label: "Log Decision",
-          icon: Plus,
-          onClick: () => {},
-          disabled: true,
-          badge: "Soon",
-        }}
-      />
+ <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 pb-20">
+ {/* Page Header */}
+ <PageHeader
+ icon={Scale}
+ iconColorClass="bg-[#2563EB] text-white"
+ title="Decision Log"
+ statPill={{ label: `${sortedDecisions.length} Decisions Logged` }}
+ description="Track technical decisions, architectural context, and rationale for future reference."
+ primaryAction={{
+ label: "Log Decision",
+ icon: Plus,
+ onClick: () => {},
+ disabled: true,
+ badge: "Soon",
+ }}
+ />
 
-      {/* Search + Filter Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        {/* Search */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted stroke-[2]" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search decisions..."
-            className="w-full pl-10 pr-4 py-2 text-caption border border-border rounded-lg bg-surface focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent placeholder:text-muted transition-all shadow-2xs"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary transition-colors cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+ {/* Search + Filter Bar */}
+ <div className="flex flex-col sm:flex-row gap-3 mb-6">
+ {/* Search */}
+ <div className="relative flex-1">
+ <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted stroke-[2]" />
+ <input
+ type="text"
+ value={searchQuery}
+ onChange={e => setSearchQuery(e.target.value)}
+ placeholder="Search decisions..."
+ className="w-full pl-10 pr-4 py-2 text-caption border border-border rounded-lg bg-surface focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent placeholder:text-muted transition-all shadow-2xs"
+ />
+ {searchQuery && (
+ <button
+ onClick={() => setSearchQuery('')}
+ className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary transition-colors cursor-pointer"
+ >
+ <X className="w-3.5 h-3.5" />
+ </button>
+ )}
+ </div>
 
-        {/* Project Filter */}
-        <div className="relative">
-          <select
-            value={projectFilter}
-            onChange={e => setProjectFilter(e.target.value)}
-            className="appearance-none pl-3 pr-9 py-2 text-caption border border-border rounded-lg bg-surface focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-all shadow-2xs min-w-[180px] cursor-pointer text-primary"
-          >
-            <option value="">All Projects</option>
-            {projects.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
-        </div>
-      </div>
+ {/* Project Filter */}
+ <div className="relative">
+ <select
+ value={projectFilter}
+ onChange={e => setProjectFilter(e.target.value)}
+ className="appearance-none pl-3 pr-9 py-2 text-caption border border-border rounded-lg bg-surface focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-all shadow-2xs min-w-[180px] cursor-pointer text-primary"
+ >
+ <option value="">All Projects</option>
+ {projects.map(p => (
+ <option key={p.id} value={p.id}>{p.name}</option>
+ ))}
+ </select>
+ <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+ </div>
+ </div>
 
-      {/* Decision Cards */}
-      {sortedDecisions.length > 0 ? (
-        <div className="space-y-3">
-          {sortedDecisions.map(decision => (
-            <DecisionCard
-              key={decision.id}
-              decision={decision}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="krama-card h-64 flex items-center justify-center shadow-level-1">
-          <EmptyStateInline
-            icon={Scale}
-            title="No Decisions Recorded"
-            description={searchQuery || projectFilter ? 'No decisions match your active filters.' : 'Decision logging will be available in an upcoming update.'}
-          />
-        </div>
-      )}
+ {/* Decision Cards */}
+ {sortedDecisions.length > 0 ? (
+ <div className="space-y-3">
+ {sortedDecisions.map(decision => (
+ <DecisionCard
+ key={decision.id}
+ decision={decision}
+ onEdit={handleEdit}
+ onDelete={handleDelete}
+ />
+ ))}
+ </div>
+ ) : (
+ <div className="krama-card h-64 flex items-center justify-center shadow-level-1">
+ <EmptyStateInline
+ icon={Scale}
+ title="No Decisions Recorded"
+ description={searchQuery || projectFilter ? 'No decisions match your active filters.' : 'Decision logging will be available in an upcoming update.'}
+ />
+ </div>
+ )}
 
  {/* Create / Edit Modal */}
  <DecisionModal

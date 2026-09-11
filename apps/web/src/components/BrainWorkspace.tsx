@@ -46,14 +46,14 @@ function PageTreeNode({
  queryClient.invalidateQueries({ queryKey: ['pages'] });
  if (isSelected) onSelect(pages.find(p => p.id !== page.id)?.id || '');
  toast.success(`Deleted "${page.title}"`, {
-   action: {
-     label: 'Undo',
-     onClick: async () => {
-       await api.pages.restore(page.id);
-       queryClient.invalidateQueries({ queryKey: ['pages'] });
-       toast.success(`Restored "${page.title}"`);
-     }
-   }
+ action: {
+ label: 'Undo',
+ onClick: async () => {
+ await api.pages.restore(page.id);
+ queryClient.invalidateQueries({ queryKey: ['pages'] });
+ toast.success(`Restored "${page.title}"`);
+ }
+ }
  });
  } catch {
  toast.error('Failed to delete page');
@@ -134,7 +134,7 @@ function PageTreeNode({
  className={cn("opacity-0 group-hover:opacity-100",
  isSelected 
  ?"text-surface hover:text-[#DC2626] hover:bg-surface/20" 
- :"text-muted hover:text-[#DC2626] hover:bg-red-500/10"
+ :"text-muted hover:text-[#DC2626] hover:bg-error-tint"
  )}
  iconClassName="w-3.5 h-3.5 stroke-[1.5]"
  />
@@ -192,86 +192,86 @@ function Breadcrumbs({ page, pages }: { page: PageWithRelations, pages: PageWith
 function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelations[] }) {
  const queryClient = useQueryClient();
  const [title, setTitle] = useState(page.title || '');
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSaveErrorToastRef = useRef<number>(0);
+ const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+ const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+ const lastSaveErrorToastRef = useRef<number>(0);
 
-  const handleTitleChange = (newTitle: string) => {
-    setTitle(newTitle);
-    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
-    titleDebounceRef.current = setTimeout(() => {
-      api.pages.update(page.id, { title: newTitle })
-        .then(() => {
-          queryClient.invalidateQueries({ queryKey: ['pages'] });
-        })
-        .catch((err: any) => {
-          toast.error('Failed to update page title: ' + (err?.response?.data?.message || err?.message || 'Unknown error'), {
-            id: 'brain-title-error',
-          });
-        });
-    }, 500);
-  };
+ const handleTitleChange = (newTitle: string) => {
+ setTitle(newTitle);
+ if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+ titleDebounceRef.current = setTimeout(() => {
+ api.pages.update(page.id, { title: newTitle })
+ .then(() => {
+ queryClient.invalidateQueries({ queryKey: ['pages'] });
+ })
+ .catch((err: any) => {
+ toast.error('Failed to update page title: ' + (err?.response?.data?.message || err?.message || 'Unknown error'), {
+ id: 'brain-title-error',
+ });
+ });
+ }, 500);
+ };
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Placeholder.configure({ placeholder: 'Type / for commands, or start writing clean engineering thoughts...' })
-    ],
-    content: (page.blocks ? page.blocks as Content : ''),
-    onUpdate: ({ editor }) => {
-      const json = editor.getJSON();
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        api.pages.update(page.id, { blocks: json as any })
-          .catch((err: any) => {
-            const now = Date.now();
-            if (now - lastSaveErrorToastRef.current > 4000) {
-              lastSaveErrorToastRef.current = now;
-              toast.error('Failed to save page content: ' + (err?.response?.data?.message || err?.message || 'Unknown error'), {
-                id: 'brain-autosave-error',
-              });
-            }
-          });
-      }, 500);
-    },
-    editorProps: {
-      attributes: {
-        class: 'prose prose-zinc max-w-none focus:outline-none min-h-[450px] text-primary leading-relaxed font-sans text-body',
-      },
-    },
-  });
+ const editor = useEditor({
+ extensions: [
+ StarterKit,
+ Placeholder.configure({ placeholder: 'Type / for commands, or start writing clean engineering thoughts...' })
+ ],
+ content: (page.blocks ? page.blocks as Content : ''),
+ onUpdate: ({ editor }) => {
+ const json = editor.getJSON();
+ if (debounceRef.current) clearTimeout(debounceRef.current);
+ debounceRef.current = setTimeout(() => {
+ api.pages.update(page.id, { blocks: json as any })
+ .catch((err: any) => {
+ const now = Date.now();
+ if (now - lastSaveErrorToastRef.current > 4000) {
+ lastSaveErrorToastRef.current = now;
+ toast.error('Failed to save page content: ' + (err?.response?.data?.message || err?.message || 'Unknown error'), {
+ id: 'brain-autosave-error',
+ });
+ }
+ });
+ }, 500);
+ },
+ editorProps: {
+ attributes: {
+ class: 'prose prose-zinc max-w-none focus:outline-none min-h-[450px] text-primary leading-relaxed font-sans text-body',
+ },
+ },
+ });
 
-  // Calculate word count & reading time
-  const textContent = editor ? editor.getText() : (page.title || '');
-  const words = textContent.trim().split(/\s+/).filter((w: string) => w.length > 0);
-  const wordCount = words.length;
-  const charCount = textContent.length;
-  const readTimeMins = Math.max(1, Math.ceil(wordCount / 200));
+ // Calculate word count & reading time
+ const textContent = editor ? editor.getText() : (page.title || '');
+ const words = textContent.trim().split(/\s+/).filter((w: string) => w.length > 0);
+ const wordCount = words.length;
+ const charCount = textContent.length;
+ const readTimeMins = Math.max(1, Math.ceil(wordCount / 200));
 
-  if (!editor) return null;
+ if (!editor) return null;
 
-  return (
-    <div className="max-w-4xl mx-auto py-8 px-6 md:px-10 h-full overflow-y-auto animate-in fade-in duration-150 flex flex-col font-sans">
-      <Breadcrumbs page={page} pages={pages} />
-      
-      {/* NEUTRAL WHITE THINKING IDENTITY: Document Telemetry Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-border">
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-2xl bg-surface-hover border border-border flex items-center justify-center shrink-0 shadow-2xs hover:bg-surface-hover/80 transition-colors cursor-pointer">
-            <IconPicker
-              value={page.icon}
-              onChange={(newIcon) => {
-                api.pages.update(page.id, { icon: newIcon })
-                  .then(() => {
-                    queryClient.invalidateQueries({ queryKey: ['pages'] });
-                  })
-                  .catch((err: any) => {
-                    toast.error('Failed to update page icon: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
-                  });
-              }}
-              triggerClassName="border-none hover:border-none shadow-none bg-transparent hover:bg-transparent !p-0"
-            />
-          </div>
+ return (
+ <div className="max-w-4xl mx-auto py-8 px-6 md:px-10 h-full overflow-y-auto animate-in fade-in duration-150 flex flex-col font-sans">
+ <Breadcrumbs page={page} pages={pages} />
+ 
+ {/* NEUTRAL WHITE THINKING IDENTITY: Document Telemetry Header Bar */}
+ <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-border">
+ <div className="flex items-center gap-3.5">
+ <div className="w-10 h-10 rounded-2xl bg-surface-hover border border-border flex items-center justify-center shrink-0 shadow-2xs hover:bg-surface-hover/80 transition-colors cursor-pointer">
+ <IconPicker
+ value={page.icon}
+ onChange={(newIcon) => {
+ api.pages.update(page.id, { icon: newIcon })
+ .then(() => {
+ queryClient.invalidateQueries({ queryKey: ['pages'] });
+ })
+ .catch((err: any) => {
+ toast.error('Failed to update page icon: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+ });
+ }}
+ triggerClassName="border-none hover:border-none shadow-none bg-transparent hover:bg-transparent !p-0"
+ />
+ </div>
  <div>
  <span className="text-caption font-mono font-bold text-primary block mb-0.5 uppercase tracking-wider">
  Neutral White Thinking Canvas • Live Specification
@@ -369,17 +369,17 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
  </button>
  </div>
 
-  {/* Floating AI RAG Entry Point (Violet #7C3AED / #A78BFA Identity) */}
-  <button
-  type="button"
-  onClick={() => { window.dispatchEvent(new CustomEvent('open-ai-assistant', { detail: { mode: 'rag' } })); }}
-  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#A78BFA] text-white text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs hover:opacity-95 transition-all cursor-pointer hover:scale-105 active:scale-95"
-  title="Ask AI about your notes"
-  >
-  <Wand2 className="w-3.5 h-3.5 stroke-[1.5]" />
-  <span>Ask AI about your notes</span>
-  </button>
-  </div>
+ {/* Floating AI RAG Entry Point (Violet #7C3AED / #A78BFA Identity) */}
+ <button
+ type="button"
+ onClick={() => { window.dispatchEvent(new CustomEvent('open-ai-assistant', { detail: { mode: 'rag' } })); }}
+ className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#A78BFA] text-white text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs hover:opacity-95 transition-all cursor-pointer hover:scale-105 active:scale-95"
+ title="Ask AI about your notes"
+ >
+ <Wand2 className="w-3.5 h-3.5 stroke-[1.5]" />
+ <span>Ask AI about your notes</span>
+ </button>
+ </div>
 
  {/* EDITOR AREA */}
  <div className="flex-1 p-6 md:p-10 flex flex-col justify-between overflow-y-auto">
@@ -494,19 +494,19 @@ export function BrainWorkspace() {
  return (
  <div className="flex flex-col h-full w-full bg-canvas font-sans text-primary">
  
-      <PageHeader
-        icon={Brain}
-        iconColorClass="bg-primary text-surface"
-        title="Brain Workspace"
-        statPill={{ icon: Sparkles, label: `${pages.length} Specs Tracked` }}
-        description="Neutral White thinking canvas for engineering specs, architecture RFCs, and meeting notes."
-        primaryAction={{
-          label: "New Document",
-          icon: Plus,
-          onClick: handleCreateRootPage,
-        }}
-        className="mb-0 rounded-none border-x-0 border-t-0 border-b bg-surface shadow-none"
-      />
+ <PageHeader
+ icon={Brain}
+ iconColorClass="bg-primary text-surface"
+ title="Brain Workspace"
+ statPill={{ icon: Sparkles, label: `${pages.length} Specs Tracked` }}
+ description="Neutral White thinking canvas for engineering specs, architecture RFCs, and meeting notes."
+ primaryAction={{
+ label: "New Document",
+ icon: Plus,
+ onClick: handleCreateRootPage,
+ }}
+ className="mb-0 rounded-none border-x-0 border-t-0 border-b bg-surface shadow-none"
+ />
 
  <div className="flex flex-1 overflow-hidden bg-surface">
  {/* Page Tree Sidebar Column */}

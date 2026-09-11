@@ -8,6 +8,9 @@ import { AuthGuard } from './components/AuthGuard';
 import { useTheme } from './lib/theme';
 import { SocketProvider } from './providers/SocketProvider';
 
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { NotFound } from './components/NotFound';
+
 function App() {
   useTheme();
   return (
@@ -21,8 +24,15 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route element={<AuthGuard />}>
-          <Route path="/app/*" element={<SocketProvider><AppShell /></SocketProvider>} />
+          <Route path="/app/*" element={
+            <ErrorBoundary>
+              <SocketProvider>
+                <AppShell />
+              </SocketProvider>
+            </ErrorBoundary>
+          } />
         </Route>
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );

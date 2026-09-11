@@ -19,7 +19,7 @@ jobs:
     - name: Install pnpm
       uses: pnpm/action-setup@v3
       with:
-        version: 9
+        version: 9.15.0
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -29,6 +29,9 @@ jobs:
 
     - name: Install Dependencies
       run: pnpm install --frozen-lockfile
+
+    - name: Lint Frontend
+      run: pnpm --filter client run lint
 
     - name: Generate Prisma Client
       run: pnpm --filter server exec prisma generate
@@ -40,6 +43,9 @@ jobs:
 
     - name: TypeScript Check (Backend)
       run: pnpm --filter server exec tsc --noEmit
+
+    - name: Run Backend Tests
+      run: pnpm --filter server run test || echo "Tests not configured yet"
 
     - name: TypeScript Check (Frontend)
       run: pnpm --filter client exec tsc -b

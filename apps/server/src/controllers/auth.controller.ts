@@ -148,9 +148,9 @@ export const updatePreferences = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
     const userId = req.user.id;
-    const { timerPreferences, locationConfig } = req.body;
+    const { timerPreferences, locationConfig, weeklyCapacityMinutes } = req.body;
 
-    if (!timerPreferences && !locationConfig) {
+    if (!timerPreferences && !locationConfig && weeklyCapacityMinutes === undefined) {
       return res.status(400).json({ message: 'No valid fields provided' });
     }
 
@@ -172,6 +172,9 @@ export const updatePreferences = async (req: Request, res: Response) => {
     if (locationConfig) {
       updateData.countryCode = locationConfig.countryCode;
       updateData.regionCode = locationConfig.regionCode;
+    }
+    if (weeklyCapacityMinutes !== undefined) {
+      updateData.weeklyCapacityMinutes = weeklyCapacityMinutes;
     }
 
     const updatedUser = await prisma.user.update({

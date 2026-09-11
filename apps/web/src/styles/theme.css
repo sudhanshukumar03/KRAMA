@@ -1,0 +1,193 @@
+@layer theme {
+  :root {
+    /* 1. Surfaces & Canvas (Light) */
+    --bg-base: oklch(0.98 0 0); /* #FAFAFA */
+    --bg-subtle: oklch(0.96 0 0); /* #F4F4F5 */
+    --surface-1: oklch(1 0 0); /* #FFFFFF */
+    --surface-2: oklch(1 0 0);
+    --surface-3: oklch(1 0 0);
+    --surface-overlay: oklch(1 0 0 / 0.8);
+    
+    /* 2. Text (Light) */
+    --text-primary: oklch(0.2 0 0); /* #18181B */
+    --text-secondary: oklch(0.4 0 0); /* #52525B */
+    --text-muted: oklch(0.65 0 0); /* #A1A1AA */
+    --text-on-accent: oklch(1 0 0);
+    --text-inverse: oklch(0.98 0 0);
+
+    /* 3. Borders (Light) */
+    --border-subtle: oklch(0 0 0 / 0.04);
+    --border-default: oklch(0 0 0 / 0.08);
+    --border-strong: oklch(0 0 0 / 0.16);
+    --ring: oklch(0.62 0.17 262);
+
+    /* 4. Interactive & State (Light) */
+    --accent: oklch(0.62 0.17 262);
+    --accent-hover: oklch(0.55 0.17 262);
+    --accent-active: oklch(0.48 0.17 262);
+    --accent-subtle: oklch(0.62 0.17 262 / 0.1);
+    --accent-fg: oklch(0.62 0.17 262);
+    
+    --state-hover: oklch(0 0 0 / 0.04);
+    --state-active: oklch(0 0 0 / 0.08);
+    --state-selected: oklch(0 0 0 / 0.06);
+    --disabled-bg: oklch(0 0 0 / 0.05);
+    --disabled-fg: oklch(0.65 0 0);
+
+    /* 5. Status (Light) */
+    --success-fg: oklch(0.6 0.15 145);
+    --success-bg: oklch(0.6 0.15 145 / 0.12);
+    --success-border: oklch(0.6 0.15 145 / 0.2);
+    
+    --warning-fg: oklch(0.65 0.15 65);
+    --warning-bg: oklch(0.65 0.15 65 / 0.12);
+    --warning-border: oklch(0.65 0.15 65 / 0.2);
+    
+    --danger-fg: oklch(0.6 0.2 25);
+    --danger-bg: oklch(0.6 0.2 25 / 0.12);
+    --danger-border: oklch(0.6 0.2 25 / 0.2);
+    
+    --info-fg: oklch(0.6 0.15 240);
+    --info-bg: oklch(0.6 0.15 240 / 0.12);
+    --info-border: oklch(0.6 0.15 240 / 0.2);
+
+    /* 6. Domain: Planner Matrix Categories (Light) */
+    --cat-routines: oklch(0.6 0.15 180);
+    --cat-routines-bg: oklch(0.6 0.15 180 / 0.12);
+    
+    --cat-tasks: oklch(0.62 0.17 262);
+    --cat-tasks-bg: oklch(0.62 0.17 262 / 0.12);
+    
+    --cat-timeblocks: oklch(0.6 0.15 300);
+    --cat-timeblocks-bg: oklch(0.6 0.15 300 / 0.12);
+    
+    --cat-projects: oklch(0.65 0.15 45);
+    --cat-projects-bg: oklch(0.65 0.15 45 / 0.12);
+
+    /* 7. Domain: Charts (Light) */
+    --chart-1: oklch(0.62 0.17 262);
+    --chart-2: oklch(0.6 0.15 180);
+    --chart-3: oklch(0.6 0.15 300);
+    --chart-4: oklch(0.65 0.15 45);
+    --chart-5: oklch(0.6 0.2 25);
+    --chart-6: oklch(0.65 0.15 100);
+    --chart-7: oklch(0.6 0.1 200);
+    --chart-8: oklch(0.5 0.1 340);
+
+    /* 8. Domain: Heatmap (Light) */
+    --heat-0: oklch(0.96 0 0);
+    --heat-1: oklch(0.85 0.1 145);
+    --heat-2: oklch(0.75 0.15 145);
+    --heat-3: oklch(0.65 0.2 145);
+    --heat-4: oklch(0.55 0.2 145);
+
+    /* 9. Domain: Knowledge Graph (Light) */
+    --graph-bg: oklch(0.98 0 0);
+    --graph-node: oklch(0.62 0.17 262);
+    --graph-node-active: oklch(0.6 0.2 25);
+    --graph-edge: oklch(0 0 0 / 0.15);
+    --graph-label: oklch(0.2 0 0);
+
+    /* 10. Misc */
+    --shadow-color: 0 0 0;
+    color-scheme: light;
+  }
+
+  .dark {
+    /* 1. Surfaces & Canvas (Dark) 
+       Rules: Elevation is lightness, not shadow. Base is near-black. 
+    */
+    --bg-base: oklch(0.18 0.01 262); /* #0E0F12 */
+    --bg-subtle: oklch(0.22 0.01 262); /* #131519 */
+    --surface-1: oklch(0.25 0.01 262); /* #17191F */
+    --surface-2: oklch(0.28 0.01 262); /* #1E2128 */
+    --surface-3: oklch(0.32 0.01 262); /* #262A33 */
+    --surface-overlay: oklch(0.25 0.01 262 / 0.8);
+
+    /* 2. Text (Dark) */
+    --text-primary: oklch(0.95 0.01 262); /* #E8EAED */
+    --text-secondary: oklch(0.75 0.01 262); /* #A8ADB7 */
+    --text-muted: oklch(0.55 0.01 262); /* #6E747F */
+    --text-on-accent: oklch(1 0 0);
+    --text-inverse: oklch(0.18 0.01 262);
+
+    /* 3. Borders (Dark - Alpha, not gray!) */
+    --border-subtle: oklch(1 0 0 / 0.05);
+    --border-default: oklch(1 0 0 / 0.1);
+    --border-strong: oklch(1 0 0 / 0.2);
+    --ring: oklch(0.72 0.15 262);
+
+    /* 4. Interactive & State (Dark)
+       Rules: Desaturate and lighten accent. Washes are alpha overlays.
+    */
+    --accent: oklch(0.72 0.15 262);
+    --accent-hover: oklch(0.78 0.15 262);
+    --accent-active: oklch(0.85 0.15 262);
+    --accent-subtle: oklch(0.72 0.15 262 / 0.15);
+    --accent-fg: oklch(0.72 0.15 262);
+    
+    --state-hover: oklch(1 0 0 / 0.06);
+    --state-active: oklch(1 0 0 / 0.1);
+    --state-selected: oklch(1 0 0 / 0.08);
+    --disabled-bg: oklch(1 0 0 / 0.05);
+    --disabled-fg: oklch(0.55 0.01 262);
+
+    /* 5. Status (Dark - Alpha tints) */
+    --success-fg: oklch(0.8 0.1 145);
+    --success-bg: oklch(0.8 0.1 145 / 0.15);
+    --success-border: oklch(0.8 0.1 145 / 0.2);
+    
+    --warning-fg: oklch(0.85 0.1 65);
+    --warning-bg: oklch(0.85 0.1 65 / 0.15);
+    --warning-border: oklch(0.85 0.1 65 / 0.2);
+    
+    --danger-fg: oklch(0.8 0.12 25);
+    --danger-bg: oklch(0.8 0.12 25 / 0.15);
+    --danger-border: oklch(0.8 0.12 25 / 0.2);
+    
+    --info-fg: oklch(0.8 0.1 240);
+    --info-bg: oklch(0.8 0.1 240 / 0.15);
+    --info-border: oklch(0.8 0.1 240 / 0.2);
+
+    /* 6. Domain: Planner Matrix Categories (Dark) */
+    --cat-routines: oklch(0.8 0.1 180);
+    --cat-routines-bg: oklch(0.8 0.1 180 / 0.15);
+    
+    --cat-tasks: oklch(0.72 0.15 262);
+    --cat-tasks-bg: oklch(0.72 0.15 262 / 0.15);
+    
+    --cat-timeblocks: oklch(0.8 0.1 300);
+    --cat-timeblocks-bg: oklch(0.8 0.1 300 / 0.15);
+    
+    --cat-projects: oklch(0.8 0.1 45);
+    --cat-projects-bg: oklch(0.8 0.1 45 / 0.15);
+
+    /* 7. Domain: Charts (Dark) */
+    --chart-1: oklch(0.72 0.15 262);
+    --chart-2: oklch(0.8 0.1 180);
+    --chart-3: oklch(0.8 0.1 300);
+    --chart-4: oklch(0.8 0.1 45);
+    --chart-5: oklch(0.8 0.12 25);
+    --chart-6: oklch(0.8 0.1 100);
+    --chart-7: oklch(0.75 0.08 200);
+    --chart-8: oklch(0.75 0.1 340);
+
+    /* 8. Domain: Heatmap (Dark) */
+    --heat-0: oklch(0.22 0.01 262);
+    --heat-1: oklch(0.4 0.08 145);
+    --heat-2: oklch(0.55 0.1 145);
+    --heat-3: oklch(0.7 0.12 145);
+    --heat-4: oklch(0.85 0.1 145);
+
+    /* 9. Domain: Knowledge Graph (Dark) */
+    --graph-bg: oklch(0.18 0.01 262);
+    --graph-node: oklch(0.72 0.15 262);
+    --graph-node-active: oklch(0.8 0.12 25);
+    --graph-edge: oklch(1 0 0 / 0.15);
+    --graph-label: oklch(0.95 0.01 262);
+
+    /* 10. Misc */
+    --shadow-color: 0 0 0;
+    color-scheme: dark;
+  }
+}

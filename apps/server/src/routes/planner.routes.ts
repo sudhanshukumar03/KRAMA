@@ -39,20 +39,34 @@ function createDateTime(date: Date, time: string) {
 router.get('/week', async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
-    const workspaceId = getWorkspaceId(req);
+    let workspaceId = getWorkspaceId(req);
 
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    if (!workspaceId) {
+      const member = await prisma.workspaceMember.findFirst({
+        where: { userId },
+        select: { workspaceId: true },
+      });
+      if (member) {
+        workspaceId = member.workspaceId;
+      }
+    }
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
-    const start = z.coerce.date().parse(req.query.start);
-    const end = z.coerce.date().parse(req.query.end);
-    const weekStart = startOfDay(start);
-    const weekEnd = endOfDay(end);
+    const startParam = (req.query.start as string) || '';
+    const endParam = (req.query.end as string) || '';
+    if (!startParam || !endParam) {
+      return res.status(400).json({ message: 'start and end date query params are required' });
+    }
 
-    const user = await prisma.user.findUniqueOrThrow({
+    const weekStart = new Date(`${startParam}T00:00:00.000Z`);
+    const weekEnd = new Date(`${endParam}T23:59:59.999Z`);
+
+    const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { weeklyCapacityMinutes: true, countryCode: true, regionCode: true },
     });
+    if (!user) return res.status(401).json({ message: 'User not found' });
 
     const [
       habits,
@@ -122,49 +136,18 @@ router.get('/week', async (req: Request, res: Response) => {
     const allTimeBlocks = [...timeBlocks, ...holidayBlocks].sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
     const capacity = calculateCapacity(
-      user.weeklyCapacityMinutes,
+      user.weeklyCapacityMinutes ?? 2400,
       allTimeBlocks
     );
 
-    const routines = habits.filter((h: any) => h.pinnedToPlanner).map((h: any) => ({
-      id: h.id,
-      name: h.name,
+    const habitsWithPinned = habits.map((h: any) => ({
+      ...h,
+      pinnedToPlanner: (h.metadata as any)?.pinnedToPlanner ?? false,
     }));
 
-    // Generate dynamic occurrences based on scheduled days
-    const occurrences: any[] = [];
-    let currentDay = new Date(weekStart);
-    for (let i = 0; i < 7; i++) {
-      const dayOfWeek = currentDay.getDay(); // 0 = Sun, 1 = Mon, etc.
-      const dateStr = currentDay.toISOString().split('T')[0] as string;
-
-      for (const habit of habits) {
-        if (habit.scheduledDays && habit.scheduledDays.includes(dayOfWeek)) {
-          const completion = habitCompletions.find((c: any) =>
-            c.habitId === habit.id && c.completedAt.toISOString().startsWith(dateStr)
-          );
-
-          occurrences.push({
-            id: completion ? completion.id : `${habit.id}-${dateStr}`,
-            habitId: habit.id,
-            date: currentDay.toISOString(),
-            completed: !!completion,
-            completedAt: completion ? completion.completedAt.toISOString() : null,
-            isVirtual: !completion
-          });
-        }
-      }
-      currentDay.setDate(currentDay.getDate() + 1);
-    }
-
-    const plannerTasks = tasks.map((t: any) => ({
-      id: t.id,
-      title: t.title,
-      status: t.status,
-      completed: t.status === 'DONE',
-      scheduledDate: t.scheduledDate?.toISOString() || null,
-      dueDate: t.dueDate?.toISOString() || null,
-      estimateMinutes: t.estimateMinutes,
+    const routines = habitsWithPinned.filter((h: any) => h.pinnedToPlanner).map((h: any) => ({
+      id: h.id,
+      name: h.name,
     }));
 
     const plannerProjects = projects.map((p: any) => ({
@@ -172,6 +155,74 @@ router.get('/week', async (req: Request, res: Response) => {
       name: p.name,
     }));
 
+    const days = [];
+    let currentDay = new Date(weekStart);
+    for (let i = 0; i < 7; i++) {
+      const dayOfWeek = currentDay.getUTCDay(); // 0 = Sun, 1 = Mon, etc.
+      const dateStr = currentDay.toISOString().split('T')[0] as string;
+
+      const dayOccurrences: any[] = [];
+      for (const habit of habitsWithPinned) {
+        const isScheduled = habit.scheduledDays && habit.scheduledDays.includes(dayOfWeek);
+        const isPinned = habit.pinnedToPlanner;
+
+        if (isScheduled || isPinned) {
+          // Look up against the canonical date column
+          const targetDateStr = `${dateStr}T12:00:00.000Z`;
+          const completion = habitCompletions.find((c: any) =>
+            c.habitId === habit.id && c.date && (c.date instanceof Date ? c.date.toISOString() : new Date(c.date).toISOString()) === targetDateStr
+          );
+
+          dayOccurrences.push({
+            id: completion ? completion.id : `${habit.id}-${dateStr}`,
+            habitId: habit.id,
+            date: targetDateStr, // Always send the canonical UTC noon
+            completed: !!completion,
+            completedAt: completion?.completedAt ? (completion.completedAt instanceof Date ? completion.completedAt.toISOString() : new Date(completion.completedAt).toISOString()) : null,
+            isVirtual: !completion
+          });
+        }
+      }
+
+      const dayTasks = tasks.filter((t: any) => {
+        const d = t.scheduledDate || t.dueDate;
+        if (!d) return false;
+        const dObj = d instanceof Date ? d : new Date(d);
+        return !isNaN(dObj.getTime()) && dObj.toISOString().startsWith(dateStr);
+      }).map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        status: t.status,
+        completed: t.status === 'DONE',
+        scheduledDate: t.scheduledDate ? (t.scheduledDate instanceof Date ? t.scheduledDate.toISOString() : new Date(t.scheduledDate).toISOString()) : null,
+        dueDate: t.dueDate ? (t.dueDate instanceof Date ? t.dueDate.toISOString() : new Date(t.dueDate).toISOString()) : null,
+        estimateMinutes: t.estimateMinutes,
+      }));
+
+      const dayBlocks = allTimeBlocks.filter((b: any) => {
+        const d = b.date instanceof Date ? b.date : new Date(b.date);
+        return !isNaN(d.getTime()) && d.toISOString().startsWith(dateStr);
+      });
+      const dayMilestones = milestones.filter((m: any) => {
+        const d = m.date instanceof Date ? m.date : new Date(m.date);
+        return !isNaN(d.getTime()) && d.toISOString().startsWith(dateStr);
+      });
+
+      days.push({
+        dateKey: dateStr,
+        date: currentDay.toISOString(),
+        occurrences: dayOccurrences,
+        tasks: dayTasks,
+        timeBlocks: dayBlocks,
+        milestones: dayMilestones,
+      });
+
+      currentDay.setUTCDate(currentDay.getUTCDate() + 1);
+    }
+
+    const allOccurrences = days.flatMap(d => d.occurrences);
+    const allMappedTasks = days.flatMap(d => d.tasks);
+    
     return res.json({
       weekStart: weekStart.toISOString(),
       weekEnd: weekEnd.toISOString(),
@@ -180,23 +231,27 @@ router.get('/week', async (req: Request, res: Response) => {
         regionCode: user.regionCode,
       },
       routines,
-      occurrences,
-      tasks: plannerTasks,
-      timeBlocks: allTimeBlocks,
       projects: plannerProjects,
-      milestones,
+      days,
       capacity,
+      tasks: allMappedTasks,
+      timeBlocks: allTimeBlocks,
+      milestones,
+      occurrences: allOccurrences,
       syncStatus: syncRecord
         ? {
             provider: syncRecord.provider,
             status: syncRecord.syncStatus,
-            lastSyncedAt: syncRecord.updatedAt?.toISOString() || null,
+            lastSyncedAt: syncRecord.updatedAt ? (syncRecord.updatedAt instanceof Date ? syncRecord.updatedAt.toISOString() : new Date(syncRecord.updatedAt).toISOString()) : null,
           }
         : null,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Planner week error:', error);
-    return res.status(500).json({ code: 'PLANNER_WEEK_FAILED', message: 'Unable to load Planner' });
+    return res.status(500).json({ 
+      code: 'PLANNER_WEEK_FAILED', 
+      message: error?.message || 'Unable to load Planner' 
+    });
   }
 });
 
@@ -360,29 +415,39 @@ router.patch('/routine-occurrences', async (req: Request, res: Response) => {
     }).parse(req.body);
 
     const dateStr = body.date.split('T')[0];
-    const completedAt = createDateTime(new Date(body.date), "00:00");
+    const targetDate = new Date(`${dateStr}T12:00:00.000Z`);
 
     if (body.completed) {
-      // Create completion if it doesn't exist
-      const existing = await prisma.habitCompletion.findFirst({
-        where: { userId, habitId: body.habitId, completedAt: { gte: new Date(`${dateStr}T00:00:00.000Z`), lte: new Date(`${dateStr}T23:59:59.999Z`) } }
-      });
-      if (!existing) {
-        await prisma.habitCompletion.create({
-          data: {
-            userId,
+      const habit = await prisma.habit.findUnique({ where: { id: body.habitId } });
+      const dayOfWeek = targetDate.getUTCDay();
+      const scheduled = habit?.scheduledDays && habit.scheduledDays.length > 0
+        ? habit.scheduledDays
+        : [0, 1, 2, 3, 4, 5, 6];
+      const offSchedule = !scheduled.includes(dayOfWeek);
+
+      await prisma.habitCompletion.upsert({
+        where: {
+          habitId_userId_date: {
             habitId: body.habitId,
-            completedAt: new Date(),
+            userId,
+            date: targetDate,
           }
-        });
-      }
+        },
+        update: {},
+        create: {
+          userId,
+          habitId: body.habitId,
+          date: targetDate,
+          completedAt: new Date(),
+          offSchedule,
+        }
+      });
     } else {
-      // Delete completions for that day
       await prisma.habitCompletion.deleteMany({
         where: {
           userId,
           habitId: body.habitId,
-          completedAt: { gte: new Date(`${dateStr}T00:00:00.000Z`), lte: new Date(`${dateStr}T23:59:59.999Z`) }
+          date: targetDate,
         }
       });
     }

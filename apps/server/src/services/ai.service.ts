@@ -1,12 +1,11 @@
 
-import OpenAI from 'openai';
-import Anthropic from '@anthropic-ai/sdk';
+import Groq from 'groq-sdk';
 import { redisService } from './redis.service';
 import crypto from 'crypto';
 import { prisma } from '../prisma';
 import { logger } from '../utils/logger';
 
-export type ProviderType = 'openai' | 'anthropic' | 'groq' | 'gemini';
+export type ProviderType = 'groq' | 'gemini';
 
 export interface AiCompleteParams {
   prompt: string;
@@ -26,51 +25,13 @@ interface AIProvider {
   complete(prompt: string, model: string): Promise<ProviderResponse>;
 }
 
-class OpenAIProvider implements AIProvider {
-  private client: OpenAI;
-  constructor() {
-    if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured.");
-    this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  async complete(prompt: string, model: string): Promise<ProviderResponse> {
-    const response = await this.client.chat.completions.create({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-    });
-    return {
-      completionText: (response.choices[0]?.message?.content || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim(),
-      promptTokens: response.usage?.prompt_tokens || 0,
-      completionTokens: response.usage?.completion_tokens || 0,
-    };
-  }
-}
 
-class AnthropicProvider implements AIProvider {
-  private client: Anthropic;
-  constructor() {
-    if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured.");
-    this.client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  }
-  async complete(prompt: string, model: string): Promise<ProviderResponse> {
-    const response = await this.client.messages.create({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 4096,
-    });
-    return {
-      completionText: (response.content[0] as any)?.text || '',
-      promptTokens: response.usage.input_tokens,
-      completionTokens: response.usage.output_tokens,
-    };
-  }
-}
 
 class GroqProvider implements AIProvider {
-  private client: OpenAI;
+  private client: Groq;
   constructor() {
     if (!process.env.GROQ_API_KEY) throw new Error("GROQ_API_KEY is not configured.");
-    this.client = new OpenAI({ 
-      baseURL: 'https://api.groq.com/openai/v1',
+    this.client = new Groq({ 
       apiKey: process.env.GROQ_API_KEY 
     });
   }
@@ -96,13 +57,13 @@ class GeminiProvider implements AIProvider {
     this.client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   }
   async complete(prompt: string, model: string): Promise<ProviderResponse> {
-    const interaction = await this.client.interactions.create({ model, input: prompt });
-    
-    // Estimate tokens since Gemini SDK doesn't return exact token counts in the same format
-    // A rough heuristic is ~4 characters per token
-    const promptTokens = Math.ceil(prompt.length / 4);
-    const completionText = interaction.output_text || '';
-    const completionTokens = Math.ceil(completionText.length / 4);
+    const response = await this.client.models.generateContent({
+      model,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    });
+    const completionText = response.text || '';
+    const promptTokens = response.usageMetadata?.promptTokenCount || Math.ceil(prompt.length / 4);
+    const completionTokens = response.usageMetadata?.candidatesTokenCount || Math.ceil(completionText.length / 4);
 
     return {
       completionText,
@@ -115,8 +76,6 @@ class GeminiProvider implements AIProvider {
 class ProviderFactory {
   static getProvider(provider: ProviderType): AIProvider {
     switch (provider) {
-      case 'openai': return new OpenAIProvider();
-      case 'anthropic': return new AnthropicProvider();
       case 'groq': return new GroqProvider();
       case 'gemini': return new GeminiProvider();
       default: throw new Error(`Unsupported provider: ${provider}`);
@@ -125,9 +84,6 @@ class ProviderFactory {
 }
 
 const COST_MAP: Record<string, { prompt: number, completion: number }> = {
-  'gpt-4o-mini': { prompt: 0.15 / 1_000_000, completion: 0.60 / 1_000_000 },
-  'gpt-3.5-turbo': { prompt: 0.50 / 1_000_000, completion: 1.50 / 1_000_000 },
-  'claude-3-haiku-20240307': { prompt: 0.25 / 1_000_000, completion: 1.25 / 1_000_000 },
   'llama-3.1-8b-instant': { prompt: 0.05 / 1_000_000, completion: 0.08 / 1_000_000 },
   'llama-3.1-70b-versatile': { prompt: 0.59 / 1_000_000, completion: 0.79 / 1_000_000 },
   'gemini-1.5-flash-latest': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
@@ -168,25 +124,17 @@ export class AiService {
     // If provider is provided but model is not, set default model for that provider
     if (activeProvider && !activeModel) {
       if (activeProvider === 'gemini') activeModel = 'gemini-1.5-flash-latest';
-      else if (activeProvider === 'openai') activeModel = 'gpt-4o-mini';
-      else if (activeProvider === 'anthropic') activeModel = 'claude-3-haiku-20240307';
       else if (activeProvider === 'groq') activeModel = 'llama-3.1-8b-instant';
     }
     
     // If neither is provided, fallback based on available environment variables
     if (!activeProvider || !activeModel) {
       if (process.env.GROQ_API_KEY) {
-          activeProvider = 'groq';
-          activeModel = 'llama-3.1-8b-instant';
-        } else if (process.env.GEMINI_API_KEY) {
+        activeProvider = 'groq';
+        activeModel = 'llama-3.1-8b-instant';
+      } else if (process.env.GEMINI_API_KEY) {
         activeProvider = 'gemini';
         activeModel = 'gemini-1.5-flash-latest';
-      } else if (!process.env.GROQ_API_KEY && process.env.OPENAI_API_KEY) {
-        activeProvider = 'openai';
-        activeModel = 'gpt-4o-mini';
-      } else if (!process.env.GROQ_API_KEY && process.env.ANTHROPIC_API_KEY) {
-        activeProvider = 'anthropic';
-        activeModel = 'claude-3-haiku-20240307';
       } else {
         activeProvider = 'groq';
         activeModel = 'llama-3.1-8b-instant';

@@ -35,15 +35,15 @@ import { cn } from '../lib/utils';
 const STATUSES = ["BACKLOG", "TODO", "IN_PROGRESS", "REVIEW", "DONE", "CANCELED"];
 
 function getStatusIcon(status: string) {
-  switch (status) {
-    case "BACKLOG": return <Circle className="w-3.5 h-3.5 text-muted stroke-[1.5]" />;
-    case "TODO": return <CircleDot className="w-3.5 h-3.5 text-secondary stroke-[1.5]" />;
-    case "IN_PROGRESS": return <CircleDashed className="w-3.5 h-3.5 text-[#2563EB] stroke-[1.5] animate-spin-slow" />;
-    case "REVIEW": return <CheckCircle className="w-3.5 h-3.5 text-[#7C3AED] stroke-[1.5]" />;
-    case "DONE": return <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />;
-    case "CANCELED": return <X className="w-3.5 h-3.5 text-muted stroke-[1.5]" />;
-    default: return <Circle className="w-3.5 h-3.5 stroke-[1.5]" />;
-  }
+ switch (status) {
+ case "BACKLOG": return <Circle className="w-3.5 h-3.5 text-muted stroke-[1.5]" />;
+ case "TODO": return <CircleDot className="w-3.5 h-3.5 text-secondary stroke-[1.5]" />;
+ case "IN_PROGRESS": return <CircleDashed className="w-3.5 h-3.5 text-[#2563EB] stroke-[1.5] animate-spin-slow" />;
+ case "REVIEW": return <CheckCircle className="w-3.5 h-3.5 text-[#7C3AED] stroke-[1.5]" />;
+ case "DONE": return <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />;
+ case "CANCELED": return <X className="w-3.5 h-3.5 text-muted stroke-[1.5]" />;
+ default: return <Circle className="w-3.5 h-3.5 stroke-[1.5]" />;
+ }
 }
 
 function IssueCard({ issue, index = 0, isDragging, onDelete, onClick }: { issue: IssueWithRelations, index?: number, isDragging?: boolean, onDelete?: (issue: IssueWithRelations) => void, onClick?: (issue: IssueWithRelations) => void }) {
@@ -110,15 +110,15 @@ function IssueCard({ issue, index = 0, isDragging, onDelete, onClick }: { issue:
  {/* Dependency Badges */}
  {hasDependencies && (
  <div className="flex flex-wrap gap-1.5">
-  {issue.blockedBy && (
-  <span
-  title={`Blocked by: ${issue.blockedBy.title}`}
-  className="px-2 py-0.5 rounded bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
-  >
-  <AlertCircle className="w-3 h-3 shrink-0 stroke-[1.5]" />
-  Blocked: {issue.blockedBy.id.slice(0, 6).toUpperCase()}
-  </span>
-  )}
+ {issue.blockedBy && (
+ <span
+ title={`Blocked by: ${issue.blockedBy.title}`}
+ className="px-2 py-0.5 rounded bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+ >
+ <AlertCircle className="w-3 h-3 shrink-0 stroke-[1.5]" />
+ Blocked: {issue.blockedBy.id.slice(0, 6).toUpperCase()}
+ </span>
+ )}
  {issue.blocking && issue.blocking.length > 0 && (
  <span
  title={`Blocking: ${issue.blocking.map((b: any) => b.title).join(', ')}`}
@@ -183,10 +183,10 @@ function Column({ id, title, issues, isLast, onDelete, onCreate, onClick, isProj
  <div className="flex-1 overflow-y-auto p-3 space-y-2.5 flex flex-col justify-between">
  <div className="space-y-2.5">
  {issues.length === 0 ? (
-  <div className="py-8 text-center flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/60 bg-white/30 dark:bg-black/10 backdrop-blur-sm m-2 opacity-70">
-  <ListChecks className="w-5 h-5 text-muted mb-1.5 stroke-[1.5]" />
-  <span className="text-caption text-secondary font-medium">Drop an issue here</span>
-  </div>
+ <div className="py-8 text-center flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/60 bg-surface/30 backdrop-blur-sm m-2 opacity-70">
+ <ListChecks className="w-5 h-5 text-muted mb-1.5 stroke-[1.5]" />
+ <span className="text-caption text-secondary font-medium">Drop an issue here</span>
+ </div>
  ) : (
  <SortableContext items={issues.map(i => i.id)} strategy={verticalListSortingStrategy}>
  {issues.map((issue, idx) => (
@@ -198,40 +198,40 @@ function Column({ id, title, issues, isLast, onDelete, onCreate, onClick, isProj
 
  {/* Inline + Quick Add Button */}
  <button
-    onClick={() => {
-      if (isProjectsLoading) return;
-      if (!hasProjects) {
-        toast.error('No project found. Create a project first!');
-        return;
-      }
-      if (onCreate) {
-        onCreate(id as TaskStatus);
-      } else {
-        toast.info(`Quick add task to ${title.replace('_', ' ')}`);
-      }
-    }}
-    disabled={isProjectsLoading}
-    className={cn(
-      "w-full mt-2 py-2 border border-dashed border-border rounded-lg text-caption font-medium flex items-center justify-center gap-1.5 transition-all",
-      isProjectsLoading ? "opacity-50 cursor-not-allowed text-muted bg-surface/50" :
-      !hasProjects ? "opacity-50 cursor-not-allowed text-muted hover:border-[#DC2626] hover:text-[#DC2626]" :
-      "hover:border-primary hover:bg-surface-hover text-muted hover:text-primary opacity-80 hover:opacity-100"
-    )}
-  >
-    {isProjectsLoading ? (
-      <span className="flex items-center gap-2">
-        <div className="w-3.5 h-3.5 rounded-full border-2 border-muted border-t-transparent animate-spin" /> Loading...
-      </span>
-    ) : !hasProjects ? (
-      <>
-        <span className="text-muted">Create a project first</span>
-      </>
-    ) : (
-      <>
-        <Plus className="w-3.5 h-3.5 stroke-[2]" /> Quick Add
-      </>
-    )}
-  </button>
+ onClick={() => {
+ if (isProjectsLoading) return;
+ if (!hasProjects) {
+ toast.error('No project found. Create a project first!');
+ return;
+ }
+ if (onCreate) {
+ onCreate(id as TaskStatus);
+ } else {
+ toast.info(`Quick add task to ${title.replace('_', ' ')}`);
+ }
+ }}
+ disabled={isProjectsLoading}
+ className={cn(
+ "w-full mt-2 py-2 border border-dashed border-border rounded-lg text-caption font-medium flex items-center justify-center gap-1.5 transition-all",
+ isProjectsLoading ? "opacity-50 cursor-not-allowed text-muted bg-surface/50" :
+ !hasProjects ? "opacity-50 cursor-not-allowed text-muted hover:border-[#DC2626] hover:text-[#DC2626]" :
+ "hover:border-primary hover:bg-surface-hover text-muted hover:text-primary opacity-80 hover:opacity-100"
+ )}
+ >
+ {isProjectsLoading ? (
+ <span className="flex items-center gap-2">
+ <div className="w-3.5 h-3.5 rounded-full border-2 border-muted border-t-transparent animate-spin" /> Loading...
+ </span>
+ ) : !hasProjects ? (
+ <>
+ <span className="text-muted">Create a project first</span>
+ </>
+ ) : (
+ <>
+ <Plus className="w-3.5 h-3.5 stroke-[2]" /> Quick Add
+ </>
+ )}
+ </button>
  </div>
  </div>
  );
@@ -246,16 +246,16 @@ function IssueCreateModal({
  isSubmitting
 }: {
  open: boolean;
-  initialStatus: TaskStatus;
-  allIssues: IssueWithRelations[];
-  onClose: () => void;
-  onSubmit: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; dueDate?: string; scheduledDate?: string }) => void;
-  isSubmitting: boolean;
+ initialStatus: TaskStatus;
+ allIssues: IssueWithRelations[];
+ onClose: () => void;
+ onSubmit: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; dueDate?: string; scheduledDate?: string }) => void;
+ isSubmitting: boolean;
 }) {
  const [title, setTitle] = useState('');
  const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<TaskStatus>(initialStatus || "TODO");
-  const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
+ const [status, setStatus] = useState<TaskStatus>(initialStatus || "TODO");
+ const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
  const [estimate, setEstimate] = useState(2);
  const [blockedById, setBlockedById] = useState<string | null>(null);
 
@@ -265,11 +265,11 @@ function IssueCreateModal({
 
  if (!open) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!title.trim()) return;
-    onSubmit({ title: title.trim(), description: description.trim(), status: status as TaskStatus, priority: priority as TaskPriority, estimateMinutes: Number(estimate) || 0, blockedById });
-  };
+ const handleSubmit = (e: React.FormEvent) => {
+ e.preventDefault();
+ if (!title.trim()) return;
+ onSubmit({ title: title.trim(), description: description.trim(), status: status as TaskStatus, priority: priority as TaskPriority, estimateMinutes: Number(estimate) || 0, blockedById });
+ };
 
  return (
  <div
@@ -331,8 +331,8 @@ function IssueCreateModal({
  Column / Status
  </label>
  <select
-  value={status}
-  onChange={e => setStatus(e.target.value as TaskStatus)}
+ value={status}
+ onChange={e => setStatus(e.target.value as TaskStatus)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
  >
  {STATUSES.map(s => (
@@ -346,8 +346,8 @@ function IssueCreateModal({
  Priority
  </label>
  <select
-  value={priority}
-  onChange={e => setPriority(e.target.value as TaskPriority)}
+ value={priority}
+ onChange={e => setPriority(e.target.value as TaskPriority)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all capitalize"
  >
  <option value="LOW">Low</option>
@@ -377,14 +377,14 @@ function IssueCreateModal({
  <AlertCircle className="w-3.5 h-3.5 text-[#DC2626]" /> Dependencies (Blocked By)
  </label>
  <select
-   value={blockedById || ""}
-   onChange={e => setBlockedById(e.target.value || null)}
-   className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+ value={blockedById || ""}
+ onChange={e => setBlockedById(e.target.value || null)}
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
  >
-   <option value="">None (No Dependency)</option>
-   {allIssues.map(other => (
-     <option key={other.id} value={other.id}>#{other.id.slice(-4)} - {other.title}</option>
-   ))}
+ <option value="">None (No Dependency)</option>
+ {allIssues.map(other => (
+ <option key={other.id} value={other.id}>#{other.id.slice(-4)} - {other.title}</option>
+ ))}
  </select>
  </div>
 
@@ -414,36 +414,36 @@ export function IssueEditModal({
  issue: IssueWithRelations | null;
  allIssues: IssueWithRelations[];
  onClose: () => void;
-  onSubmit: (id: string, data: { title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; estimateMinutes?: number; blockedById?: string | null; dueDate?: string; scheduledDate?: string; metadata?: any }) => void;
-  isSubmitting: boolean;
+ onSubmit: (id: string, data: { title?: string; description?: string; status?: TaskStatus; priority?: TaskPriority; estimateMinutes?: number; blockedById?: string | null; dueDate?: string; scheduledDate?: string; metadata?: any }) => void;
+ isSubmitting: boolean;
 }) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<TaskStatus>("TODO");
-  const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
-  const [estimate, setEstimate] = useState(2);
-  const [blockedById, setBlockedById] = useState<string | null>(null);
-  const [dueDate, setDueDate] = useState('');
-  const [scheduledDate, setScheduledDate] = useState('');
-  const [isPinned, setIsPinned] = useState(false);
-  const [newSubtask, setNewSubtask] = useState('');
-  const [newComment, setNewComment] = useState('');
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+ const [title, setTitle] = useState('');
+ const [description, setDescription] = useState('');
+ const [status, setStatus] = useState<TaskStatus>("TODO");
+ const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
+ const [estimate, setEstimate] = useState(2);
+ const [blockedById, setBlockedById] = useState<string | null>(null);
+ const [dueDate, setDueDate] = useState('');
+ const [scheduledDate, setScheduledDate] = useState('');
+ const [isPinned, setIsPinned] = useState(false);
+ const [newSubtask, setNewSubtask] = useState('');
+ const [newComment, setNewComment] = useState('');
+ const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
-  const handleAddComment = async () => {
-    if (!newComment.trim()) return;
-    try {
-      setIsSubmittingComment(true);
-      await api.tasks.addComment(issue!.id, newComment.trim());
-      setNewComment('');
-      queryClient.invalidateQueries({ queryKey: ['issues'] });
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to add comment');
-    } finally {
-      setIsSubmittingComment(false);
-    }
-  };
-  const queryClient = useQueryClient();
+ const handleAddComment = async () => {
+ if (!newComment.trim()) return;
+ try {
+ setIsSubmittingComment(true);
+ await api.tasks.addComment(issue!.id, newComment.trim());
+ setNewComment('');
+ queryClient.invalidateQueries({ queryKey: ['issues'] });
+ } catch (e: any) {
+ toast.error(e.message || 'Failed to add comment');
+ } finally {
+ setIsSubmittingComment(false);
+ }
+ };
+ const queryClient = useQueryClient();
 
  useEffect(() => {
  if (open && issue) {
@@ -452,33 +452,33 @@ export function IssueEditModal({
  setStatus(issue.status as TaskStatus || "TODO");
  setPriority(issue.priority as TaskPriority || "MEDIUM");
  setEstimate(issue.estimateMinutes ?? 2);
-  setBlockedById(issue.blockedBy ? issue.blockedBy.id : null);
-  setDueDate(issue.dueDate ? new Date(issue.dueDate).toISOString().split('T')[0] : '');
-  setScheduledDate(issue.scheduledDate ? new Date(issue.scheduledDate).toISOString().split('T')[0] : '');
-  setIsPinned((issue.metadata as any)?.isPinned || false);
-  }
+ setBlockedById(issue.blockedBy ? issue.blockedBy.id : null);
+ setDueDate(issue.dueDate ? new Date(issue.dueDate).toISOString().split('T')[0] : '');
+ setScheduledDate(issue.scheduledDate ? new Date(issue.scheduledDate).toISOString().split('T')[0] : '');
+ setIsPinned((issue.metadata as any)?.isPinned || false);
+ }
  }, [open, issue]);
 
  if (!open || !issue) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!title.trim()) return;
+ const handleSubmit = (e: React.FormEvent) => {
+ e.preventDefault();
+ if (!title.trim()) return;
 
-  const updatedMetadata = { ...(issue.metadata as any || {}), isPinned };
+ const updatedMetadata = { ...(issue.metadata as any || {}), isPinned };
 
-  onSubmit(issue.id, {
-  title: title.trim(),
-  description: description.trim(),
-  status: status as TaskStatus,
-  priority: priority as TaskPriority,
-  estimateMinutes: Number(estimate) || 0,
-  blockedById,
-  dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
-  scheduledDate: scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
-  metadata: updatedMetadata
-  });
-  };
+ onSubmit(issue.id, {
+ title: title.trim(),
+ description: description.trim(),
+ status: status as TaskStatus,
+ priority: priority as TaskPriority,
+ estimateMinutes: Number(estimate) || 0,
+ blockedById,
+ dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+ scheduledDate: scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
+ metadata: updatedMetadata
+ });
+ };
 
  const otherIssues = allIssues.filter(i => i.id !== issue.id);
 
@@ -509,14 +509,14 @@ export function IssueEditModal({
 
  <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
 <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface-hover/30">
-  <div>
-    <h4 className="text-body font-medium text-primary">Pin to Weekly Timeline</h4>
-    <p className="text-caption text-secondary">Show this task in the pinned section of your Daily Schedule.</p>
-  </div>
-  <label className="relative inline-flex items-center cursor-pointer">
-    <input type="checkbox" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} className="sr-only peer" />
-    <div className="w-9 h-5 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2563EB]"></div>
-  </label>
+ <div>
+ <h4 className="text-body font-medium text-primary">Pin to Weekly Timeline</h4>
+ <p className="text-caption text-secondary">Show this task in the pinned section of your Daily Schedule.</p>
+ </div>
+ <label className="relative inline-flex items-center cursor-pointer">
+ <input type="checkbox" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} className="sr-only peer" />
+ <div className="w-9 h-5 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2563EB]"></div>
+ </label>
 </div>
  <div>
  <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
@@ -596,95 +596,95 @@ export function IssueEditModal({
  <AlertCircle className="w-3.5 h-3.5 text-[#DC2626]" /> Dependencies (Blocked By)
  </label>
  <select
-   value={blockedById || ""}
-   onChange={e => setBlockedById(e.target.value || null)}
-   className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+ value={blockedById || ""}
+ onChange={e => setBlockedById(e.target.value || null)}
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
  >
-   <option value="">None (No Dependency)</option>
-   {otherIssues.map(other => (
-     <option key={other.id} value={other.id}>#{other.id.slice(-4)} - {other.title}</option>
-   ))}
+ <option value="">None (No Dependency)</option>
+ {otherIssues.map(other => (
+ <option key={other.id} value={other.id}>#{other.id.slice(-4)} - {other.title}</option>
+ ))}
  </select>
  <p className="text-badge text-secondary mt-1">Select a task that must be completed before this task can start.</p>
  </div>
 
  <div className="grid grid-cols-2 gap-4">
-    <div>
-      <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">Scheduled Date</label>
-      <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-body text-primary focus:outline-none focus:border-primary transition-colors" />
-    </div>
-    <div>
-      <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">Due Date</label>
-      <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-body text-primary focus:outline-none focus:border-primary transition-colors" />
-    </div>
-  </div>
+ <div>
+ <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">Scheduled Date</label>
+ <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-body text-primary focus:outline-none focus:border-primary transition-colors" />
+ </div>
+ <div>
+ <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">Due Date</label>
+ <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-body text-primary focus:outline-none focus:border-primary transition-colors" />
+ </div>
+ </div>
 
-  <div className="pt-2">
-    <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5 flex items-center gap-2">Subtasks <span className="bg-surface border border-border px-1.5 rounded-full text-[10px]">{issue?.childTasks?.length || 0}</span></label>
-    <div className="space-y-2 mb-3">
-      {issue?.childTasks?.map((child: any) => (
-        <div key={child.id} className="flex items-center gap-2 p-2 rounded-lg border border-border bg-surface-hover/50 text-caption text-primary">
-          <div className={`w-3 h-3 rounded-full border ${child.status === 'DONE' ? 'bg-[#2563EB] border-[#2563EB]' : 'border-secondary'}`} />
-          <span className={child.status === 'DONE' ? 'line-through text-muted' : ''}>{child.title}</span>
-        </div>
-      ))}
-      {(!issue?.childTasks || issue.childTasks.length === 0) && <p className="text-caption text-muted italic">No subtasks yet.</p>}
-    </div>
-    <div className="flex gap-2">
-      <input type="text" value={newSubtask} onChange={e => setNewSubtask(e.target.value)} onKeyDown={async e => {
-        if (e.key === 'Enter' && newSubtask.trim()) {
-          e.preventDefault();
-          try {
-            await api.tasks.create({ title: newSubtask.trim(), parentTaskId: issue.id });
-            setNewSubtask('');
-            queryClient.invalidateQueries({ queryKey: ['issues'] });
-          } catch {}
-        }
-      }} placeholder="Add a subtask (press Enter)" className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-caption text-primary focus:outline-none focus:border-primary transition-colors" />
-    </div>
-  </div>
+ <div className="pt-2">
+ <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5 flex items-center gap-2">Subtasks <span className="bg-surface border border-border px-1.5 rounded-full text-[10px]">{issue?.childTasks?.length || 0}</span></label>
+ <div className="space-y-2 mb-3">
+ {issue?.childTasks?.map((child: any) => (
+ <div key={child.id} className="flex items-center gap-2 p-2 rounded-lg border border-border bg-surface-hover/50 text-caption text-primary">
+ <div className={`w-3 h-3 rounded-full border ${child.status === 'DONE' ? 'bg-[#2563EB] border-[#2563EB]' : 'border-secondary'}`} />
+ <span className={child.status === 'DONE' ? 'line-through text-muted' : ''}>{child.title}</span>
+ </div>
+ ))}
+ {(!issue?.childTasks || issue.childTasks.length === 0) && <p className="text-caption text-muted italic">No subtasks yet.</p>}
+ </div>
+ <div className="flex gap-2">
+ <input type="text" value={newSubtask} onChange={e => setNewSubtask(e.target.value)} onKeyDown={async e => {
+ if (e.key === 'Enter' && newSubtask.trim()) {
+ e.preventDefault();
+ try {
+ await api.tasks.create({ title: newSubtask.trim(), parentTaskId: issue.id });
+ setNewSubtask('');
+ queryClient.invalidateQueries({ queryKey: ['issues'] });
+ } catch {}
+ }
+ }} placeholder="Add a subtask (press Enter)" className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-caption text-primary focus:outline-none focus:border-primary transition-colors" />
+ </div>
+ </div>
 
  {/* Comments Section */}
  <div className="pt-6 border-t border-border">
-   <h4 className="text-sm font-semibold text-primary mb-4 flex items-center gap-2"><MessageSquare className="w-4 h-4" /> Comments</h4>
-   <div className="space-y-4 mb-4 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-     {(!issue.comments || issue.comments.length === 0) ? (
-       <p className="text-xs text-muted text-center py-4">No comments yet. Start the discussion!</p>
-     ) : (
-       (issue.comments as any[]).map((c: any) => (
-         <div key={c.id} className="flex gap-3">
-           <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
-             {c.user?.image ? <img src={c.user.image} alt={c.user.name} className="w-full h-full object-cover" /> : (c.user?.name?.[0] || 'U')}
-           </div>
-           <div className="flex-1 bg-surface-hover rounded-xl p-3 border border-border">
-             <div className="flex items-center justify-between mb-1">
-               <span className="text-xs font-semibold text-primary">{c.user?.name || 'Unknown User'}</span>
-               <span className="text-[10px] text-muted">{new Date(c.createdAt).toLocaleString()}</span>
-             </div>
-             <p className="text-sm text-secondary whitespace-pre-wrap">{c.content}</p>
-           </div>
-         </div>
-       ))
-     )}
-   </div>
-   <div className="flex gap-2">
-     <input
-       type="text"
-       value={newComment}
-       onChange={e => setNewComment(e.target.value)}
-       placeholder="Add a comment..."
-       className="flex-1 px-3 py-2 text-sm bg-surface border border-border rounded-lg focus:outline-none focus:border-blue-500 text-primary"
-       onKeyDown={e => {
-         if (e.key === 'Enter') {
-           e.preventDefault();
-           handleAddComment();
-         }
-       }}
-     />
-     <BaseButton type="button" onClick={handleAddComment} disabled={!newComment.trim() || isSubmittingComment}>
-       Send
-     </BaseButton>
-   </div>
+ <h4 className="text-sm font-semibold text-primary mb-4 flex items-center gap-2"><MessageSquare className="w-4 h-4" /> Comments</h4>
+ <div className="space-y-4 mb-4 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+ {(!issue.comments || issue.comments.length === 0) ? (
+ <p className="text-xs text-muted text-center py-4">No comments yet. Start the discussion!</p>
+ ) : (
+ (issue.comments as any[]).map((c: any) => (
+ <div key={c.id} className="flex gap-3">
+ <div className="w-8 h-8 rounded-full bg-accent/10 text-accent flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
+ {c.user?.image ? <img src={c.user.image} alt={c.user.name} className="w-full h-full object-cover" /> : (c.user?.name?.[0] || 'U')}
+ </div>
+ <div className="flex-1 bg-surface-hover rounded-xl p-3 border border-border">
+ <div className="flex items-center justify-between mb-1">
+ <span className="text-xs font-semibold text-primary">{c.user?.name || 'Unknown User'}</span>
+ <span className="text-[10px] text-muted">{new Date(c.createdAt).toLocaleString()}</span>
+ </div>
+ <p className="text-sm text-secondary whitespace-pre-wrap">{c.content}</p>
+ </div>
+ </div>
+ ))
+ )}
+ </div>
+ <div className="flex gap-2">
+ <input
+ type="text"
+ value={newComment}
+ onChange={e => setNewComment(e.target.value)}
+ placeholder="Add a comment..."
+ className="flex-1 px-3 py-2 text-sm bg-surface border border-border rounded-lg focus:outline-none focus:border-accent/20 text-primary"
+ onKeyDown={e => {
+ if (e.key === 'Enter') {
+ e.preventDefault();
+ handleAddComment();
+ }
+ }}
+ />
+ <BaseButton type="button" onClick={handleAddComment} disabled={!newComment.trim() || isSubmittingComment}>
+ Send
+ </BaseButton>
+ </div>
  </div>
 
  <div className="pt-4 mt-6 border-t border-border flex justify-end gap-3 shrink-0">
@@ -716,19 +716,19 @@ export function KanbanBoard() {
  const [editModalOpen, setEditModalOpen] = useState(false);
  const [editingIssue, setEditingIssue] = useState<IssueWithRelations | null>(null);
 
-  const createIssueMutation = useMutation({
-    mutationFn: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null }) =>
-      api.tasks.create({
-        title: data.title,
-        description: data.description,
-        status: data.status,
-        priority: data.priority as any,
-        estimateMinutes: data.estimateMinutes,
-        assignee: 'me',
-        projectId: projects[0]?.id,
-        labels: [],
-        blockedById: data.blockedById
-      }),
+ const createIssueMutation = useMutation({
+ mutationFn: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null }) =>
+ api.tasks.create({
+ title: data.title,
+ description: data.description,
+ status: data.status,
+ priority: data.priority as any,
+ estimateMinutes: data.estimateMinutes,
+ assignee: 'me',
+ projectId: projects[0]?.id,
+ labels: [],
+ blockedById: data.blockedById
+ }),
  onSuccess: (newIssue) => {
  queryClient.invalidateQueries({ queryKey: ['issues'] });
  setCreateModalOpen(false);
@@ -741,9 +741,9 @@ export function KanbanBoard() {
  }
  });
 
-  const updateIssueDetailMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<IssueWithRelations> & { blockedById?: string | null } }) =>
-      api.tasks.update(id, data),
+ const updateIssueDetailMutation = useMutation({
+ mutationFn: ({ id, data }: { id: string; data: Partial<IssueWithRelations> & { blockedById?: string | null } }) =>
+ api.tasks.update(id, data),
  onSuccess: (updated) => {
  queryClient.invalidateQueries({ queryKey: ['issues'] });
  setEditModalOpen(false);
@@ -814,7 +814,7 @@ export function KanbanBoard() {
 
  const filteredIssues = useMemo(() => {
  return issues.filter(issue => {
-    if (issue.parentTaskId) return false;
+ if (issue.parentTaskId) return false;
  const matchesSearch = searchQuery === '' || issue.title.toLowerCase().includes(searchQuery.toLowerCase()) || issue.id.toLowerCase().includes(searchQuery.toLowerCase());
  const matchesPriority = priorityFilter === 'all' || issue.priority === priorityFilter;
  return matchesSearch && matchesPriority;
@@ -839,92 +839,92 @@ export function KanbanBoard() {
  setActiveIssue(issues.find(i => i.id === active.id) || null);
  };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveIssue(null);
-    const { active, over } = event;
-    if (!over) return;
+ const handleDragEnd = (event: DragEndEvent) => {
+ setActiveIssue(null);
+ const { active, over } = event;
+ if (!over) return;
 
-    const activeId = active.id as string;
-    const overId = over.id as string;
+ const activeId = active.id as string;
+ const overId = over.id as string;
 
-    const activeIssueData = issues.find(i => i.id === activeId);
-    if (!activeIssueData) return;
+ const activeIssueData = issues.find(i => i.id === activeId);
+ if (!activeIssueData) return;
 
-    let newStatus = activeIssueData.status;
-    let overIssueData = issues.find(i => i.id === overId);
+ let newStatus = activeIssueData.status;
+ let overIssueData = issues.find(i => i.id === overId);
 
-    if (STATUSES.includes(overId)) {
-      newStatus = overId as TaskStatus;
-    } else if (overIssueData) {
-      newStatus = overIssueData.status;
-    }
+ if (STATUSES.includes(overId)) {
+ newStatus = overId as TaskStatus;
+ } else if (overIssueData) {
+ newStatus = overIssueData.status;
+ }
 
-    let newPosition = activeIssueData.position;
+ let newPosition = activeIssueData.position;
 
-    if (activeId !== overId) {
-      const statusIssues = issues.filter(i => !i.parentTaskId && i.status === newStatus).sort((a, b) => a.position - b.position);
+ if (activeId !== overId) {
+ const statusIssues = issues.filter(i => !i.parentTaskId && i.status === newStatus).sort((a, b) => a.position - b.position);
 
-      if (STATUSES.includes(overId)) {
-        // Dropped directly on an empty column or trailing space of a column
-        // Place at the bottom of that column
-        const lastCard = statusIssues[statusIssues.length - 1];
-        newPosition = (lastCard?.position ?? 0) + 1000;
-      } else {
-        const filtered = statusIssues.filter(i => i.id !== activeId);
-        let insertIndex = filtered.findIndex(i => i.id === overId);
+ if (STATUSES.includes(overId)) {
+ // Dropped directly on an empty column or trailing space of a column
+ // Place at the bottom of that column
+ const lastCard = statusIssues[statusIssues.length - 1];
+ newPosition = (lastCard?.position ?? 0) + 1000;
+ } else {
+ const filtered = statusIssues.filter(i => i.id !== activeId);
+ let insertIndex = filtered.findIndex(i => i.id === overId);
 
-        // If moving down in the same column, dnd-kit overId represents the card we swap with
-        const activeIndex = statusIssues.findIndex(i => i.id === activeId);
-        if (activeIssueData.status === newStatus && activeIndex !== -1 && activeIndex < insertIndex) {
-          insertIndex += 1; // Insert after
-        }
+ // If moving down in the same column, dnd-kit overId represents the card we swap with
+ const activeIndex = statusIssues.findIndex(i => i.id === activeId);
+ if (activeIssueData.status === newStatus && activeIndex !== -1 && activeIndex < insertIndex) {
+ insertIndex += 1; // Insert after
+ }
 
-        const aboveCard = filtered[insertIndex - 1];
-        const belowCard = filtered[insertIndex];
+ const aboveCard = filtered[insertIndex - 1];
+ const belowCard = filtered[insertIndex];
 
-        // Solved float midpoint precision degradation with the manual 'Rebalance Sort' function (which could be moved to a cron).
-        newPosition = ((aboveCard?.position ?? 0) + (belowCard?.position ?? (aboveCard?.position ?? 0) + 1000)) / 2;
-      }
-    }
+ // Solved float midpoint precision degradation with the manual 'Rebalance Sort' function (which could be moved to a cron).
+ newPosition = ((aboveCard?.position ?? 0) + (belowCard?.position ?? (aboveCard?.position ?? 0) + 1000)) / 2;
+ }
+ }
 
-    if (activeIssueData.status !== newStatus || activeIssueData.position !== newPosition) {
-      // Optimistic update
-      queryClient.setQueryData(['issues'], (old: any) => {
-        if (!old) return old;
-        return old.map((i: any) => i.id === activeId ? { ...i, status: newStatus, position: newPosition } : i);
-      });
+ if (activeIssueData.status !== newStatus || activeIssueData.position !== newPosition) {
+ // Optimistic update
+ queryClient.setQueryData(['issues'], (old: any) => {
+ if (!old) return old;
+ return old.map((i: any) => i.id === activeId ? { ...i, status: newStatus, position: newPosition } : i);
+ });
 
-      updateIssueMutation.mutate({ id: activeId, data: { status: newStatus, position: newPosition } }, {
-        onError: () => {
-          // Revert optimistic update on failure
-          queryClient.invalidateQueries({ queryKey: ['issues'] });
-          toast.error('Failed to move task');
-        }
-      });
-    }
-  };
+ updateIssueMutation.mutate({ id: activeId, data: { status: newStatus, position: newPosition } }, {
+ onError: () => {
+ // Revert optimistic update on failure
+ queryClient.invalidateQueries({ queryKey: ['issues'] });
+ toast.error('Failed to move task');
+ }
+ });
+ }
+ };
 
  const openIssuesCount = issues.filter((i: any) => i.status !== "DONE" && i.status !== "CANCELED").length;
 
  return (
  <div className="p-4 sm:p-6 md:p-8 h-full flex flex-col bg-canvas animate-in fade-in duration-150 gap-6">
 
-  {/* PageHeader with Execution Board Directives */}
-  <PageHeader
-    icon={KanbanSquare}
-    iconColorClass="text-[#2563EB]"
-    title="Execution Board"
-    description="Drag and drop directives across sprint stages. Bounded mission execution canvas."
-    statPill={{
-      label: `${openIssuesCount} active directives`,
-      colorClass: "bg-[#EFF4FE] text-[#2563EB] border-[#2563EB]/20"
-    }}
-    primaryAction={{
-      label: "New Directive",
-      icon: Plus,
-      onClick: () => handleCreateIssue("TODO")
-    }}
-  />
+ {/* PageHeader with Execution Board Directives */}
+ <PageHeader
+ icon={KanbanSquare}
+ iconColorClass="text-[#2563EB]"
+ title="Execution Board"
+ description="Drag and drop directives across sprint stages. Bounded mission execution canvas."
+ statPill={{
+ label: `${openIssuesCount} active directives`,
+ colorClass: "bg-[#EFF4FE] text-[#2563EB] border-[#2563EB]/20"
+ }}
+ primaryAction={{
+ label: "New Directive",
+ icon: Plus,
+ onClick: () => handleCreateIssue("TODO")
+ }}
+ />
 
  {/* BOARD CONTROLS & FILTERS */}
  <div className="v4-card p-3 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">

@@ -1,20 +1,30 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import type { Server as HttpServer } from 'http';
 import jwt from 'jwt-simple';
+import { createAdapter } from '@socket.io/redis-adapter';
+import Redis from 'ioredis';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key';
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 class SocketService {
   private io: SocketIOServer | null = null;
-  private userSockets: Map<string, Set<string>> = new Map();
 
   public init(httpServer: HttpServer) {
+    if (!process.env.JWT_SECRET) {
+      throw new Error('FATAL: JWT_SECRET environment variable is missing.');
+    }
+    const JWT_SECRET = process.env.JWT_SECRET;
+
     this.io = new SocketIOServer(httpServer, {
       cors: {
-        origin: '*', 
+        origin: process.env.CORS_ORIGIN || 'http://localhost:5173', 
         methods: ['GET', 'POST']
       }
     });
+
+    const pubClient = new Redis(REDIS_URL);
+    const subClient = pubClient.duplicate();
+    this.io.adapter(createAdapter(pubClient, subClient));
 
     this.io.use((socket: Socket, next) => {
       const token = socket.handshake.auth.token;
@@ -33,21 +43,10 @@ class SocketService {
     this.io.on('connection', (socket: Socket) => {
       const userId = (socket as any).user.id;
       
-      if (!this.userSockets.has(userId)) {
-        this.userSockets.set(userId, new Set());
-      }
-      this.userSockets.get(userId)!.add(socket.id);
-
+      socket.join(userId);
       console.log(`[Socket] User ${userId} connected (${socket.id})`);
 
       socket.on('disconnect', () => {
-        const userSet = this.userSockets.get(userId);
-        if (userSet) {
-          userSet.delete(socket.id);
-          if (userSet.size === 0) {
-            this.userSockets.delete(userId);
-          }
-        }
         console.log(`[Socket] User ${userId} disconnected (${socket.id})`);
       });
     });
@@ -62,13 +61,7 @@ class SocketService {
 
   public emitToUser(userId: string, event: string, data: any) {
     if (!this.io) return;
-    
-    const socketIds = this.userSockets.get(userId);
-    if (socketIds && socketIds.size > 0) {
-      socketIds.forEach(socketId => {
-        this.io!.to(socketId).emit(event, data);
-      });
-    }
+    this.io.to(userId).emit(event, data);
   }
 }
 

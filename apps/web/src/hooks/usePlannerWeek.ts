@@ -9,6 +9,7 @@ import { plannerApi } from '../api/plannerApi';
 import { api } from '../api/client';
 import type { RoutineOccurrence } from '../types/planner';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
 
 function getWeekDays(referenceDate: Date): Date[] {
   const monday = startOfWeek(referenceDate, { weekStartsOn: 1 });
@@ -29,12 +30,18 @@ export function usePlannerWeek() {
   const daysSinceStart = Math.floor((days[0].getTime() - startOfYear.getTime()) / 86400000);
   const weekNumber = Math.ceil((daysSinceStart + startOfYear.getDay() + 1) / 7);
 
+  const { workspaceId, user, isLoading: authLoading } = useAuth();
+
   // Main data query
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['planner', 'week', weekStart],
+  const { data, isLoading: queryLoading, isError, refetch } = useQuery({
+    queryKey: ['planner', 'week', weekStart, workspaceId],
     queryFn: () => plannerApi.getWeek(weekStart, weekEnd),
+    enabled: !authLoading && !!user,
     staleTime: 30_000,
+    retry: 2,
   });
+
+  const isLoading = authLoading || (queryLoading && !data);
 
   // Navigation
   const navigateWeek = useCallback((direction: 'prev' | 'next' | 'today') => {
@@ -100,7 +107,7 @@ export function usePlannerWeek() {
   const updateTimeBlockMutation = useMutation({
     mutationFn: (args: { id: string, data: any }) => api.planner.updateTimeBlock(args.id, args.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planner', 'week', weekStart] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
     },
     onError: (err: any) => {
       toast.error('Failed to update time block: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
@@ -110,7 +117,8 @@ export function usePlannerWeek() {
   const deleteTimeBlockMutation = useMutation({
     mutationFn: (id: string) => api.planner.deleteTimeBlock(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planner', 'week', weekStart] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      toast.success('Time block deleted');
     },
     onError: (err: any) => {
       toast.error('Failed to delete time block: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));

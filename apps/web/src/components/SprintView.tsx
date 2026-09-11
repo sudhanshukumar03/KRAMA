@@ -9,14 +9,14 @@ import { LoadingState } from './ui/LoadingState';
 import { cn } from '../lib/utils';
 
 export function SprintView() {
-  const queryClient = useQueryClient();
-  const { data: sprints = [], isLoading: sprintsLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
-  const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
-  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+ const queryClient = useQueryClient();
+ const { data: sprints = [], isLoading: sprintsLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
+ const { data: issues = [], isLoading: issuesLoading } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
+ const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
 
-  const handleStartSprint = async () => {
-    try {
-      if (projects.length === 0) {
+ const handleStartSprint = async () => {
+ try {
+ if (projects.length === 0) {
  toast.error('No project found. Create a project first!');
  return;
  }
@@ -188,7 +188,7 @@ export function SprintView() {
  <span className="capitalize bg-surface-hover px-1.5 py-0.2 rounded border border-border">{issue.status.replace('_', ' ')}</span>
  <span>•</span>
  <span className={cn("px-1.5 py-0.2 rounded uppercase font-bold text-[9px] border",
- issue.priority === "URGENT" ?"bg-blue-500/10 text-[#2563EB] border-[#2563EB]/20" :"bg-surface-hover text-secondary border-border"
+ issue.priority === "URGENT" ?"bg-accent/10 text-[#2563EB] border-[#2563EB]/20" :"bg-surface-hover text-secondary border-border"
  )}>{issue.priority}</span>
  <span>•</span>
  <span className="text-primary font-medium">{issue.estimateMinutes || 3}h pt</span>

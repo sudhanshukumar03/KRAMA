@@ -23,14 +23,14 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
  const [sliderVal, setSliderVal] = useState(goal.progress);
 
  const updateGoalMutation = useMutation({
-  mutationFn: (newProgress: number) => api.goals.update(goal.id, { progress: newProgress }),
-  onSuccess: () => {
-  queryClient.invalidateQueries({ queryKey: ['goals'] });
-  setIsEditingProgress(false);
-  },
-  onError: (err: any) => {
-  toast.error('Failed to update goal progress: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
-  }
+ mutationFn: (newProgress: number) => api.goals.update(goal.id, { progress: newProgress }),
+ onSuccess: () => {
+ queryClient.invalidateQueries({ queryKey: ['goals'] });
+ setIsEditingProgress(false);
+ },
+ onError: (err: any) => {
+ toast.error('Failed to update goal progress: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+ }
  });
 
  const handleDeleteGoal = async (e: React.MouseEvent) => {
@@ -86,19 +86,19 @@ function GoalCard({ goal, depth = 0 }: { goal: GoalWithRelations, depth?: number
  </div>
  )}
  {(goal._count?.projects !== undefined || goal._count?.habits !== undefined) && (
-  <div className="flex items-center gap-2 mt-1.5 text-caption text-secondary font-mono">
-  {goal._count.projects !== undefined && (
-  <span className="bg-surface-hover px-1.5 py-0.5 rounded text-[10px]">
-  {goal._count.projects} project{goal._count.projects !== 1 ? 's' : ''}
-  </span>
-  )}
-  {goal._count.habits !== undefined && (
-  <span className="bg-surface-hover px-1.5 py-0.5 rounded text-[10px]">
-  {goal._count.habits} habit{goal._count.habits !== 1 ? 's' : ''}
-  </span>
-  )}
-  </div>
-  )}
+ <div className="flex items-center gap-2 mt-1.5 text-caption text-secondary font-mono">
+ {goal._count.projects !== undefined && (
+ <span className="bg-surface-hover px-1.5 py-0.5 rounded text-[10px]">
+ {goal._count.projects} project{goal._count.projects !== 1 ? 's' : ''}
+ </span>
+ )}
+ {goal._count.habits !== undefined && (
+ <span className="bg-surface-hover px-1.5 py-0.5 rounded text-[10px]">
+ {goal._count.habits} habit{goal._count.habits !== 1 ? 's' : ''}
+ </span>
+ )}
+ </div>
+ )}
  </div>
  
  <div className="flex items-center gap-3">
@@ -267,29 +267,29 @@ function GoalCreateModal({
 
  <form onSubmit={handleSubmit} className="p-6 space-y-4">
  <div className="flex gap-3">
-   <div>
-     <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
-       Icon
-     </label>
-     <IconPicker
-       value={icon}
-       onChange={setIcon}
-       triggerClassName="w-10 h-10 px-0 py-0"
-     />
-   </div>
-   <div className="flex-1">
-     <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
-     Objective Title <span className="text-[#DC2626]">*</span>
-     </label>
-     <input
-     type="text"
-     value={title}
-     onChange={e => setTitle(e.target.value)}
-     placeholder="e.g., Ship Krama OS v1.0 Public Beta"
-     required
-     className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent/30 transition-shadow"
-     />
-   </div>
+ <div>
+ <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
+ Icon
+ </label>
+ <IconPicker
+ value={icon}
+ onChange={setIcon}
+ triggerClassName="w-10 h-10 px-0 py-0"
+ />
+ </div>
+ <div className="flex-1">
+ <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
+ Objective Title <span className="text-[#DC2626]">*</span>
+ </label>
+ <input
+ type="text"
+ value={title}
+ onChange={e => setTitle(e.target.value)}
+ placeholder="e.g., Ship Krama OS v1.0 Public Beta"
+ required
+ className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent/30 transition-shadow"
+ />
+ </div>
  </div>
 
  <div className="grid grid-cols-2 gap-4">
@@ -359,16 +359,16 @@ export function Goals() {
 
  const queryClient = useQueryClient();
  const toggleHabitMutation = useMutation({
-  mutationFn: (id: string) => api.habits.complete(id),
-  onSuccess: () => {
-  queryClient.invalidateQueries({ queryKey: ['habits'] });
-  queryClient.invalidateQueries({ queryKey: ['snapshots'] });
-  queryClient.invalidateQueries({ queryKey: ['goals'] });
-  },
-  onError: () => {
-    toast.error('Failed to complete routine');
-  }
-  });
+ mutationFn: (id: string) => api.habits.complete(id),
+ onSuccess: () => {
+ queryClient.invalidateQueries({ queryKey: ['habits'] });
+ queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+ queryClient.invalidateQueries({ queryKey: ['goals'] });
+ },
+ onError: () => {
+ toast.error('Failed to complete routine');
+ }
+ });
 
  const restoreHabitMutation = useMutation({
  mutationFn: (snapshot: any) => api.habits.restore(snapshot),
@@ -519,13 +519,13 @@ export function Goals() {
  <div className="v4-card overflow-hidden pt-1">
  <div className="divide-y divide-border">
  {habits.filter(isHabitScheduledToday).map(habit => (
-  <HabitRow
-    key={habit.id}
-    habit={habit}
-    onToggle={() => toggleHabitMutation.mutate(habit.id)}
-    onDelete={(id) => deleteHabitMutation.mutate(id)}
-    onNavigate={() => navigate('/app/habits')}
-  />
+ <HabitRow
+ key={habit.id}
+ habit={habit}
+ onToggle={() => toggleHabitMutation.mutate(habit.id)}
+ onDelete={(id) => deleteHabitMutation.mutate(id)}
+ onNavigate={() => navigate('/app/habits')}
+ />
  ))}
  {habits.filter(isHabitScheduledToday).length === 0 && (
  <div className="py-8">

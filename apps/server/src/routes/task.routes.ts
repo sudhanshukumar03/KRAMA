@@ -20,7 +20,7 @@ router.get('/', requireWorkspaceRole('VIEWER'), listTasks);
 router.get('/:id', requireWorkspaceRole('VIEWER'), getTask);
 router.post('/', requireWorkspaceRole('MEMBER'), createTask);
 router.patch('/:id', requireWorkspaceRole('MEMBER'), updateTask);
-router.delete('/:id', requireWorkspaceRole('ADMIN'), deleteTask);
+router.delete('/:id', requireWorkspaceRole('MEMBER'), deleteTask);
 router.patch('/:id/reorder', requireWorkspaceRole('MEMBER'), reorderTask);
 router.patch('/:id/complete', requireWorkspaceRole('MEMBER'), completeTask);
 router.post('/:id/restore', requireWorkspaceRole('MEMBER'), restoreTask);

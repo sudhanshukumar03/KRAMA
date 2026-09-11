@@ -16,6 +16,7 @@
     "@playwright/test": "^1.62.1",
     "@types/node": "^24.13.3",
     "concurrently": "^8.2.2",
+    "dotenv": "^17.4.2",
     "esbuild": "^0.28.2",
     "typescript": "^5.5.3"
   },
@@ -28,8 +29,5 @@
       "prisma",
       "@google/genai"
     ]
-  },
-  "dependencies": {
-    "@tailwindcss/typography": "^0.5.20"
   }
 }

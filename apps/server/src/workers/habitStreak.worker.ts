@@ -26,22 +26,19 @@ export const habitStreakWorker = new Worker(
 
       if (habit.completions.length > 0) {
         let iterDate = new Date();
-        iterDate.setUTCHours(0, 0, 0, 0); // Normalize to UTC midnight, ignore server timezone
+        iterDate.setUTCHours(12, 0, 0, 0); // Normalize to UTC noon (new dateKey standard)
 
         // Track consumed completions to prevent double-counting across overlapping day windows
         const consumedCompletionIds = new Set<string>();
 
-        // Helper: Widen tolerance to accurately span all global timezones (-14h to +36h).
-        // A 50-hour window safely covers from UTC+14 to UTC-12.
         const consumeCompletionForDay = (targetDate: Date) => {
           const targetTime = targetDate.getTime();
-          const windowStart = targetTime - (14 * 60 * 60 * 1000); // 14 hours before UTC midnight (UTC+14)
-          const windowEnd = targetTime + (36 * 60 * 60 * 1000); // 36 hours after UTC midnight (UTC-12)
           
           const match = habit.completions.find((c: any) => {
+             if (c.offSchedule) return false;
              if (consumedCompletionIds.has(c.id)) return false;
-             const t = new Date(c.completedAt).getTime();
-             return t >= windowStart && t <= windowEnd;
+             const t = c.date.getTime(); // Use the canonical date column
+             return t === targetTime;
           });
 
           if (match) {

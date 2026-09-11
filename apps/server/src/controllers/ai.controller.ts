@@ -1,4 +1,11 @@
 import { kramaAiService } from '../services/krama-ai.service';
+import type { Request, Response } from 'express';
+import { aiService } from '../services/ai.service';
+import { prisma } from '../prisma';
+import { logger } from '../utils/logger';
+import { getEmbedding } from '../lib/embedding';
+import { redisService } from '../services/redis.service';
+import { vectorSearch, keywordSearch, mergeAndRank } from '../services/rag/retriever';
 
 export const kramaChat = async (req: any, res: any) => {
   try {
@@ -35,14 +42,6 @@ export const kramaChat = async (req: any, res: any) => {
     return res.status(500).json({ success: false, message: 'AI request failed' });
   }
 };
-
-import type { Request, Response } from 'express';
-import { aiService } from '../services/ai.service';
-import { prisma } from '../prisma';
-import { logger } from '../utils/logger';
-import { getEmbedding } from '../lib/embedding';
-import { redisService } from '../services/redis.service';
-import { vectorSearch, keywordSearch, mergeAndRank } from '../services/rag/retriever';
 
 const KRAMA_SYSTEM_PROMPT = `You are KRAMA AI, an intelligent productivity assistant.
 Your job is to help the user think, plan, execute, and reflect.
@@ -221,12 +220,6 @@ export const getConfig = async (req: Request, res: Response) => {
   if (process.env.GEMINI_API_KEY) {
     provider = 'gemini';
     model = 'gemini-1.5-flash';
-  } else if (!process.env.GROQ_API_KEY && process.env.OPENAI_API_KEY) {
-    provider = 'openai';
-    model = 'gpt-4o-mini';
-  } else if (!process.env.GROQ_API_KEY && process.env.ANTHROPIC_API_KEY) {
-    provider = 'anthropic';
-    model = 'claude-3-haiku-20240307';
   }
 
   return res.status(200).json({

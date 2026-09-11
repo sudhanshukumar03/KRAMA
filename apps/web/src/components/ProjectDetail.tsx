@@ -17,15 +17,14 @@ import { resolveIcon } from '../lib/iconResolver';
 export function ProjectDetail() {
  const { id } = useParams();
  const navigate = useNavigate();
- const [activeTab, setActiveTab] = useState<'overview' | 'board' | 'roadmap' | 'docs'>('overview');
+ const [activeTab, setActiveTab] = useState<'overview' | 'board' | 'docs'>('overview');
 
  const { data: projects = [], isLoading: pLoading, isError: pError } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
  const { data: issues = [], isLoading: iLoading, isError: iError } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
  const { data: pages = [], isLoading: docsLoading } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
- const { data: roadmapItems = [], isLoading: rmLoading } = useQuery({ queryKey: ['roadmapItems'], queryFn: api.roadmapItems.list });
  const { data: goals = [], isLoading: goalsLoading } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
 
- if (pLoading || iLoading || docsLoading || rmLoading || goalsLoading) {
+ if (pLoading || iLoading || docsLoading || goalsLoading) {
  return <LoadingState variant="project-detail" title="Loading Strategic Initiative..." description="Aggregating roadmap milestones, sprint tickets, and engineering documentation..." />;
  }
 
@@ -52,7 +51,6 @@ export function ProjectDetail() {
 
  const projectIssues = project.tasks || issues.filter(i => i.projectId === project.id);
  const projectDocs = project.pages || pages.filter(p => p.linkedProjectId === project.id);
- const projectRoadmap = project.roadmapItems || roadmapItems.filter(r => r.projectId === project.id).sort((a, b) => a.order - b.order);
  const projectGoal = project.goal || (project.goalId ? goals.find(g => g.id === project.goalId) : null);
 
  const completedIssues = projectIssues.filter((i: any) => i.status === "DONE" || i.status === "REVIEW");
@@ -135,7 +133,7 @@ export function ProjectDetail() {
 
  {/* MISSION CONTROL TABS */}
  <div className="flex gap-8 mt-1 border-t border-border">
- {(['overview', 'board', 'roadmap', 'docs'] as const).map(tab => (
+ {(['overview', 'board', 'docs'] as const).map(tab => (
  <button
  key={tab}
  onClick={() => setActiveTab(tab)}
@@ -237,7 +235,7 @@ export function ProjectDetail() {
  <span className="text-[10px] font-mono text-secondary mt-0.5">{issue.id.slice(0, 7).toUpperCase()}</span>
  </div>
  <span className={cn("px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider border shrink-0",
- issue.priority === "URGENT" ?"bg-red-500/10 text-red-600 border-red-500/20" :"bg-surface-hover text-secondary border-border/80"
+ issue.priority === "URGENT" ?"bg-error-tint text-error border-error-tint" :"bg-surface-hover text-secondary border-border/80"
  )}>
  {issue.status.replace('_', ' ')}
  </span>
@@ -289,7 +287,7 @@ export function ProjectDetail() {
  {issue.id.slice(0, 7).toUpperCase()}
  </span>
  <span className={cn("text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border",
- issue.priority === "URGENT" ?"bg-red-500/10 text-red-600 border-red-500/20" :
+ issue.priority === "URGENT" ?"bg-error-tint text-error border-error-tint" :
  issue.priority === "HIGH" ?"bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20" :"bg-surface-hover text-secondary border-border/80"
  )}>
  {issue.priority}
@@ -332,58 +330,6 @@ export function ProjectDetail() {
  </div>
  );
  })}
- </div>
- </div>
- )}
-
- {/* ROADMAP TAB */}
- {activeTab === 'roadmap' && (
- <div className="max-w-4xl animate-in fade-in duration-150 font-sans">
- <div className="flex items-center justify-between mb-8 bg-surface p-5 rounded-2xl border border-border shadow-xs">
- <div>
- <h2 className="text-section text-primary mb-3 ">Initiative Roadmap & Milestones</h2>
- <p className="text-caption text-secondary font-mono mt-0.5">Phased architectural milestones and release horizons for this initiative.</p>
- </div>
- <BaseButton className="text-caption px-4 py-2 cursor-pointer"><Plus className="w-4 h-4 mr-1.5 stroke-[1.5]"/> Add Horizon Phase</BaseButton>
- </div>
- 
- <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-[#2563EB] before:via-border before:to-transparent">
- {projectRoadmap.map((item: any) => (
- <div key={item.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
- 
- {/* Timeline Precision Node */}
- <div className="flex items-center justify-center w-10 h-10 rounded-full bg-surface shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 border-2 border-border shadow-sm group-hover:border-[#2563EB] :border-[#2563EB] transition-colors">
- <div className={cn("w-3.5 h-3.5 rounded-full transition-all",
- item.status === 'completed' ?"bg-[#109868] shadow-2xs" : item.status === "IN_PROGRESS" ?"bg-[#2563EB] animate-pulse" :"bg-border"
- )} />
- </div>
-
- {/* Roadmap Milestone Card */}
- <div className={cn("w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-6 rounded-2xl border bg-surface transition-all shadow-xs hover:shadow-md",
- item.status === 'completed' ?"border-border/80 opacity-80" :"border-border hover:border-[#2563EB] :border-[#2563EB]"
- )}>
- <div className="flex items-center justify-between mb-2.5">
- <span className="text-caption font-mono font-bold uppercase tracking-widest text-[#2563EB] bg-[#2563EB]/10 px-2.5 py-0.5 rounded-md border border-[#2563EB]/20">{item.version}</span>
- <span className={cn("text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md border",
- item.status === 'completed' ?"bg-[#109868]/10 text-[#109868] border-[#109868]/20" : 
- item.status === "IN_PROGRESS" ?"bg-[#2563EB] text-white border-transparent shadow-2xs" :"bg-surface-hover border-border text-secondary"
- )}>
- {item.status.replace('_', ' ')}
- </span>
- </div>
- <h3 className="text-card text-primary mb-2 .5">
- {item.title}
- </h3>
- {item.description && <p className="text-caption md:text-body text-secondary leading-relaxed">{item.description}</p>}
- </div>
-
- </div>
- ))}
- {projectRoadmap.length === 0 && (
- <div className="relative py-16 flex justify-center bg-surface/50 z-10 rounded-2xl border border-border border-dashed">
- <EmptyState icon={Clock} description="No roadmap phases mapped for this initiative" />
- </div>
- )}
  </div>
  </div>
  )}
@@ -463,12 +409,12 @@ function CompactGoalCard({ goal }: { goal: GoalWithRelations }) {
  {/* Pace Telemetry Panel */}
  <div className="bg-surface-hover/80 border border-border rounded-xl p-3.5 flex flex-wrap gap-x-6 gap-y-2 items-center font-mono text-caption">
  <div className="flex items-center gap-1.5 font-bold">
- {['stalled', 'past_due'].includes(pace.status) ? <XCircle className="w-4 h-4 text-red-500 stroke-[1.5]" /> :
- pace.status === 'behind' ? <AlertCircle className="w-4 h-4 text-amber-500 stroke-[1.5]" /> :
+ {['stalled', 'past_due'].includes(pace.status) ? <XCircle className="w-4 h-4 text-error stroke-[1.5]" /> :
+ pace.status === 'behind' ? <AlertCircle className="w-4 h-4 text-warning stroke-[1.5]" /> :
  pace.status === 'ahead' ? <ArrowUpCircle className="w-4 h-4 text-[#109868] stroke-[1.5]" /> :
  <CheckCircle2 className="w-4 h-4 text-[#109868] stroke-[1.5]" />}
  <span className={cn("uppercase tracking-widest text-badge font-bold",
- ['stalled', 'past_due', 'behind'].includes(pace.status) ?"text-red-500" :"text-[#109868]"
+ ['stalled', 'past_due', 'behind'].includes(pace.status) ?"text-error" :"text-[#109868]"
  )}>
  {pace.badge}
  </span>
@@ -481,7 +427,7 @@ function CompactGoalCard({ goal }: { goal: GoalWithRelations }) {
 
  <div className="text-badge uppercase tracking-wider font-bold text-primary ml-auto">
  {pace.status === 'stalled' || (pace.status === 'past_due' && pace.actualPace === 0) ? (
- <span className="text-red-500">Stalled — Intervention Required</span>
+ <span className="text-error">Stalled — Intervention Required</span>
  ) : pace.projectedDate ? (
  <span>Est. Completion: {pace.projectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
  ) : null}

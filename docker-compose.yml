@@ -42,11 +42,30 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://krama_user:krama_password@db:5432/krama_os
+      - DATABASE_URL=postgresql://krama_user:krama_password@db:5432/krama_os?schema=public
       - REDIS_URL=redis://:krama_redis_secret@redis:6379
       - JWT_SECRET=krama_super_secret_jwt_key
       - PORT=3000
       - FRONTEND_URL=http://localhost:8080
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: krama-worker
+    command: ["node", "dist/worker.js"]
+    environment:
+      - DATABASE_URL=postgresql://krama_user:krama_password@db:5432/krama_os?schema=public
+      - REDIS_URL=redis://:krama_redis_secret@redis:6379
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy

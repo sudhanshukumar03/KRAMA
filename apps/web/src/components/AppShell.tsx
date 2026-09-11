@@ -103,9 +103,9 @@ export function AppShell() {
  } else if (activePrefix === 't') {
  if (key === 't') toggleTheme();
  } else if (activePrefix === 's') {
-  if (key === 'n') navigate('/app/analytics');
-  else if (key === 'a') window.dispatchEvent(new CustomEvent('open-ai-assistant'));
-  }
+ if (key === 'n') navigate('/app/analytics');
+ else if (key === 'a') window.dispatchEvent(new CustomEvent('open-ai-assistant'));
+ }
  setActivePrefix(null);
  clearTimeout(timeoutId);
  return;
@@ -131,7 +131,7 @@ export function AppShell() {
  return (
  <div className="flex flex-col md:flex-row h-screen w-full bg-canvas text-primary overflow-hidden font-sans select-none">
  <CommandPalette />
-      <FocusTimerWidget />
+ <FocusTimerWidget />
 
  {!focusMode && (
  <Sidebar 
@@ -189,7 +189,7 @@ export function AppShell() {
  className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover transition-colors border border-border"
  title="Toggle Theme"
  >
- {theme === 'system' ? <Monitor className="w-4 h-4 text-secondary" /> : theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-secondary" />}
+ {theme === 'system' ? <Monitor className="w-4 h-4 text-secondary" /> : theme === 'dark' ? <Sun className="w-4 h-4 text-warning" /> : <Moon className="w-4 h-4 text-secondary" />}
  </button>
  <div className="text-[10px] font-mono text-[#0D9488] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0] flex items-center gap-1">
  <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" /> Online
@@ -214,8 +214,8 @@ export function AppShell() {
  <Route path="/analytics/*" element={<Analytics />} />
  <Route path="/decisions" element={<DecisionLog />} />
  <Route path="/graph" element={<KnowledgeGraph />} />
-                <Route path="/automations" element={<AutomationRules />} />
-                <Route path="/career" element={<SkillsModule />} />
+ <Route path="/automations" element={<AutomationRules />} />
+ <Route path="/career" element={<SkillsModule />} />
  </Routes></GlobalErrorBoundary>
  </main>
  </div>
@@ -235,8 +235,8 @@ export function AppShell() {
  </div>
  <div className="text-[10px] text-muted pl-2 border-l border-white/10">
  {activePrefix === 'g' ? 'D (Dash), B (Brain), G (Goals), P (Proj)' : 
-   activePrefix === 'e' ? 'W (Plan), T (Time), K (Board), S (Sprint), R (Rev), H (Habit)' :
-   activePrefix === 's' ? 'N (Analytics)' : 'T (Toggle Theme)'}
+ activePrefix === 'e' ? 'W (Plan), T (Time), K (Board), S (Sprint), R (Rev), H (Habit)' :
+ activePrefix === 's' ? 'N (Analytics)' : 'T (Toggle Theme)'}
  </div>
  </div>
  )}

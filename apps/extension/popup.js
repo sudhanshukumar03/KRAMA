@@ -1,4 +1,13 @@
-const API_BASE = 'http://localhost:3000/api/v1';
+// --- Configurable API Base ---
+const DEV_API = 'http://localhost:3000/api/v1';
+const PROD_API = 'https://api.krama-os.com/api/v1';
+
+let API_BASE = DEV_API;
+
+async function initApiBase() {
+  const { apiBase } = await chrome.storage.local.get('apiBase');
+  API_BASE = apiBase || DEV_API;
+}
 
 // DOM Elements
 const authView = document.getElementById('authView');
@@ -63,13 +72,13 @@ async function apiFetch(endpoint, options = {}) {
         res = await fetch(`${API_BASE}${endpoint}`, options);
       } else {
         // Refresh failed, bail
-        document.getElementById('logoutBtn').click();
+        handleLogout();
       }
     } catch (e) {
-      document.getElementById('logoutBtn').click();
+      handleLogout();
     }
   } else if (res.status === 401) {
-    document.getElementById('logoutBtn').click();
+    handleLogout();
   }
   
   return res;
@@ -77,6 +86,9 @@ async function apiFetch(endpoint, options = {}) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+  // Init configurable API base
+  await initApiBase();
+
   // Load BOTH tokens on startup
   const result = await chrome.storage.local.get(['accessToken', 'refreshToken']);
   if (result.accessToken) {
@@ -96,32 +108,50 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Fetch page info for clipper
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const tab = tabs[0];
-    clipTitle.value = tab.title || '';
-    const url = tab.url;
-    clipText.value = url + '\n\n';
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab) {
+      clipTitle.value = activeTab.title || '';
+      const url = activeTab.url || '';
+      clipText.value = url + '\n\n';
 
-    chrome.tabs.sendMessage(tab.id, { action: 'getSelection' }, (response) => {
-      if (chrome.runtime.lastError) return;
-      if (response && response.selection) {
-        clipText.value = url + '\n\n> ' + response.selection.replace(/\n/g, '\n> ') + '\n\n';
+      // Try to get selected text from the page
+      if (activeTab.id) {
+        chrome.tabs.sendMessage(activeTab.id, { action: 'getSelection' }, (response) => {
+          if (chrome.runtime.lastError) return;
+          if (response && response.selection) {
+            clipText.value = url + '\n\n> ' + response.selection.replace(/\n/g, '\n> ') + '\n\n';
+          }
+        });
       }
-    });
-  });
+    }
+  } catch (e) {
+    // Tab query failed — might be on a restricted page
+    console.warn('Could not query active tab:', e);
+  }
 });
 
 function showMessage(el, text, type) {
   el.textContent = text;
   el.className = 'message ' + type;
   setTimeout(() => {
-    el.className = 'message hidden';
+    el.textContent = '';
+    el.className = 'message';
   }, 3000);
 }
 
 loginBtn.addEventListener('click', async () => {
-  const email = emailInput.value;
+  const email = emailInput.value.trim();
   const password = passwordInput.value;
+
+  // Input validation
+  if (!email || !password) {
+    return showMessage(authMessage, 'Email and password are required', 'error');
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return showMessage(authMessage, 'Please enter a valid email', 'error');
+  }
+
   loginBtn.disabled = true;
   loginBtn.textContent = 'Connecting...';
   
@@ -145,27 +175,33 @@ loginBtn.addEventListener('click', async () => {
       showMessage(authMessage, data.message || 'Login failed', 'error');
     }
   } catch (err) {
-    showMessage(authMessage, 'Network error. Backend might be down.', 'error');
+    showMessage(authMessage, 'Network error. Is the backend running?', 'error');
   } finally {
     loginBtn.disabled = false;
     loginBtn.textContent = 'Connect to KRAMA OS';
   }
 });
 
-logoutBtn.addEventListener('click', async () => {
-  await chrome.storage.local.remove(['accessToken', 'refreshToken']);
+function handleLogout() {
+  chrome.storage.local.remove(['accessToken', 'refreshToken']);
   currentRefreshToken = null;
   currentToken = null;
   authView.classList.add('active');
   appView.classList.remove('active');
   logoutBtn.classList.add('hidden');
-});
+}
+
+logoutBtn.addEventListener('click', handleLogout);
 
 async function showApp() {
   authView.classList.remove('active');
   appView.classList.add('active');
   logoutBtn.classList.remove('hidden');
   
+  // Show loading state
+  clipWorkspace.innerHTML = '<option disabled>Loading...</option>';
+  taskWorkspace.innerHTML = '<option disabled>Loading...</option>';
+
   // Load workspaces using apiFetch (auto-refresh enabled)
   try {
     const res = await apiFetch('/workspaces');
@@ -174,12 +210,21 @@ async function showApp() {
     const workspaces = await res.json();
     clipWorkspace.innerHTML = '';
     taskWorkspace.innerHTML = '';
+
+    if (workspaces.length === 0) {
+      clipWorkspace.add(new Option('No workspaces found', ''));
+      taskWorkspace.add(new Option('No workspaces found', ''));
+      return;
+    }
+
     workspaces.forEach(w => {
       clipWorkspace.add(new Option(w.name, w.id));
       taskWorkspace.add(new Option(w.name, w.id));
     });
   } catch(e) {
-    console.error(e);
+    clipWorkspace.innerHTML = '<option disabled>Failed to load</option>';
+    taskWorkspace.innerHTML = '<option disabled>Failed to load</option>';
+    console.error('Failed to load workspaces:', e);
   }
 }
 
@@ -221,7 +266,7 @@ clipBtn.addEventListener('click', async () => {
 taskBtn.addEventListener('click', async () => {
   const workspaceId = taskWorkspace.value;
   if (!workspaceId) return showMessage(taskMessage, 'No workspace selected', 'error');
-  if (!taskTitle.value) return showMessage(taskMessage, 'Task title required', 'error');
+  if (!taskTitle.value.trim()) return showMessage(taskMessage, 'Task title required', 'error');
   
   taskBtn.disabled = true;
   taskBtn.textContent = 'Adding...';
@@ -235,7 +280,7 @@ taskBtn.addEventListener('click', async () => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        title: taskTitle.value,
+        title: taskTitle.value.trim(),
         priority: taskPriority.value,
         status: 'TODO'
       })
@@ -244,6 +289,7 @@ taskBtn.addEventListener('click', async () => {
     if (res && res.ok) {
       showMessage(taskMessage, 'Added to Kanban!', 'success');
       taskTitle.value = '';
+      setTimeout(() => window.close(), 1500);
     } else {
       showMessage(taskMessage, 'Failed to add task', 'error');
     }

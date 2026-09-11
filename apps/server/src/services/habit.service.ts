@@ -2,9 +2,20 @@ import { SkillService } from './skill.service';
 import { habitRepository } from '../repositories/habit.repository';
 import { runInTransaction } from '../prisma';
 
+function formatHabit(h: any) {
+  if (!h) return h;
+  const meta = typeof h.metadata === 'object' && h.metadata ? h.metadata : {};
+  return {
+    ...h,
+    timeOfDay: meta.timeOfDay ?? h.timeOfDay,
+    pinnedToPlanner: meta.pinnedToPlanner ?? false,
+  };
+}
+
 export class HabitService {
   async listHabits(workspaceId: string) {
-    return habitRepository.findManyByWorkspace(workspaceId);
+    const habits = await habitRepository.findManyByWorkspace(workspaceId);
+    return habits.map(formatHabit);
   }
 
   async getHabit(id: string, workspaceId: string) {
@@ -12,13 +23,15 @@ export class HabitService {
     if (!habit || habit.deletedAt || habit.workspaceId !== workspaceId) {
       throw new Error('Habit not found');
     }
-    return habit;
+    return formatHabit(habit);
   }
 
   async createHabit(data: any, userId: string) {
     return runInTransaction(async (tx, publishAfterCommit) => {
-      const { timeOfDay, ...restData } = data;
-      const metadata = timeOfDay ? { timeOfDay } : undefined;
+      const { timeOfDay, pinnedToPlanner, ...restData } = data;
+      const metadata: Record<string, any> = {};
+      if (timeOfDay !== undefined) metadata.timeOfDay = timeOfDay;
+      if (pinnedToPlanner !== undefined) metadata.pinnedToPlanner = pinnedToPlanner;
 
       
       if (data.skillIds !== undefined) {
@@ -28,15 +41,15 @@ export class HabitService {
         (data as any).skills = { connect: ids.map((id: string) => ({ id })) };
       }
 
-const habit = await habitRepository.create({
+      const habit = await habitRepository.create({
         ...restData,
-        metadata,
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         createdBy: userId,
         updatedBy: userId,
       }, tx);
 
       publishAfterCommit('HABIT_CREATED', { habitId: habit.id, workspaceId: habit.workspaceId });
-      return habit;
+      return formatHabit(habit);
     });
   }
 
@@ -51,10 +64,13 @@ const habit = await habitRepository.create({
         throw new Error('Conflict: version mismatch');
       }
 
-      const { timeOfDay, version, workspaceId: _, ...restData } = data;
-      const metadata = timeOfDay
-        ? { ...(typeof existing.metadata === 'object' && existing.metadata ? existing.metadata : {}), timeOfDay }
-        : existing.metadata;
+      const { timeOfDay, pinnedToPlanner, version, workspaceId: _, ...restData } = data;
+      const existingMeta = typeof existing.metadata === 'object' && existing.metadata ? (existing.metadata as Record<string, any>) : {};
+      const metadata = {
+        ...existingMeta,
+        ...(timeOfDay !== undefined ? { timeOfDay } : {}),
+        ...(pinnedToPlanner !== undefined ? { pinnedToPlanner } : {}),
+      };
 
       
       if (data.skillIds !== undefined) {
@@ -64,7 +80,7 @@ const habit = await habitRepository.create({
         (data as any).skills = { set: ids.map((id: string) => ({ id })) };
       }
 
-const habit = await habitRepository.update(id, {
+      const habit = await habitRepository.update(id, {
         ...restData,
         metadata,
         version: { increment: 1 },
@@ -72,7 +88,7 @@ const habit = await habitRepository.update(id, {
       }, tx);
 
       publishAfterCommit('HABIT_UPDATED', { habitId: habit.id, workspaceId: habit.workspaceId });
-      return habit;
+      return formatHabit(habit);
     });
   }
 
@@ -103,18 +119,19 @@ const habit = await habitRepository.update(id, {
       if (dateIso) now = new Date(dateIso);
       else if (dateStr) now = new Date(dateStr);
 
+      const dateKeyStr = now.toISOString().split('T')[0];
+      const targetDate = new Date(`${dateKeyStr}T12:00:00.000Z`);
+
       const scheduled = existing.scheduledDays && existing.scheduledDays.length > 0
         ? existing.scheduledDays
         : [0, 1, 2, 3, 4, 5, 6];
 
-      if (!scheduled.includes(now.getDay())) {
+      const offSchedule = !scheduled.includes(targetDate.getUTCDay());
+      if (offSchedule) {
         throw new Error('Habit not scheduled for today');
       }
 
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-      const completionsToday = await habitRepository.getCompletionCountToday(id, todayStart, todayEnd, tx);
+      const completionsToday = await habitRepository.getCompletionCountToday(id, targetDate, tx);
       if (completionsToday > 0) {
         throw new Error('Habit already logged for today');
       }
@@ -122,7 +139,9 @@ const habit = await habitRepository.update(id, {
       await habitRepository.addCompletion({
         habitId: id,
         userId,
-        completedAt: now,
+        date: targetDate,
+        completedAt: new Date(),
+        offSchedule,
       }, tx);
 
       // Increment streak
@@ -144,22 +163,19 @@ const habit = await habitRepository.update(id, {
         throw new Error('Habit not found');
       }
 
-      let targetDate = new Date();
-      if (dateIso) {
-        targetDate = new Date(dateIso);
-      } else if (dateStr) {
-        targetDate = new Date(dateStr);
-      }
+      let now = new Date();
+      if (dateIso) now = new Date(dateIso);
+      else if (dateStr) now = new Date(dateStr);
 
-      const todayStart = new Date(targetDate.setHours(0, 0, 0, 0));
-      const todayEnd = new Date(targetDate.setHours(23, 59, 59, 999));
+      const dateKeyStr = now.toISOString().split('T')[0];
+      const targetDate = new Date(`${dateKeyStr}T12:00:00.000Z`);
 
-      const completionsToday = await habitRepository.getCompletionCountToday(id, todayStart, todayEnd, tx);
+      const completionsToday = await habitRepository.getCompletionCountToday(id, targetDate, tx);
       if (completionsToday === 0) {
         throw new Error('Habit not logged for today');
       }
 
-      await habitRepository.removeCompletionToday(id, todayStart, todayEnd, tx);
+      await habitRepository.removeCompletionToday(id, targetDate, tx);
 
       // Decrement streak, but don't let it go below 0
       const newStreak = Math.max(0, existing.streak - completionsToday);

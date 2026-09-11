@@ -20,7 +20,7 @@ router.get('/', requireWorkspaceRole('VIEWER'), listHabits);
 router.get('/:id', requireWorkspaceRole('VIEWER'), getHabit);
 router.post('/', requireWorkspaceRole('MEMBER'), createHabit);
 router.patch('/:id', requireWorkspaceRole('MEMBER'), updateHabit);
-router.delete('/:id', requireWorkspaceRole('ADMIN'), deleteHabit);
+router.delete('/:id', requireWorkspaceRole('MEMBER'), deleteHabit);
 router.post('/:id/restore', requireWorkspaceRole('MEMBER'), restoreHabit);
 router.post('/:id/log', requireWorkspaceRole('MEMBER'), logHabit);
 router.delete('/:id/log', requireWorkspaceRole('MEMBER'), unlogHabit);

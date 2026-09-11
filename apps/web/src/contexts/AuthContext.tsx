@@ -16,7 +16,13 @@ interface User {
   };
 }
 
+type AuthState = 
+  | { status: 'loading' }
+  | { status: 'authed'; user: User; accessToken: string; workspaceId: string | null }
+  | { status: 'anon' };
+
 interface AuthContextType {
+  status: 'loading' | 'authed' | 'anon';
   user: User | null;
   accessToken: string | null;
   workspaceId: string | null;
@@ -30,69 +36,82 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [authState, setAuthState] = useState<AuthState>({ status: 'loading' });
 
   // Set the global token in the API client
   useEffect(() => {
-    api.setAccessToken(accessToken);
-    api.setWorkspaceId(workspaceId);
-  }, [accessToken, workspaceId]);
+    if (authState.status === 'authed') {
+      api.setAccessToken(authState.accessToken);
+      api.setWorkspaceId(authState.workspaceId);
+    } else {
+      api.setAccessToken(null);
+      api.setWorkspaceId(null);
+    }
+  }, [authState]);
 
   const handleLogout = useCallback(async () => {
     try {
-      if (accessToken) {
+      if (authState.status === 'authed') {
         await api.auth.logout();
       }
     } catch (err) {
       console.error('Logout error', err);
     } finally {
-      setUser(null);
-      setAccessToken(null);
-      setWorkspaceId(null);
-      api.setAccessToken(null);
-      api.setWorkspaceId(null);
+      setAuthState({ status: 'anon' });
     }
-  }, [accessToken]);
+  }, [authState]);
+
+  // Listen for the global logout event dispatched by centralized 401 handler
+  useEffect(() => {
+    const onGlobalLogout = () => {
+      setAuthState({ status: 'anon' });
+    };
+    window.addEventListener('krama:logout', onGlobalLogout);
+    return () => {
+      window.removeEventListener('krama:logout', onGlobalLogout);
+    };
+  }, []);
 
   // Expose the global logout function to the API client for 401s that fail to refresh
   useEffect(() => {
-    api.setGlobalLogoutHandler(handleLogout);
-  }, [handleLogout]);
+    api.setGlobalLogoutHandler(() => {
+      window.dispatchEvent(new Event('krama:logout'));
+    });
+  }, []);
 
   // Session Bootstrap on mount
   useEffect(() => {
     let mounted = true;
     async function bootstrap() {
       try {
-        // We start with no in-memory token, but we assume there might be a refresh cookie.
-        // We call refresh directly (which will fail gracefully if no cookie exists).
         const data = await api.auth.refresh();
         if (mounted && data.accessToken) {
-          setAccessToken(data.accessToken);
-          
-          // Now fetch the user profile using the new token
           api.setAccessToken(data.accessToken);
           const meData = await api.auth.me();
           if (mounted && meData.user) {
-            setUser(meData.user);
             let wid = meData.user.memberships?.[0]?.workspaceId || null;
             if (!wid) {
               const savedWid = localStorage.getItem('krama_active_workspace');
               wid = savedWid || null;
             }
-            setWorkspaceId(wid);
             api.setWorkspaceId(wid); // Synchronously set to avoid race condition with React Query mounts
             if (wid) localStorage.setItem('krama_active_workspace', wid);
+            
+            setAuthState({
+              status: 'authed',
+              user: meData.user,
+              accessToken: data.accessToken,
+              workspaceId: wid,
+            });
           }
+        } else if (mounted) {
+          setAuthState({ status: 'anon' });
         }
       } catch {
-        // No valid session, stay logged out
+        if (mounted) {
+          setAuthState({ status: 'anon' });
+        }
         console.debug('No valid session found during bootstrap.');
-      } finally {
-        if (mounted) setIsLoading(false);
       }
     }
 
@@ -101,29 +120,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = (token: string, userData: User) => {
-    setAccessToken(token);
-    setUser(userData);
     const wid = userData.memberships?.[0]?.workspaceId || null;
-    setWorkspaceId(wid);
     api.setAccessToken(token);
     api.setWorkspaceId(wid);
     if (wid) localStorage.setItem('krama_active_workspace', wid);
+    
+    setAuthState({
+      status: 'authed',
+      user: userData,
+      accessToken: token,
+      workspaceId: wid,
+    });
   };
   
   const switchWorkspace = (id: string) => {
-    setWorkspaceId(id);
+    if (authState.status === 'authed') {
+      setAuthState({ ...authState, workspaceId: id });
+    }
     api.setWorkspaceId(id);
     localStorage.setItem('krama_active_workspace', id);
     window.location.reload(); // Quick way to wipe all React Query state for the old workspace
   };
 
   const updateUser = (newUser: User) => {
-    setUser(newUser);
-    localStorage.setItem('krama_user', JSON.stringify(newUser));
+    if (authState.status === 'authed') {
+      setAuthState({ ...authState, user: newUser });
+      localStorage.setItem('krama_user', JSON.stringify(newUser));
+    }
+  };
+
+  const value: AuthContextType = {
+    status: authState.status,
+    user: authState.status === 'authed' ? authState.user : null,
+    accessToken: authState.status === 'authed' ? authState.accessToken : null,
+    workspaceId: authState.status === 'authed' ? authState.workspaceId : null,
+    isLoading: authState.status === 'loading',
+    login,
+    logout: handleLogout,
+    switchWorkspace,
+    updateUser,
   };
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, workspaceId, isLoading, login, logout: handleLogout, switchWorkspace, updateUser }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
