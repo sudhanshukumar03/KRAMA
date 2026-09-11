@@ -33,7 +33,7 @@ import {
   CircleDashed, CheckCircle, CheckCircle2, ListChecks, 
   Search, Plus, AlertCircle, X, KanbanSquare, Clock, 
   Folder, CheckSquare, MoreVertical, Bell, ChevronRight, ChevronDown, 
-  LayoutGrid, List, Calendar, Inbox, Trash2, Edit2
+  LayoutGrid, List, Calendar, Inbox, Trash2, Edit2, Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -349,16 +349,12 @@ function Column({
   onDelete,
   onCreate,
   onClick,
-  isProjectsLoading,
-  hasProjects
 }: {
   col: (typeof STATUS_COLUMNS)[number];
   issues: IssueWithRelations[];
   onDelete?: (issue: IssueWithRelations) => void;
   onCreate?: (status: TaskStatus) => void;
   onClick?: (issue: IssueWithRelations) => void;
-  isProjectsLoading?: boolean;
-  hasProjects?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: col.id,
@@ -942,7 +938,7 @@ export function KanbanBoard() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { data: issues = [], isLoading: isLoadingIssues, isError } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
-  const { data: projects = [], isLoading: isLoadingProjects } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
   const { data: sprints = [] } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
 
   const [activeIssue, setActiveIssue] = useState<IssueWithRelations | null>(null);
@@ -1484,8 +1480,6 @@ export function KanbanBoard() {
                     onDelete={handleDeleteIssue}
                     onCreate={handleCreateIssue}
                     onClick={handleEditIssue}
-                    isProjectsLoading={isLoadingProjects}
-                    hasProjects={projects.length > 0}
                   />
                 );
               })}

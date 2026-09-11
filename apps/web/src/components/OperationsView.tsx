@@ -1,12 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  Zap, CheckCircle2, Clock, Plus, Search, Bell,
+  Zap, Clock, Plus, Search, Bell,
   ChevronDown, Trash2, Edit2, Check, ArrowRight,
-  Filter, Calendar, ChevronRight
+  Calendar, ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
