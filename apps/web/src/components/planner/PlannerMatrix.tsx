@@ -150,7 +150,7 @@ function DroppableTaskCell({ day, tasks, dateKeyFn, onClickTask, onToggleTask, o
   return (
     <div 
       ref={setNodeRef} 
-      className={`relative group border-r border-border last:border-r-0 p-2 pb-6 flex flex-col gap-0.5 min-h-[48px] h-full transition-colors ${isOver ? 'bg-blue-50/50' : ''}`}
+      className={`relative group border-r border-border last:border-r-0 p-2 pb-6 flex flex-col gap-1 min-h-[48px] h-full transition-colors ${isOver ? 'bg-accent/10' : ''}`}
     >
       {tasks.map((task: any) => (
         <MatrixTaskComponent key={task.id} task={task} onClickTask={onClickTask} onToggleTask={onToggleTask} onDeleteTask={onDeleteTask} />

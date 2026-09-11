@@ -52,14 +52,14 @@ export function PlannerHeader({
         <div className="flex items-center gap-2">
           <button
             onClick={() => onModeChange('plan')}
-            className={"flex flex-col items-center justify-center w-36 py-2 rounded-xl transition-all border " + (mode === 'plan' ? 'bg-blue-50/50 border-blue-100 text-accent ' : 'bg-surface bg-surface-hover border-border border-border text-muted hover:bg-slate-50 ')}
+            className={"flex flex-col items-center justify-center w-36 py-2 rounded-xl transition-all border " + (mode === 'plan' ? 'bg-accent/10 border-accent/20 text-accent ' : 'bg-surface hover:bg-surface-hover border-border text-muted ')}
           >
             <span className="text-[13px] font-bold">PLAN</span>
             <span className="text-[10px] font-medium opacity-70">Plan your week</span>
           </button>
           <button
             onClick={() => onModeChange('calendar')}
-            className={"flex flex-col items-center justify-center w-36 py-2 rounded-xl transition-all border " + (mode === 'calendar' ? 'bg-blue-50/50 border-blue-100 text-accent ' : 'bg-surface bg-surface-hover border-border border-border text-muted hover:bg-slate-50 ')}
+            className={"flex flex-col items-center justify-center w-36 py-2 rounded-xl transition-all border " + (mode === 'calendar' ? 'bg-accent/10 border-accent/20 text-accent ' : 'bg-surface hover:bg-surface-hover border-border text-muted ')}
           >
             <span className="text-[13px] font-bold">CALENDAR</span>
             <span className="text-[10px] font-medium opacity-70">Holidays & Events</span>
@@ -70,30 +70,30 @@ export function PlannerHeader({
  <div className="flex items-center gap-4">
  <button 
  onClick={() => onNavigate('today')}
- className="flex items-center gap-1.5 px-3 py-1.5 border border-border border-border rounded-lg text-xs font-bold text-primary text-secondary hover:bg-slate-50 transition-colors shadow-sm"
+ className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs font-bold text-primary hover:bg-surface-hover transition-colors shadow-sm"
  >
- <ArrowLeft size={14} className="text-muted " /> Today
+ <ArrowLeft size={14} className="text-muted" /> Today
  </button>
  
  <div className="flex items-center gap-1">
  <button
  onClick={() => onNavigate('prev')}
- className="p-1.5 bg-surface bg-surface-hover border border-border border-border rounded-lg text-muted hover:bg-slate-50 hover:text-primary text-secondary transition-colors shadow-sm"
+ className="p-1.5 bg-surface border border-border rounded-lg text-muted hover:bg-surface-hover hover:text-primary transition-colors shadow-sm"
  >
  <ChevronLeft size={16} />
  </button>
  <button
  onClick={() => onNavigate('next')}
- className="p-1.5 bg-surface bg-surface-hover border border-border border-border rounded-lg text-muted hover:bg-slate-50 hover:text-primary text-secondary transition-colors shadow-sm"
+ className="p-1.5 bg-surface border border-border rounded-lg text-muted hover:bg-surface-hover hover:text-primary transition-colors shadow-sm"
  >
  <ChevronRight size={16} />
  </button>
  </div>
 
  <div className="flex items-center gap-3">
- <span className="text-[16px] font-bold text-primary text-secondary">{title}</span>
+ <span className="text-[16px] font-bold text-primary">{title}</span>
  {mode === 'plan' && (
- <span className="px-2 py-0.5 bg-slate-50 bg-surface-hover text-muted border border-border border-border shadow-sm text-[11px] font-bold rounded-md">
+ <span className="px-2 py-0.5 bg-surface border border-border text-muted shadow-sm text-[11px] font-bold rounded-md">
  {weekRangeLabel || subtitle}
  </span>
  )}

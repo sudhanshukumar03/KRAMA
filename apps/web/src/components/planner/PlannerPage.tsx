@@ -219,7 +219,7 @@ export function PlannerPage() {
   const targetDayData = data?.days?.find((d: any) => d.dateKey === targetDayKey) || { dateKey: targetDayKey };
 
  return (
- <div className="p-4 md:p-6 bg-[#f7f8fb] min-h-screen pb-20">
+ <div className="p-4 md:p-6 bg-transparent min-h-screen pb-20">
  <LocationSettingsModal 
  open={locationModalOpen} 
  onClose={() => setLocationModalOpen(false)} 
