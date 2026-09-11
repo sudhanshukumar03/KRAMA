@@ -317,9 +317,9 @@ function IssueCard({
               <span className="truncate">{issue.project.name}</span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted">
-              <Folder className="w-3 h-3 shrink-0 text-muted/60" />
-              <span>General</span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+              <Zap className="w-2.5 h-2.5 shrink-0" />
+              <span>Operations</span>
             </span>
           )}
         </div>
@@ -397,11 +397,6 @@ function Column({
             </span>
             <button
               onClick={() => {
-                if (isProjectsLoading) return;
-                if (!hasProjects) {
-                  toast.error('No project found. Create a project first!');
-                  return;
-                }
                 if (onCreate) onCreate(col.id);
               }}
               title={`Add directive to ${col.title}`}
@@ -467,7 +462,7 @@ export function IssueCreateModal({
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
   const [estimate, setEstimate] = useState(2);
   const [blockedById, setBlockedById] = useState<string | null>(null);
-  const [selectedProjId, setSelectedProjId] = useState<string>(defaultProjectId || (projects[0]?.id ?? ''));
+  const [selectedProjId, setSelectedProjId] = useState<string>(defaultProjectId || '');
   const [selectedSprintId, setSelectedSprintId] = useState<string>(initialSprintId || '');
 
   useEffect(() => {
@@ -475,9 +470,8 @@ export function IssueCreateModal({
       if (initialStatus) setStatus(initialStatus);
       if (initialSprintId !== undefined) setSelectedSprintId(initialSprintId || '');
       if (defaultProjectId) setSelectedProjId(defaultProjectId);
-      else if (projects.length > 0 && !selectedProjId) setSelectedProjId(projects[0].id);
     }
-  }, [open, initialStatus, initialSprintId, defaultProjectId, projects, selectedProjId]);
+  }, [open, initialStatus, initialSprintId, defaultProjectId]);
 
   if (!open) return null;
 
@@ -491,7 +485,7 @@ export function IssueCreateModal({
       priority: priority as TaskPriority,
       estimateMinutes: Number(estimate) || 0,
       blockedById,
-      projectId: selectedProjId || defaultProjectId || projects[0]?.id,
+      projectId: selectedProjId || undefined,
       sprintId: selectedSprintId || null
     });
   };
@@ -523,22 +517,21 @@ export function IssueCreateModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {projects.length > 0 && (
-              <div>
-                <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
-                  Project
-                </label>
-                <select
-                  value={selectedProjId}
-                  onChange={e => setSelectedProjId(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
-                >
-                  {projects.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div>
+              <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+                Project Scope
+              </label>
+              <select
+                value={selectedProjId}
+                onChange={e => setSelectedProjId(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+              >
+                <option value="">⚡ General Operations (No Project)</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>📁 {p.name}</option>
+                ))}
+              </select>
+            </div>
 
             <div>
               <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
@@ -669,6 +662,7 @@ export function IssueEditModal({
   open,
   issue,
   allIssues,
+  projects = [],
   sprints = [],
   onClose,
   onSubmit,
@@ -677,9 +671,10 @@ export function IssueEditModal({
   open: boolean;
   issue: IssueWithRelations | null;
   allIssues: IssueWithRelations[];
+  projects?: { id: string; name: string }[];
   sprints?: { id: string; name: string; status: string }[];
   onClose: () => void;
-  onSubmit: (id: string, data: Partial<IssueWithRelations> & { blockedById?: string | null; sprintId?: string | null }) => void;
+  onSubmit: (id: string, data: Partial<IssueWithRelations> & { blockedById?: string | null; sprintId?: string | null; projectId?: string | null }) => void;
   isSubmitting: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -689,6 +684,7 @@ export function IssueEditModal({
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
   const [estimate, setEstimate] = useState(2);
   const [blockedById, setBlockedById] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [sprintId, setSprintId] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
@@ -701,6 +697,7 @@ export function IssueEditModal({
       setPriority(issue.priority as TaskPriority);
       setEstimate(issue.estimateMinutes || 2);
       setBlockedById(issue.blockedById || null);
+      setProjectId(issue.projectId || null);
       setSprintId(issue.sprintId || null);
     }
   }, [issue, open]);
@@ -717,6 +714,7 @@ export function IssueEditModal({
       priority: priority as TaskPriority,
       estimateMinutes: Number(estimate) || 0,
       blockedById: blockedById || null,
+      projectId: projectId || null,
       sprintId: sprintId || null
     });
   };
@@ -820,19 +818,21 @@ export function IssueEditModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
-                Estimate (Hours)
+                Project Scope
               </label>
-              <input
-                type="number"
-                min="0"
-                step="0.5"
-                value={estimate}
-                onChange={e => setEstimate(Number(e.target.value))}
-                className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-accent text-primary"
-              />
+              <select
+                value={projectId || ''}
+                onChange={e => setProjectId(e.target.value || null)}
+                className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+              >
+                <option value="">⚡ General Operations (No Project)</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>📁 {p.name}</option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -852,6 +852,20 @@ export function IssueEditModal({
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+              Estimate (Hours)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={estimate}
+              onChange={e => setEstimate(Number(e.target.value))}
+              className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-accent text-primary"
+            />
           </div>
 
           <div>
@@ -956,7 +970,7 @@ export function KanbanBoard() {
         priority: data.priority as any,
         estimateMinutes: data.estimateMinutes,
         assignee: 'me',
-        projectId: data.projectId || projects[0]?.id,
+        projectId: data.projectId || null,
         sprintId: data.sprintId ?? (selectedSprintId !== 'all' ? selectedSprintId : null),
         labels: [],
         blockedById: data.blockedById
@@ -990,10 +1004,6 @@ export function KanbanBoard() {
   });
 
   const handleCreateIssue = (status: TaskStatus = "BACKLOG") => {
-    if (projects.length === 0) {
-      toast.error("Please create a project first before adding directives.");
-      return;
-    }
     setCreateStatus(status);
     setCreateModalOpen(true);
   };
@@ -1069,7 +1079,7 @@ export function KanbanBoard() {
         directiveCode.includes(q) ||
         (issue.description && issue.description.toLowerCase().includes(q));
       const matchesPriority = priorityFilter === 'all' || issue.priority === priorityFilter;
-      const matchesProject = selectedProjectId === 'all' || issue.projectId === selectedProjectId;
+      const matchesProject = selectedProjectId === 'all' || (selectedProjectId === 'operations' ? !issue.projectId : issue.projectId === selectedProjectId);
       const matchesAssignee = selectedAssignee === 'all' || issue.assignee?.name === selectedAssignee;
       const matchesSprint = selectedSprintId === 'all' || issue.sprintId === selectedSprintId;
 
@@ -1367,8 +1377,9 @@ export function KanbanBoard() {
               className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
             >
               <option value="all">All Projects</option>
+              <option value="operations">⚡ General Operations</option>
               {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>📁 {p.name}</option>
               ))}
             </select>
             <ChevronDown className="w-3 h-3 text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1568,6 +1579,7 @@ export function KanbanBoard() {
         open={editModalOpen}
         issue={editingIssue}
         allIssues={issues}
+        projects={projects}
         sprints={sprints}
         onClose={() => { setEditModalOpen(false); setEditingIssue(null); }}
         onSubmit={(id, data) => updateIssueDetailMutation.mutate({ id, data: data as any })}

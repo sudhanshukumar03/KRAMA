@@ -22,6 +22,7 @@ import { DecisionLog } from './DecisionLog';
 import { KnowledgeGraph } from './KnowledgeGraph';
 import { AutomationRules } from './AutomationRules';
 import { SkillsModule } from './SkillsModule';
+import { OperationsView } from './OperationsView';
 import { AIAssistant } from './AIAssistant';
 import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../lib/theme';
@@ -29,7 +30,7 @@ import { useTheme } from '../lib/theme';
 export function AppShell() {
  const navigate = useNavigate();
  const location = useLocation();
- const isFlushRoute = location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/sprint');
+ const isFlushRoute = location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/sprint') || location.pathname.startsWith('/app/operations');
  const { toggleTheme, resolvedTheme } = useTheme();
  const [activePrefix, setActivePrefix] = useState<'g' | 'e' | 't' | 's' | null>(null);
  const [showCheatsheet, setShowCheatsheet] = useState(false);
@@ -214,6 +215,7 @@ export function AppShell() {
  <Route path="/board/*" element={<KanbanBoard />} />
  <Route path="/kanban/*" element={<KanbanBoard />} />
  <Route path="/sprint/*" element={<SprintView />} />
+ <Route path="/operations/*" element={<OperationsView />} />
  <Route path="/planner/*" element={<PlannerPage />} />
  <Route path="/timeline/*" element={<TimelineView />} />
  <Route path="/review/*" element={<DailyReview />} />

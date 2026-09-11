@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { FolderKanban, ArrowLeft, Plus, CheckCircle2, Clock, Target, AlertCircle, XCircle, ArrowUpCircle, FileText, Sparkles, CheckSquare, ArrowRight } from 'lucide-react';
+import { FolderKanban, ArrowLeft, Plus, CheckCircle2, Check, Clock, Target, AlertCircle, XCircle, ArrowUpCircle, FileText, Sparkles, CheckSquare, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
@@ -239,6 +239,59 @@ export function ProjectDetail() {
  ))}
  {projectIssues.length === 0 && <div className="p-8 text-center text-caption text-secondary font-mono italic">No open execution tickets in initiative</div>}
  </div>
+ </div>
+ </div>
+
+ {/* Delivered Milestones & Completed Directives Section */}
+ <div className="space-y-3.5">
+ <div className="flex items-center justify-between">
+ <h3 className="text-card text-primary mb-2 uppercase tracking-wider flex items-center gap-2">
+ <CheckCircle2 className="w-4 h-4 text-[#109868] stroke-[1.5]" /> Delivered Milestones & Completed Directives ({completedIssues.length})
+ </h3>
+ <span className="text-badge font-mono text-muted">
+ {progressPct}% Completed
+ </span>
+ </div>
+
+ <div className="divide-y divide-border border border-border rounded-2xl bg-surface shadow-xs overflow-hidden">
+ {completedIssues.map((issue: any) => (
+ <div key={issue.id} className="p-4 hover:bg-surface-hover/60 transition-colors flex items-center justify-between gap-4">
+ <div className="flex items-center gap-3 min-w-0">
+ <div className="w-6 h-6 rounded-full bg-[#109868]/15 border border-[#109868]/30 flex items-center justify-center shrink-0">
+ <Check className="w-3.5 h-3.5 text-[#109868] stroke-[2]" />
+ </div>
+ <div className="flex flex-col min-w-0">
+ <span className="text-body font-medium text-primary line-through decoration-border truncate">
+ {issue.title}
+ </span>
+ <div className="flex items-center gap-2 text-[11px] font-mono text-muted mt-0.5">
+ <span>Completed {new Date(issue.updatedAt).toLocaleDateString()}</span>
+ {issue.estimate && (
+ <>
+ <span>•</span>
+ <span>{issue.estimate}h estimated</span>
+ </>
+ )}
+ {issue.priority && (
+ <>
+ <span>•</span>
+ <span className="uppercase text-[10px]">{issue.priority}</span>
+ </>
+ )}
+ </div>
+ </div>
+ </div>
+
+ <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-[#109868]/10 text-[#109868] border border-[#109868]/20 shrink-0">
+ Delivered
+ </span>
+ </div>
+ ))}
+ {completedIssues.length === 0 && (
+ <div className="p-8 text-center text-caption text-secondary font-mono italic">
+ No deliverables completed yet. Complete tasks on the Kanban board or mark directives as DONE to populate the project delivery log.
+ </div>
+ )}
  </div>
  </div>
  </div>

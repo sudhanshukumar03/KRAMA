@@ -810,6 +810,7 @@ export function SprintView() {
           open={Boolean(editingIssue)}
           issue={editingIssue}
           allIssues={issues}
+          projects={projects}
           sprints={sprints}
           onClose={() => setEditingIssue(null)}
           onSubmit={(id, data) => updateIssueMutation.mutate({ id, data })}

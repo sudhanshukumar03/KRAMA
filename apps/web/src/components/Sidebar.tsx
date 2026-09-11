@@ -27,10 +27,11 @@ const overviewItems: NavItem[] = [
 ];
 
 const planAndExecuteItems: NavItem[] = [
- { name: 'Execution Board', path: '/app/board', icon: KanbanSquare, shortcut: 'E K', badgeKey: 'openIssues' },
- { name: 'Sprint View', path: '/app/sprint', icon: Clock, shortcut: 'E S', badgeKey: 'sprintIssues' },
- { name: 'Weekly Planner', path: '/app/planner', icon: Calendar, shortcut: 'E W', badgeKey: null },
- { name: 'Daily Timeline', path: '/app/timeline', icon: Clock4, shortcut: 'E T', badgeKey: null },
+  { name: 'Execution Board', path: '/app/board', icon: KanbanSquare, shortcut: 'E K', badgeKey: 'openIssues' },
+  { name: 'Sprint View', path: '/app/sprint', icon: Clock, shortcut: 'E S', badgeKey: 'sprintIssues' },
+  { name: 'Operations & Tasks', path: '/app/operations', icon: Zap, shortcut: 'E O', badgeKey: 'operationsIssues' },
+  { name: 'Weekly Planner', path: '/app/planner', icon: Calendar, shortcut: 'E W', badgeKey: null },
+  { name: 'Daily Timeline', path: '/app/timeline', icon: Clock4, shortcut: 'E T', badgeKey: null },
 ];
 
 const strategyItems: NavItem[] = [
@@ -74,17 +75,19 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
   const sprintIssuesCount = activeSprint
     ? issues.filter(i => i.sprintId === activeSprint.id && i.status !== 'DONE').length
     : 0;
+  const operationsIssuesCount = issues.filter(i => !i.projectId && i.status !== "DONE" && i.status !== "REVIEW").length;
   const activeProjectsCount = projects.filter(p => p.status === 'active').length;
 
- const getBadgeValue = (key: string | null) => {
- if (key === 'openIssues') return openIssuesCount;
- if (key === 'sprintIssues') return sprintIssuesCount;
- if (key === 'projects') return activeProjectsCount;
- if (key === 'goals') return goals.length;
- if (key === 'habits') return habits.length;
- if (key === 'pages') return pages.length;
- return null;
- };
+  const getBadgeValue = (key: string | null) => {
+    if (key === 'openIssues') return openIssuesCount;
+    if (key === 'sprintIssues') return sprintIssuesCount;
+    if (key === 'operationsIssues') return operationsIssuesCount;
+    if (key === 'projects') return activeProjectsCount;
+    if (key === 'goals') return goals.length;
+    if (key === 'habits') return habits.length;
+    if (key === 'pages') return pages.length;
+    return null;
+  };
 
  const handleExport = async () => {
  try {

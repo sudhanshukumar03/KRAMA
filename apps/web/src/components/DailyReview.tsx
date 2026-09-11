@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Save, Brain, Zap, Smile, Play, Pause, RotateCcw, Plus, Sparkles, Clock, Trophy, AlertTriangle, FileText, Activity, AlertCircle, Maximize2, Minimize2, Rocket, Target, Settings, ListTodo, CheckCircle2, ChevronDown, FolderKanban, Moon, Wand2, Sunset, X } from 'lucide-react';
+import { Save, Brain, Zap, Smile, Play, Pause, RotateCcw, Plus, Sparkles, Clock, Trophy, AlertTriangle, FileText, Activity, AlertCircle, Maximize2, Minimize2, Rocket, Target, Settings, ListTodo, CheckCircle2, Check, ChevronDown, FolderKanban, Moon, Wand2, Sunset, X } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 import { PageHeader } from './ui/PageHeader';
 import { SelectorCard } from './ui/SelectorCard';
@@ -319,6 +319,13 @@ export function DailyReview() {
  setBlockers([...blockers, newBlocker.trim()]);
  setNewBlocker('');
  };
+
+ const completedTodayDirectives = issues.filter(i => {
+ if (i.status !== 'DONE') return false;
+ const taskDate = new Date(i.updatedAt).toLocaleDateString();
+ const todayDate = new Date().toLocaleDateString();
+ return taskDate === todayDate;
+ });
 
  return (
  <div className="p-6 md:p-8 max-w-5xl mx-auto w-full bg-canvas min-h-full animate-in fade-in duration-150 pb-24 font-sans text-primary">
@@ -838,6 +845,70 @@ export function DailyReview() {
  </div>
  </div>
  </div>
+
+      {/* AUTO-PULLED COMPLETED DIRECTIVES FOR TODAY */}
+      {completedTodayDirectives.length > 0 && (
+        <div className="mb-6 p-4 rounded-xl border border-border bg-surface shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-[#109868] stroke-[1.75]" />
+              <h4 className="text-caption font-mono uppercase font-bold text-primary tracking-wider">
+                Directives Delivered Today ({completedTodayDirectives.length})
+              </h4>
+            </div>
+            <span className="text-[11px] font-mono text-secondary">
+              Auto-synced from Execution Board & Operations
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {completedTodayDirectives.map((task) => {
+              const taskProject = projects.find(p => p.id === task.projectId);
+              const prefix = taskProject ? `[${taskProject.name}] ` : '[Operations] ';
+              const isAlreadyInWins = wins.some(w => w.includes(task.title));
+
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center justify-between p-2.5 rounded-lg border border-border/70 bg-surface-hover/50 hover:bg-surface-hover transition-colors gap-3"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 uppercase border",
+                      taskProject 
+                        ? "bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/20" 
+                        : "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20"
+                    )}>
+                      {taskProject ? `📁 ${taskProject.name}` : '⚡ Operations'}
+                    </span>
+                    <span className="text-caption font-medium text-primary truncate">
+                      {task.title}
+                    </span>
+                  </div>
+
+                  {isAlreadyInWins ? (
+                    <span className="text-[11px] font-mono text-[#109868] font-bold flex items-center gap-1 shrink-0">
+                      <Check className="w-3 h-3 stroke-[2.5]" /> Logged
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const winText = `${prefix}${task.title}`;
+                        setWins([...wins, winText]);
+                        toast.success(`Logged "${task.title}" to wins!`);
+                      }}
+                      className="px-2 py-1 rounded bg-accent/10 hover:bg-accent/20 text-accent font-mono text-[11px] font-bold transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" /> Add to Wins
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
  {/* WINS & BLOCKERS SIDE-BY-SIDE */}
  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 items-start">
