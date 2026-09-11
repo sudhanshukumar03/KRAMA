@@ -3,9 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  Clock, Play, Pause, CheckCircle2, CircleDashed, Check, 
-  ChevronRight, ArrowRight, Plus, MoreVertical, Search, Bell, 
+import {
+  Clock, Play, Pause, CheckCircle2, CircleDashed, Check,
+  ChevronRight, ArrowRight, Plus, MoreVertical, Search, Bell,
   ChevronDown, Folder, Trash2, Edit2, X
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,28 +23,36 @@ export function SprintView() {
   const { user } = useAuth();
 
   // Queries
-  const { data: sprints = [], isLoading: sprintsLoading, isError: sprintsError } = useQuery({ 
-    queryKey: ['sprints'], 
-    queryFn: api.sprints.list 
+  const { data: sprints = [], isLoading: sprintsLoading, isError: sprintsError } = useQuery({
+    queryKey: ['sprints'],
+    queryFn: api.sprints.list
   });
-  const { data: issues = [], isLoading: issuesLoading, isError: issuesError } = useQuery({ 
-    queryKey: ['issues'], 
-    queryFn: api.tasks.list 
+  const { data: issues = [], isLoading: issuesLoading, isError: issuesError } = useQuery({
+    queryKey: ['issues'],
+    queryFn: api.tasks.list
   });
-  const { data: projects = [] } = useQuery({ 
-    queryKey: ['projects'], 
-    queryFn: api.projects.list 
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: api.projects.list
   });
 
-  // Active Sprint
+  // Active / Selected Sprint
+  const [selectedSprintId, setSelectedSprintId] = useState<string | null>(null);
+
   const activeSprint = useMemo(() => {
+    if (selectedSprintId) {
+      const found = sprints.find(s => s.id === selectedSprintId);
+      if (found) return found;
+    }
     return sprints.find(s => s.status === 'active') || sprints[0] || null;
-  }, [sprints]);
+  }, [sprints, selectedSprintId]);
 
   // Modals state
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createInitialStatus, setCreateInitialStatus] = useState<TaskStatus>('TODO');
   const [editingIssue, setEditingIssue] = useState<IssueWithRelations | null>(null);
+  const [backlogModalOpen, setBacklogModalOpen] = useState(false);
+  const [backlogSearch, setBacklogSearch] = useState('');
   const [sprintMenuOpen, setSprintMenuOpen] = useState(false);
   const [editSprintModalOpen, setEditSprintModalOpen] = useState(false);
   const sprintMenuRef = useRef<HTMLDivElement>(null);
@@ -81,10 +89,11 @@ export function SprintView() {
 
   // Mutations
   const updateIssueMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<IssueWithRelations> & { blockedById?: string | null } }) =>
+    mutationFn: ({ id, data }: { id: string; data: Partial<IssueWithRelations> & { blockedById?: string | null; sprintId?: string | null } }) =>
       api.tasks.update(id, data),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
       setEditingIssue(null);
       toast.success(`Updated "${updated?.title || 'Directive'}"`);
     },
@@ -96,7 +105,7 @@ export function SprintView() {
       api.tasks.create({
         ...data,
         assignee: 'me',
-        sprintId: activeSprint?.id || null,
+        sprintId: data.sprintId !== undefined ? data.sprintId : (activeSprint?.id || null),
         labels: []
       }),
     onSuccess: (newIssue) => {
@@ -112,12 +121,14 @@ export function SprintView() {
     try {
       await api.tasks.delete(issue.id);
       queryClient.setQueryData<IssueWithRelations[]>(['issues'], old => old?.filter(i => i.id !== issue.id));
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
       toast.success(`Deleted "${issue.title}"`, {
         action: {
           label: 'Undo',
           onClick: async () => {
             await api.tasks.restore(issue.id);
             queryClient.invalidateQueries({ queryKey: ['issues'] });
+            queryClient.invalidateQueries({ queryKey: ['sprints'] });
             toast.success(`Restored "${issue.title}"`);
           }
         },
@@ -135,6 +146,7 @@ export function SprintView() {
     try {
       await api.tasks.update(issue.id, { status: nextStatus });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
       toast.success(isDone ? `Reopened "${issue.title}"` : `Marked "${issue.title}" as Done!`);
     } catch {
       toast.error('Failed to update directive status');
@@ -144,23 +156,22 @@ export function SprintView() {
   // Start or create sprint
   const handleStartSprint = async () => {
     try {
-      if (projects.length === 0) {
-        toast.error('No project found. Create a project first!');
-        return;
-      }
       const now = new Date();
       const end = new Date(now.getTime() + 14 * 86400000);
       const startMonth = format(now, 'MMM d');
       const endMonth = format(end, 'MMM d');
-      await api.sprints.create({
+      const newSprint = await api.sprints.create({
         name: `Sprint ${startMonth} – ${endMonth}`,
         startDate: now.toISOString(),
         endDate: end.toISOString(),
         status: 'active',
-        projectId: projects[0].id,
+        projectId: projects[0]?.id || null,
         goals: 'Focused execution cycle for strategic engineering milestones.'
       });
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      if (newSprint?.id) {
+        setSelectedSprintId(newSprint.id);
+      }
       toast.success('Started new 14-day sprint!');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to start sprint');
@@ -184,15 +195,27 @@ export function SprintView() {
     }
   };
 
-  // Complete sprint
+  // Complete sprint - returns incomplete directives back to backlog cleanly
   const handleCompleteSprint = async () => {
     if (!activeSprint) return;
+    const incompleteTasks = sprintDirectives.filter(i => i.status !== 'DONE');
+    const confirmMsg = incompleteTasks.length > 0
+      ? `Complete sprint "${activeSprint.name}"? ${incompleteTasks.length} incomplete directive(s) will return to the backlog.`
+      : `Complete sprint "${activeSprint.name}"?`;
+    if (!window.confirm(confirmMsg)) return;
+
     try {
+      if (incompleteTasks.length > 0) {
+        await Promise.all(
+          incompleteTasks.map(t => api.tasks.update(t.id, { sprintId: null }))
+        );
+      }
       await api.sprints.update(activeSprint.id, {
         version: activeSprint.version,
         status: 'completed'
       });
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
       toast.success(`Completed sprint "${activeSprint.name}"`);
       setSprintMenuOpen(false);
     } catch (err: any) {
@@ -228,8 +251,50 @@ export function SprintView() {
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
       toast.success('Sprint archived');
       setSprintMenuOpen(false);
+      setSelectedSprintId(null);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to delete sprint');
+    }
+  };
+
+  // 1-click Add Directive to Active Sprint from Backlog
+  const handleAddDirectiveToSprint = async (issueId: string) => {
+    if (!activeSprint) return;
+    try {
+      await api.tasks.update(issueId, { sprintId: activeSprint.id });
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      toast.success('Added directive to sprint');
+    } catch {
+      toast.error('Failed to add directive to sprint');
+    }
+  };
+
+  // 1-click Remove Directive from Active Sprint back to Backlog
+  const handleRemoveDirectiveFromSprint = async (issueId: string) => {
+    try {
+      await api.tasks.update(issueId, { sprintId: null });
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      toast.success('Moved directive to backlog');
+    } catch {
+      toast.error('Failed to move directive to backlog');
+    }
+  };
+
+  // Add All Filtered Backlog to Active Sprint
+  const handleAddAllBacklogToSprint = async () => {
+    if (!activeSprint || filteredBacklogDirectives.length === 0) return;
+    try {
+      await Promise.all(
+        filteredBacklogDirectives.map(i => api.tasks.update(i.id, { sprintId: activeSprint.id }))
+      );
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      toast.success(`Added ${filteredBacklogDirectives.length} directive(s) to sprint`);
+      setBacklogModalOpen(false);
+    } catch {
+      toast.error('Failed to add directives to sprint');
     }
   };
 
@@ -246,7 +311,7 @@ export function SprintView() {
 
     const formattedStart = format(startDate, 'MMM d');
     const formattedEnd = format(endDate, 'MMM d');
-    const label = `Sprint ${formattedStart} – ${formattedEnd}`;
+    const label = activeSprint ? activeSprint.name : `Sprint ${formattedStart} – ${formattedEnd}`;
 
     return {
       startDate,
@@ -258,17 +323,26 @@ export function SprintView() {
     };
   }, [activeSprint]);
 
-  // Sprint Directives Filter & Grouping
+  // Sprint Directives: Directives assigned to this active sprint
   const sprintDirectives = useMemo(() => {
     if (!activeSprint) return [];
-    // Only tasks assigned to the active sprint
-    const assigned = issues.filter(i => i.sprintId === activeSprint.id && !i.parentTaskId);
-    // If no tasks have sprintId set yet, fallback to active tasks if only 1 sprint exists to prevent empty UI
-    if (assigned.length === 0 && sprints.length === 1 && issues.length > 0) {
-      return issues.filter(i => !i.parentTaskId);
-    }
-    return assigned;
-  }, [issues, activeSprint, sprints]);
+    return issues.filter(i => i.sprintId === activeSprint.id && !i.parentTaskId);
+  }, [issues, activeSprint]);
+
+  // Backlog Directives: Unassigned directives (no sprintId) available to be added
+  const backlogDirectives = useMemo(() => {
+    return issues.filter(i => !i.sprintId && !i.parentTaskId);
+  }, [issues]);
+
+  const filteredBacklogDirectives = useMemo(() => {
+    if (!backlogSearch.trim()) return backlogDirectives;
+    const q = backlogSearch.toLowerCase();
+    return backlogDirectives.filter(i =>
+      i.title.toLowerCase().includes(q) ||
+      i.description?.toLowerCase().includes(q) ||
+      i.project?.name?.toLowerCase().includes(q)
+    );
+  }, [backlogDirectives, backlogSearch]);
 
   // 1. Current Focus: IN_PROGRESS or REVIEW
   const currentFocusDirectives = useMemo(() => {
@@ -365,9 +439,26 @@ export function SprintView() {
                 <h1 className="text-xl font-bold text-primary tracking-tight">
                   Sprint Execution
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shadow-2xs">
-                  {sprintDates.label}
-                </span>
+                {sprints.length > 1 ? (
+                  <div className="relative">
+                    <select
+                      value={activeSprint?.id || ''}
+                      onChange={(e) => setSelectedSprintId(e.target.value)}
+                      className="appearance-none bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 rounded-md text-xs font-mono font-semibold py-0.5 pl-2.5 pr-6 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-2xs"
+                    >
+                      {sprints.map(s => (
+                        <option key={s.id} value={s.id} className="bg-surface text-primary">
+                          {s.name} ({s.status})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3 h-3 text-blue-500 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shadow-2xs">
+                    {sprintDates.label}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-secondary font-normal">
                 Focused execution cycle for strategic engineering milestones.
@@ -476,8 +567,8 @@ export function SprintView() {
 
           {/* Progress Bar Track & Fill */}
           <div className="h-2 w-full bg-surface-hover rounded-full overflow-hidden border border-border/40 my-3.5">
-            <div 
-              className="h-full bg-accent transition-all duration-500 ease-out rounded-full" 
+            <div
+              className="h-full bg-accent transition-all duration-500 ease-out rounded-full"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -507,6 +598,21 @@ export function SprintView() {
             </div>
 
             <div className="flex items-center gap-2.5">
+              {backlogDirectives.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setBacklogModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-hover text-xs font-medium text-secondary hover:text-primary transition-all shadow-2xs cursor-pointer"
+                  title="Pull unassigned tasks from backlog into this sprint"
+                >
+                  <Folder className="w-3.5 h-3.5 text-muted" />
+                  <span>Add from Backlog</span>
+                  <span className="px-1.5 py-0.2 rounded-full font-mono text-[10px] bg-accent/15 text-accent font-bold">
+                    {backlogDirectives.length}
+                  </span>
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   setCreateInitialStatus('TODO');
@@ -538,16 +644,28 @@ export function SprintView() {
               <p className="text-xs text-secondary max-w-sm mb-4">
                 Add work to start planning this sprint and track progress against sprint milestones.
               </p>
-              <BaseButton
-                onClick={() => {
-                  setCreateInitialStatus('TODO');
-                  setCreateModalOpen(true);
-                }}
-                variant="primary"
-                className="flex items-center gap-1.5 text-xs py-2 px-4 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[2]" /> Add Directive
-              </BaseButton>
+              <div className="flex flex-wrap items-center justify-center gap-2.5">
+                <BaseButton
+                  onClick={() => {
+                    setCreateInitialStatus('TODO');
+                    setCreateModalOpen(true);
+                  }}
+                  variant="primary"
+                  className="flex items-center gap-1.5 text-xs py-2 px-4 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2]" /> Add Directive
+                </BaseButton>
+
+                {backlogDirectives.length > 0 && (
+                  <BaseButton
+                    onClick={() => setBacklogModalOpen(true)}
+                    variant="secondary"
+                    className="flex items-center gap-1.5 text-xs py-2 px-4 cursor-pointer"
+                  >
+                    <Folder className="w-3.5 h-3.5 text-muted" /> Pull from Backlog ({backlogDirectives.length})
+                  </BaseButton>
+                )}
+              </div>
             </div>
           ) : (
             /* Three Sprint Work Columns */
@@ -580,6 +698,7 @@ export function SprintView() {
                         onClick={() => setEditingIssue(issue)}
                         onDelete={() => handleDeleteIssue(issue)}
                         onToggleComplete={() => handleToggleComplete(issue)}
+                        onRemoveFromSprint={() => handleRemoveDirectiveFromSprint(issue.id)}
                       />
                     ))
                   )}
@@ -614,6 +733,7 @@ export function SprintView() {
                         onClick={() => setEditingIssue(issue)}
                         onDelete={() => handleDeleteIssue(issue)}
                         onToggleComplete={() => handleToggleComplete(issue)}
+                        onRemoveFromSprint={() => handleRemoveDirectiveFromSprint(issue.id)}
                       />
                     ))
                   )}
@@ -640,11 +760,11 @@ export function SprintView() {
                     /* Subtle Empty State matching design */
                     <div className="py-10 px-4 text-center flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/60 bg-surface/40 my-1">
                       <div className="w-8 h-8 rounded-full bg-surface border border-border/80 flex items-center justify-center text-muted mb-2.5 shadow-2xs">
-                        <Check className="w-4 h-4 stroke-[2.5]" />
+                        <Check className="w-4 h-4 text-muted/60" />
                       </div>
-                      <h4 className="font-semibold text-xs text-primary mb-1">No completed directives yet.</h4>
-                      <p className="text-[11px] text-muted max-w-[200px] leading-relaxed">
-                        Completed work will appear here as you finish tasks in this sprint.
+                      <p className="text-xs font-semibold text-primary mb-0.5">Nothing completed yet</p>
+                      <p className="text-[10px] text-muted max-w-[200px]">
+                        Mark directives done to celebrate engineering momentum.
                       </p>
                     </div>
                   ) : (
@@ -690,6 +810,7 @@ export function SprintView() {
           open={Boolean(editingIssue)}
           issue={editingIssue}
           allIssues={issues}
+          sprints={sprints}
           onClose={() => setEditingIssue(null)}
           onSubmit={(id, data) => updateIssueMutation.mutate({ id, data })}
           isSubmitting={updateIssueMutation.isPending}
@@ -701,7 +822,9 @@ export function SprintView() {
         <IssueCreateModal
           open={createModalOpen}
           initialStatus={createInitialStatus}
+          initialSprintId={activeSprint?.id || null}
           allIssues={issues}
+          sprints={sprints}
           projects={projects}
           onClose={() => setCreateModalOpen(false)}
           onSubmit={(data) => createIssueMutation.mutate(data)}
@@ -709,13 +832,115 @@ export function SprintView() {
         />
       )}
 
+      {/* Add Directives from Backlog Modal */}
+      {backlogModalOpen && activeSprint && (
+        <div
+          onClick={() => setBacklogModalOpen(false)}
+          className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="v4-card w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-surface-hover/50 shrink-0">
+              <div className="flex items-center gap-2">
+                <Folder className="w-4 h-4 text-accent" />
+                <div>
+                  <h3 className="font-bold text-sm text-primary">Add Directives from Backlog</h3>
+                  <p className="text-[11px] text-secondary">Assign existing backlog tasks into "{activeSprint.name}"</p>
+                </div>
+              </div>
+              <button onClick={() => setBacklogModalOpen(false)} className="text-secondary hover:text-primary cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search + Bulk Action */}
+            <div className="p-3 border-b border-border/70 flex items-center gap-2 bg-surface">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 text-muted absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Filter backlog directives..."
+                  value={backlogSearch}
+                  onChange={e => setBacklogSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                />
+              </div>
+              {filteredBacklogDirectives.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleAddAllBacklogToSprint}
+                  className="px-2.5 py-1.5 bg-accent/10 hover:bg-accent/20 border border-accent/30 text-accent rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors"
+                >
+                  Add All ({filteredBacklogDirectives.length})
+                </button>
+              )}
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {filteredBacklogDirectives.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted">
+                  {backlogSearch ? 'No backlog directives match your filter.' : 'No backlog directives available. All directives are already assigned!'}
+                </div>
+              ) : (
+                filteredBacklogDirectives.map(directive => (
+                  <div
+                    key={directive.id}
+                    className="p-3 rounded-xl bg-surface border border-border/80 hover:border-accent/40 flex items-center justify-between gap-3 transition-all group"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        {getPriorityBadge(directive.priority)}
+                        <span className="text-[10px] font-mono text-muted uppercase">
+                          {directive.status}
+                        </span>
+                        {directive.project && (
+                          <span className="text-[10px] text-muted flex items-center gap-1 font-mono">
+                            <Folder className="w-2.5 h-2.5" />
+                            {directive.project.name}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs font-semibold text-primary truncate">
+                        {directive.title}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAddDirectiveToSprint(directive.id)}
+                      className="px-3 py-1.5 bg-surface hover:bg-accent hover:text-white border border-border hover:border-accent rounded-lg text-xs font-semibold text-primary transition-all flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3 stroke-[2.5]" />
+                      <span>Add to Sprint</span>
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-border/60 bg-surface-hover/30 flex justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setBacklogModalOpen(false)}
+                className="px-3.5 py-1.5 text-xs text-secondary hover:text-primary rounded-lg border border-border bg-surface cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit Sprint Settings Modal */}
       {editSprintModalOpen && activeSprint && (
-        <div 
+        <div
           onClick={() => setEditSprintModalOpen(false)}
           className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
         >
-          <div 
+          <div
             onClick={e => e.stopPropagation()}
             className="v4-card w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
           >
@@ -789,12 +1014,14 @@ function SprintTaskCard({
   issue,
   onClick,
   onDelete,
-  onToggleComplete
+  onToggleComplete,
+  onRemoveFromSprint
 }: {
   issue: IssueWithRelations;
   onClick: () => void;
   onDelete: () => void;
   onToggleComplete?: () => void;
+  onRemoveFromSprint?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -851,7 +1078,7 @@ function SprintTaskCard({
             </button>
 
             {menuOpen && (
-              <div 
+              <div
                 onClick={e => e.stopPropagation()}
                 className="absolute right-0 top-full mt-1 w-40 bg-surface border border-border rounded-xl shadow-xl z-50 py-1 text-xs animate-in fade-in zoom-in-95 duration-100"
               >
@@ -875,6 +1102,17 @@ function SprintTaskCard({
                 >
                   <Edit2 className="w-3 h-3 text-muted" /> Edit
                 </button>
+                {onRemoveFromSprint && (
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onRemoveFromSprint();
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-secondary hover:text-primary hover:bg-surface-hover flex items-center gap-2 cursor-pointer"
+                  >
+                    <Folder className="w-3 h-3 text-muted" /> Move to Backlog
+                  </button>
+                )}
                 <div className="border-t border-border/60 my-1" />
                 <button
                   onClick={() => {
@@ -892,7 +1130,7 @@ function SprintTaskCard({
       </div>
 
       {/* Title */}
-      <div 
+      <div
         className="font-bold text-sm text-primary group-hover:text-accent transition-colors leading-snug tracking-tight min-w-0"
         style={{ overflowWrap: 'anywhere' }}
       >
@@ -901,7 +1139,7 @@ function SprintTaskCard({
 
       {/* Description Preview */}
       {issue.description && (
-        <p 
+        <p
           className="text-xs text-secondary line-clamp-2 leading-relaxed min-w-0"
           style={{ overflowWrap: 'anywhere' }}
         >
@@ -919,13 +1157,6 @@ function SprintTaskCard({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <div 
-            title={issue.assignee?.name || 'Unassigned'}
-            className="w-5 h-5 rounded-full bg-accent/15 border border-accent/30 text-accent flex items-center justify-center text-[10px] font-bold shadow-2xs"
-          >
-            {issue.assignee?.name ? issue.assignee.name.substring(0, 2).toUpperCase() : 'SP'}
-          </div>
-
           {formattedDate ? (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted font-medium">
               <Clock className="w-3 h-3 text-muted" />

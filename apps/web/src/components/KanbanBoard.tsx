@@ -324,17 +324,8 @@ function IssueCard({
           )}
         </div>
 
-        {/* Right side: Assignee Avatar + Due Date */}
+        {/* Right side: Due Date or Estimate */}
         <div className="flex items-center gap-2.5 shrink-0">
-          {/* Assignee Avatar */}
-          <div 
-            title={issue.assignee?.name || 'Unassigned'}
-            className="w-5 h-5 rounded-full bg-accent/15 border border-accent/30 text-accent flex items-center justify-center text-[10px] font-bold shadow-2xs"
-          >
-            {issue.assignee?.name ? issue.assignee.name.substring(0, 2).toUpperCase() : 'SP'}
-          </div>
-
-          {/* Due Date or Estimate */}
           {formattedDate ? (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted font-medium">
               <Clock className="w-3 h-3 text-muted" />
@@ -450,8 +441,10 @@ function Column({
 export function IssueCreateModal({
   open,
   initialStatus,
+  initialSprintId,
   allIssues,
   projects = [],
+  sprints = [],
   defaultProjectId,
   onClose,
   onSubmit,
@@ -459,11 +452,13 @@ export function IssueCreateModal({
 }: {
   open: boolean;
   initialStatus: TaskStatus;
+  initialSprintId?: string | null;
   allIssues: IssueWithRelations[];
   projects?: { id: string; name: string }[];
+  sprints?: { id: string; name: string; status: string }[];
   defaultProjectId?: string;
   onClose: () => void;
-  onSubmit: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; projectId?: string; dueDate?: string; scheduledDate?: string }) => void;
+  onSubmit: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; projectId?: string; sprintId?: string | null; dueDate?: string; scheduledDate?: string }) => void;
   isSubmitting: boolean;
 }) {
   const [title, setTitle] = useState('');
@@ -473,14 +468,16 @@ export function IssueCreateModal({
   const [estimate, setEstimate] = useState(2);
   const [blockedById, setBlockedById] = useState<string | null>(null);
   const [selectedProjId, setSelectedProjId] = useState<string>(defaultProjectId || (projects[0]?.id ?? ''));
+  const [selectedSprintId, setSelectedSprintId] = useState<string>(initialSprintId || '');
 
   useEffect(() => {
     if (open) {
       if (initialStatus) setStatus(initialStatus);
+      if (initialSprintId !== undefined) setSelectedSprintId(initialSprintId || '');
       if (defaultProjectId) setSelectedProjId(defaultProjectId);
       else if (projects.length > 0 && !selectedProjId) setSelectedProjId(projects[0].id);
     }
-  }, [open, initialStatus, defaultProjectId, projects, selectedProjId]);
+  }, [open, initialStatus, initialSprintId, defaultProjectId, projects, selectedProjId]);
 
   if (!open) return null;
 
@@ -494,7 +491,8 @@ export function IssueCreateModal({
       priority: priority as TaskPriority,
       estimateMinutes: Number(estimate) || 0,
       blockedById,
-      projectId: selectedProjId || defaultProjectId || projects[0]?.id
+      projectId: selectedProjId || defaultProjectId || projects[0]?.id,
+      sprintId: selectedSprintId || null
     });
   };
 
@@ -524,22 +522,42 @@ export function IssueCreateModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
-          {projects.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {projects.length > 0 && (
+              <div>
+                <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+                  Project
+                </label>
+                <select
+                  value={selectedProjId}
+                  onChange={e => setSelectedProjId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                >
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div>
               <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
-                Project
+                Sprint
               </label>
               <select
-                value={selectedProjId}
-                onChange={e => setSelectedProjId(e.target.value)}
+                value={selectedSprintId}
+                onChange={e => setSelectedSprintId(e.target.value)}
                 className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
               >
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                <option value="">None (Backlog / General)</option>
+                {sprints.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.status})
+                  </option>
                 ))}
               </select>
             </div>
-          )}
+          </div>
 
           <div>
             <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
@@ -651,6 +669,7 @@ export function IssueEditModal({
   open,
   issue,
   allIssues,
+  sprints = [],
   onClose,
   onSubmit,
   isSubmitting
@@ -658,8 +677,9 @@ export function IssueEditModal({
   open: boolean;
   issue: IssueWithRelations | null;
   allIssues: IssueWithRelations[];
+  sprints?: { id: string; name: string; status: string }[];
   onClose: () => void;
-  onSubmit: (id: string, data: Partial<IssueWithRelations> & { blockedById?: string | null }) => void;
+  onSubmit: (id: string, data: Partial<IssueWithRelations> & { blockedById?: string | null; sprintId?: string | null }) => void;
   isSubmitting: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -669,6 +689,7 @@ export function IssueEditModal({
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
   const [estimate, setEstimate] = useState(2);
   const [blockedById, setBlockedById] = useState<string | null>(null);
+  const [sprintId, setSprintId] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
@@ -680,6 +701,7 @@ export function IssueEditModal({
       setPriority(issue.priority as TaskPriority);
       setEstimate(issue.estimateMinutes || 2);
       setBlockedById(issue.blockedById || null);
+      setSprintId(issue.sprintId || null);
     }
   }, [issue, open]);
 
@@ -694,7 +716,8 @@ export function IssueEditModal({
       status: status as TaskStatus,
       priority: priority as TaskPriority,
       estimateMinutes: Number(estimate) || 0,
-      blockedById: blockedById || null
+      blockedById: blockedById || null,
+      sprintId: sprintId || null
     });
   };
 
@@ -797,18 +820,38 @@ export function IssueEditModal({
             </div>
           </div>
 
-          <div>
-            <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
-              Estimate (Hours)
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.5"
-              value={estimate}
-              onChange={e => setEstimate(Number(e.target.value))}
-              className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-accent text-primary"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+                Estimate (Hours)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                value={estimate}
+                onChange={e => setEstimate(Number(e.target.value))}
+                className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-accent text-primary"
+              />
+            </div>
+
+            <div>
+              <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+                Sprint Assignment
+              </label>
+              <select
+                value={sprintId || ''}
+                onChange={e => setSprintId(e.target.value || null)}
+                className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+              >
+                <option value="">None (Backlog / General)</option>
+                {sprints.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.status})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>
@@ -905,7 +948,7 @@ export function KanbanBoard() {
   const [editingIssue, setEditingIssue] = useState<IssueWithRelations | null>(null);
 
   const createIssueMutation = useMutation({
-    mutationFn: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; projectId?: string }) =>
+    mutationFn: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; projectId?: string; sprintId?: string | null }) =>
       api.tasks.create({
         title: data.title,
         description: data.description,
@@ -914,11 +957,13 @@ export function KanbanBoard() {
         estimateMinutes: data.estimateMinutes,
         assignee: 'me',
         projectId: data.projectId || projects[0]?.id,
+        sprintId: data.sprintId ?? (selectedSprintId !== 'all' ? selectedSprintId : null),
         labels: [],
         blockedById: data.blockedById
       }),
     onSuccess: (newIssue) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
       setCreateModalOpen(false);
       toast.success(`Created "${newIssue?.title || 'Directive'}"`, {
         description: `Added to ${(newIssue?.status || createStatus).replace('_', ' ')}.`
@@ -930,10 +975,11 @@ export function KanbanBoard() {
   });
 
   const updateIssueDetailMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<IssueWithRelations> & { blockedById?: string | null } }) =>
+    mutationFn: ({ id, data }: { id: string; data: Partial<IssueWithRelations> & { blockedById?: string | null; sprintId?: string | null } }) =>
       api.tasks.update(id, data),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
       setEditModalOpen(false);
       setEditingIssue(null);
       toast.success(`Updated "${updated?.title || 'Directive'}"`);
@@ -1508,8 +1554,10 @@ export function KanbanBoard() {
       <IssueCreateModal
         open={createModalOpen}
         initialStatus={createStatus}
+        initialSprintId={selectedSprintId !== 'all' ? selectedSprintId : null}
         allIssues={issues}
         projects={projects}
+        sprints={sprints}
         onClose={() => setCreateModalOpen(false)}
         onSubmit={(data) => createIssueMutation.mutate(data)}
         isSubmitting={createIssueMutation.isPending}
@@ -1520,6 +1568,7 @@ export function KanbanBoard() {
         open={editModalOpen}
         issue={editingIssue}
         allIssues={issues}
+        sprints={sprints}
         onClose={() => { setEditModalOpen(false); setEditingIssue(null); }}
         onSubmit={(id, data) => updateIssueDetailMutation.mutate({ id, data: data as any })}
         isSubmitting={updateIssueDetailMutation.isPending}

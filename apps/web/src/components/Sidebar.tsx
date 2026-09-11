@@ -61,16 +61,20 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  const { user, logout } = useAuth();
  const [systemOpen, setSystemOpen] = useState(false);
 
- // Fetch live counts for badges
- const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
- const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
- const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
- const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
- const { data: pages = [] } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
+  // Fetch live counts for badges
+  const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
+  const { data: sprints = [] } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
+  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+  const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
+  const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
+  const { data: pages = [] } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
 
- const openIssuesCount = issues.filter(i => i.status !== "DONE" && i.status !== "REVIEW").length;
- const sprintIssuesCount = issues.filter(i => ["TODO", "IN_PROGRESS", "REVIEW"].includes(i.status)).length;
- const activeProjectsCount = projects.filter(p => p.status === 'active').length;
+  const activeSprint = sprints.find(s => s.status === 'active') || sprints[0];
+  const openIssuesCount = issues.filter(i => i.status !== "DONE" && i.status !== "REVIEW").length;
+  const sprintIssuesCount = activeSprint
+    ? issues.filter(i => i.sprintId === activeSprint.id && i.status !== 'DONE').length
+    : 0;
+  const activeProjectsCount = projects.filter(p => p.status === 'active').length;
 
  const getBadgeValue = (key: string | null) => {
  if (key === 'openIssues') return openIssuesCount;
