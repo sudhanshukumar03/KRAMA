@@ -27,7 +27,7 @@ import { useTheme } from '../lib/theme';
 
 export function AppShell() {
  const navigate = useNavigate();
- const { theme, toggleTheme, resolvedTheme } = useTheme();
+ const { toggleTheme, resolvedTheme } = useTheme();
  const [activePrefix, setActivePrefix] = useState<'g' | 'e' | 't' | 's' | null>(null);
  const [showCheatsheet, setShowCheatsheet] = useState(false);
  const [isOffline, setIsOffline] = useState(false);
