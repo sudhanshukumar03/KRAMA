@@ -67,6 +67,12 @@ One request, start to finish: a calendar push hits the webhook ingest, gets buff
 * **Redis plays three distinct roles** — cache, distributed lock, and job broker — deliberately kept on one instance rather than three services, since the local-first deployment target doesn't justify the operational overhead of separating them.
 * **The spine is real, not aspirational.** Knowledge, Execution, and Goals aren't three features that happen to share a database — they're foreign-keyed to the same Project, which is the whole thesis of the Bridge Layer below.
 
+<br/>
+<div align="center">
+  <img src="./docs/diagrams/architecture.svg" alt="KRAMA System Architecture" width="100%" />
+</div>
+<br/>
+
 <details>
   <summary><b>Component-level view (Mermaid)</b></summary>
 
