@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GlobalErrorBoundary } from './ui/GlobalErrorBoundary';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { cn } from '../lib/utils';
 import { Analytics } from './Analytics';
 import { Sidebar } from './Sidebar';
 import { KanbanBoard } from './KanbanBoard';
@@ -27,6 +28,8 @@ import { useTheme } from '../lib/theme';
 
 export function AppShell() {
  const navigate = useNavigate();
+ const location = useLocation();
+ const isFlushRoute = location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/sprint');
  const { toggleTheme, resolvedTheme } = useTheme();
  const [activePrefix, setActivePrefix] = useState<'g' | 'e' | 't' | 's' | null>(null);
  const [showCheatsheet, setShowCheatsheet] = useState(false);
@@ -198,7 +201,10 @@ export function AppShell() {
  </div>
  )}
 
- <main className="flex-1 overflow-y-auto bg-canvas relative animate-in fade-in duration-150 p-6 md:p-10">
+ <main className={cn(
+ "flex-1 min-w-0 w-full relative animate-in fade-in duration-150",
+ isFlushRoute ? "h-full overflow-hidden flex flex-col p-0" : "overflow-y-auto p-6 md:p-10 bg-canvas"
+ )}>
  <GlobalErrorBoundary><Routes>
  <Route path="/" element={<Dashboard />} />
  <Route path="/brain/*" element={<BrainWorkspace />} />
@@ -206,6 +212,7 @@ export function AppShell() {
  <Route path="/projects" element={<Projects />} />
  <Route path="/projects/:id" element={<ProjectDetail />} />
  <Route path="/board/*" element={<KanbanBoard />} />
+ <Route path="/kanban/*" element={<KanbanBoard />} />
  <Route path="/sprint/*" element={<SprintView />} />
  <Route path="/planner/*" element={<PlannerPage />} />
  <Route path="/timeline/*" element={<TimelineView />} />

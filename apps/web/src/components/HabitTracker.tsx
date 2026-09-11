@@ -50,7 +50,7 @@ function HabitMainListItem({ habit, deleteMutation }: { habit: any; deleteMutati
  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
  </div>
  ) : (
- <div className="w-5 h-5 rounded-md border border-border bg-surface group-hover:border-[#EA580C] transition-all flex items-center justify-center shadow-2xs" />
+ <div className="w-5 h-5 rounded-md border border-border bg-surface group-hover:border-accent transition-all flex items-center justify-center shadow-2xs" />
  )}
  </button>
  <span className={cn("text-body font-medium transition-colors", isCompletedToday ? "text-muted line-through" : "text-primary group-hover:text-primary")}>
@@ -62,8 +62,8 @@ function HabitMainListItem({ habit, deleteMutation }: { habit: any; deleteMutati
  <span className="text-badge text-secondary font-mono">
  {habit.expectedDurationMinutes || 15}m
  </span>
- <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[10px] font-bold tracking-tight">
- <Flame className="w-3 h-3 text-[#EA580C] stroke-[2]" />{" "}
+ <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-orange-500/10 border border-orange-500/20 text-orange-500 font-mono text-[10px] font-bold tracking-tight">
+ <Flame className="w-3 h-3 text-orange-500 stroke-[2]" />{" "}
  {habit.streak}d
  </span>
  <ConfirmDeleteButton
@@ -1047,8 +1047,8 @@ export function HabitTracker() {
  {habit.name}
  </h3>
  <div className="flex items-center gap-1.5 shrink-0">
- <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-badge font-bold tracking-tight">
- <Flame className="w-3.5 h-3.5 text-[#EA580C] stroke-[2]" />{" "}
+ <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400 font-mono text-badge font-bold tracking-tight">
+ <Flame className="w-3.5 h-3.5 text-orange-500 stroke-[2]" />{" "}
  {habit.streak}d
  </span>
  <ConfirmDeleteButton

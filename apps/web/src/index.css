@@ -10,16 +10,16 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   /* Typography Scale */
-  --text-badge: 10px;
-  --text-badge--line-height: 14px;
-  --text-caption: 12px;
-  --text-caption--line-height: 16px;
-  --text-body: 14px;
-  --text-body--line-height: 20px;
-  --text-section: 16px;
-  --text-section--line-height: 24px;
-  --text-card: 18px;
-  --text-card--line-height: 26px;
+  --text-badge: 12px;
+  --text-badge--line-height: 16px;
+  --text-caption: 13px;
+  --text-caption--line-height: 20px;
+  --text-body: 15px;
+  --text-body--line-height: 24px;
+  --text-section: 18px;
+  --text-section--line-height: 28px;
+  --text-card: 20px;
+  --text-card--line-height: 30px;
 
   /* Surfaces & Canvas */
   --color-bg-base: var(--bg-base);
@@ -176,39 +176,65 @@
     background-color: var(--color-canvas);
     color: var(--color-primary);
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 400;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
-    selection-background-color: var(--color-accent-subtle);
-    selection-color: var(--color-accent-fg);
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum";
+    letter-spacing: -0.011em;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.025em;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-subtle);
+    color: var(--color-accent-fg);
   }
 
   *:focus-visible {
     outline: 2px solid var(--color-ring) !important;
     outline-offset: 2px !important;
   }
+
+  kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1.5px 5px;
+    border-radius: 4px;
+    background-color: var(--color-surface-hover);
+    border: 1px solid var(--color-border);
+    color: var(--color-muted);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+  }
 }
 
 @layer components {
-  /* Krama Standard Cards & v4-card backwards-compatibility */
+  /* Krama Standard Cards & v4-card with Specular Rim Highlight */
   .krama-card,
   .v4-card {
     background-color: var(--color-card);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow-level-1);
-    transition: border-color var(--motion-fast) var(--ease-out),
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
+    transition: transform var(--motion-fast) var(--ease-out),
+                border-color var(--motion-fast) var(--ease-out),
                 box-shadow var(--motion-fast) var(--ease-out);
   }
 
   .krama-card:hover,
   .v4-card:hover {
     border-color: var(--color-border-strong);
-    box-shadow: var(--shadow-level-2);
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
   }
 
-  /* BaseButton Component Classes */
+  /* BaseButton Component Classes with Hardware Click Compression */
   .krama-btn {
     display: inline-flex;
     align-items: center;
@@ -216,10 +242,17 @@
     font-family: var(--font-sans);
     font-weight: 500;
     border-radius: var(--radius-btn);
+    cursor: pointer;
     transition: background-color var(--motion-fast) var(--ease-out),
                 border-color var(--motion-fast) var(--ease-out),
                 color var(--motion-fast) var(--ease-out),
-                box-shadow var(--motion-fast) var(--ease-out);
+                box-shadow var(--motion-fast) var(--ease-out),
+                transform var(--motion-fast) var(--ease-out);
+  }
+
+  .krama-btn:active:not(:disabled),
+  button:active:not(:disabled) {
+    transform: scale(0.98);
   }
 
   .krama-btn-primary {
@@ -274,6 +307,31 @@
 }
 
 @layer utilities {
+  /* Ultra-slim floating scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-strong);
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 9999px;
+  }
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }

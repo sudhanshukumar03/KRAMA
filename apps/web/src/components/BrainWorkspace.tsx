@@ -133,8 +133,8 @@ function PageTreeNode({
  onConfirm={handleDeletePage}
  className={cn("opacity-0 group-hover:opacity-100",
  isSelected 
- ?"text-surface hover:text-[#DC2626] hover:bg-surface/20" 
- :"text-muted hover:text-[#DC2626] hover:bg-error-tint"
+ ? "text-surface hover:text-danger-fg hover:bg-surface/20" 
+ : "text-muted hover:text-danger-fg hover:bg-error-tint"
  )}
  iconClassName="w-3.5 h-3.5 stroke-[1.5]"
  />
@@ -236,7 +236,7 @@ function Editor({ page, pages }: { page: PageWithRelations, pages: PageWithRelat
  },
  editorProps: {
  attributes: {
- class: 'prose prose-zinc max-w-none focus:outline-none min-h-[450px] text-primary leading-relaxed font-sans text-body',
+ class: 'prose prose-zinc dark:prose-invert max-w-none focus:outline-none min-h-[450px] text-primary leading-relaxed font-sans text-body',
  },
  },
  });

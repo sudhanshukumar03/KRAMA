@@ -37,21 +37,21 @@ function TimelineHabitRow({ habit }: { habit: any }) {
  toggleHabit();
  }}
  className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors focus:outline-none",
- isCompletedToday ?"bg-[#EA580C] text-white border-transparent shadow-2xs" :"bg-surface border-2 border-border text-transparent hover:border-[#EA580C]"
+ isCompletedToday ? "bg-orange-500 text-white border-transparent shadow-2xs" : "bg-surface border-2 border-border text-transparent hover:border-orange-500"
  )}
  >
  <Check className="w-3.5 h-3.5 stroke-[3]" />
  </button>
  <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors",
- isCompletedToday ?"bg-[#FFF7ED] text-[#EA580C]" :"bg-surface-hover border border-border text-[#EA580C] group-hover:border-[#EA580C]"
+ isCompletedToday ? "bg-orange-500/15 text-orange-500" : "bg-surface-hover border border-border text-orange-500 group-hover:border-orange-500"
  )}>
  <Icon className="w-3.5 h-3.5 stroke-[1.75]" />
  </div>
  <div className="min-w-0">
- <div className={cn("font-medium text-caption truncate group-hover:text-[#EA580C] transition-colors",
- isCompletedToday ?"text-muted line-through" :"text-primary"
+ <div className={cn("font-medium text-caption truncate group-hover:text-orange-500 transition-colors",
+ isCompletedToday ? "text-muted line-through" : "text-primary"
  )}>{habit.name}</div>
- <div className="text-[10px] text-secondary font-mono flex items-center gap-1.5"><span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-[#FFF7ED] border border-[#FFEDD5] text-[#C2410C] font-mono text-[9px] font-bold"><Flame className="w-2.5 h-2.5 text-[#EA580C] stroke-[2]" />{habit.streak}d</span> streak</div>
+ <div className="text-[10px] text-secondary font-mono flex items-center gap-1.5"><span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400 font-mono text-[9px] font-bold"><Flame className="w-2.5 h-2.5 text-orange-500 stroke-[2]" />{habit.streak}d</span> streak</div>
  </div>
  </div>
  <div className="text-badge font-mono text-secondary shrink-0 ml-2 bg-surface-hover px-1.5 py-0.5 rounded border border-border">
@@ -97,7 +97,7 @@ function RoutineCreateModal({
  >
  <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50">
  <div className="flex items-center gap-2.5">
- <div className="w-8 h-8 rounded-lg bg-[#EA580C]/10 text-[#EA580C] flex items-center justify-center">
+ <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-500 flex items-center justify-center">
  <Flame className="w-4 h-4 stroke-[2]" />
  </div>
  <h3 className="text-card text-primary mb-2 ">Add Daily Routine</h3>
@@ -114,7 +114,7 @@ function RoutineCreateModal({
  <form onSubmit={handleSubmit} className="p-6 space-y-4">
  <div>
  <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
- Routine Name <span className="text-[#DC2626]">*</span>
+ Routine Name <span className="text-danger-fg">*</span>
  </label>
  <input
  type="text"
@@ -123,7 +123,7 @@ function RoutineCreateModal({
  placeholder="e.g., Morning Standup & Planning"
  required
  autoFocus
- className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary placeholder:text-muted focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary placeholder:text-muted focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all"
  />
  </div>
 
@@ -135,7 +135,7 @@ function RoutineCreateModal({
  <select
  value={category}
  onChange={e => setCategory(e.target.value)}
- className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all"
  >
  <option value="PRODUCTIVITY">Productivity</option>
  <option value="HEALTH">Health</option>
@@ -153,7 +153,7 @@ function RoutineCreateModal({
  <select
  value={timeOfDay}
  onChange={e => setTimeOfDay(e.target.value)}
- className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all"
  >
  <option value="morning">Morning</option>
  <option value="afternoon">Afternoon</option>
@@ -172,7 +172,7 @@ function RoutineCreateModal({
  max="480"
  value={expectedDurationMinutes}
  onChange={e => setDuration(Number(e.target.value))}
- className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#EA580C] focus:ring-1 focus:ring-[#EA580C] transition-all"
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all"
  />
  </div>
  </div>
@@ -232,7 +232,7 @@ function ScheduleTaskModal({
  >
  <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50">
  <div className="flex items-center gap-2.5">
- <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
+ <div className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
  <CalendarPlus className="w-4 h-4 stroke-[2]" />
  </div>
  <h3 className="text-card text-primary mb-2 ">Schedule Agenda Task</h3>
@@ -249,7 +249,7 @@ function ScheduleTaskModal({
  <form onSubmit={handleSubmit} className="p-6 space-y-4">
  <div>
  <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
- Task / Event Title <span className="text-[#DC2626]">*</span>
+ Task / Event Title <span className="text-danger-fg">*</span>
  </label>
  <input
  type="text"
@@ -258,7 +258,7 @@ function ScheduleTaskModal({
  placeholder="e.g., Q3 System Architecture Review"
  required
  autoFocus
- className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary placeholder:text-muted focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
  />
  </div>
 
@@ -271,7 +271,7 @@ function ScheduleTaskModal({
  type="date"
  value={dueDate}
  onChange={e => setDueDate(e.target.value)}
- className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
  />
  </div>
 
@@ -286,7 +286,7 @@ function ScheduleTaskModal({
  step="0.5"
  value={estimateHours}
  onChange={e => setEstimateHours(Number(e.target.value))}
- className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
  />
  </div>
  </div>
@@ -298,7 +298,7 @@ function ScheduleTaskModal({
  <select
  value={priority}
  onChange={e => setPriority(e.target.value)}
- className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all"
+ className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
  >
  <option value="MEDIUM">Normal</option>
  <option value="HIGH">High Priority</option>
@@ -472,8 +472,8 @@ export function TimelineView() {
  <div className="flex items-center gap-4">
  <h1 className="text-title text-primary m-0">Daily Schedule</h1>
  <div className="px-3 py-1 bg-surface-hover border border-border rounded-lg flex items-center gap-3 shadow-sm ml-4">
- <div className="text-caption font-medium text-[#2563EB] flex items-center gap-1.5">
- <Sparkles className="w-3.5 h-3.5 fill-[#2563EB]" /> Live Horizon
+ <div className="text-caption font-medium text-accent flex items-center gap-1.5">
+ <Sparkles className="w-3.5 h-3.5 fill-accent text-accent" /> Live Horizon
  </div>
  <div className="text-sm font-mono font-bold text-primary">
  {timeString}
@@ -484,7 +484,7 @@ export function TimelineView() {
  {!isViewingToday && (
  <button 
  onClick={() => setSearchParams({})} 
- className="text-caption font-medium text-[#2563EB] bg-[#EFF4FE] px-2.5 py-1 rounded-full hover:bg-[#2563EB] hover:text-white transition-colors ml-2 shadow-2xs"
+ className="text-caption font-medium text-accent bg-accent/10 px-2.5 py-1 rounded-full hover:bg-accent hover:text-white transition-colors ml-2 shadow-2xs"
  >
  Back to Today
  </button>
@@ -495,7 +495,7 @@ export function TimelineView() {
  </p>
  </div>
  <div className="flex items-center gap-2.5">
- <button onClick={() => setScheduleModalOpen(true)} className="w-9 h-9 rounded-full bg-[#2563EB] text-white flex items-center justify-center hover:bg-[#1D4ED8] transition-colors shadow-sm" title="Add Time Block">
+ <button onClick={() => setScheduleModalOpen(true)} className="w-9 h-9 rounded-full bg-accent text-accent-fg flex items-center justify-center hover:bg-accent-hover transition-colors shadow-sm" title="Add Time Block">
  <Plus className="w-4 h-4 stroke-[2]" />
  </button>
  
@@ -511,7 +511,7 @@ export function TimelineView() {
  <Clock className="w-6 h-6 text-muted mb-2 stroke-[1.5]" />
  <p className="text-body font-medium text-primary mb-1">No events scheduled for today</p>
  <p className="text-caption text-secondary mb-4">Your agenda is completely clear. Enjoy your focus time!</p>
- <button onClick={() => setScheduleModalOpen(true)} className="px-3.5 py-1.5 rounded-full bg-[#EFF4FE] text-[#2563EB] hover:bg-[#2563EB] hover:text-white text-caption font-medium transition-colors shadow-sm cursor-pointer">
+ <button onClick={() => setScheduleModalOpen(true)} className="px-3.5 py-1.5 rounded-full bg-accent/10 text-accent hover:bg-accent hover:text-white text-caption font-medium transition-colors shadow-sm cursor-pointer">
  + Schedule a task
  </button>
  </div>
@@ -553,12 +553,12 @@ export function TimelineView() {
  <div>
  <div className="flex items-center gap-2">
  <h3 className={cn("font-medium text-body mb-0.5",
- isDone ? "text-muted line-through decoration-[#D1D5DB]" : "text-primary"
+ isDone ? "text-muted line-through decoration-muted" : "text-primary"
  )}>
  {issue.title}
  </h3>
  {item.isCarriedOver && (
- <span className="px-1.5 py-0.2 rounded bg-amber-50 text-warning text-[9px] font-mono font-bold uppercase tracking-widest border border-amber-200">
+ <span className="px-1.5 py-0.2 rounded bg-orange-500/10 text-orange-600 dark:text-orange-400 text-[9px] font-mono font-bold uppercase tracking-widest border border-orange-500/20">
  Carried Over
  </span>
  )}
@@ -608,36 +608,36 @@ export function TimelineView() {
  </div>
  </div>
  
- <div className={cn("w-8 h-8 rounded-full ring-4 ring-white flex items-center justify-center transition-colors z-10",
- isDone ? "bg-primary" : isCurrent ? "bg-[#2563EB] ring-2 ring-[#EFF4FE]" : isPast ? "bg-surface border-2 border-border" : "bg-surface border-2 border-[#2563EB]"
+ <div className={cn("w-8 h-8 rounded-full ring-4 ring-canvas flex items-center justify-center transition-colors z-10",
+ isDone ? "bg-primary" : isCurrent ? "bg-accent ring-2 ring-accent/20" : isPast ? "bg-surface border-2 border-border" : "bg-surface border-2 border-accent"
  )}>
  {isDone && <Check className="w-2.5 h-2.5 text-white stroke-[2]" />}
  {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-surface animate-pulse" />}
  </div>
  
  <div className={cn("flex-1 rounded-xl p-3.5 transition-all flex items-center justify-between border cursor-pointer group/card",
- isDone ? "bg-surface border-border/50 opacity-60" : isCurrent ? "bg-surface border-[#2563EB] ring-1 ring-[#2563EB]/20 shadow-md" : "bg-surface border-border hover:border-primary shadow-sm"
+ isDone ? "bg-surface border-border/50 opacity-60" : isCurrent ? "bg-surface border-accent ring-1 ring-accent/20 shadow-md" : "bg-surface border-border hover:border-primary shadow-sm"
  )}>
  <div className="flex items-center gap-3.5">
  <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors",
- isDone ? "bg-surface border border-border" : isCurrent ? "bg-[#2563EB] text-white shadow-xs" : "bg-[#EFF4FE] border border-[#2563EB]/20"
+ isDone ? "bg-surface border border-border" : isCurrent ? "bg-accent text-white shadow-xs" : "bg-accent/10 border border-accent/20"
  )}>
- <Icon className={cn("w-4 h-4 stroke-[1.75]", isDone ? "text-muted" : isCurrent ? "text-white" : "text-[#2563EB]")} />
+ <Icon className={cn("w-4 h-4 stroke-[1.75]", isDone ? "text-muted" : isCurrent ? "text-white" : "text-accent")} />
  </div>
  <div>
  <div className="flex items-center gap-2">
  <h3 className={cn("font-medium text-body mb-0.5",
- isDone ? "text-muted line-through decoration-[#D1D5DB]" : "text-primary"
+ isDone ? "text-muted line-through decoration-muted" : "text-primary"
  )}>
  {issueTitle}
  </h3>
  {isCurrent && (
- <span className="px-1.5 py-0.2 rounded bg-[#EFF4FE] text-[#2563EB] text-[9px] font-mono font-bold uppercase tracking-widest border border-[#2563EB]/20">
+ <span className="px-1.5 py-0.2 rounded bg-accent/10 text-accent text-[9px] font-mono font-bold uppercase tracking-widest border border-accent/20">
  In Progress Now
  </span>
  )}
  {hasLinkedTask && (
- <span className="px-1.5 py-0.2 rounded bg-purple-50 text-[var(--cat-routines)] text-[9px] font-mono font-bold uppercase tracking-widest border border-purple-200">
+ <span className="px-1.5 py-0.2 rounded bg-[var(--cat-routines-bg)] text-[var(--cat-routines)] text-[9px] font-mono font-bold uppercase tracking-widest border border-[var(--cat-routines)]/20">
  Linked Task
  </span>
  )}
@@ -663,11 +663,11 @@ export function TimelineView() {
  
  
 
- {/* Habits Widget with Orange Category Tint (#EA580C) */}
+ {/* Habits Widget with Orange Category Tint */}
  <div className="bg-surface border border-border rounded-xl p-5 shadow-sm flex-1 flex flex-col">
  <div className="flex items-center justify-between mb-4">
  <div className="flex items-center gap-2">
- <div className="w-8 h-8 rounded-lg bg-[#EA580C]/10 flex items-center justify-center text-[#EA580C]">
+ <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-500">
  <Flame className="w-4 h-4 stroke-[1.75]" />
  </div>
  <div>
@@ -676,7 +676,7 @@ export function TimelineView() {
  </div>
  </div>
  <div className="flex items-center gap-2">
- <button onClick={() => setRoutineModalOpen(true)} className="text-badge font-medium text-[#EA580C] bg-[#FFF7ED] border border-[#FFEDD5] px-2 py-0.5 rounded hover:bg-[#FFEDD5] transition-colors flex items-center gap-1 cursor-pointer">
+ <button onClick={() => setRoutineModalOpen(true)} className="text-badge font-medium text-orange-600 dark:text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded hover:bg-orange-500/20 transition-colors flex items-center gap-1 cursor-pointer">
  <Plus className="w-3 h-3 stroke-[2.5]" /> Add Routine
  </button>
  <button onClick={() => window.location.href = '/app/habits'} className="text-badge font-medium text-secondary hover:text-primary transition-colors">Manage</button>
@@ -735,7 +735,7 @@ export function TimelineView() {
  {habits.filter(isHabitScheduledToday).length === 0 && (
  <div className="py-8 text-center border border-dashed border-border rounded-xl bg-surface-hover/50">
  <p className="text-caption text-secondary mb-3">No daily routines added yet.</p>
- <button onClick={() => setRoutineModalOpen(true)} className="px-3 py-1.5 rounded-lg bg-[#FFF7ED] text-[#EA580C] border border-[#FFEDD5] text-caption font-medium hover:bg-[#FFEDD5] transition-colors inline-flex items-center gap-1 cursor-pointer">
+ <button onClick={() => setRoutineModalOpen(true)} className="px-3 py-1.5 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 text-caption font-medium hover:bg-orange-500/20 transition-colors inline-flex items-center gap-1 cursor-pointer">
  <Plus className="w-3.5 h-3.5 stroke-[2]" /> Add Routine
  </button>
  </div>

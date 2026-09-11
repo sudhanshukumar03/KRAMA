@@ -39,7 +39,7 @@ export function ConfirmDeleteButton({ onConfirm, className, iconClassName }: Con
  title={armed ? "Click again to confirm delete" : "Delete"}
  className={cn(
  "transition-all duration-150 cursor-pointer overflow-hidden flex items-center justify-center",
- armed ? "bg-[#DC2626] text-white hover:bg-[#B91C1C] rounded px-1.5 py-0.5" : "text-muted hover:text-[#DC2626] hover:bg-[#DC2626]/10 rounded p-1",
+ armed ? "bg-danger-fg text-white hover:bg-danger-fg/90 rounded px-1.5 py-0.5" : "text-muted hover:text-danger-fg hover:bg-danger-bg rounded p-1",
  className
  )}
  >

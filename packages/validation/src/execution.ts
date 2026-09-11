@@ -9,7 +9,10 @@ export const CreateProjectSchema = WorkspaceScoped.extend({
   icon: z.string().optional(),
   problemStatement: z.string().optional(),
   goalId: z.string().uuid().optional(),
-  status: z.enum(['active', 'completed', 'archived']).default('active'),
+  status: z.enum(['active', 'completed', 'archived', 'idea', 'paused', 'shipped']).default('active'),
+  targetDate: z.string().nullable().optional(),
+  progress: z.number().optional(),
+  metadata: z.any().optional(),
   skillIds: z.array(z.string()).optional(),
 });
 
@@ -87,9 +90,11 @@ export const UpdatePageSchema = CreatePageSchema.partial().extend({
 export const CreateSprintSchema = WorkspaceScoped.extend({
   name: z.string().min(1).max(255),
   projectId: z.string().uuid().optional(),
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime(),
+  startDate: z.string(),
+  endDate: z.string(),
   status: z.enum(['planning', 'active', 'completed']).default('planning'),
+  metadata: z.any().optional(),
+  goals: z.string().optional(),
 });
 
 export const UpdateSprintSchema = CreateSprintSchema.partial().extend({

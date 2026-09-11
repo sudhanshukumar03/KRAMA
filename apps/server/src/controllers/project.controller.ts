@@ -51,7 +51,10 @@ export const getProject = async (req: Request, res: Response) => {
 
 export const createProject = async (req: Request, res: Response) => {
   try {
-    const data = CreateProjectSchema.parse(req.body);
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || (req.body.workspaceId as string);
+    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+
+    const data = CreateProjectSchema.parse({ ...req.body, workspaceId });
     
     // Auto-increment position to place at the bottom
     const lastProject = await prisma.project.findFirst({
@@ -61,17 +64,20 @@ export const createProject = async (req: Request, res: Response) => {
     });
     const position = lastProject ? lastProject.position + 1.0 : 1.0;
 
-    
-      if ((data as any).skillIds !== undefined) {
-        await SkillService.validateSkillLinking(req.user!.id, data.workspaceId, (data as any).skillIds);
-        const ids = (data as any).skillIds;
-        delete (data as any).skillIds;
-        (data as any).skills = { connect: ids.map((id: string) => ({ id })) };
-      }
+    if ((data as any).skillIds !== undefined) {
+      await SkillService.validateSkillLinking(req.user!.id, data.workspaceId, (data as any).skillIds);
+      const ids = (data as any).skillIds;
+      delete (data as any).skillIds;
+      (data as any).skills = { connect: ids.map((id: string) => ({ id })) };
+    }
 
-const project = await prisma.project.create({
+    const { targetDate, progress, ...cleanData } = data as any;
+    const metadata = cleanData.metadata || (targetDate ? { targetDate } : undefined);
+
+    const project = await prisma.project.create({
       data: {
-        ...data,
+        ...cleanData,
+        metadata: metadata ? metadata : undefined,
         position,
         createdBy: req.user!.id,
       },

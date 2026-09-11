@@ -47,11 +47,17 @@ export const getSprint = async (req: Request, res: Response) => {
 
 export const createSprint = async (req: Request, res: Response) => {
   try {
-    const data = CreateSprintSchema.parse(req.body);
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || (req.body.workspaceId as string);
+    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+
+    const data = CreateSprintSchema.parse({ ...req.body, workspaceId });
+    const { goals, ...cleanData } = data as any;
+    const metadata = cleanData.metadata || (goals ? { goals } : undefined);
 
     const sprint = await prisma.sprint.create({
       data: {
-        ...data,
+        ...cleanData,
+        metadata: metadata ? metadata : undefined,
         startDate: new Date(data.startDate),
         endDate: new Date(data.endDate),
         createdBy: req.user!.id,
@@ -69,7 +75,10 @@ export const createSprint = async (req: Request, res: Response) => {
 export const updateSprint = async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
-    const data = UpdateSprintSchema.parse(req.body);
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || (req.body.workspaceId as string);
+    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+
+    const data = UpdateSprintSchema.parse({ ...req.body, workspaceId });
 
     const existing = await prisma.sprint.findUnique({ where: { id } });
     if (!existing || existing.deletedAt || existing.workspaceId !== data.workspaceId) {
@@ -80,7 +89,8 @@ export const updateSprint = async (req: Request, res: Response) => {
       return res.status(409).json({ message: 'Conflict: version mismatch' });
     }
 
-    const { version, workspaceId, startDate, endDate, ...updateData } = data;
+    const { version, workspaceId: bodyWid, startDate, endDate, goals, ...updateData } = data as any;
+    const metadata = updateData.metadata || (goals ? { goals } : undefined);
 
     const sprint = await prisma.sprint.update({
       where: { id },

@@ -86,9 +86,6 @@ export function ProjectDetail() {
  )}>
  {project.status}
  </span>
- <span className="font-mono text-caption font-bold text-secondary bg-surface-hover px-2.5 py-0.5 rounded-md border border-border">
- ID: {project.id.slice(0, 6).toUpperCase()}
- </span>
  </div>
  {project.problemStatement && (
  <p className="text-caption md:text-body text-secondary font-normal max-w-4xl leading-relaxed">{project.problemStatement}</p>
@@ -232,7 +229,6 @@ export function ProjectDetail() {
  <div key={issue.id} onClick={() => setActiveTab('board')} className="p-4 hover:bg-surface-hover transition-colors flex items-center justify-between cursor-pointer group">
  <div className="flex flex-col min-w-0 pr-3">
  <span className="font-bold text-body text-primary truncate group-hover:text-[#2563EB] :text-[#2563EB] transition-colors">{issue.title}</span>
- <span className="text-[10px] font-mono text-secondary mt-0.5">{issue.id.slice(0, 7).toUpperCase()}</span>
  </div>
  <span className={cn("px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider border shrink-0",
  issue.priority === "URGENT" ?"bg-error-tint text-error border-error-tint" :"bg-surface-hover text-secondary border-border/80"
@@ -282,10 +278,7 @@ export function ProjectDetail() {
  onClick={() => navigate('/app/kanban')}
  className="bg-surface border border-border rounded-xl p-4 shadow-2xs hover:border-[#2563EB] :border-[#2563EB] hover:shadow-md transition-all duration-200 cursor-pointer group flex flex-col gap-3"
  >
- <div className="flex items-start justify-between gap-2">
- <span className="text-[10px] font-mono font-bold text-secondary bg-surface-hover px-2 py-0.5 rounded border border-border/60">
- {issue.id.slice(0, 7).toUpperCase()}
- </span>
+ <div className="flex items-start justify-end gap-2">
  <span className={cn("text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border",
  issue.priority === "URGENT" ?"bg-error-tint text-error border-error-tint" :
  issue.priority === "HIGH" ?"bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20" :"bg-surface-hover text-secondary border-border/80"

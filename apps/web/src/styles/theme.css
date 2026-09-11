@@ -8,12 +8,12 @@
     --surface-3: oklch(1 0 0);
     --surface-overlay: oklch(1 0 0 / 0.8);
     
-    /* 2. Text (Light) */
-    --text-primary: oklch(0.2 0 0); /* #18181B */
-    --text-secondary: oklch(0.4 0 0); /* #52525B */
-    --text-muted: oklch(0.65 0 0); /* #A1A1AA */
+    /* 2. Text (Light - Chromatic Iris Slate) */
+    --text-primary: oklch(0.20 0.02 262); /* Deep Midnight Slate */
+    --text-secondary: oklch(0.42 0.03 262); /* Rich Iris Slate */
+    --text-muted: oklch(0.60 0.025 262); /* Soft Slate */
     --text-on-accent: oklch(1 0 0);
-    --text-inverse: oklch(0.98 0 0);
+    --text-inverse: oklch(0.98 0.01 262);
 
     /* 3. Borders (Light) */
     --border-subtle: oklch(0 0 0 / 0.04);
@@ -32,7 +32,7 @@
     --state-active: oklch(0 0 0 / 0.08);
     --state-selected: oklch(0 0 0 / 0.06);
     --disabled-bg: oklch(0 0 0 / 0.05);
-    --disabled-fg: oklch(0.65 0 0);
+    --disabled-fg: oklch(0.65 0.02 262);
 
     /* 5. Status (Light) */
     --success-fg: oklch(0.6 0.15 145);
@@ -104,10 +104,10 @@
     --surface-3: oklch(0.32 0.01 262); /* #262A33 */
     --surface-overlay: oklch(0.25 0.01 262 / 0.8);
 
-    /* 2. Text (Dark) */
-    --text-primary: oklch(0.95 0.01 262); /* #E8EAED */
-    --text-secondary: oklch(0.75 0.01 262); /* #A8ADB7 */
-    --text-muted: oklch(0.55 0.01 262); /* #6E747F */
+    /* 2. Text (Dark - Luminous Iris Slate) */
+    --text-primary: oklch(0.98 0.01 262); /* Crisp Luminous White */
+    --text-secondary: oklch(0.82 0.02 262); /* Luminous Tinted Silver */
+    --text-muted: oklch(0.66 0.02 262); /* Soft Legible Slate */
     --text-on-accent: oklch(1 0 0);
     --text-inverse: oklch(0.18 0.01 262);
 
@@ -130,7 +130,7 @@
     --state-active: oklch(1 0 0 / 0.1);
     --state-selected: oklch(1 0 0 / 0.08);
     --disabled-bg: oklch(1 0 0 / 0.05);
-    --disabled-fg: oklch(0.55 0.01 262);
+    --disabled-fg: oklch(0.52 0.015 262);
 
     /* 5. Status (Dark - Alpha tints) */
     --success-fg: oklch(0.8 0.1 145);

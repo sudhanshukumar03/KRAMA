@@ -85,7 +85,10 @@ export const getPage = async (req: Request, res: Response) => {
 
 export const createPage = async (req: Request, res: Response) => {
   try {
-    const data = CreatePageSchema.parse(req.body);
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || (req.body.workspaceId as string);
+    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+
+    const data = CreatePageSchema.parse({ ...req.body, workspaceId });
 
     const page = await prisma.page.create({
       data: {

@@ -16,7 +16,7 @@ function HighlightedSnippet({ text, query }: { text: string; query: string }) {
  return (
  <span>
  {text.slice(0, idx)}
- <mark className="bg-[#FEF3C7] text-[#92400E] rounded-sm px-0.5 font-medium">{text.slice(idx, idx + lowerQuery.length)}</mark>
+ <mark className="bg-accent/20 text-accent rounded-sm px-0.5 font-medium">{text.slice(idx, idx + lowerQuery.length)}</mark>
  {text.slice(idx + lowerQuery.length)}
  </span>
  );
@@ -366,9 +366,6 @@ export function CommandPalette() {
  className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
  >
  <div className="flex items-center gap-2.5 truncate">
- <span className="text-muted text-caption font-mono font-bold bg-surface-hover px-1.5 py-0.2 rounded border border-border shrink-0">
- {issue.id.slice(0, 7).toUpperCase()}
- </span>
  <span className="truncate">{issue.title}</span>
  </div>
  <span className="text-[10px] font-mono capitalize text-secondary bg-surface-hover px-1.5 py-0.5 rounded border border-border">

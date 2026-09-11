@@ -6,6 +6,7 @@ import { Network, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from './ui/PageHeader';
 import { EmptyStateInline } from './ui/EmptyStateInline';
+import { useTheme } from '../lib/theme';
 
 interface GraphData {
  nodes: { id: string; label: string; type: string; status?: string }[];
@@ -18,6 +19,8 @@ export function KnowledgeGraph() {
  const [error, setError] = useState<string | null>(null);
  const graphRef = useRef<any>(null);
  const navigate = useNavigate();
+ const { resolvedTheme } = useTheme();
+ const isDark = resolvedTheme === 'dark';
 
  useEffect(() => {
  const fetchGraph = async () => {
@@ -40,7 +43,7 @@ export function KnowledgeGraph() {
  case 'task': return '#F97316'; // Orange
  case 'page': return '#8B5CF6'; // Purple
  case 'habit': return '#14B8A6'; // Teal
- default: return '#9CA3AF'; // Gray
+ default: return isDark ? '#64748B' : '#9CA3AF'; // Gray
  }
  };
 
@@ -92,7 +95,7 @@ export function KnowledgeGraph() {
  ref={graphRef}
  graphData={data}
  nodeRelSize={6}
- linkColor={() => '#E2E8F0'} // Slate-200
+ linkColor={() => isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)'}
  linkWidth={1.5}
  onNodeClick={handleNodeClick}
  cooldownTicks={100}
@@ -107,13 +110,13 @@ export function KnowledgeGraph() {
  const width = textWidth + paddingX;
  const height = fontSize + paddingY;
  
- // Premium Shadow
- ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
+ // Theme-adaptive Shadow
+ ctx.shadowColor = isDark ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.08)';
  ctx.shadowBlur = 8 / globalScale;
  ctx.shadowOffsetY = 2 / globalScale;
  
  // Draw rounded rect (Pill)
- ctx.fillStyle = '#FFFFFF'; // Pure white card background
+ ctx.fillStyle = isDark ? '#1E2128' : '#FFFFFF';
  ctx.beginPath();
  ctx.roundRect(
  node.x - width / 2,
@@ -135,7 +138,7 @@ export function KnowledgeGraph() {
  // Draw Text
  ctx.textAlign = 'center';
  ctx.textBaseline = 'middle';
- ctx.fillStyle = '#1E293B'; // Slate-800 for high readability
+ ctx.fillStyle = isDark ? '#F1F5F9' : '#1E293B';
  ctx.fillText(label, node.x, node.y);
  }}
  nodePointerAreaPaint={(node: any, color: string, ctx: any, globalScale: number) => {

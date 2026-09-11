@@ -69,61 +69,63 @@ function ProjectCreateModal({
 
  <form onSubmit={handleSubmit} className="p-6 space-y-4">
  <div>
- <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
- Initiative Name <span className="text-[#DC2626]">*</span>
- </label>
- <input
- type="text"
- value={name}
- onChange={e => setName(e.target.value)}
- placeholder="e.g., Autonomous Decision Engine v2"
- required
- autoFocus
- className="w-full px-3.5 py-2.5 border border-border rounded-xl text-body text-primary placeholder:text-muted focus:outline-none focus:border-[#2563EB] :border-[#2563EB] transition-all bg-surface"
- />
- </div>
+          <div>
+            <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
+              Initiative Name <span className="text-danger-fg">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g., Autonomous Decision Engine v2"
+              required
+              autoFocus
+              className="w-full px-3.5 py-2.5 border border-border rounded-xl text-body text-primary placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all bg-surface"
+            />
+          </div>
 
- <div>
- <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
- Problem Statement / Technical Scope
- </label>
- <textarea
- value={problemStatement}
- onChange={e => setProblemStatement(e.target.value)}
- placeholder="Briefly describe the objective, architectural constraints, and target outcomes..."
- rows={3}
- className="w-full px-3.5 py-2.5 border border-border rounded-xl text-body text-primary placeholder:text-muted focus:outline-none focus:border-[#2563EB] :border-[#2563EB] transition-all resize-none bg-surface"
- />
- </div>
+          <div>
+            <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
+              Problem Statement / Technical Scope
+            </label>
+            <textarea
+              value={problemStatement}
+              onChange={e => setProblemStatement(e.target.value)}
+              placeholder="Briefly describe the objective, architectural constraints, and target outcomes..."
+              rows={3}
+              className="w-full px-3.5 py-2.5 border border-border rounded-xl text-body text-primary placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all resize-none bg-surface"
+            />
+          </div>
 
- <div className="grid grid-cols-2 gap-4">
- <div>
- <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
- Status
- </label>
- <select
- value={status}
- onChange={e => setStatus(e.target.value)}
- className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] :border-[#2563EB] transition-all font-mono font-bold cursor-pointer"
- >
- <option value="idea">💡 Idea / Discovery</option>
- <option value="active">⚡ Active Execution</option>
- <option value="paused">⏸️ Paused</option>
- <option value="shipped">🚀 Shipped / Live</option>
- </select>
- </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
+                Status
+              </label>
+              <select
+                value={status}
+                onChange={e => setStatus(e.target.value)}
+                className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono font-bold cursor-pointer"
+              >
+                <option value="idea">💡 Idea / Discovery</option>
+                <option value="active">⚡ Active Execution</option>
+                <option value="paused">⏸️ Paused</option>
+                <option value="shipped">🚀 Shipped / Live</option>
+              </select>
+            </div>
 
- <div>
- <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
- Target Date
- </label>
- <input
- type="date"
- value={targetDate}
- onChange={e => setTargetDate(e.target.value)}
- className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-[#2563EB] :border-[#2563EB] transition-all font-mono font-bold"
- />
- </div>
+            <div>
+              <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
+                Target Date
+              </label>
+              <input
+                type="date"
+                value={targetDate}
+                onChange={e => setTargetDate(e.target.value)}
+                className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono font-bold"
+              />
+            </div>
+          </div>
  </div>
 
  <div className="pt-4 border-t border-border flex justify-end gap-3">
@@ -221,41 +223,40 @@ export function Projects() {
 
  return (
  <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex flex-col h-full bg-canvas animate-in fade-in duration-150 gap-6 pb-24 font-sans text-primary">
- 
- {/* COMMAND CENTER PORTFOLIO HEADER (Indigo #2563EB Identity) */}
- <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 v4-card p-5">
- <div className="flex items-center gap-4">
- <div className="w-12 h-12 rounded-2xl bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-sm border border-[#2563EB]/20">
- <FolderKanban className="w-6 h-6 stroke-[1.5]" />
- </div>
- <div>
- <div className="flex items-center gap-2.5 mb-1">
- <h1 className="text-title text-primary mb-4 ">Project Portfolio</h1>
- <span className="bg-surface-hover text-secondary border border-border px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
- <Sparkles className="w-3 h-3 text-[#2563EB] stroke-[1.5]" /> {projects.length} Initiatives Tracked
- </span>
- </div>
- <p className="text-caption text-secondary font-mono">Engineering command center for multi-phase roadmaps, sprints, and strategic OKRs.</p>
- </div>
- </div>
- <BaseButton onClick={handleCreateProject} className="shrink-0 cursor-pointer">
- <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" />
- New Initiative
- </BaseButton>
- </div>
+  {/* COMMAND CENTER PORTFOLIO HEADER (Accent Identity) */}
+  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 v4-card p-5">
+    <div className="flex items-center gap-4">
+      <div className="w-12 h-12 rounded-2xl bg-accent text-accent-fg flex items-center justify-center shrink-0 shadow-sm border border-accent/20">
+        <FolderKanban className="w-6 h-6 stroke-[1.5]" />
+      </div>
+      <div>
+        <div className="flex items-center gap-2.5 mb-1">
+          <h1 className="text-title text-primary mb-4 ">Project Portfolio</h1>
+          <span className="bg-surface-hover text-secondary border border-border px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-accent stroke-[1.5]" /> {projects.length} Initiatives Tracked
+          </span>
+        </div>
+        <p className="text-caption text-secondary font-mono">Engineering command center for multi-phase roadmaps, sprints, and strategic OKRs.</p>
+      </div>
+    </div>
+    <BaseButton onClick={handleCreateProject} className="shrink-0 cursor-pointer">
+      <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" />
+      New Initiative
+    </BaseButton>
+  </div>
 
- {/* STRATEGIC HEALTH FILTER & SEARCH BAR */}
- <div className="v4-card rounded-xl p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
- <div className="relative flex-1 max-w-md">
- <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 stroke-[1.5]" />
- <input
- type="text"
- placeholder="Search initiatives by title or technical scope..."
- value={searchQuery}
- onChange={(e) => setSearchQuery(e.target.value)}
- className="w-full pl-9 pr-4 py-2 text-caption bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-[#2563EB] :border-[#2563EB] focus:bg-surface transition-all placeholder:text-muted text-primary font-sans font-medium"
- />
- </div>
+  {/* STRATEGIC HEALTH FILTER & SEARCH BAR */}
+  <div className="v4-card rounded-xl p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+    <div className="relative flex-1 max-w-md">
+      <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 stroke-[1.5]" />
+      <input
+        type="text"
+        placeholder="Search initiatives by title or technical scope..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="w-full pl-9 pr-4 py-2 text-caption bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent focus:bg-surface transition-all placeholder:text-muted text-primary font-sans font-medium"
+      />
+    </div>
 
  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 font-mono">
  <span className="text-badge font-bold text-secondary flex items-center gap-1 mr-1 shrink-0 uppercase tracking-wider">
@@ -296,9 +297,9 @@ export function Projects() {
  {/* Category Status Ribbon */}
  <div className="flex items-center gap-2 text-secondary font-mono font-bold text-caption uppercase tracking-wider px-1">
  <span className={cn("w-2.5 h-2.5 rounded-full shadow-2xs",
- status === 'active' ? 'bg-[#2563EB] animate-pulse' : 
- status === 'idea' ? 'bg-[#F59E0B]' :
- status === 'shipped' ? 'bg-[#109868]' : 'bg-secondary'
+ status === 'active' ? 'bg-accent animate-pulse' : 
+ status === 'idea' ? 'bg-amber-500' :
+ status === 'shipped' ? 'bg-emerald-500' : 'bg-secondary'
  )} />
  <span>{status} INITIATIVES</span>
  <span className="ml-auto bg-surface border border-border px-2.5 py-0.5 rounded-md font-mono text-caption font-bold text-primary shadow-2xs">
@@ -321,122 +322,126 @@ export function Projects() {
  const lastActiveLabel = hoursSinceUpdate < 24 ? `${hoursSinceUpdate}h ago` : `${Math.round(hoursSinceUpdate / 24)}d ago`;
 
  return (
- <div 
- key={project.id} 
- onClick={() => navigate(`/app/projects/${project.id}`)}
- className="v4-card p-6 hover:shadow-md transition-all duration-300 hover:translate-y-[-2px] hover:border-[#2563EB] cursor-pointer group/card flex flex-col justify-between gap-5 relative overflow-hidden"
- >
- {/* Left color glow bar on hover */}
- <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#2563EB] opacity-0 group-hover/card:opacity-100 transition-opacity duration-300" />
+          <div 
+            key={project.id} 
+            onClick={() => navigate(`/app/projects/${project.id}`)}
+            className="v4-card p-6 hover:shadow-md transition-all duration-300 hover:translate-y-[-2px] hover:border-accent cursor-pointer group/card flex flex-col justify-between gap-5 relative overflow-hidden"
+          >
+            {/* Left color glow bar on hover */}
+            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-accent opacity-0 group-hover/card:opacity-100 transition-opacity duration-300" />
 
- {/* Top Row: Title, ID, Problem Statement & Actions */}
- <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
- <div className="flex-1 min-w-0">
- <div className="flex flex-wrap items-center gap-3 mb-1.5">
- <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-secondary bg-surface-hover px-2 py-0.5 rounded border border-border/60">
- {project.id.slice(0, 6).toUpperCase()}
- </span>
- <div className="w-6 h-6 text-primary flex items-center justify-center">
- {React.createElement(resolveIcon(project.icon || 'FolderKanban'), { className: "w-5 h-5 stroke-[1.5]" })}
- </div>
- <h3 className="text-card text-primary mb-2 md: truncate group-hover/card:text-[#2563EB] text-[#2563EB] transition-colors">
- {project.name}
- </h3>
- {project.goalId && (
- <span className="bg-[#109868]/10 text-[#109868] border border-[#109868]/20 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
- <Target className="w-3 h-3 stroke-[1.5]" /> OKR LINKED
- </span>
- )}
- </div>
- 
- {project.problemStatement && (
- <p className="text-caption md:text-body text-secondary font-normal line-clamp-2 leading-relaxed max-w-4xl">
- {project.problemStatement}
- </p>
- )}
- </div>
+            {/* Top Row: Title, Problem Statement & Actions */}
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-3 mb-1.5">
+                  <div className="w-6 h-6 text-primary flex items-center justify-center">
+                    {React.createElement(resolveIcon(project.icon || 'FolderKanban'), { className: "w-5 h-5 stroke-[1.5]" })}
+                  </div>
+                  <h3 className="text-card text-primary mb-2 md: truncate group-hover/card:text-accent transition-colors">
+                    {project.name}
+                  </h3>
+                  {project.goalId && (
+                    <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+                      <Target className="w-3 h-3 stroke-[1.5]" /> OKR LINKED
+                    </span>
+                  )}
+                </div>
+                
+                {project.problemStatement && (
+                  <p className="text-caption md:text-body text-secondary font-normal line-clamp-2 leading-relaxed max-w-4xl">
+                    {project.problemStatement}
+                  </p>
+                )}
+              </div>
 
- {/* Right Quick Actions */}
- <div className="flex items-center gap-2 shrink-0 self-end md:self-start">
- <ConfirmDeleteButton
- onConfirm={(e) => handleDeleteProject(e, project)}
- className="opacity-0 group-hover/card:opacity-100 p-2"
- iconClassName="w-4 h-4 stroke-[1.5]"
- />
- <div className="px-3.5 py-1.5 rounded-xl bg-surface-hover group-hover/card:bg-[#2563EB] :bg-[#2563EB] text-secondary group-hover/card:text-white :text-[#050811] font-mono text-caption font-bold transition-all flex items-center gap-1.5 shadow-2xs">
- <span>Open Initiative</span>
- <ArrowRight className="w-3.5 h-3.5 stroke-[1.5] group-hover/card:translate-x-0.5 transition-transform" />
- </div>
- </div>
- </div>
+              {/* Right Quick Actions */}
+              <div className="flex items-center gap-2 shrink-0 self-end md:self-start">
+                <ConfirmDeleteButton
+                  onConfirm={(e) => handleDeleteProject(e, project)}
+                  className="opacity-0 group-hover/card:opacity-100 p-2"
+                  iconClassName="w-4 h-4 stroke-[1.5]"
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/app/projects/${project.id}`);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-surface-hover group-hover/card:bg-accent text-secondary group-hover/card:text-accent-fg font-mono text-caption font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer border-none"
+                >
+                  <span>Open Initiative</span>
+                  <ArrowRight className="w-3.5 h-3.5 stroke-[1.5] group-hover/card:translate-x-0.5 transition-transform" />
+                </button>
+              </div>
+            </div>
 
- {/* Middle Row: Large Luxury Schematic Progress Bar (Krama OS ██████████ 82% Sprint 4 4 Issues Last Active 2h ago) */}
- <div className="bg-surface-hover/80 border border-border/80 rounded-xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 font-mono">
- 
- {/* Left: ASCII Progress Block + Percentage */}
- <div className="flex items-center gap-3 min-w-0">
- <div className="text-caption font-bold text-primary tracking-widest bg-surface px-2.5 py-1 rounded border border-border/60 shadow-2xs shrink-0 flex items-center gap-1.5">
- <span className="w-2 h-2 rounded-full bg-[#2563EB]" /> KRAMA OS
- </div>
- <div className="text-caption text-[#2563EB] font-bold tracking-tighter shrink-0 select-none">
- {renderAsciiProgress(progressPct)}
- </div>
- <div className="text-body font-bold text-primary shrink-0">
- {progressPct}%
- </div>
- </div>
+            {/* Middle Row: Large Luxury Schematic Progress Bar (Krama OS ██████████ 82% Sprint 4 4 Issues Last Active 2h ago) */}
+            <div className="bg-surface-hover/80 border border-border/80 rounded-xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 font-mono">
+              
+              {/* Left: ASCII Progress Block + Percentage */}
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="text-caption font-bold text-primary tracking-widest bg-surface px-2.5 py-1 rounded border border-border/60 shadow-2xs shrink-0 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-accent" /> KRAMA OS
+                </div>
+                <div className="text-caption text-accent font-bold tracking-tighter shrink-0 select-none">
+                  {renderAsciiProgress(progressPct)}
+                </div>
+                <div className="text-body font-bold text-primary shrink-0">
+                  {progressPct}%
+                </div>
+              </div>
 
- {/* Center/Right: Sprints, Issues, Docs & Last Active Telemetry */}
- <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-caption text-secondary justify-end">
- <span className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded border border-border/60 text-primary font-bold">
- <Zap className="w-3.5 h-3.5 text-[#2563EB] stroke-[1.5]" />
- {totalSprints} {totalSprints === 1 ? 'Sprint' : 'Sprints'}
- </span>
- <span className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded border border-border/60 text-primary font-bold">
- <FolderKanban className="w-3.5 h-3.5 text-[#7C3AED] stroke-[1.5]" />
- {totalDocs} {totalDocs === 1 ? 'Doc' : 'Docs'}
- </span>
- <span className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded border border-border/60 text-primary font-bold">
- <CheckCircle2 className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" />
- {completedIssues}/{totalIssues} Issues
- </span>
- <span className="flex items-center gap-1 text-muted">
- <Clock className="w-3.5 h-3.5 stroke-[1.5]" />
- Last Active {lastActiveLabel}
- </span>
- </div>
- </div>
+              {/* Center/Right: Sprints, Issues, Docs & Last Active Telemetry */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-caption text-secondary justify-end">
+                <span className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded border border-border/60 text-primary font-bold">
+                  <Zap className="w-3.5 h-3.5 text-accent stroke-[1.5]" />
+                  {totalSprints} {totalSprints === 1 ? 'Sprint' : 'Sprints'}
+                </span>
+                <span className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded border border-border/60 text-primary font-bold">
+                  <FolderKanban className="w-3.5 h-3.5 text-purple-500 stroke-[1.5]" />
+                  {totalDocs} {totalDocs === 1 ? 'Doc' : 'Docs'}
+                </span>
+                <span className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded border border-border/60 text-primary font-bold">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 stroke-[1.5]" />
+                  {completedIssues}/{totalIssues} Issues
+                </span>
+                <span className="flex items-center gap-1 text-muted">
+                  <Clock className="w-3.5 h-3.5 stroke-[1.5]" />
+                  Last Active {lastActiveLabel}
+                </span>
+              </div>
+            </div>
 
- {/* Bottom Progress Bar + Invisible AI Risk Analysis (Revealed on Hover) */}
- <div className="space-y-2.5">
- <div className="h-2 w-full bg-surface-hover rounded-full overflow-hidden border border-border/60">
- <div 
- className="h-full bg-gradient-to-r from-[#2563EB] to-[#2563EB] transition-all duration-700 ease-out"
- style={{ width: `${progressPct}%` }}
- />
- </div>
+            {/* Bottom Progress Bar + Invisible AI Risk Analysis (Revealed on Hover) */}
+            <div className="space-y-2.5">
+              <div className="h-2 w-full bg-surface-hover rounded-full overflow-hidden border border-border/60">
+                <div 
+                  className="h-full bg-accent transition-all duration-700 ease-out"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
 
- {/* Invisible AI Risk Analysis Bar (Reveals on card hover) */}
- <div className="opacity-0 group-hover/card:opacity-100 max-h-0 group-hover/card:max-h-16 transition-all duration-300 overflow-hidden pt-1">
- <div className="text-badge font-mono bg-[#7C3AED]/10 border border-[#7C3AED]/20 text-primary px-3 py-1.5 rounded-lg flex items-center justify-between gap-2">
- <span className="flex items-center gap-1.5 font-bold text-[#7C3AED]">
- <Sparkles className="w-3.5 h-3.5 stroke-[1.5] shrink-0" /> AI Risk Sentinel:
- </span>
- <span className="truncate flex-1 text-secondary">
- {progressPct === 100 
- ?"Initiative completed. Ready for quarterly archive and post-mortem review." 
- : progressPct > 60 
- ?"Velocity nominal (94% probability of achieving target horizon on schedule)."
- :"Early execution phase. AI recommends scheduling deep-work sprint sessions."}
- </span>
- <span className="font-bold text-primary flex items-center gap-1 shrink-0">
- <ShieldCheck className="w-3.5 h-3.5 text-[#109868] stroke-[1.5]" /> Nominal
- </span>
- </div>
- </div>
- </div>
+              {/* Invisible AI Risk Analysis Bar (Reveals on card hover) */}
+              <div className="opacity-0 group-hover/card:opacity-100 max-h-0 group-hover/card:max-h-16 transition-all duration-300 overflow-hidden pt-1">
+                <div className="text-badge font-mono bg-purple-500/10 border border-purple-500/20 text-primary px-3 py-1.5 rounded-lg flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 font-bold text-purple-500">
+                    <Sparkles className="w-3.5 h-3.5 stroke-[1.5] shrink-0" /> AI Risk Sentinel:
+                  </span>
+                  <span className="truncate flex-1 text-secondary">
+                    {progressPct === 100 
+                      ? "Initiative completed. Ready for quarterly archive and post-mortem review." 
+                      : progressPct > 60 
+                      ? "Velocity nominal (94% probability of achieving target horizon on schedule)."
+                      : "Early execution phase. AI recommends scheduling deep-work sprint sessions."}
+                  </span>
+                  <span className="font-bold text-primary flex items-center gap-1 shrink-0">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 stroke-[1.5]" /> Nominal
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
 
- </div>
  );
  })}
  </div>

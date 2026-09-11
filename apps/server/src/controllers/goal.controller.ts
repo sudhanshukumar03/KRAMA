@@ -28,7 +28,10 @@ export const getGoal = async (req: Request, res: Response) => {
 
 export const createGoal = async (req: Request, res: Response) => {
   try {
-    const data = CreateGoalSchema.parse(req.body);
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || (req.body.workspaceId as string);
+    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+
+    const data = CreateGoalSchema.parse({ ...req.body, workspaceId });
     // @ts-ignore
     const goal = await goalService.createGoal(data, req.user!.id);
     return res.status(201).json(goal);

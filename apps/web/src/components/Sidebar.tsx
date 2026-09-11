@@ -57,7 +57,7 @@ const systemItems: NavItem[] = [
 
 export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
  const location = useLocation();
- const { theme, toggleTheme, resolvedTheme } = useTheme();
+ const { toggleTheme, resolvedTheme } = useTheme();
  const { user, logout } = useAuth();
  const [systemOpen, setSystemOpen] = useState(false);
 
@@ -142,9 +142,9 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  </span>
  )}
  {item.shortcut && (
- <span className="opacity-0 group-hover:opacity-100 transition-opacity text-badge font-mono text-muted bg-surface-hover border border-border px-1 py-0.2 rounded">
+ <kbd className="opacity-0 group-hover:opacity-100 transition-opacity">
  {item.shortcut}
- </span>
+ </kbd>
  )}
  </div>
  </Link>
@@ -182,9 +182,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  <Search className="w-3.5 h-3.5 text-muted group-hover:text-primary transition-colors" />
  <span className="font-normal">Search or jump to...</span>
  </div>
- <kbd className="text-badge font-mono text-muted bg-surface-hover border border-border px-1.5 py-0.5 rounded">
- ⌘K
- </kbd>
+ <kbd>⌘K</kbd>
  </button>
  </div>
 
@@ -323,7 +321,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
 
  return (
  <>
- <div className="hidden md:block h-full">
+ <div className="hidden md:block h-full shrink-0 w-[280px]">
  {sidebarContent}
  </div>
 
