@@ -17,22 +17,31 @@ export class GoalService {
 
   async createGoal(data: any, userId: string) {
     return runInTransaction(async (tx, publishAfterCommit) => {
-      const { status, ...restData } = data;
+      const { status, skillIds, ...restData } = data;
       const metadata = status ? { status } : undefined;
 
-      if (data.skillIds !== undefined) {
-        await SkillService.validateSkillLinking(userId, data.workspaceId, data.skillIds);
-        const ids = data.skillIds;
-        delete data.skillIds;
-        (data as any).skills = { connect: ids.map((id: string) => ({ id })) };
+      let skillsConnect: any = undefined;
+      if (skillIds !== undefined) {
+        await SkillService.validateSkillLinking(userId, data.workspaceId, skillIds);
+        skillsConnect = { connect: skillIds.map((id: string) => ({ id })) };
       }
 
       const goal = await goalRepository.create({
         ...restData,
+        ...(skillsConnect ? { skills: skillsConnect } : {}),
         metadata,
         createdBy: userId,
         updatedBy: userId,
       }, tx);
+
+      // Record initial baseline progress snapshot
+      await tx.goalProgressSnapshot.create({
+        data: {
+          goalId: goal.id,
+          progress: restData.progress !== undefined ? Number(restData.progress) : 0,
+          date: new Date(),
+        }
+      });
 
       publishAfterCommit('GOAL_CREATED', { goalId: goal.id, workspaceId: goal.workspaceId });
       return goal;

@@ -45,6 +45,9 @@ export const UpdateTaskSchema = CreateTaskSchema.partial().extend({
 export const CreateGoalSchema = WorkspaceScoped.extend({
   title: z.string().min(1).max(255),
   type: z.string(), // Allowing "SKILL" type
+  parentGoalId: z.string().uuid().nullable().optional(),
+  progress: z.number().min(0).max(100).optional().default(0),
+  targetDate: z.preprocess((val) => (val === undefined ? undefined : !val ? null : new Date(val as any)), z.date().nullable().optional()),
   status: z.enum(['ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELED']).optional().default('ACTIVE'),
   icon: z.string().optional(),
   metadata: z.any().optional(),
@@ -52,7 +55,9 @@ export const CreateGoalSchema = WorkspaceScoped.extend({
 });
 
 export const UpdateGoalSchema = CreateGoalSchema.partial().extend({
+  parentGoalId: z.string().uuid().nullable().optional(),
   progress: z.number().min(0).max(100).optional(),
+  targetDate: z.preprocess((val) => (val === undefined ? undefined : !val ? null : new Date(val as any)), z.date().nullable().optional()),
   version: z.number().int().min(1).optional(),
 });
 

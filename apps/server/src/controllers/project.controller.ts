@@ -110,20 +110,25 @@ export const updateProject = async (req: Request, res: Response) => {
       return res.status(409).json({ message: 'Conflict: version mismatch' });
     }
 
-    const { version, workspaceId: bodyWorkspaceId, ...updateData } = data;
+    const { version, workspaceId: bodyWorkspaceId, targetDate, progress, ...updateData } = data as any;
 
-    
-      if ((data as any).skillIds !== undefined) {
-        await SkillService.validateSkillLinking(req.user!.id, (data.workspaceId || workspaceId) as string, (data as any).skillIds);
-        const ids = (data as any).skillIds;
-        delete (data as any).skillIds;
-        (updateData as any).skills = { set: ids.map((id: string) => ({ id })) };
-      }
+    if ((data as any).skillIds !== undefined) {
+      await SkillService.validateSkillLinking(req.user!.id, (data.workspaceId || workspaceId) as string, (data as any).skillIds);
+      const ids = (data as any).skillIds;
+      delete (data as any).skillIds;
+      (updateData as any).skills = { set: ids.map((id: string) => ({ id })) };
+    }
 
-const project = await prisma.project.update({
+    let metadata = updateData.metadata !== undefined ? updateData.metadata : (existing.metadata as any || {});
+    if (targetDate !== undefined) {
+      metadata = { ...metadata, targetDate: targetDate || null };
+    }
+
+    const project = await prisma.project.update({
       where: { id },
       data: {
         ...updateData,
+        metadata,
         version: { increment: 1 },
         updatedBy: req.user!.id,
       },

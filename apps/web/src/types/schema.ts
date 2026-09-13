@@ -76,6 +76,7 @@ export type GoalWithRelations = Goal & {
 };
 
 export type ProjectWithRelations = Project & {
+  targetDate?: string | Date | null;
   tasks?: Issue[];
   pages?: Page[];
   sprints?: Sprint[];
