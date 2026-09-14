@@ -218,139 +218,140 @@ export function PlannerPage() {
   const targetDayKey = format(viewDay, 'yyyy-MM-dd');
   const targetDayData = data?.days?.find((d: any) => d.dateKey === targetDayKey) || { dateKey: targetDayKey };
 
- return (
- <div className="p-4 md:p-6 bg-transparent min-h-screen pb-20">
- <LocationSettingsModal 
- open={locationModalOpen} 
- onClose={() => setLocationModalOpen(false)} 
- currentCountry={data?.config?.countryCode || 'IN'} 
- currentRegion={data?.config?.regionCode || ''} 
- />
- <CapacitySettingsModal
-  open={capacityModalOpen}
-  onClose={() => setCapacityModalOpen(false)}
-  currentCapacityMinutes={data?.capacity?.weeklyCapacityMinutes ?? 2400}
- />
- <QuickCaptureModal
- open={captureOpen}
- onClose={() => setCaptureOpen(false)}
- defaultMode="task"
- defaultScheduledDate={captureDate}
- />
- <RoutineModal
- open={routineModalOpen}
- onClose={() => setRoutineModalOpen(false)}
- />
- <TimeBlockModal
- open={timeBlockModalOpen}
- onClose={() => setTimeBlockModalOpen(false)}
- defaultDate={selectedDay}
- isSubmitting={createTimeBlockMutation.isPending}
- onSubmit={(data) => {
- createTimeBlockMutation.mutate(data, {
- onSuccess: () => {
- toast.success('Time block created');
- setTimeBlockModalOpen(false);
- },
- onError: (err) => {
- toast.error(err.message || 'Failed to create time block');
- }
- });
- }}
- />
+  return (
+    <div className="flex flex-col h-full w-full min-h-0 overflow-hidden bg-canvas">
+      <div className="flex flex-col h-full w-full max-w-[1700px] mx-auto px-4 md:px-6 py-2.5 min-h-0 gap-2.5">
+        <LocationSettingsModal 
+          open={locationModalOpen} 
+          onClose={() => setLocationModalOpen(false)} 
+          currentCountry={data?.config?.countryCode || 'IN'} 
+          currentRegion={data?.config?.regionCode || ''} 
+        />
+        <CapacitySettingsModal
+          open={capacityModalOpen}
+          onClose={() => setCapacityModalOpen(false)}
+          currentCapacityMinutes={data?.capacity?.weeklyCapacityMinutes ?? 2400}
+        />
+        <QuickCaptureModal
+          open={captureOpen}
+          onClose={() => setCaptureOpen(false)}
+          defaultMode="task"
+          defaultScheduledDate={captureDate}
+        />
+        <RoutineModal
+          open={routineModalOpen}
+          onClose={() => setRoutineModalOpen(false)}
+        />
+        <TimeBlockModal
+          open={timeBlockModalOpen}
+          onClose={() => setTimeBlockModalOpen(false)}
+          defaultDate={selectedDay}
+          isSubmitting={createTimeBlockMutation.isPending}
+          onSubmit={(data) => {
+            createTimeBlockMutation.mutate(data, {
+              onSuccess: () => {
+                toast.success('Time block created');
+                setTimeBlockModalOpen(false);
+              },
+              onError: (err) => {
+                toast.error(err.message || 'Failed to create time block');
+              }
+            });
+          }}
+        />
 
- {editingTask && (
- <IssueEditModal
- open={!!editingTask}
- issue={editingTask}
- allIssues={data.tasks}
- onClose={() => setEditingTask(null)}
- isSubmitting={updateTaskMutation.isPending}
- onSubmit={(id, updatedData) => {
- updateTaskMutation.mutate({ id, data: updatedData }, {
- onSuccess: () => {
- toast.success('Task updated');
- setEditingTask(null);
- },
- onError: () => toast.error('Failed to update task')
- });
- }}
- />
- )}
+        {editingTask && (
+          <IssueEditModal
+            open={!!editingTask}
+            issue={editingTask}
+            allIssues={data.tasks}
+            onClose={() => setEditingTask(null)}
+            isSubmitting={updateTaskMutation.isPending}
+            onSubmit={(id, updatedData) => {
+              updateTaskMutation.mutate({ id, data: updatedData }, {
+                onSuccess: () => {
+                  toast.success('Task updated');
+                  setEditingTask(null);
+                },
+                onError: () => toast.error('Failed to update task')
+              });
+            }}
+          />
+        )}
 
-  <PlannerHeader
-  mode={mode}
-  onModeChange={(m) => {
-    setMode(m);
-    setPreviousMode(m);
-  }}
-  title={headerTitle}
-  subtitle={headerSubtitle}
-  onNavigate={handleNavigate}
-  syncStatus={data.syncStatus}
+        <PlannerHeader
+          mode={mode}
+          onModeChange={(m) => {
+            setMode(m);
+            setPreviousMode(m);
+          }}
+          title={headerTitle}
+          subtitle={headerSubtitle}
+          onNavigate={handleNavigate}
+          syncStatus={data.syncStatus}
+          localOnly={localOnly}
+          onLocalOnlyChange={setLocalOnly}
+          countryRegion={countryRegionStr}
+          onLocationClick={() => setLocationModalOpen(true)}
+        />
 
-  localOnly={localOnly}
-  onLocalOnlyChange={setLocalOnly}
-  countryRegion={countryRegionStr}
-  onLocationClick={() => setLocationModalOpen(true)}
-  />
-
-  <div className="mt-6 flex flex-col">
-  {mode === 'plan' ? (
-  <div className="flex flex-col gap-6">
-  <CapacitySummary capacity={data.capacity} onEdit={() => setCapacityModalOpen(true)} />
-  <div>
-  <PlannerMatrix
-  data={data}
-  days={days}
-  occurrenceFor={occurrenceFor}
-  onToggleRoutine={handleToggleRoutine}
-  onAddTimeBlock={handleAddTimeBlock}
-  onAddTask={handleAddTask}
-  onAddRoutine={handleAddRoutine}
-  onToggleTask={handleToggleTask}
-  onClickTask={handleClickTask}
-  onDeleteTask={(task) => deleteTaskMutation.mutate(task.id)}
-  onDeleteTimeBlock={(block) => deleteTimeBlockMutation.mutate(block.id)}
-  onDeleteRoutine={(routine) => deleteRoutineMutation.mutate(routine.id)}
-  onOpenDayView={handleOpenDayView}
-  onClickTimeBlock={() => {
-  // If we had a modal to view/edit time block, open it here.
-  }}
-  />
-  </div>
-  </div>
-  ) : mode === 'day' ? (
-  <div>
-    <TodayView
-      day={viewDay}
-      data={data}
-      dayData={targetDayData}
-      occurrenceFor={occurrenceFor}
-      onToggleRoutine={handleToggleRoutine}
-      onToggleTask={handleToggleTask}
-      onClickTask={handleClickTask}
-      onAddTask={handleAddTask}
-      onAddTimeBlock={handleAddTimeBlock}
-      onDeleteTask={(task) => deleteTaskMutation.mutate(task.id)}
-      onDeleteTimeBlock={(block) => deleteTimeBlockMutation.mutate(block.id)}
-      onDeleteRoutine={(routine) => deleteRoutineMutation.mutate(routine.id)}
-      onBack={handleBackFromDayView}
-      backLabel={previousMode === 'calendar' ? 'Calendar' : 'Plan'}
-    />
-  </div>
-  ) : (
-  <div>
-  <CalendarMode
-  calendarDate={calendarDate}
-  currentCountry={currentCountryCode}
-  currentRegion={currentRegionCode}
-  localOnly={localOnly}
-  onOpenDayView={handleOpenDayView}
-  />
-  </div>
-  )}
-  </div>
- </div>
- );
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          {mode === 'plan' ? (
+            <div className="flex-1 min-h-0 flex flex-col gap-2.5">
+              <CapacitySummary capacity={data.capacity} onEdit={() => setCapacityModalOpen(true)} />
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                <PlannerMatrix
+                  data={data}
+                  days={days}
+                  occurrenceFor={occurrenceFor}
+                  onToggleRoutine={handleToggleRoutine}
+                  onAddTimeBlock={handleAddTimeBlock}
+                  onAddTask={handleAddTask}
+                  onAddRoutine={handleAddRoutine}
+                  onToggleTask={handleToggleTask}
+                  onClickTask={handleClickTask}
+                  onDeleteTask={(task) => deleteTaskMutation.mutate(task.id)}
+                  onDeleteTimeBlock={(block) => deleteTimeBlockMutation.mutate(block.id)}
+                  onDeleteRoutine={(routine) => deleteRoutineMutation.mutate(routine.id)}
+                  onOpenDayView={handleOpenDayView}
+                  onClickTimeBlock={() => {
+                    // If we had a modal to view/edit time block, open it here.
+                  }}
+                />
+              </div>
+            </div>
+          ) : mode === 'day' ? (
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <TodayView
+                day={viewDay}
+                data={data}
+                dayData={targetDayData}
+                occurrenceFor={occurrenceFor}
+                onToggleRoutine={handleToggleRoutine}
+                onToggleTask={handleToggleTask}
+                onClickTask={handleClickTask}
+                onAddTask={handleAddTask}
+                onAddTimeBlock={handleAddTimeBlock}
+                onDeleteTask={(task) => deleteTaskMutation.mutate(task.id)}
+                onDeleteTimeBlock={(block) => deleteTimeBlockMutation.mutate(block.id)}
+                onDeleteRoutine={(routine) => deleteRoutineMutation.mutate(routine.id)}
+                onBack={handleBackFromDayView}
+                backLabel={previousMode === 'calendar' ? 'Calendar' : 'Plan'}
+              />
+            </div>
+          ) : (
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <CalendarMode
+                calendarDate={calendarDate}
+                currentCountry={currentCountryCode}
+                currentRegion={currentRegionCode}
+                localOnly={localOnly}
+                onOpenDayView={handleOpenDayView}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }

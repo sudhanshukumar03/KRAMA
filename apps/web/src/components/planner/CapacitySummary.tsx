@@ -50,53 +50,61 @@ export function CapacitySummary({ capacity, onEdit }: Props) {
  },
  ];
 
- return (
- <div className="grid grid-cols-6 gap-4">
- {cards.map((card) => (
- <div
- key={card.label}
- className="bg-surface bg-surface-hover border border-border border-border rounded-2xl p-4 flex flex-col gap-2 shadow-sm"
- >
- <div className="flex items-center justify-between">
- <div className="flex items-center gap-2">
- <div className="p-1.5 rounded-lg" style={{ backgroundColor: card.color + '10' }}>
- <card.icon size={14} style={{ color: card.color }} />
- </div>
- <span className="text-[11px] font-bold text-muted ">{card.label}</span>
- </div>
- {card.label === 'Weekly Capacity' && onEdit && (
- <button onClick={(e) => { e.preventDefault(); onEdit(); }} className="text-[10px] font-bold text-accent hover:underline whitespace-nowrap">Edit</button>
- )}
- </div>
- 
- <div className="flex items-end justify-between mt-2">
- <span className="text-xl font-bold text-primary text-secondary">
- {formatMinutes(card.value)}
- </span>
- {card.percent !== null && (
- <span className="text-[11px] font-bold text-muted mb-1">
- {card.percent}%
- </span>
- )}
- </div>
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
+      {cards.map((card) => (
+        <div
+          key={card.label}
+          className="bg-surface border border-border rounded-lg px-2.5 py-1.5 flex flex-col justify-between gap-1 shadow-sm"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <card.icon size={12} style={{ color: card.color }} className="shrink-0" />
+              <span className="text-[10px] font-bold text-secondary truncate">{card.label}</span>
+            </div>
+            {card.label === 'Weekly Capacity' && onEdit && (
+              <button onClick={(e) => { e.preventDefault(); onEdit(); }} className="text-[9px] font-bold text-accent hover:underline shrink-0">Edit</button>
+            )}
+            {card.percent !== null && (
+              <span className="text-[9px] font-bold text-secondary shrink-0">
+                {card.percent}%
+              </span>
+            )}
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-primary">
+              {formatMinutes(card.value)}
+            </span>
+          </div>
 
- <div className="w-full bg-surface-hover rounded-full h-1 mt-1">
- <div
- className={`h-1 rounded-full ${card.barColor}`}
- style={{ width: `${card.percent || 100}%` }}
- />
- </div>
- </div>
- ))}
- 
- {/* Completion */}
- <div className="bg-surface bg-surface-hover border border-border border-border rounded-2xl p-4 flex flex-col justify-center gap-1 shadow-sm">
- <span className="text-[11px] font-bold text-muted ">Completion</span>
- <span className="text-2xl font-black text-primary text-secondary">{capacity.completionPercent}%</span>
- <span className="text-[11px] font-bold text-muted mt-1">This Week</span>
- </div>
- </div>
- );
+          <div className="w-full bg-surface-hover rounded-full h-1 overflow-hidden">
+            <div
+              className={`h-full rounded-full ${card.barColor}`}
+              style={{ width: `${card.percent || 100}%` }}
+            />
+          </div>
+        </div>
+      ))}
+      
+      {/* Completion */}
+      <div className="bg-surface border border-border rounded-lg px-2.5 py-1.5 flex flex-col justify-between gap-1 shadow-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold text-secondary truncate">Completion</span>
+          <span className="text-[9px] font-bold text-secondary">This Week</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-black text-primary">{capacity.completionPercent}%</span>
+        </div>
+        <div className="w-full bg-surface-hover rounded-full h-1 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-emerald-500"
+            style={{ width: `${Math.min(100, capacity.completionPercent || 0)}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function formatMinutes(minutes: number) {

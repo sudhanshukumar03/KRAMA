@@ -4,7 +4,7 @@
 // The core 7-day grid with: Routines, Tasks, Schedule, Projects
 
 import { format, isSameDay, parseISO } from "date-fns";
-import { Plus, CheckCircle2, Circle, ChevronDown, ChevronUp, CircleDot, Target, Clock, Layers, Trash2, Users, User, BookOpen, Briefcase, Heart, FileText, Hash } from "lucide-react";
+import { Plus, CheckCircle2, Circle, ChevronDown, ChevronUp, CircleDot, Target, Clock, Trash2, Users, User, BookOpen, Briefcase, Heart, FileText, Hash } from "lucide-react";
 import { useState, memo } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import type { PlannerData } from "../../types/planner";
@@ -32,13 +32,12 @@ export const BLOCK_ICONS: Record<string, React.ElementType> = {
 
 const ROUTINE_COLORS = ["text-orange-500", "text-emerald-500", "text-blue-500", "text-purple-500", "text-rose-500", "text-slate-500 dark:text-slate-400"];
 
-type MatrixCategory = "routines" | "tasks" | "timeBlocks" | "projects";
+type MatrixCategory = "routines" | "tasks" | "timeBlocks";
 
 const DEFAULT_EXPANDED: Record<MatrixCategory, boolean> = {
   routines: true,
   tasks: true,
   timeBlocks: true,
-  projects: true,
 };
 
 const MATRIX_COLLAPSE_STORAGE_KEY = "krama.planner.matrix.expanded.v5";
@@ -150,7 +149,7 @@ function DroppableTaskCell({ day, tasks, dateKeyFn, onClickTask, onToggleTask, o
   return (
     <div 
       ref={setNodeRef} 
-      className={`relative group border-r border-border last:border-r-0 p-2 pb-6 flex flex-col gap-1 min-h-[48px] h-full transition-colors ${isOver ? 'bg-accent/10' : ''}`}
+      className={`relative group border-r border-border last:border-r-0 p-2 pb-6 flex flex-col gap-1 min-h-[48px] transition-colors ${isOver ? 'bg-accent/10' : ''}`}
     >
       {tasks.map((task: any) => (
         <MatrixTaskComponent key={task.id} task={task} onClickTask={onClickTask} onToggleTask={onToggleTask} onDeleteTask={onDeleteTask} />
@@ -242,7 +241,7 @@ export const DroppableTimeBlock = memo(function DroppableTimeBlock({ block, task
 
 function TimeBlockCell({ day, blocks, tasks, onClickTimeBlock, onAddTimeBlock, onDeleteTimeBlock }: { day: Date, blocks: any[], tasks: any[], onClickTimeBlock?: (b: any) => void, onAddTimeBlock?: (d: Date) => void, onDeleteTimeBlock?: (b: any) => void }) {
   return (
-    <div className="relative group border-r border-border last:border-r-0 p-1.5 pb-6 flex flex-col gap-1.5 min-h-[48px] h-full">
+    <div className="relative group border-r border-border last:border-r-0 p-1.5 pb-6 flex flex-col gap-1.5 min-h-[48px]">
       {blocks.map((block) => (
         <DroppableTimeBlock key={block.id} block={block} tasks={tasks} onClickTimeBlock={onClickTimeBlock} onDeleteTimeBlock={onDeleteTimeBlock} />
       ))}
@@ -270,13 +269,11 @@ export function PlannerMatrix({
   onToggleTask,
   onClickTask,
   onClickTimeBlock,
-  onAddMilestone,
-  onClickMilestone,
   onDeleteTask,
   onDeleteTimeBlock,
   onDeleteRoutine,
   onOpenDayView,
-}: Props & { onAddMilestone?: () => void, onClickMilestone?: (m: any) => void }) {
+}: Props) {
   const today = new Date();
   const [expandedState, setExpandedState] = useState<Record<MatrixCategory, boolean>>(() => {
     try {
@@ -305,7 +302,7 @@ export function PlannerMatrix({
 
   return (
     <>
-      <section className="overflow-hidden bg-surface flex flex-col w-full flex-1 min-h-0 border-none">
+      <section className="overflow-hidden bg-surface flex flex-col w-full flex-1 min-h-0 border border-border rounded-xl shadow-sm">
         <div className="w-full flex flex-col flex-1 min-h-0">
 
           {/* DAY HEADERS */}
@@ -455,57 +452,6 @@ export function PlannerMatrix({
               </div>
             </MatrixRow>
 
-            {/* PROJECTS */}
-            <MatrixRow 
-              label="Choose Project" 
-              subtitle={`${data.projects.length} projects`} 
-              icon={<Layers size={13} className="text-slate-500 dark:text-slate-400" />}
-              isExpanded={expandedState.projects} 
-              onToggle={() => handleToggle("projects")}
-              flexClass="flex-shrink-0"
-            >
-              <div className="grid grid-cols-[140px_repeat(7,minmax(0,1fr))] w-full h-full min-h-[40px]">
-                <div className="border-r border-border flex flex-col h-full">
-                  <CategoryHeader icon={<Layers size={13} className="text-secondary" />} label="Choose Project" subtitle={`${data.projects.length} projects`} onToggle={() => handleToggle("projects")} onAdd={onAddMilestone} />
-                  <div className="px-3 pb-2 ml-4 text-[9px] text-secondary font-medium">{data.milestones.length} milestones</div>
-                </div>
-                {days.map((day) => {
-                  const dayMilestones = data.milestones.filter(m => isSameDay(parseISO(m.date), day));
-                  return (
-                    <div key={dateKey(day)} className="border-r border-border last:border-r-0 p-1.5 flex flex-col gap-1.5">
-                      {dayMilestones.map((m) => (
-                        <button key={m.id} onClick={() => onClickMilestone && onClickMilestone(m)} className="rounded-full bg-success-tint hover:opacity-90 border border-success/30 px-2 py-1 text-[9px] font-bold text-success shadow-sm flex items-center justify-center gap-1 truncate w-full transition-colors cursor-pointer text-left">
-                          <div className="w-1.5 h-1.5 rounded-sm bg-emerald-400 shrink-0" />
-                          <span className="truncate">{m.title}</span>
-                        </button>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            </MatrixRow>
-
-          </div>
-          
-          {/* LEGEND & ADD BUTTON */}
-          <div className="flex-shrink-0 border-t border-border bg-surface pt-4 pb-12 flex flex-col items-center justify-center gap-3">
-            <button 
-              onClick={() => onAddTimeBlock(new Date())}
-              className="text-[10px] font-bold text-accent hover:opacity-90 hover:bg-accent/10 px-4 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-            >
-              <Plus size={12} strokeWidth={3} /> Add New Item
-            </button>
-            <div className="flex items-center justify-center gap-6 flex-wrap text-[10px] font-bold text-secondary">
-              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span> Focus</div>
-              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500"></span> Sync / Meeting</div>
-              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500"></span> Personal</div>
-              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Project</div>
-              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-500"></span> Admin</div>
-              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400"></span> Other</div>
-              <div className="w-px h-3 bg-border mx-1" />
-              <div className="flex items-center gap-1"><CheckCircle2 size={10} className="text-success" /> Completed</div>
-              <div className="flex items-center gap-1"><Circle size={10} className="text-muted" /> Planned</div>
-            </div>
           </div>
         </div>
       </section>

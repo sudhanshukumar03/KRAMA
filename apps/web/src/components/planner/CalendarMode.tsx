@@ -33,10 +33,10 @@ export function CalendarMode({ calendarDate, currentCountry, currentRegion, loca
  const monthDays = eachDayOfInterval({ start: startDate, end: endDate });
 
  return (
- <div className="flex-1 flex gap-8 min-h-0 overflow-hidden">
+ <div className="flex-1 flex gap-5 min-h-0 overflow-hidden">
 
  {/* CALENDAR GRID */}
- <div className="flex-1 flex flex-col min-h-0 pb-6">
+ <div className="flex-1 flex flex-col min-h-0 pb-1">
  <div className="grid grid-cols-7 gap-0 text-center text-[11px] mb-2 flex-shrink-0">
  {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => (
  <div key={i} className="font-bold text-muted uppercase tracking-wider py-2 border-b border-border border-border">{d}</div>
@@ -95,7 +95,7 @@ export function CalendarMode({ calendarDate, currentCountry, currentRegion, loca
  </div>
 
  {/* SIDEBAR: UPCOMING & CATEGORIES */}
- <div className="w-72 flex-shrink-0 flex flex-col gap-4 overflow-y-auto hide-scrollbar pb-6">
+ <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-y-auto hide-scrollbar pb-1">
 
  {/* UPCOMING HOLIDAYS */}
  <div className="flex flex-col bg-surface bg-surface-hover rounded-2xl p-4 border border-border border-border shadow-sm">
