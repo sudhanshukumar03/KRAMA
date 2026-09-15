@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { useAuth } from '../contexts/AuthContext';
 import {
   DndContext,
   DragOverlay,
@@ -32,7 +31,7 @@ import { ErrorState } from './ui/ErrorState';
 import { 
   CircleDashed, CheckCircle, CheckCircle2, ListChecks, 
   Search, Plus, AlertCircle, X, KanbanSquare, Clock, 
-  Folder, CheckSquare, MoreVertical, Bell, ChevronRight, ChevronDown, 
+  Folder, CheckSquare, MoreVertical, ChevronDown, 
   LayoutGrid, List, Calendar, Inbox, Trash2, Edit2, Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -936,7 +935,6 @@ export function IssueEditModal({
 
 export function KanbanBoard() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
   const { data: issues = [], isLoading: isLoadingIssues, isError } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
   const { data: sprints = [] } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
@@ -1207,8 +1205,6 @@ export function KanbanBoard() {
     }
   };
 
-  const openIssuesCount = issues.filter((i: any) => i.status !== "DONE" && i.status !== "CANCELED").length;
-
   const getColumnIssues = (colId: TaskStatus) => {
     if (colId === "BACKLOG") {
       return filteredIssues.filter(i => i.status === "BACKLOG" || i.status === "TODO");
@@ -1231,59 +1227,14 @@ export function KanbanBoard() {
 
   return (
     <div className="h-full flex flex-col min-w-0 w-full bg-canvas select-none overflow-hidden animate-in fade-in duration-150">
-      {/* 1. Top Header */}
-      <div className="border-b border-border/70 px-6 py-2.5 flex items-center justify-between shrink-0 bg-surface/60 backdrop-blur-md">
-        {/* Left: Breadcrumb */}
-        <div className="flex items-center gap-1.5 text-xs text-muted font-medium">
-          <span className="hover:text-primary cursor-pointer transition-colors">Execution</span>
-          <ChevronRight className="w-3.5 h-3.5 text-muted/70" />
-          <span className="text-primary font-semibold">Board</span>
-        </div>
-
-        {/* Right: Quick Search, Notifications, User Profile */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('open-cmdk'))}
-            className="flex items-center gap-2 bg-surface-hover/80 hover:bg-surface-hover border border-border/80 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-primary transition-all cursor-pointer shadow-2xs"
-          >
-            <Search className="w-3.5 h-3.5" />
-            <span>Search anything...</span>
-            <kbd className="bg-surface border border-border px-1.5 py-0.5 rounded text-[10px] font-mono font-medium text-secondary">Ctrl K</kbd>
-          </button>
-
-          <button
-            title="Notifications"
-            className="relative p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover border border-transparent hover:border-border/80 transition-colors cursor-pointer"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 ring-2 ring-surface" />
-          </button>
-
-          <div className="flex items-center gap-2 pl-2 border-l border-border/70 cursor-pointer group">
-            <div className="w-7 h-7 rounded-full bg-accent/15 border border-accent/30 text-accent flex items-center justify-center font-mono font-bold text-xs shadow-2xs">
-              {user?.name ? user.name.substring(0, 2).toUpperCase() : 'SP'}
-            </div>
-            <span className="text-xs font-semibold text-primary group-hover:text-accent transition-colors">
-              {user?.name || 'Sudhanshu'}
-            </span>
-            <ChevronDown className="w-3.5 h-3.5 text-muted group-hover:text-primary transition-colors" />
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Page Header */}
+      {/* Page Header */}
       <div className="px-6 pt-4 pb-2.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-2xs">
             <KanbanSquare className="w-5 h-5 stroke-[1.75]" />
           </div>
           <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl font-bold text-primary tracking-tight">Execution Board</h1>
-              <span className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-2.5 py-0.5 rounded-full font-mono text-xs font-semibold">
-                {openIssuesCount} active directives
-              </span>
-            </div>
+            <h1 className="text-xl font-bold text-primary tracking-tight">Execution Board</h1>
             <p className="text-xs text-secondary mt-0.5">
               Drag and drop directives across sprint stages. Bounded mission execution canvas.
             </p>
