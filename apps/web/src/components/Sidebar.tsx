@@ -1,17 +1,18 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { toast } from 'sonner';
 import { 
- Home, BookOpen, Target, FolderKanban, Network, GraduationCap,
- Calendar, Clock4, KanbanSquare, Clock, CalendarCheck, TrendingUp,
- Scale, Search, LogOut, Moon, Sun, Download, X, 
- Zap, ChevronDown, ChevronRight
+  Home, BookOpen, Target, Network, GraduationCap,
+  Calendar, Clock4, KanbanSquare, Clock, TrendingUp,
+  Scale, Search, LogOut, Moon, Sun, Download, X, 
+  Zap, ChevronDown, ChevronRight, Settings, User, Layers
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
+import { KramaLogo } from './ui/KramaLogo';
 
 interface NavItem {
  name: string;
@@ -28,26 +29,21 @@ const overviewItems: NavItem[] = [
 
 const planAndExecuteItems: NavItem[] = [
   { name: 'Execution Board', path: '/app/board', icon: KanbanSquare, shortcut: 'E K', badgeKey: 'openIssues' },
-  { name: 'Sprint View', path: '/app/sprint', icon: Clock, shortcut: 'E S', badgeKey: 'sprintIssues' },
-  { name: 'Operations & Tasks', path: '/app/operations', icon: Zap, shortcut: 'E O', badgeKey: 'operationsIssues' },
-  { name: 'Weekly Planner', path: '/app/planner', icon: Calendar, shortcut: 'E W', badgeKey: null },
-  { name: 'Daily Timeline', path: '/app/timeline', icon: Clock4, shortcut: 'E T', badgeKey: null },
+  { name: 'Sprint', path: '/app/sprint', icon: Clock, shortcut: 'E S', badgeKey: 'sprintIssues' },
+  { name: 'Planner', path: '/app/planner', icon: Calendar, shortcut: 'E W', badgeKey: null },
+  { name: 'Schedule', path: '/app/timeline', icon: Clock4, shortcut: 'E T', badgeKey: null },
 ];
 
 const strategyItems: NavItem[] = [
- { name: 'Goals & OKRs', path: '/app/goals', icon: Target, shortcut: 'G G', badgeKey: 'goals' },
- { name: 'Habits & Rituals', path: '/app/habits', icon: TrendingUp, shortcut: 'E H', badgeKey: 'habits' },
- { name: 'Projects', path: '/app/projects', icon: FolderKanban, shortcut: 'G P', badgeKey: 'projects' },
+  { name: 'Goal', path: '/app/goals', icon: Target, shortcut: 'G G', badgeKey: 'goals' },
+  { name: 'Habit', path: '/app/habits', icon: TrendingUp, shortcut: 'E H', badgeKey: 'habits' },
+  { name: 'Projects', path: '/app/projects', icon: Layers, shortcut: 'G P', badgeKey: 'projects' },
 ];
 
 const knowledgeItems: NavItem[] = [
  { name: 'Brain Workspace', path: '/app/brain', icon: BookOpen, shortcut: 'G B', badgeKey: 'pages' },
  { name: 'Decision Log', path: '/app/decisions', icon: Scale, shortcut: 'S D', badgeKey: null },
  { name: 'Knowledge Graph', path: '/app/graph', icon: Network, shortcut: 'G K', badgeKey: null },
-];
-
-const reflectItems: NavItem[] = [
- { name: 'Daily Review', path: '/app/review', icon: CalendarCheck, shortcut: 'E R', badgeKey: null },
 ];
 
 const systemItems: NavItem[] = [
@@ -59,8 +55,24 @@ const systemItems: NavItem[] = [
 export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
  const location = useLocation();
  const { toggleTheme, resolvedTheme } = useTheme();
- const { user, logout } = useAuth();
- const [systemOpen, setSystemOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const [systemOpen, setSystemOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+        setSettingsOpen(false);
+      }
+    };
+    if (settingsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [settingsOpen]);
 
   // Fetch live counts for badges
   const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
@@ -75,13 +87,11 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
   const sprintIssuesCount = activeSprint
     ? issues.filter(i => i.sprintId === activeSprint.id && i.status !== 'DONE').length
     : 0;
-  const operationsIssuesCount = issues.filter(i => !i.projectId && i.status !== "DONE" && i.status !== "REVIEW").length;
   const activeProjectsCount = projects.filter(p => p.status === 'active').length;
 
   const getBadgeValue = (key: string | null) => {
     if (key === 'openIssues') return openIssuesCount;
     if (key === 'sprintIssues') return sprintIssuesCount;
-    if (key === 'operationsIssues') return operationsIssuesCount;
     if (key === 'projects') return activeProjectsCount;
     if (key === 'goals') return goals.length;
     if (key === 'habits') return habits.length;
@@ -162,18 +172,106 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  <div className="w-[280px] border-r border-border bg-surface flex flex-col h-full flex-shrink-0 select-none shadow-level-1 z-10">
  {/* Header / Brand */}
  <div className="h-13 flex items-center justify-between px-4 border-b border-border bg-surface">
- <div className="flex items-center gap-2.5">
- <div className="w-6 h-6 rounded-md bg-primary text-surface flex items-center justify-center font-mono font-bold text-caption">
- K
- </div>
- <div>
- <span className="font-semibold tracking-tight text-primary text-body leading-none block">KRAMA</span>
- </div>
- </div>
- <div className="flex items-center gap-1.5 text-badge font-mono text-muted">
- <span className="w-1.5 h-1.5 rounded-full bg-success inline-block" />
- <span>v2</span>
- </div>
+      <Link to="/app/" className="hover:opacity-90 transition-opacity">
+        <KramaLogo size="sm" withText textClassName="font-semibold tracking-tight text-primary text-body leading-none block" />
+      </Link>
+      <div className="relative" ref={settingsRef}>
+        <button
+          onClick={() => setSettingsOpen((prev) => !prev)}
+          className={cn(
+            "p-1.5 rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors outline-none cursor-pointer border border-transparent",
+            settingsOpen && "text-primary bg-surface-hover border-border"
+          )}
+          title="Settings & Preferences"
+          aria-label="Settings"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
+
+        {settingsOpen && (
+          <div className="absolute right-0 top-full mt-2 w-64 bg-surface border border-border rounded-lg shadow-level-2 z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+            {/* Profile Details */}
+            <div className="p-2.5 rounded-md bg-surface-hover/70 border border-border/80 mb-1">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted flex items-center gap-1.5">
+                  <User className="w-3 h-3 text-accent" />
+                  <span>Profile Details</span>
+                </span>
+                <span className="text-badge font-mono text-muted bg-surface px-1.5 py-0.2 rounded border border-border">
+                  PRO
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-accent-tint border border-accent/20 flex items-center justify-center text-accent font-mono font-semibold text-caption shrink-0">
+                  {user?.name ? user.name.substring(0, 2).toUpperCase() : 'ME'}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-caption font-semibold text-primary truncate leading-tight">
+                    {user?.name || 'User'}
+                  </div>
+                  <div className="text-badge text-muted font-mono truncate leading-tight mt-0.5">
+                    {user?.email || 'user@krama.os'}
+                  </div>
+                  <div className="text-badge text-muted font-mono flex items-center gap-1 mt-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-success inline-block" />
+                    <span>Focused</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption text-secondary hover:text-primary hover:bg-surface-hover transition-colors group cursor-pointer"
+              title="Toggle Theme"
+            >
+              <span className="flex items-center gap-2">
+                {resolvedTheme === 'dark' ? (
+                  <Sun className="w-3.5 h-3.5 text-warning" />
+                ) : (
+                  <Moon className="w-3.5 h-3.5 text-muted group-hover:text-primary" />
+                )}
+                <span>{resolvedTheme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+              </span>
+              <span className="text-badge font-mono text-muted uppercase">
+                {resolvedTheme === 'dark' ? 'Light' : 'Dark'}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setSettingsOpen(false);
+                handleExport();
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption text-secondary hover:text-primary hover:bg-surface-hover transition-colors group cursor-pointer"
+              title="Export all workspace data as JSON"
+            >
+              <span className="flex items-center gap-2">
+                <Download className="w-3.5 h-3.5 text-muted group-hover:text-primary transition-colors" />
+                <span>Export Data</span>
+              </span>
+              <span className="text-badge font-mono text-muted">JSON</span>
+            </button>
+
+            <div className="my-1 border-t border-border/80" />
+
+            <button
+              onClick={() => {
+                setSettingsOpen(false);
+                logout();
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption text-secondary hover:text-error hover:bg-error-tint transition-colors group cursor-pointer"
+              title="Sign out"
+            >
+              <span className="flex items-center gap-2">
+                <LogOut className="w-3.5 h-3.5 text-muted group-hover:text-error transition-colors" />
+                <span>Sign Out</span>
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
  </div>
 
  {/* Search / Command Palette Trigger */}
@@ -235,16 +333,6 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  </div>
  </div>
 
- {/* 5. Reflect */}
- <div>
- <div className="text-badge font-mono font-semibold text-muted uppercase tracking-wider mb-1 px-2.5">
- Reflect
- </div>
- <div className="space-y-0.5">
- {reflectItems.map(renderLink)}
- </div>
- </div>
-
  {/* Utilities Collapsible */}
  <div className="pt-2 border-t border-border">
  <button
@@ -260,68 +348,6 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
  </div>
  )}
  </div>
- </div>
-
- {/* Utilities & Actions */}
- <div className="p-2 border-t border-border space-y-0.5 bg-surface">
- <button
- onClick={toggleTheme}
- className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption text-secondary hover:text-primary hover:bg-surface-hover transition-colors group cursor-pointer"
- title="Toggle Theme"
- >
- <span className="flex items-center gap-2">
- {resolvedTheme === 'dark' ? (
- <Sun className="w-3.5 h-3.5 text-warning" />
- ) : (
- <Moon className="w-3.5 h-3.5 text-muted group-hover:text-primary" />
- )}
- <span>{resolvedTheme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
- </span>
- <span className="text-badge font-mono text-muted uppercase">
- {resolvedTheme === 'dark' ? 'Light' : 'Dark'}
- </span>
- </button>
-
- <button
- onClick={handleExport}
- className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption text-secondary hover:text-primary hover:bg-surface-hover transition-colors group cursor-pointer"
- title="Export all workspace data as JSON"
- >
- <span className="flex items-center gap-2">
- <Download className="w-3.5 h-3.5 text-muted group-hover:text-primary transition-colors" />
- <span>Export Data</span>
- </span>
- <span className="text-badge font-mono text-muted">JSON</span>
- </button>
- 
- <button
- onClick={logout}
- className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption text-secondary hover:text-error hover:bg-error-tint transition-colors group cursor-pointer"
- title="Sign out"
- >
- <span className="flex items-center gap-2">
- <LogOut className="w-3.5 h-3.5 text-muted group-hover:text-error transition-colors" />
- <span>Sign Out</span>
- </span>
- </button>
- </div>
-
- {/* Footer User Strip */}
- <div className="p-3 border-t border-border bg-surface flex items-center justify-between">
- <div className="flex items-center gap-2.5 min-w-0">
- <div className="w-7 h-7 rounded-full bg-accent-tint border border-accent/20 flex items-center justify-center text-accent font-mono font-semibold text-caption shrink-0">
- {user?.name ? user.name.substring(0, 2).toUpperCase() : 'ME'}
- </div>
- <div className="min-w-0">
- <div className="text-caption font-medium text-primary truncate">{user?.name || 'User'}</div>
- <div className="text-badge text-muted font-mono flex items-center gap-1">
- <span className="w-1.5 h-1.5 rounded-full bg-success inline-block" /> Focused
- </div>
- </div>
- </div>
- <span className="text-badge font-mono text-muted bg-surface-hover px-1.5 py-0.5 rounded border border-border">
- PRO
- </span>
  </div>
  </div>
  );

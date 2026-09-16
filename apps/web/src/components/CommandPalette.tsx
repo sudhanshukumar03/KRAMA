@@ -237,24 +237,6 @@ export function CommandPalette() {
  className="pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
  >
  <Command.Item 
- onSelect={() => runCommand(() => navigate('/app/review'))}
- className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-body font-medium text-primary aria-selected:bg-primary aria-selected:text-white transition-colors group mb-1"
- >
- <div className="flex items-center gap-3">
- <div className="w-7 h-7 rounded-lg bg-surface-hover border border-border group-aria-selected:bg-white/20 group-aria-selected:border-transparent text-primary group-aria-selected:text-white flex items-center justify-center">
- <Brain className="w-4 h-4 stroke-[2]" />
- </div>
- <div>
- <div className="font-semibold leading-tight">Start Deep Work Focus Session</div>
- <div className="text-badge text-secondary group-aria-selected:text-white/80">Launch live stopwatch in Daily Review</div>
- </div>
- </div>
- <span className="text-caption font-mono opacity-0 group-aria-selected:opacity-100 flex items-center gap-1">
- Execute <ArrowRight className="w-3.5 h-3.5" />
- </span>
- </Command.Item>
-
- <Command.Item 
  onSelect={() => runCommand(() => navigate('/app/board'))}
  className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-body font-medium text-primary aria-selected:bg-primary aria-selected:text-white transition-colors group mb-1"
  >
@@ -281,7 +263,7 @@ export function CommandPalette() {
  <Calendar className="w-4 h-4 stroke-[2]" />
  </div>
  <div>
- <div className="font-semibold leading-tight">Time-Block Weekly Planner</div>
+ <div className="font-semibold leading-tight">Time-Block Planner</div>
  <div className="text-badge text-secondary group-aria-selected:text-white/80">Schedule focus hours & meeting buffers</div>
  </div>
  </div>
@@ -318,7 +300,7 @@ export function CommandPalette() {
  onSelect={() => runCommand(() => navigate('/app/goals'))}
  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
  >
- <Target className="w-4 h-4 text-secondary" /> Goals & Quarterly OKRs
+ <Target className="w-4 h-4 text-secondary" /> Goal
  </Command.Item>
  <Command.Item 
  onSelect={() => runCommand(() => navigate('/app/decisions'))}

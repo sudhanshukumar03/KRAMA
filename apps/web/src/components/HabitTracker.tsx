@@ -2,11 +2,10 @@
 import { useState } from "react";
 import { api } from "../api/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Flame, TrendingUp, Plus, Clock, Sun, Sunset, Moon, Trash2, Pin, PinOff, Edit2, Sparkles, X } from 'lucide-react';
+import { Check, Flame, TrendingUp, Plus, Clock, Sun, Sunset, Moon, Trash2, Pin, PinOff, Edit2, Sparkles, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ConfirmDeleteButton } from "./ui/ConfirmDeleteButton";
 import { toast } from "sonner";
 import { BaseButton } from "./ui/BaseButton";
-import { PageHeader } from "./ui/PageHeader";
 import { EmptyStateInline } from "./ui/EmptyStateInline";
 import { LoadingState } from "./ui/LoadingState";
 import { ErrorState } from "./ui/ErrorState";
@@ -754,6 +753,52 @@ export function HabitTracker() {
  const [editModalOpen, setEditModalOpen] = useState(false);
  const [editingHabit, setEditingHabit] = useState<any>(null);
 
+ const [todayTrackerOpen, setTodayTrackerOpen] = useState(() => {
+   if (typeof window !== 'undefined') {
+     const saved = localStorage.getItem('krama_habit_today_tracker_open');
+     return saved !== null ? saved === 'true' : false;
+   }
+   return false;
+ });
+
+ const toggleTodayTracker = () => {
+   setTodayTrackerOpen(prev => {
+     const next = !prev;
+     localStorage.setItem('krama_habit_today_tracker_open', String(next));
+     return next;
+   });
+ };
+
+ const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
+ const handleWheel = (e: React.WheelEvent) => {
+   if (!todayTrackerOpen && e.deltaX > 25) {
+     setTodayTrackerOpen(true);
+     localStorage.setItem('krama_habit_today_tracker_open', 'true');
+   } else if (todayTrackerOpen && e.deltaX < -25) {
+     setTodayTrackerOpen(false);
+     localStorage.setItem('krama_habit_today_tracker_open', 'false');
+   }
+ };
+
+ const handleTouchStart = (e: React.TouchEvent) => {
+   setTouchStartX(e.touches[0].clientX);
+ };
+
+ const handleTouchEnd = (e: React.TouchEvent) => {
+   if (touchStartX === null) return;
+   const touchEndX = e.changedTouches[0].clientX;
+   const diff = touchStartX - touchEndX;
+   if (!todayTrackerOpen && diff > 50) {
+     setTodayTrackerOpen(true);
+     localStorage.setItem('krama_habit_today_tracker_open', 'true');
+   } else if (todayTrackerOpen && diff < -50) {
+     setTodayTrackerOpen(false);
+     localStorage.setItem('krama_habit_today_tracker_open', 'false');
+   }
+   setTouchStartX(null);
+ };
+
  const createHabitMutation = useMutation({
  mutationFn: (data: {
  name: string;
@@ -900,27 +945,56 @@ export function HabitTracker() {
  const progressPct = Math.round((completedCount / totalHabits) * 100);
 
  return (
- <div className="flex flex-col lg:flex-row h-full w-full bg-canvas animate-in fade-in duration-150 overflow-y-auto lg:overflow-hidden">
- {/* LEFT COLUMN: Main Content */}
- <div className="flex-1 lg:h-full lg:overflow-y-auto p-6 sm:p-10 lg:p-20 relative border-b lg:border-b-0 lg:border-r border-border">
- {/* Unified PageHeader */}
- <PageHeader
- icon={TrendingUp}
- iconColorClass="text-[#EA580C]"
- title="Habits & Rituals"
- description="Manage, track, and maintain consistency across your daily routines."
- statPill={{
- icon: Flame,
- label: `${habits.length} routines`,
- colorClass: "bg-[#EA580C]/10 text-[#EA580C] border-[#EA580C]/20",
- }}
- primaryAction={{
- label: "New Habit",
- icon: Plus,
- onClick: handleCreateHabit,
- }}
- className="mb-8"
- />
+    <div 
+      onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className="flex flex-col lg:flex-row h-full w-full bg-canvas animate-in fade-in duration-150 overflow-y-auto lg:overflow-hidden relative"
+    >
+      {/* LEFT COLUMN: Main Content */}
+      <div className={cn(
+        "flex-1 lg:h-full lg:overflow-y-auto px-6 py-6 space-y-6 relative border-b lg:border-b-0 transition-all duration-300 ease-in-out min-w-0",
+        todayTrackerOpen ? "lg:border-r border-border" : "lg:border-r-0"
+      )}>
+        {/* Top Page Header with Logo, Title, Tracker Toggle & New Habit */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0 shadow-2xs">
+              <TrendingUp className="w-5 h-5 stroke-[1.75]" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-primary tracking-tight">Habit</h1>
+              <p className="text-xs text-secondary mt-0.5">
+                Manage, track, and maintain consistency across your daily routines.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={toggleTodayTracker}
+              className={cn(
+                "px-3 py-1.5 rounded-xl border text-caption font-mono font-bold flex items-center gap-2 transition-all cursor-pointer shadow-2xs",
+                todayTrackerOpen
+                  ? "bg-orange-500/10 border-orange-500/30 text-orange-600 dark:text-orange-400"
+                  : "bg-surface hover:bg-surface-hover border-border text-secondary hover:text-primary"
+              )}
+              title={todayTrackerOpen ? "Hide Today's Tracker" : "Slide out Today's Tracker"}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+              <span>Today's Tracker</span>
+              <span className="bg-surface-hover px-1.5 py-0.5 rounded text-[10px] text-primary border border-border/60">
+                {completedCount}/{totalHabits} Done
+              </span>
+              <ChevronLeft className={cn("w-3.5 h-3.5 transition-transform duration-200", todayTrackerOpen ? "rotate-180" : "")} />
+            </button>
+            <BaseButton onClick={handleCreateHabit} className="shrink-0 cursor-pointer">
+              <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" />
+              New Habit
+            </BaseButton>
+          </div>
+        </div>
 
  {/* Category Filters */}
  <div className="flex flex-wrap gap-2 mb-8">
@@ -1124,9 +1198,18 @@ export function HabitTracker() {
 
  {/* Routine Section */}
  <div>
- <h2 className="text-section text-primary mb-3 ">
+ <div className="flex items-center justify-between mb-3">
+ <h2 className="text-section text-primary">
  Daily Routines Breakdown
  </h2>
+ <button
+ type="button"
+ onClick={handleCreateHabit}
+ className="text-caption font-mono text-secondary hover:text-[#EA580C] flex items-center gap-1 transition-colors"
+ >
+ <Plus className="w-3.5 h-3.5" /> Add Routine
+ </button>
+ </div>
  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
  {/* Morning */}
  <div className="v4-card p-5">
@@ -1299,47 +1382,80 @@ export function HabitTracker() {
  </div>
  </div>
 
- {/* RIGHT COLUMN: Daily Checklist Widget (30% on desktop, 100% on mobile) */}
- <div className="w-full lg:w-[30%] bg-surface-hover lg:h-full lg:overflow-y-auto p-4 sm:p-6 lg:p-8 border-t lg:border-t-0 lg:border-l border-border">
- <div className="v4-card p-4 sm:p-6 relative overflow-hidden">
- <div className="absolute top-0 left-0 w-full h-1.5 bg-[#EA580C]" />
+   {/* RIGHT COLUMN: Daily Checklist Widget (Collapsible with smooth animation) */}
+  <div 
+    className={cn(
+      "bg-surface-hover lg:h-full lg:overflow-y-auto transition-all duration-300 ease-in-out shrink-0",
+      todayTrackerOpen
+        ? "w-full lg:w-[340px] xl:w-[380px] opacity-100 px-6 py-6 border-t lg:border-t-0 lg:border-l border-border block"
+        : "w-0 lg:w-0 px-0 py-0 opacity-0 overflow-hidden border-0 pointer-events-none hidden lg:block"
+    )}
+  >
+  <div className="v4-card p-4 sm:p-6 relative overflow-hidden min-w-[280px]">
+  <div className="absolute top-0 left-0 w-full h-1.5 bg-[#EA580C]" />
 
- <div className="flex items-center justify-between mt-1 mb-1">
- <span className="text-badge font-medium text-[#EA580C] uppercase tracking-[0.02em] flex items-center gap-1 font-mono">
- <Sparkles className="w-3 h-3 fill-[#EA580C]" /> Today's Tracker
- </span>
- <span className="text-caption font-mono font-bold text-primary bg-surface-hover px-2 py-0.5 rounded border border-border">
- {completedCount}/{totalHabits} Done
- </span>
- </div>
- <h2 className="text-section text-primary mb-3 ">{today}</h2>
+  <div className="flex items-center justify-between mt-1 mb-1">
+  <span className="text-badge font-medium text-[#EA580C] uppercase tracking-[0.02em] flex items-center gap-1 font-mono">
+  <Sparkles className="w-3 h-3 fill-[#EA580C]" /> Today's Tracker
+  </span>
+  <div className="flex items-center gap-2">
+    <span className="text-caption font-mono font-bold text-primary bg-surface-hover px-2 py-0.5 rounded border border-border">
+    {completedCount}/{totalHabits} Done
+    </span>
+    <button
+      type="button"
+      onClick={toggleTodayTracker}
+      className="p-1 rounded-lg text-secondary hover:text-primary hover:bg-surface transition-colors cursor-pointer"
+      title="Collapse Tracker"
+    >
+      <ChevronRight className="w-4 h-4" />
+    </button>
+  </div>
+  </div>
+  <h2 className="text-section text-primary mb-3 ">{today}</h2>
 
- <div className="space-y-3">
- {todaysHabits.map((habit, index) => (
- <HabitTrackerRow key={habit.id} habit={habit} index={index} />
- ))}
- </div>
+  <div className="space-y-3">
+  {todaysHabits.map((habit, index) => (
+  <HabitTrackerRow key={habit.id} habit={habit} index={index} />
+  ))}
+  </div>
 
- <div className="mt-8 pt-4 border-t border-border space-y-2">
- <div className="flex justify-between items-center text-caption">
- <span className="text-secondary font-medium">
- Daily Completion Rate
- </span>
- <span className="text-body font-medium text-primary font-mono">
- {progressPct}%
- </span>
- </div>
- <div className="h-2 w-full bg-surface-hover rounded-full overflow-hidden border border-border/40">
- <div
- className="h-full bg-[#EA580C] transition-all duration-400 ease-out"
- style={{ width: `${progressPct}%` }}
- />
- </div>
- </div>
- </div>
- </div>
+  <div className="mt-8 pt-4 border-t border-border space-y-2">
+  <div className="flex justify-between items-center text-caption">
+  <span className="text-secondary font-medium">
+  Daily Completion Rate
+  </span>
+  <span className="text-body font-medium text-primary font-mono">
+  {progressPct}%
+  </span>
+  </div>
+  <div className="h-2 w-full bg-surface-hover rounded-full overflow-hidden border border-border/40">
+  <div
+  className="h-full bg-[#EA580C] transition-all duration-400 ease-out"
+  style={{ width: `${progressPct}%` }}
+  />
+  </div>
+  </div>
+  </div>
+  </div>
 
- <HabitCreateModal
+  {/* Floating edge slide handle button when collapsed */}
+  {!todayTrackerOpen && (
+    <button
+      type="button"
+      onClick={toggleTodayTracker}
+      className="fixed lg:absolute right-0 top-1/2 -translate-y-1/2 z-30 bg-surface/90 hover:bg-surface border-y border-l border-border hover:border-orange-500/40 text-secondary hover:text-orange-500 shadow-md backdrop-blur-md py-3.5 px-1.5 rounded-l-xl flex flex-col items-center gap-2 group cursor-pointer transition-all hover:pr-2.5 animate-in fade-in slide-in-from-right-2 duration-200"
+      title="Slide to show Today's Tracker"
+    >
+      <ChevronLeft className="w-4 h-4 text-orange-500 group-hover:-translate-x-0.5 transition-transform" />
+      <span className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-mono font-bold tracking-wider uppercase text-secondary group-hover:text-primary">
+        Today's Tracker
+      </span>
+      <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+    </button>
+  )}
+
+  <HabitCreateModal
  open={createModalOpen}
  onClose={() => setCreateModalOpen(false)}
  onSubmit={(data) => createHabitMutation.mutate(data)}

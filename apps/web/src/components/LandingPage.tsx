@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Brain, FolderKanban, Target, Sparkles, CheckSquare, Clock, FileText, CheckCircle2 } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
+import { KramaLogo } from './ui/KramaLogo';
 
 export function LandingPage() {
  const navigate = useNavigate();
@@ -11,12 +12,7 @@ export function LandingPage() {
  {/* Navigation Bar (#1px bottom border separating from hero) */}
  <header className="border-b border-border bg-canvas sticky top-0 z-40">
  <div className="max-w-7xl mx-auto px-6 lg:px-12 py-4 flex items-center justify-between">
- <div className="flex items-center gap-3">
- <div className="w-8 h-8 rounded-sm bg-primary text-canvas flex items-center justify-center font-mono font-bold text-body shadow-2xs">
- K
- </div>
- <span className="font-bold tracking-tight text-primary text-body leading-none">KRAMA OS</span>
- </div>
+ <KramaLogo size="md" withText textClassName="font-bold tracking-tight text-primary text-body leading-none" />
  
  <div className="flex items-center gap-4">
  <span className="hidden sm:flex items-center gap-1.5 text-badge text-goals bg-[#0D9488]/10 px-2.5 py-1 rounded-md border border-[#0D9488]/20">
