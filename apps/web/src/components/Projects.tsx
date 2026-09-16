@@ -222,28 +222,30 @@ export function Projects() {
  const statuses = statusFilter === 'all' ? ['active', 'idea', 'paused', 'shipped'] : [statusFilter];
 
  return (
- <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex flex-col h-full bg-canvas animate-in fade-in duration-150 gap-6 pb-24 font-sans text-primary">
-  {/* COMMAND CENTER PORTFOLIO HEADER (Accent Identity) */}
-  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 v4-card p-5">
-    <div className="flex items-center gap-4">
-      <div className="w-12 h-12 rounded-2xl bg-accent text-accent-fg flex items-center justify-center shrink-0 shadow-sm border border-accent/20">
-        <FolderKanban className="w-6 h-6 stroke-[1.5]" />
-      </div>
-      <div>
-        <div className="flex items-center gap-2.5 mb-1">
-          <h1 className="text-title text-primary mb-4 ">Project Portfolio</h1>
-          <span className="bg-surface-hover text-secondary border border-border px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-accent stroke-[1.5]" /> {projects.length} Initiatives Tracked
-          </span>
+    <div className="p-6 md:p-8 flex flex-col h-full bg-canvas overflow-y-auto min-w-0 animate-in fade-in duration-150 gap-6 pb-24 font-sans text-primary">
+      {/* Top Page Header with Logo and Title */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-2xs">
+            <FolderKanban className="w-5 h-5 stroke-[1.75]" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-bold text-primary tracking-tight">Project</h1>
+              <span className="bg-surface-hover text-secondary border border-border px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-blue-500 stroke-[1.5]" /> {projects.length} Tracked
+              </span>
+            </div>
+            <p className="text-xs text-secondary mt-0.5">
+              Engineering command center for multi-phase roadmaps, sprints, and strategic OKRs.
+            </p>
+          </div>
         </div>
-        <p className="text-caption text-secondary font-mono">Engineering command center for multi-phase roadmaps, sprints, and strategic OKRs.</p>
+        <BaseButton onClick={handleCreateProject} className="shrink-0 cursor-pointer">
+          <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" />
+          New Initiative
+        </BaseButton>
       </div>
-    </div>
-    <BaseButton onClick={handleCreateProject} className="shrink-0 cursor-pointer">
-      <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" />
-      New Initiative
-    </BaseButton>
-  </div>
 
   {/* STRATEGIC HEALTH FILTER & SEARCH BAR */}
   <div className="v4-card rounded-xl p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
