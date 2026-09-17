@@ -65,23 +65,26 @@ export function PlannerPage() {
  isLoading,
  isError,
  refetch,
- days,
- weekRangeLabel,
- navigateWeek,
- occurrenceFor,
- toggleRoutineMutation,
- createTimeBlockMutation,
- deleteTimeBlockMutation,
- } = usePlannerWeek();
+    days,
+    weekRangeLabel,
+    navigateWeek,
+    navigateToDate,
+    occurrenceFor,
+    toggleRoutineMutation,
+    createTimeBlockMutation,
+    updateTimeBlockMutation,
+    deleteTimeBlockMutation,
+  } = usePlannerWeek();
 
- const [timeBlockModalOpen, setTimeBlockModalOpen] = useState(false);
- const [routineModalOpen, setRoutineModalOpen] = useState(false);
- const [selectedDay, setSelectedDay] = useState<Date>(new Date());
- const [captureOpen, setCaptureOpen] = useState(false);
- const [locationModalOpen, setLocationModalOpen] = useState(false);
- const [capacityModalOpen, setCapacityModalOpen] = useState(false);
- const [captureDate, setCaptureDate] = useState<Date | undefined>(undefined);
- const [editingTask, setEditingTask] = useState<any | null>(null);
+  const [timeBlockModalOpen, setTimeBlockModalOpen] = useState(false);
+  const [editingTimeBlock, setEditingTimeBlock] = useState<any | null>(null);
+  const [routineModalOpen, setRoutineModalOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<Date>(new Date());
+  const [captureOpen, setCaptureOpen] = useState(false);
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [capacityModalOpen, setCapacityModalOpen] = useState(false);
+  const [captureDate, setCaptureDate] = useState<Date | undefined>(undefined);
+  const [editingTask, setEditingTask] = useState<any | null>(null);
 
  // Calendar lifted states
  const [localOnly, setLocalOnly] = useState(false);
@@ -150,35 +153,45 @@ export function PlannerPage() {
  });
  };
 
- const handleAddTimeBlock = (day?: Date) => {
- if (day) setSelectedDay(day);
- setTimeBlockModalOpen(true);
- };
+  const handleAddTimeBlock = (day?: Date) => {
+    setEditingTimeBlock(null);
+    if (day) setSelectedDay(day);
+    setTimeBlockModalOpen(true);
+  };
 
- const handleAddTask = (day?: Date) => {
- setCaptureDate(day || new Date());
- setCaptureOpen(true);
- };
+  const handleEditTimeBlock = (block: any) => {
+    setEditingTimeBlock(block);
+    if (block.date || block.startTime) {
+      setSelectedDay(new Date(block.date || block.startTime));
+    }
+    setTimeBlockModalOpen(true);
+  };
 
- const handleAddRoutine = (_day?: Date) => {
- setRoutineModalOpen(true);
- };
+  const handleAddTask = (day?: Date) => {
+    setCaptureDate(day || new Date());
+    setCaptureOpen(true);
+  };
 
- const handleToggleTask = (task: any, e: React.MouseEvent) => {
- e.stopPropagation();
- const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
- updateTaskMutation.mutate({ id: task.id, data: { status: newStatus } }, {
- onSuccess: () => toast.success(newStatus === 'DONE' ? 'Task completed' : 'Task restored'),
- onError: () => toast.error('Failed to update task')
- });
- };
+  const handleAddRoutine = (_day?: Date) => {
+    setRoutineModalOpen(true);
+  };
 
- const handleClickTask = (task: any) => {
- setEditingTask(task);
- };
+  const handleToggleTask = (task: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
+    updateTaskMutation.mutate({ id: task.id, data: { status: newStatus } }, {
+      onSuccess: () => toast.success(newStatus === 'DONE' ? 'Task completed' : 'Task restored'),
+      onError: () => toast.error('Failed to update task')
+    });
+  };
+
+  const handleClickTask = (task: any) => {
+    setEditingTask(task);
+  };
 
   const handleOpenDayView = (day: Date) => {
     setViewDay(day);
+    navigateToDate(day);
     setPreviousMode(mode === 'calendar' ? 'calendar' : 'plan');
     setMode('day');
     setSearchParams({ mode: 'day', date: format(day, 'yyyy-MM-dd') });
@@ -204,9 +217,19 @@ export function PlannerPage() {
       else if (dir === 'prev') setCalendarDate(prev => subMonths(prev, 1));
       else setCalendarDate(prev => addMonths(prev, 1));
     } else {
-      if (dir === 'today') setViewDay(new Date());
-      else if (dir === 'prev') setViewDay(prev => addDays(prev, -1));
-      else setViewDay(prev => addDays(prev, 1));
+      if (dir === 'today') {
+        const today = new Date();
+        setViewDay(today);
+        navigateToDate(today);
+      } else if (dir === 'prev') {
+        const next = addDays(viewDay, -1);
+        setViewDay(next);
+        navigateToDate(next);
+      } else {
+        const next = addDays(viewDay, 1);
+        setViewDay(next);
+        navigateToDate(next);
+      }
     }
   };
 
@@ -250,19 +273,46 @@ export function PlannerPage() {
         />
         <TimeBlockModal
           open={timeBlockModalOpen}
-          onClose={() => setTimeBlockModalOpen(false)}
+          onClose={() => {
+            setTimeBlockModalOpen(false);
+            setEditingTimeBlock(null);
+          }}
           defaultDate={selectedDay}
-          isSubmitting={createTimeBlockMutation.isPending}
-          onSubmit={(data) => {
-            createTimeBlockMutation.mutate(data, {
+          editingBlock={editingTimeBlock}
+          tasks={data?.tasks || []}
+          onDelete={editingTimeBlock ? () => {
+            deleteTimeBlockMutation.mutate(editingTimeBlock.id, {
               onSuccess: () => {
-                toast.success('Time block created');
+                toast.success('Time block deleted');
                 setTimeBlockModalOpen(false);
-              },
-              onError: (err) => {
-                toast.error(err.message || 'Failed to create time block');
+                setEditingTimeBlock(null);
               }
             });
+          } : undefined}
+          isSubmitting={createTimeBlockMutation.isPending || updateTimeBlockMutation.isPending}
+          onSubmit={(blockData) => {
+            if (editingTimeBlock) {
+              updateTimeBlockMutation.mutate({ id: editingTimeBlock.id, data: blockData }, {
+                onSuccess: () => {
+                  toast.success('Time block updated');
+                  setTimeBlockModalOpen(false);
+                  setEditingTimeBlock(null);
+                },
+                onError: (err: any) => {
+                  toast.error(err?.message || 'Failed to update time block');
+                }
+              });
+            } else {
+              createTimeBlockMutation.mutate(blockData, {
+                onSuccess: () => {
+                  toast.success('Time block created');
+                  setTimeBlockModalOpen(false);
+                },
+                onError: (err: any) => {
+                  toast.error(err?.message || 'Failed to create time block');
+                }
+              });
+            }
           }}
         />
 
@@ -321,9 +371,7 @@ export function PlannerPage() {
                   onDeleteTimeBlock={(block) => deleteTimeBlockMutation.mutate(block.id)}
                   onDeleteRoutine={(routine) => deleteRoutineMutation.mutate(routine.id)}
                   onOpenDayView={handleOpenDayView}
-                  onClickTimeBlock={() => {
-                    // If we had a modal to view/edit time block, open it here.
-                  }}
+                  onClickTimeBlock={handleEditTimeBlock}
                 />
               </div>
             </div>
@@ -337,8 +385,10 @@ export function PlannerPage() {
                 onToggleRoutine={handleToggleRoutine}
                 onToggleTask={handleToggleTask}
                 onClickTask={handleClickTask}
+                onClickTimeBlock={handleEditTimeBlock}
                 onAddTask={handleAddTask}
                 onAddTimeBlock={handleAddTimeBlock}
+                onAddRoutine={handleAddRoutine}
                 onDeleteTask={(task) => deleteTaskMutation.mutate(task.id)}
                 onDeleteTimeBlock={(block) => deleteTimeBlockMutation.mutate(block.id)}
                 onDeleteRoutine={(routine) => deleteRoutineMutation.mutate(routine.id)}
