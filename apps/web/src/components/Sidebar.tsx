@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { 
   Home, BookOpen, Target, Network, GraduationCap,
   Calendar, Clock4, KanbanSquare, Clock, TrendingUp,
-  Scale, Search, LogOut, Moon, Sun, Download, X, 
+  Search, LogOut, Moon, Sun, Download, X, 
   Zap, ChevronDown, ChevronRight, Settings, User, Layers,
   PanelLeftClose
 } from 'lucide-react';
@@ -43,7 +43,6 @@ const strategyItems: NavItem[] = [
 
 const knowledgeItems: NavItem[] = [
  { name: 'Brain Workspace', path: '/app/brain', icon: BookOpen, shortcut: 'G B', badgeKey: 'pages' },
- { name: 'Decision Log', path: '/app/decisions', icon: Scale, shortcut: 'S D', badgeKey: null },
  { name: 'Knowledge Graph', path: '/app/graph', icon: Network, shortcut: 'G K', badgeKey: null },
 ];
 

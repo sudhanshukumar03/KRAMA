@@ -17,7 +17,6 @@ import { ProjectDetail } from './ProjectDetail';
 import { PlannerPage } from './planner/PlannerPage';
 import { TimelineView } from './TimelineView';
 import { HabitTracker } from './HabitTracker';
-import { DecisionLog } from './DecisionLog';
 import { KnowledgeGraph } from './KnowledgeGraph';
 import { AutomationRules } from './AutomationRules';
 import { SkillsModule } from './SkillsModule';
@@ -267,7 +266,7 @@ export function AppShell() {
  <Route path="/timeline/*" element={<TimelineView />} />
  <Route path="/habits/*" element={<HabitTracker />} />
  <Route path="/analytics/*" element={<Analytics />} />
- <Route path="/decisions" element={<DecisionLog />} />
+ <Route path="/decisions" element={<Navigate to="/app/brain" replace />} />
  <Route path="/graph" element={<KnowledgeGraph />} />
  <Route path="/automations" element={<AutomationRules />} />
  <Route path="/career" element={<SkillsModule />} />
