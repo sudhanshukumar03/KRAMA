@@ -1,178 +1,386 @@
-import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday } from "date-fns";
+import { useMemo } from "react";
+import { 
+  format, 
+  parseISO, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval, 
+  isSameMonth, 
+  isSameDay, 
+  isToday 
+} from "date-fns";
+import { useQuery } from "@tanstack/react-query";
 import { useHolidays } from "../../hooks/useHolidays";
-import { Calendar as CalendarIcon, Filter, Layers } from "lucide-react";
+import { api } from "../../api/client";
+import { 
+  Calendar as CalendarIcon, 
+  CheckCircle2, 
+  Circle, 
+  Clock, 
+  ChevronRight,
+  TrendingUp,
+  Sparkles
+} from "lucide-react";
+import { cn } from "../../lib/utils";
 
 interface Props {
- calendarDate: Date;
- currentCountry: string;
- currentRegion: string | null;
- localOnly: boolean;
- onOpenDayView?: (day: Date) => void;
+  calendarDate: Date;
+  currentCountry: string;
+  currentRegion: string | null;
+  localOnly: boolean;
+  onOpenDayView?: (day: Date) => void;
+  tasks?: any[];
 }
 
-export function CalendarMode({ calendarDate, currentCountry, currentRegion, localOnly, onOpenDayView }: Props) {
- const { data: monthData, isLoading } = useHolidays(currentCountry, currentRegion, calendarDate);
+export function CalendarMode({ 
+  calendarDate, 
+  currentCountry, 
+  currentRegion, 
+  localOnly, 
+  onOpenDayView,
+  tasks: propTasks = [] 
+}: Props) {
+  // Query all workspace tasks to guarantee month-wide task visibility
+  const { data: allIssues = [] } = useQuery({
+    queryKey: ['issues'],
+    queryFn: api.tasks.list,
+    staleTime: 15_000,
+  });
 
- let holidays = monthData?.holidays || [];
- if (localOnly) {
- holidays = holidays.filter((h: any) => h.isPublicHoliday);
- }
+  const taskList = allIssues.length > 0 ? allIssues : propTasks;
 
- const upcomingHolidays = holidays.filter((h: any) => parseISO(h.date) >= new Date(new Date().setHours(0,0,0,0)));
+  const { data: monthData, isLoading: isHolidaysLoading } = useHolidays(currentCountry, currentRegion, calendarDate);
 
- // Calendar Grid Math
- const monthStart = startOfMonth(calendarDate);
- const monthEnd = endOfMonth(calendarDate);
+  let holidays = monthData?.holidays || [];
+  if (localOnly) {
+    holidays = holidays.filter((h: any) => h.isPublicHoliday);
+  }
 
- const startDate = new Date(monthStart);
- startDate.setDate(startDate.getDate() - startDate.getDay() + (startDate.getDay() === 0 ? -6 : 1)); // Adjust for Monday start
+  const upcomingHolidays = holidays.filter((h: any) => {
+    try {
+      return parseISO(h.date) >= new Date(new Date().setHours(0, 0, 0, 0));
+    } catch {
+      return false;
+    }
+  });
 
- const endDate = new Date(monthEnd);
- endDate.setDate(endDate.getDate() + (7 - endDate.getDay() === 7 ? 0 : 7 - endDate.getDay()));
+  // Calendar Grid Math (Monday start)
+  const monthStart = startOfMonth(calendarDate);
+  const monthEnd = endOfMonth(calendarDate);
 
- const monthDays = eachDayOfInterval({ start: startDate, end: endDate });
+  const startDate = new Date(monthStart);
+  startDate.setDate(startDate.getDate() - startDate.getDay() + (startDate.getDay() === 0 ? -6 : 1));
 
- return (
- <div className="flex-1 flex gap-5 min-h-0 overflow-hidden">
+  const endDate = new Date(monthEnd);
+  endDate.setDate(endDate.getDate() + (7 - endDate.getDay() === 7 ? 0 : 7 - endDate.getDay()));
 
- {/* CALENDAR GRID */}
- <div className="flex-1 flex flex-col min-h-0 pb-1">
- <div className="grid grid-cols-7 gap-0 text-center text-[11px] mb-2 flex-shrink-0">
- {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => (
- <div key={i} className="font-bold text-muted uppercase tracking-wider py-2 border-b border-border border-border">{d}</div>
- ))}
- </div>
+  const monthDays = eachDayOfInterval({ start: startDate, end: endDate });
 
- <div className="grid grid-cols-7 auto-rows-fr gap-0 flex-1 overflow-hidden border-l border-t border-border border-border">
- {monthDays.map((day) => {
- const dayHolidays = holidays.filter((h: any) => isSameDay(parseISO(h.date), day));
- const isCurrentMonth = isSameMonth(day, calendarDate);
- const today = isToday(day);
+  // Filter tasks belonging to current active month
+  const monthTasks = useMemo(() => {
+    return taskList.filter((t: any) => {
+      const dStr = t.scheduledDate || t.dueDate;
+      if (!dStr) return false;
+      try {
+        const d = parseISO(dStr);
+        return isSameMonth(d, calendarDate);
+      } catch {
+        return false;
+      }
+    });
+  }, [taskList, calendarDate]);
 
- return (
- <div 
- key={day.toISOString()} 
- onDoubleClick={() => onOpenDayView && onOpenDayView(day)}
- title="Double-click to open day view"
- className={`flex flex-col min-h-0 p-1.5 border-r border-b border-border border-border transition-colors overflow-hidden cursor-pointer select-none hover:bg-blue-50/40 dark:hover:bg-slate-800/40 ${
- isCurrentMonth ? "bg-surface bg-surface-hover" : "bg-slate-50 bg-surface-hover"
- } ${
- today ? "ring-1 ring-inset ring-blue-500 z-10" : ""
- }`}
- >
- <div className="flex justify-between items-start mb-0.5">
- <span className={`text-[12px] font-bold w-6 h-6 flex items-center justify-center rounded-full ${
- today 
- ? "bg-accent text-white" 
- : isCurrentMonth 
- ? "text-primary text-secondary" 
- : "text-muted "
- }`}>
- {format(day, "d")}
- </span>
- </div>
- 
- <div className="flex-1 flex flex-col gap-0.5 overflow-y-auto hide-scrollbar mt-0.5">
- {dayHolidays.map((h: any) => (
- <div 
- key={h.id} 
- className={`text-[9px] font-bold px-1.5 py-0.5 rounded leading-tight border ${
- h.isPublicHoliday 
- ? "bg-rose-50 text-rose-700 border-rose-100" 
- : h.type === "OBSERVANCE"
- ? "bg-emerald-50 text-success border-emerald-100"
- : "bg-slate-50 bg-surface-hover text-primary text-secondary border-border border-border"
- }`}
- >
- {h.name}
- </div>
- ))}
- </div>
- </div>
- );
- })}
- </div>
- </div>
+  const completedMonthTasks = useMemo(() => {
+    return monthTasks.filter((t: any) => t.status === 'DONE' || t.status === 'REVIEW');
+  }, [monthTasks]);
 
- {/* SIDEBAR: UPCOMING & CATEGORIES */}
- <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-y-auto hide-scrollbar pb-1">
+  const completionPercentage = monthTasks.length > 0 
+    ? Math.round((completedMonthTasks.length / monthTasks.length) * 100) 
+    : 0;
 
- {/* UPCOMING HOLIDAYS */}
- <div className="flex flex-col bg-surface bg-surface-hover rounded-2xl p-4 border border-border border-border shadow-sm">
- <div className="flex items-center gap-2 mb-3">
- <CalendarIcon size={16} className="text-accent" />
- <h3 className="text-[11px] font-bold text-primary text-secondary uppercase tracking-wider">Upcoming Holidays</h3>
- </div>
+  // Upcoming scheduled tasks in the month
+  const upcomingMonthTasks = useMemo(() => {
+    const todayZero = new Date(new Date().setHours(0, 0, 0, 0));
+    return monthTasks
+      .filter((t: any) => {
+        const dStr = t.scheduledDate || t.dueDate;
+        if (!dStr) return false;
+        try {
+          return parseISO(dStr).getTime() >= todayZero.getTime() && t.status !== 'DONE';
+        } catch {
+          return false;
+        }
+      })
+      .sort((a: any, b: any) => {
+        const da = new Date(a.scheduledDate || a.dueDate).getTime();
+        const db = new Date(b.scheduledDate || b.dueDate).getTime();
+        return da - db;
+      })
+      .slice(0, 5);
+  }, [monthTasks]);
 
- <div className="flex flex-col gap-2">
- {isLoading ? (
- <div className="text-sm text-muted animate-pulse">Loading...</div>
- ) : upcomingHolidays.length === 0 ? (
- <div className="text-sm text-muted py-4 text-center italic border border-dashed border-border border-border rounded-xl">No upcoming holidays.</div>
- ) : (
- upcomingHolidays.slice(0, 4).map((h: any) => (
- <div key={h.id} className="flex gap-3 items-start p-2 rounded-xl border border-transparent hover:bg-slate-50 hover:border-border border-border transition-colors cursor-default">
- <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex flex-col items-center justify-center flex-shrink-0 text-accent">
- <span className="text-[8px] font-bold uppercase">{format(parseISO(h.date), "MMM")}</span>
- <span className="text-sm font-black leading-none">{format(parseISO(h.date), "d")}</span>
- </div>
- <div>
- <div className="text-xs font-bold text-primary text-secondary leading-tight">{h.name}</div>
- <div className="text-[9px] font-semibold text-muted uppercase tracking-wider mt-0.5">{h.type.replace(/_/g, " ")}</div>
- </div>
- </div>
- ))
- )}
- </div>
- </div>
+  return (
+    <div className="flex-1 flex flex-col lg:flex-row gap-5 min-h-0 overflow-hidden">
 
- {/* HOLIDAY CATEGORIES */}
- <div className="flex flex-col bg-surface bg-surface-hover rounded-2xl p-4 border border-border border-border shadow-sm">
- <div className="flex items-center gap-2 mb-3">
- <Filter size={16} className="text-muted " />
- <h3 className="text-[11px] font-bold text-primary text-secondary uppercase tracking-wider">Categories</h3>
- </div>
- 
- <div className="flex flex-col gap-1">
- {[
- { label: "Public Holidays", color: "text-rose-500", bg: "bg-rose-50", checked: true },
- { label: "Festivals", color: "text-warning", bg: "bg-orange-50", checked: true },
- { label: "Regional Holidays", color: "text-[var(--cat-routines)]", bg: "bg-purple-50", checked: true },
- { label: "Observances", color: "text-success", bg: "bg-emerald-50", checked: true },
- { label: "Optional Holidays", color: "text-muted ", bg: "bg-slate-50 bg-surface-hover", checked: false }
- ].map((cat) => (
- <label key={cat.label} className="flex items-center justify-between cursor-pointer p-1.5 hover:bg-slate-50 rounded-lg transition-colors group">
- <div className="flex items-center gap-2.5">
- <div className={`w-2.5 h-2.5 rounded-full ${cat.bg} border ${cat.color.replace('text', 'border')}`} />
- <span className="text-[12px] font-semibold text-primary text-secondary group-hover:text-primary">{cat.label}</span>
- </div>
- <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${cat.checked ? "bg-accent border-accent/20" : "bg-surface bg-surface-hover border-border border-border"}`}>
- {cat.checked ? (
- <svg viewBox="0 0 14 14" className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
- <polyline points="3 7.5 5.5 10 11 4" />
- </svg>
- ) : null}
- </div>
- </label>
- ))}
- </div>
- </div>
+      {/* CALENDAR GRID */}
+      <div className="flex-1 flex flex-col min-h-0 pb-1">
+        {/* Day-of-week headers */}
+        <div className="grid grid-cols-7 gap-0 text-center text-[11px] mb-2 flex-shrink-0">
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => (
+            <div key={i} className="font-bold text-muted uppercase tracking-wider py-2 border-b border-border">
+              {d}
+            </div>
+          ))}
+        </div>
 
- {/* SOURCES */}
- <div className="flex flex-col bg-surface bg-surface-hover rounded-2xl p-4 border border-border border-border shadow-sm">
- <div className="flex items-center justify-between mb-2">
- <div className="flex items-center gap-2">
- <Layers size={16} className="text-muted " />
- <h3 className="text-[11px] font-bold text-primary text-secondary uppercase tracking-wider">Sources</h3>
- </div>
- <button className="text-[9px] font-bold text-accent hover:underline uppercase tracking-wider">Manage</button>
- </div>
- <p className="text-[10px] text-muted leading-relaxed m-0">
- Control which external calendars feed into your planner.
- </p>
- </div>
+        {/* Month matrix cells */}
+        <div className="grid grid-cols-7 auto-rows-fr gap-0 flex-1 overflow-hidden border-l border-t border-border rounded-xl shadow-2xs">
+          {monthDays.map((day) => {
+            const dayHolidays = holidays.filter((h: any) => {
+              try {
+                return isSameDay(parseISO(h.date), day);
+              } catch {
+                return false;
+              }
+            });
 
- </div>
- </div>
- );
+            const dayTasks = taskList.filter((t: any) => {
+              const dStr = t.scheduledDate || t.dueDate;
+              if (!dStr) return false;
+              try {
+                return isSameDay(parseISO(dStr), day);
+              } catch {
+                return false;
+              }
+            });
+
+            const isCurrentMonth = isSameMonth(day, calendarDate);
+            const today = isToday(day);
+            const totalItems = dayHolidays.length + dayTasks.length;
+            const maxVisible = 2;
+            const remainingCount = totalItems - maxVisible;
+
+            return (
+              <div 
+                key={day.toISOString()} 
+                onClick={() => onOpenDayView && onOpenDayView(day)}
+                title="Click to open day schedule"
+                className={cn(
+                  "flex flex-col min-h-0 p-1.5 border-r border-b border-border transition-all overflow-hidden cursor-pointer select-none group",
+                  isCurrentMonth ? "bg-surface hover:bg-surface-hover/70" : "bg-surface-hover/30 hover:bg-surface-hover/60",
+                  today && "ring-1 ring-inset ring-accent z-10"
+                )}
+              >
+                {/* Cell Header: Date Number & Count Badge */}
+                <div className="flex justify-between items-center mb-1">
+                  <span className={cn(
+                    "text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full transition-transform group-hover:scale-105",
+                    today 
+                      ? "bg-accent text-white shadow-2xs" 
+                      : isCurrentMonth 
+                      ? "text-primary font-semibold" 
+                      : "text-muted/60"
+                  )}>
+                    {format(day, "d")}
+                  </span>
+
+                  {dayTasks.length > 0 && (
+                    <span className="text-[9px] font-mono px-1 rounded bg-surface-hover text-secondary border border-border/50">
+                      {dayTasks.filter((t: any) => t.status === 'DONE').length}/{dayTasks.length}
+                    </span>
+                  )}
+                </div>
+                
+                {/* Cell Body: Holidays and Scheduled Tasks */}
+                <div className="flex-1 flex flex-col gap-1 overflow-hidden">
+                  {/* Holidays */}
+                  {dayHolidays.slice(0, 1).map((h: any) => (
+                    <div 
+                      key={h.id || h.name} 
+                      className={cn(
+                        "text-[9px] font-bold px-1.5 py-0.5 rounded leading-tight truncate border",
+                        h.isPublicHoliday 
+                          ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20" 
+                          : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                      )}
+                      title={h.name}
+                    >
+                      🎉 {h.name}
+                    </div>
+                  ))}
+
+                  {/* Tasks */}
+                  {dayTasks.slice(0, dayHolidays.length > 0 ? 1 : 2).map((task: any) => {
+                    const isDone = task.status === 'DONE' || task.status === 'REVIEW';
+                    return (
+                      <div 
+                        key={task.id}
+                        className={cn(
+                          "text-[9px] px-1.5 py-0.5 rounded leading-tight truncate flex items-center gap-1 border transition-colors",
+                          isDone 
+                            ? "bg-surface-hover/50 text-muted line-through border-border/60" 
+                            : "bg-accent/5 text-primary border-accent/20 hover:border-accent/40 font-medium"
+                        )}
+                        title={task.title}
+                      >
+                        {isDone ? (
+                          <CheckCircle2 className="w-2.5 h-2.5 text-success shrink-0" />
+                        ) : (
+                          <Circle className="w-2.5 h-2.5 text-accent shrink-0" />
+                        )}
+                        <span className="truncate">{task.title}</span>
+                      </div>
+                    );
+                  })}
+
+                  {/* More indicator */}
+                  {remainingCount > 0 && (
+                    <div className="text-[9px] font-medium text-secondary pl-1 hover:text-accent transition-colors">
+                      +{remainingCount} more
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* SIDEBAR: MONTHLY OVERVIEW & HOLIDAYS */}
+      <div className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-3.5 overflow-y-auto hide-scrollbar pb-2">
+        
+        {/* MONTHLY EXECUTION OVERVIEW */}
+        <div className="flex flex-col bg-surface rounded-2xl p-4 border border-border shadow-xs">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
+                <TrendingUp className="w-3.5 h-3.5 stroke-[2]" />
+              </div>
+              <h3 className="text-xs font-bold text-primary">Monthly Execution</h3>
+            </div>
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20">
+              {format(calendarDate, "MMM yyyy")}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className="p-2.5 rounded-xl bg-surface-hover/50 border border-border">
+              <span className="text-[10px] text-secondary font-medium">Scheduled</span>
+              <div className="text-base font-bold text-primary mt-0.5">{monthTasks.length}</div>
+            </div>
+            <div className="p-2.5 rounded-xl bg-surface-hover/50 border border-border">
+              <span className="text-[10px] text-secondary font-medium">Completed</span>
+              <div className="text-base font-bold text-success mt-0.5">{completedMonthTasks.length}</div>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div>
+            <div className="flex items-center justify-between text-[10px] font-medium text-secondary mb-1">
+              <span>Completion Rate</span>
+              <span className="font-mono font-bold text-primary">{completionPercentage}%</span>
+            </div>
+            <div className="h-1.5 w-full bg-surface-hover rounded-full overflow-hidden border border-border/50">
+              <div 
+                className="h-full bg-accent rounded-full transition-all duration-300"
+                style={{ width: `${completionPercentage}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* UPCOMING TASKS IN MONTH */}
+        <div className="flex flex-col bg-surface rounded-2xl p-4 border border-border shadow-xs">
+          <div className="flex items-center gap-2 mb-3">
+            <Clock className="w-4 h-4 text-accent" />
+            <h3 className="text-xs font-bold text-primary">Upcoming in Month</h3>
+          </div>
+
+          {upcomingMonthTasks.length === 0 ? (
+            <div className="text-xs text-secondary py-4 text-center italic border border-dashed border-border rounded-xl">
+              No pending tasks scheduled for this month.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {upcomingMonthTasks.map((t: any) => {
+                const d = parseISO(t.scheduledDate || t.dueDate);
+                return (
+                  <div 
+                    key={t.id}
+                    onClick={() => onOpenDayView && onOpenDayView(d)}
+                    className="flex items-center justify-between p-2 rounded-xl border border-border bg-surface-hover/30 hover:bg-surface-hover transition-colors cursor-pointer group"
+                    title="Click to view day schedule"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                      <div className="w-8 h-8 rounded-lg bg-surface border border-border flex flex-col items-center justify-center shrink-0">
+                        <span className="text-[8px] font-bold text-secondary uppercase leading-none">{format(d, "MMM")}</span>
+                        <span className="text-xs font-bold text-primary leading-none mt-0.5">{format(d, "d")}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-semibold text-primary truncate group-hover:text-accent transition-colors">
+                          {t.title}
+                        </h4>
+                        <span className="text-[10px] text-secondary truncate block">
+                          {t.project?.name || 'General'}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:text-accent transition-colors shrink-0" />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* UPCOMING HOLIDAYS */}
+        <div className="flex flex-col bg-surface rounded-2xl p-4 border border-border shadow-xs">
+          <div className="flex items-center gap-2 mb-3">
+            <CalendarIcon className="w-4 h-4 text-rose-500" />
+            <h3 className="text-xs font-bold text-primary">Holidays & Observances</h3>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {isHolidaysLoading ? (
+              <div className="text-xs text-muted animate-pulse py-2">Loading holidays...</div>
+            ) : upcomingHolidays.length === 0 ? (
+              <div className="text-xs text-secondary py-4 text-center italic border border-dashed border-border rounded-xl">
+                No upcoming holidays.
+              </div>
+            ) : (
+              upcomingHolidays.slice(0, 4).map((h: any) => {
+                const hDate = parseISO(h.date);
+                return (
+                  <div 
+                    key={h.id || h.name} 
+                    className="flex gap-2.5 items-center p-2 rounded-xl border border-border bg-surface-hover/30"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex flex-col items-center justify-center shrink-0 text-rose-600 dark:text-rose-400">
+                      <span className="text-[8px] font-bold uppercase leading-none">{format(hDate, "MMM")}</span>
+                      <span className="text-xs font-bold leading-none mt-0.5">{format(hDate, "d")}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-primary truncate">{h.name}</div>
+                      <div className="text-[9px] font-medium text-secondary uppercase tracking-wider">
+                        {h.type ? h.type.replace(/_/g, " ") : "Holiday"}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Quick Tip */}
+        <div className="p-3 rounded-xl bg-accent/5 border border-accent/15 flex items-start gap-2.5">
+          <Sparkles className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+          <p className="text-[11px] text-secondary leading-relaxed">
+            Click any day cell to jump straight into that date's chronological schedule and time blocks.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  );
 }

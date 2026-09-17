@@ -3,7 +3,7 @@
 // =============================================================================
 // Top-level page component orchestrating the planner system
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { format, addMonths, subMonths, addDays } from 'date-fns';
 import { usePlannerWeek } from '../../hooks/usePlannerWeek';
@@ -19,7 +19,7 @@ import { QuickCaptureModal } from '../ui/QuickCaptureModal';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { IssueEditModal } from '../KanbanBoard';
 import { LocationSettingsModal, COUNTRIES, INDIAN_STATES } from './LocationSettingsModal';
 import { CapacitySettingsModal } from './CapacitySettingsModal';
@@ -32,23 +32,44 @@ export function PlannerPage() {
   const initialMode = (urlMode === 'day' || urlMode === 'schedule') ? 'day' : urlMode === 'calendar' ? 'calendar' : 'plan';
   const [mode, setMode] = useState<'plan' | 'calendar' | 'day'>(initialMode);
   const [previousMode, setPreviousMode] = useState<'plan' | 'calendar'>('plan');
+  const [isDrilldown, setIsDrilldown] = useState(false);
   const dateParam = searchParams.get('date');
   const [viewDay, setViewDay] = useState<Date>(() => dateParam ? new Date(dateParam) : new Date());
   const [calendarDate, setCalendarDate] = useState(new Date());
   const queryClient = useQueryClient();
 
- useEffect(() => {
+  useEffect(() => {
+    const openGoogleAuthPopup = (userId: string) => {
+      const url = `/api/v1/oauth/google/connect?userId=${userId}`;
+      const width = 580;
+      const height = 680;
+      const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
+      const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
+      
+      toast.info('Opening Google authorization in a new window...', { id: 'google-sync' });
+      const popup = window.open(
+        url,
+        'krama_google_oauth',
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no`
+      );
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        window.open(url, '_blank');
+      }
+    };
+
     const handleGoogleSync = async () => {
       try {
         toast.loading('Syncing Google Calendar...', { id: 'google-sync' });
         await api.oauth.syncGoogle();
         toast.success('Calendar synced successfully', { id: 'google-sync' });
         queryClient.invalidateQueries({ queryKey: ['planner'] });
+        queryClient.invalidateQueries({ queryKey: ['issues'] });
       } catch (err: any) {
         if (err.message && err.message.includes('not connected')) {
-          toast.error('Google Calendar not connected. Redirecting...', { id: 'google-sync' });
           if (user?.id) {
-            window.location.href = `/api/v1/oauth/google/connect?userId=${user.id}`;
+            openGoogleAuthPopup(user.id);
+          } else {
+            toast.error('User not identified for Google sync', { id: 'google-sync' });
           }
         } else {
           toast.error(`Failed to sync calendar: ${err.message}`, { id: 'google-sync' });
@@ -56,8 +77,22 @@ export function PlannerPage() {
       }
     };
 
+    const handleAuthMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'GOOGLE_OAUTH_SUCCESS') {
+        toast.success('Google Calendar connected and synced successfully!', { id: 'google-sync' });
+        queryClient.invalidateQueries({ queryKey: ['planner'] });
+        queryClient.invalidateQueries({ queryKey: ['issues'] });
+      } else if (event.data?.type === 'GOOGLE_OAUTH_ERROR') {
+        toast.error(`Google Calendar connection failed: ${event.data.message || 'Unknown error'}`, { id: 'google-sync' });
+      }
+    };
+
     window.addEventListener('oauth-google-sync', handleGoogleSync);
-    return () => window.removeEventListener('oauth-google-sync', handleGoogleSync);
+    window.addEventListener('message', handleAuthMessage);
+    return () => {
+      window.removeEventListener('oauth-google-sync', handleGoogleSync);
+      window.removeEventListener('message', handleAuthMessage);
+    };
   }, [user?.id, queryClient]);
 
  const {
@@ -87,10 +122,27 @@ export function PlannerPage() {
   const [editingTask, setEditingTask] = useState<any | null>(null);
 
  // Calendar lifted states
- const [localOnly, setLocalOnly] = useState(false);
- const activeTab: 'india' | 'world' = data?.config?.countryCode === 'IN' ? 'india' : 'world';
- const indiaRegion = data?.config?.countryCode === 'IN' ? (data?.config?.regionCode || '') : '';
- const worldCountry = data?.config?.countryCode !== 'IN' ? data?.config?.countryCode : 'US';
+  const [localOnly, setLocalOnly] = useState(false);
+  const activeTab: 'india' | 'world' = data?.config?.countryCode === 'IN' ? 'india' : 'world';
+  const indiaRegion = data?.config?.countryCode === 'IN' ? (data?.config?.regionCode || '') : '';
+  const worldCountry = data?.config?.countryCode !== 'IN' ? data?.config?.countryCode : 'US';
+
+  const { data: allIssues = [] } = useQuery({
+    queryKey: ['issues'],
+    queryFn: api.tasks.list,
+    staleTime: 10_000,
+  });
+
+  const mergedData = useMemo(() => {
+    if (!data) return data;
+    const taskMap = new Map<string, any>();
+    allIssues.forEach((task: any) => taskMap.set(task.id, task));
+    (data.tasks || []).forEach((task: any) => taskMap.set(task.id, task));
+    return {
+      ...data,
+      tasks: Array.from(taskMap.values()),
+    };
+  }, [data, allIssues]);
 
  const updateTaskMutation = useMutation({
  mutationFn: ({ id, data }: { id: string; data: any }) => api.tasks.update(id, data),
@@ -147,14 +199,35 @@ export function PlannerPage() {
  );
  }
 
+  const handleScheduleTask = (taskId: string, dateStr: string) => {
+    const targetIso = new Date(`${dateStr}T12:00:00.000Z`).toISOString();
+    updateTaskMutation.mutate({
+      id: taskId,
+      data: { scheduledDate: targetIso }
+    }, {
+      onSuccess: () => toast.success(`Task scheduled for ${dateStr}`),
+      onError: () => toast.error('Failed to schedule task')
+    });
+  };
+
+  const handleLinkTaskToBlock = (blockId: string, taskId: string) => {
+    updateTimeBlockMutation.mutate({
+      id: blockId,
+      data: { taskId }
+    }, {
+      onSuccess: () => toast.success('Task linked to time block'),
+      onError: (err: any) => toast.error(err?.message || 'Failed to link task')
+    });
+  };
+
  const handleToggleRoutine = (occ: any) => {
  toggleRoutineMutation.mutate(occ, {
  onError: () => toast.error('Failed to update routine'),
  });
  };
 
-  const handleAddTimeBlock = (day?: Date) => {
-    setEditingTimeBlock(null);
+  const handleAddTimeBlock = (day?: Date, initialData?: any) => {
+    setEditingTimeBlock(initialData || null);
     if (day) setSelectedDay(day);
     setTimeBlockModalOpen(true);
   };
@@ -193,11 +266,13 @@ export function PlannerPage() {
     setViewDay(day);
     navigateToDate(day);
     setPreviousMode(mode === 'calendar' ? 'calendar' : 'plan');
+    setIsDrilldown(true);
     setMode('day');
     setSearchParams({ mode: 'day', date: format(day, 'yyyy-MM-dd') });
   };
 
   const handleBackFromDayView = () => {
+    setIsDrilldown(false);
     setMode(previousMode);
     setSearchParams(previousMode === 'plan' ? {} : { mode: previousMode });
   };
@@ -291,7 +366,7 @@ export function PlannerPage() {
           } : undefined}
           isSubmitting={createTimeBlockMutation.isPending || updateTimeBlockMutation.isPending}
           onSubmit={(blockData) => {
-            if (editingTimeBlock) {
+            if (editingTimeBlock && editingTimeBlock.id) {
               updateTimeBlockMutation.mutate({ id: editingTimeBlock.id, data: blockData }, {
                 onSuccess: () => {
                   toast.success('Time block updated');
@@ -338,6 +413,7 @@ export function PlannerPage() {
         <PlannerHeader
           mode={mode}
           onModeChange={(m) => {
+            setIsDrilldown(false);
             setMode(m);
             if (m !== 'day') setPreviousMode(m);
             setSearchParams(m === 'plan' ? {} : { mode: m });
@@ -358,7 +434,7 @@ export function PlannerPage() {
               <CapacitySummary capacity={data.capacity} onEdit={() => setCapacityModalOpen(true)} />
               <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 <PlannerMatrix
-                  data={data}
+                  data={mergedData}
                   days={days}
                   occurrenceFor={occurrenceFor}
                   onToggleRoutine={handleToggleRoutine}
@@ -372,6 +448,8 @@ export function PlannerPage() {
                   onDeleteRoutine={(routine) => deleteRoutineMutation.mutate(routine.id)}
                   onOpenDayView={handleOpenDayView}
                   onClickTimeBlock={handleEditTimeBlock}
+                  onScheduleTask={handleScheduleTask}
+                  onLinkTaskToBlock={handleLinkTaskToBlock}
                 />
               </div>
             </div>
@@ -379,21 +457,17 @@ export function PlannerPage() {
             <div className="flex-1 min-h-0 overflow-y-auto">
               <TodayView
                 day={viewDay}
-                data={data}
+                data={mergedData}
                 dayData={targetDayData}
-                occurrenceFor={occurrenceFor}
-                onToggleRoutine={handleToggleRoutine}
                 onToggleTask={handleToggleTask}
                 onClickTask={handleClickTask}
                 onClickTimeBlock={handleEditTimeBlock}
                 onAddTask={handleAddTask}
                 onAddTimeBlock={handleAddTimeBlock}
-                onAddRoutine={handleAddRoutine}
                 onDeleteTask={(task) => deleteTaskMutation.mutate(task.id)}
                 onDeleteTimeBlock={(block) => deleteTimeBlockMutation.mutate(block.id)}
-                onDeleteRoutine={(routine) => deleteRoutineMutation.mutate(routine.id)}
-                onBack={handleBackFromDayView}
-                backLabel={previousMode === 'calendar' ? 'Calendar' : 'Plan'}
+                onBack={isDrilldown ? handleBackFromDayView : undefined}
+                backLabel={previousMode === 'calendar' ? 'Month' : 'Week'}
               />
             </div>
           ) : (
@@ -404,6 +478,7 @@ export function PlannerPage() {
                 currentRegion={currentRegionCode}
                 localOnly={localOnly}
                 onOpenDayView={handleOpenDayView}
+                tasks={mergedData?.tasks || []}
               />
             </div>
           )}

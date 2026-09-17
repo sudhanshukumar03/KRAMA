@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { format } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
+import { format, isSameDay, parseISO } from "date-fns";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   Check, 
   CheckCircle2, 
@@ -13,30 +13,45 @@ import {
   Plus, 
   AlertTriangle, 
   ArrowLeft, 
-  LayoutList,
-  Target,
-  Zap,
-  Flame
+  Search,
+  Briefcase,
+  User,
+  GraduationCap,
+  HeartPulse,
+  Shield,
+  Grid,
+  Calendar,
+  Layers,
+  Edit3,
+  CalendarCheck,
+  XCircle
 } from "lucide-react";
 import { api } from "../../api/client";
 import { cn } from "../../lib/utils";
-import { getIconForString } from "../../lib/iconMap";
+import { toast } from "sonner";
+import type { TimeBlockType } from "../../types/planner";
+
+const TYPE_CONFIG: Record<TimeBlockType, { label: string; icon: React.ReactNode; color: string; border: string; bg: string }> = {
+  MEETING: { label: 'Meeting', icon: <Briefcase className="w-3.5 h-3.5" />, color: 'text-purple-600 dark:text-purple-400', border: 'border-l-purple-500', bg: 'bg-purple-500/10' },
+  WORK: { label: 'Work', icon: <Grid className="w-3.5 h-3.5" />, color: 'text-blue-600 dark:text-blue-400', border: 'border-l-blue-500', bg: 'bg-blue-500/10' },
+  PERSONAL: { label: 'Personal', icon: <User className="w-3.5 h-3.5" />, color: 'text-amber-600 dark:text-amber-400', border: 'border-l-amber-500', bg: 'bg-amber-500/10' },
+  STUDY: { label: 'Study', icon: <GraduationCap className="w-3.5 h-3.5" />, color: 'text-emerald-600 dark:text-emerald-400', border: 'border-l-emerald-500', bg: 'bg-emerald-500/10' },
+  HEALTH: { label: 'Health', icon: <HeartPulse className="w-3.5 h-3.5" />, color: 'text-rose-600 dark:text-rose-400', border: 'border-l-rose-500', bg: 'bg-rose-500/10' },
+  ADMIN: { label: 'Admin', icon: <Shield className="w-3.5 h-3.5" />, color: 'text-gray-600 dark:text-gray-400', border: 'border-l-gray-500', bg: 'bg-gray-500/10' },
+  OTHER: { label: 'Other', icon: <Clock className="w-3.5 h-3.5" />, color: 'text-slate-600 dark:text-slate-400', border: 'border-l-slate-500', bg: 'bg-slate-500/10' },
+};
 
 interface Props {
   day: Date;
   data: any; // PlannerData
   dayData?: any; // The day object from data.days
-  occurrenceFor: (routineId: string, day: Date) => any;
-  onToggleRoutine: (occurrence: any) => void;
-  onToggleTask: (task: any, e: React.MouseEvent) => void;
-  onClickTask: (task: any) => void;
+  onToggleTask?: (task: any, e: React.MouseEvent) => void;
+  onClickTask?: (task: any) => void;
   onClickTimeBlock?: (block: any) => void;
   onDeleteTask?: (task: any) => void;
   onDeleteTimeBlock?: (block: any) => void;
-  onDeleteRoutine?: (routine: any) => void;
   onAddTask?: (day: Date) => void;
-  onAddTimeBlock?: (day: Date) => void;
-  onAddRoutine?: (day: Date) => void;
+  onAddTimeBlock?: (day: Date, initialData?: any) => void;
   onBack?: () => void;
   backLabel?: string;
 }
@@ -44,21 +59,20 @@ interface Props {
 export function TodayView({
   day,
   data,
-  occurrenceFor,
-  onToggleRoutine,
   onToggleTask,
   onClickTask,
   onClickTimeBlock,
-  onDeleteTask,
   onDeleteTimeBlock,
-  onDeleteRoutine,
   onAddTask,
   onAddTimeBlock,
-  onAddRoutine,
   onBack,
   backLabel = 'Plan',
 }: Props) {
+  const queryClient = useQueryClient();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [activeTaskTab, setActiveTaskTab] = useState<'today' | 'backlog'>('today');
+  const [backlogSearch, setBacklogSearch] = useState('');
+  const [inlineTaskTitle, setInlineTaskTitle] = useState('');
 
   // Real-time ticking clock for Live Horizon
   useEffect(() => {
@@ -68,10 +82,10 @@ export function TodayView({
 
   const isViewingToday = day.toDateString() === new Date().toDateString();
   const targetDateStr = format(day, 'yyyy-MM-dd');
+  const targetDateIso = useMemo(() => new Date(`${targetDateStr}T12:00:00.000Z`).toISOString(), [targetDateStr]);
   const targetStart = useMemo(() => new Date(new Date(day).setHours(0, 0, 0, 0)), [day]);
-  const targetEnd = useMemo(() => new Date(new Date(day).setHours(23, 59, 59, 999)), [day]);
 
-  // Query all workspace tasks to guarantee overdue/carried-over detection across entire history
+  // Query all workspace tasks to guarantee full task and backlog visibility
   const { data: allIssues = [] } = useQuery({
     queryKey: ['issues'],
     queryFn: api.tasks.list,
@@ -85,93 +99,119 @@ export function TodayView({
     staleTime: 15_000,
   });
 
-  const taskList = allIssues.length > 0 ? allIssues : (data?.tasks || []);
-  const rawBlocks = dayPlannerData?.timeBlocks || data?.timeBlocks || [];
+  // Task Mutations
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.tasks.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+    },
+    onError: (err: any) => {
+      toast.error('Failed to update task: ' + (err?.message || 'Unknown error'));
+    }
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: (taskData: any) => api.tasks.create(taskData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      toast.success('Task added for today');
+      setInlineTaskTitle('');
+    },
+    onError: (err: any) => {
+      toast.error('Failed to create task: ' + (err?.message || 'Unknown error'));
+    }
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: (id: string) => api.tasks.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      toast.success('Task deleted');
+    },
+    onError: (err: any) => {
+      toast.error('Failed to delete task: ' + (err?.message || 'Unknown error'));
+    }
+  });
+
+  const taskList = useMemo(() => {
+    return allIssues.length > 0 ? allIssues : (data?.tasks || []);
+  }, [allIssues, data?.tasks]);
+
+  const rawBlocks = useMemo(() => {
+    return dayPlannerData?.timeBlocks || data?.timeBlocks || [];
+  }, [dayPlannerData?.timeBlocks, data?.timeBlocks]);
 
   // Filter and sort time blocks for this day
   const timeBlocks = useMemo(() => {
     return rawBlocks
       .filter((b: any) => {
-        const bDate = b.date ? b.date.split('T')[0] : (b.startTime ? b.startTime.split('T')[0] : '');
-        return bDate === targetDateStr;
+        try {
+          if (b.date) return isSameDay(parseISO(b.date), day);
+          if (b.startTime) return isSameDay(parseISO(b.startTime), day);
+          return false;
+        } catch {
+          return false;
+        }
       })
       .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-  }, [rawBlocks, targetDateStr]);
+  }, [rawBlocks, day]);
 
-  // Linked task IDs attached to time blocks
-  const linkedTaskIds = useMemo(() => {
-    return new Set(timeBlocks.map((tb: any) => tb.taskId).filter(Boolean));
-  }, [timeBlocks]);
-
-  // Tasks scheduled for today OR overdue tasks carried over from previous days
-  const { carriedOverTasks, todayUnlinkedTasks, allDayTasks } = useMemo(() => {
-    const carriedOver: any[] = [];
-    const todayUnlinked: any[] = [];
-    const allToday: any[] = [];
+  // Tasks categorized for Today View:
+  // 1. Today's Tasks
+  // 2. Carried-over (past overdue)
+  // 3. Unscheduled Backlog (available to schedule)
+  const { todayTasks, carriedOverTasks, backlogTasks } = useMemo(() => {
+    const todayList: any[] = [];
+    const carriedList: any[] = [];
+    const backlogList: any[] = [];
 
     taskList.forEach((t: any) => {
-      const tDate = t.scheduledDate ? new Date(t.scheduledDate) : t.dueDate ? new Date(t.dueDate) : null;
-      if (!tDate) return;
+      const isCompleted = t.status === 'DONE' || t.status === 'CANCELLED';
+      const tDateStr = t.scheduledDate || t.dueDate;
 
-      const isToday = tDate.getTime() >= targetStart.getTime() && tDate.getTime() <= targetEnd.getTime();
-      const isPast = tDate.getTime() < targetStart.getTime();
+      if (!tDateStr) {
+        if (!isCompleted) backlogList.push(t);
+        return;
+      }
 
-      if (isToday) {
-        allToday.push(t);
-        if (!linkedTaskIds.has(t.id)) {
-          todayUnlinked.push(t);
+      try {
+        const parsed = parseISO(tDateStr);
+        const isToday = isSameDay(parsed, day);
+        const isPast = parsed.getTime() < targetStart.getTime() && !isToday;
+
+        if (isToday) {
+          todayList.push(t);
+        } else if (isPast && !isCompleted) {
+          carriedList.push(t);
+        } else if (!isCompleted) {
+          backlogList.push(t);
         }
-      } else if (isPast && t.status !== "DONE") {
-        // Carry over incomplete tasks from the past
-        carriedOver.push(t);
-        allToday.push(t);
+      } catch {
+        if (!isCompleted) backlogList.push(t);
       }
     });
 
     return {
-      carriedOverTasks: carriedOver,
-      todayUnlinkedTasks: todayUnlinked,
-      allDayTasks: allToday,
+      todayTasks: todayList,
+      carriedOverTasks: carriedList,
+      backlogTasks: backlogList,
     };
-  }, [taskList, targetStart, targetEnd, linkedTaskIds]);
+  }, [taskList, day, targetStart]);
 
-  // Combine unlinked day tasks + time blocks into chronological agenda
-  const agendaItems = useMemo(() => {
-    const items: Array<{
-      type: 'task' | 'timeblock';
-      id: string;
-      sortTime: number;
-      data: any;
-      linkedTask?: any;
-    }> = [
-      ...todayUnlinkedTasks.map((task: any) => ({
-        type: 'task' as const,
-        id: 'task-' + task.id,
-        sortTime: 0,
-        data: task,
-      })),
-      ...timeBlocks.map((tb: any) => ({
-        type: 'timeblock' as const,
-        id: 'tb-' + tb.id,
-        sortTime: new Date(tb.startTime).getTime(),
-        data: tb,
-        linkedTask: taskList.find((t: any) => t.id === tb.taskId),
-      })),
-    ];
+  // Filtered backlog tasks by search query
+  const filteredBacklogTasks = useMemo(() => {
+    if (!backlogSearch.trim()) return backlogTasks;
+    const q = backlogSearch.toLowerCase();
+    return backlogTasks.filter((t: any) => 
+      t.title.toLowerCase().includes(q) || 
+      (t.project?.name && t.project.name.toLowerCase().includes(q))
+    );
+  }, [backlogTasks, backlogSearch]);
 
-    return items.sort((a, b) => a.sortTime - b.sortTime);
-  }, [todayUnlinkedTasks, timeBlocks, taskList]);
-
-  // Routines scheduled for today
-  const routines = useMemo(() => {
-    return (data?.routines || [])
-      .map((r: any) => ({ routine: r, occurrence: occurrenceFor(r.id, day) }))
-      .filter((item: any) => !!item.occurrence);
-  }, [data?.routines, occurrenceFor, day]);
-
-  const completedRoutinesCount = routines.filter((r: any) => r.occurrence?.completed).length;
-
-  // Calculate total focus time planned in minutes
+  // Total Focus Minutes
   const totalFocusMinutes = useMemo(() => {
     return timeBlocks.reduce((acc: number, tb: any) => {
       const start = new Date(tb.startTime).getTime();
@@ -186,8 +226,6 @@ export function TodayView({
   const focusTimeString = focusHours > 0 
     ? `${focusHours}h ${focusMinutesRemainder > 0 ? `${focusMinutesRemainder}m` : ''}` 
     : `${focusMinutesRemainder}m`;
-
-  const completedTasksCount = allDayTasks.filter((t: any) => t.status === 'DONE').length;
 
   const timeString = currentTime.toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -204,9 +242,139 @@ export function TodayView({
     }
   };
 
+  const getDurationString = (startIso: string, endIso: string) => {
+    try {
+      const mins = Math.max(0, Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000));
+      if (mins < 60) return `${mins}m`;
+      const h = Math.floor(mins / 60);
+      const rem = mins % 60;
+      return rem > 0 ? `${h}h ${rem}m` : `${h}h`;
+    } catch {
+      return '';
+    }
+  };
+
+  const getNextAvailableSlot = (blocks: any[], forDay: Date) => {
+    const intervals: { start: number; end: number }[] = [];
+    for (const b of blocks) {
+      try {
+        let sMin = 0;
+        let eMin = 0;
+        if (typeof b.startTime === 'string' && b.startTime.includes('T')) {
+          const sDate = new Date(b.startTime);
+          sMin = sDate.getHours() * 60 + sDate.getMinutes();
+        } else if (typeof b.startTime === 'string' && b.startTime.includes(':')) {
+          const [h, m] = b.startTime.split(':').map(Number);
+          sMin = (h || 0) * 60 + (m || 0);
+        }
+        if (typeof b.endTime === 'string' && b.endTime.includes('T')) {
+          const eDate = new Date(b.endTime);
+          eMin = eDate.getHours() * 60 + eDate.getMinutes();
+        } else if (typeof b.endTime === 'string' && b.endTime.includes(':')) {
+          const [h, m] = b.endTime.split(':').map(Number);
+          eMin = (h || 0) * 60 + (m || 0);
+        }
+        if (eMin > sMin) {
+          intervals.push({ start: sMin, end: eMin });
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const isToday = isSameDay(forDay, new Date());
+    let startHour = 9;
+    if (isToday) {
+      const currentHour = new Date().getHours();
+      if (currentHour >= 8 && currentHour < 21) {
+        startHour = currentHour + 1;
+      }
+    }
+
+    const checkSlot = (sh: number) => {
+      const slotStart = sh * 60;
+      const slotEnd = slotStart + 60;
+      return !intervals.some(inv => slotStart < inv.end && slotEnd > inv.start);
+    };
+
+    for (let h = startHour; h <= 21; h++) {
+      if (checkSlot(h)) {
+        return {
+          startTime: `${String(h).padStart(2, '0')}:00`,
+          endTime: `${String(h + 1).padStart(2, '0')}:00`,
+        };
+      }
+    }
+
+    for (let h = 9; h < startHour; h++) {
+      if (checkSlot(h)) {
+        return {
+          startTime: `${String(h).padStart(2, '0')}:00`,
+          endTime: `${String(h + 1).padStart(2, '0')}:00`,
+        };
+      }
+    }
+
+    return { startTime: '09:00', endTime: '10:00' };
+  };
+
+  // Actions
+  const handleScheduleForToday = (task: any) => {
+    updateTaskMutation.mutate({
+      id: task.id,
+      data: { scheduledDate: targetDateIso }
+    }, {
+      onSuccess: () => toast.success(`Scheduled "${task.title}" for ${isViewingToday ? 'today' : format(day, 'MMM d')}`)
+    });
+  };
+
+  const handleUnschedule = (task: any) => {
+    updateTaskMutation.mutate({
+      id: task.id,
+      data: { scheduledDate: null }
+    }, {
+      onSuccess: () => toast.success(`Moved "${task.title}" to backlog`)
+    });
+  };
+
+  const handleRescheduleAllOverdue = () => {
+    carriedOverTasks.forEach((t: any) => {
+      updateTaskMutation.mutate({
+        id: t.id,
+        data: { scheduledDate: targetDateIso }
+      });
+    });
+    toast.success(`Rescheduled ${carriedOverTasks.length} task(s) to ${isViewingToday ? 'today' : format(day, 'MMM d')}`);
+  };
+
+  const handleCreateInlineTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inlineTaskTitle.trim()) return;
+    createTaskMutation.mutate({
+      title: inlineTaskTitle.trim(),
+      scheduledDate: targetDateIso,
+      status: 'TODO'
+    });
+  };
+
+  const handleTimeBlockFromTask = (task: any) => {
+    if (onAddTimeBlock) {
+      const slot = getNextAvailableSlot(timeBlocks, day);
+      onAddTimeBlock(day, {
+        title: task.title,
+        taskId: task.id,
+        projectId: task.projectId || task.project?.id,
+        date: targetDateStr,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        type: 'WORK',
+      });
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in duration-150 pb-12">
-      {/* TOP CONTEXT BAR: Back Navigation + Live Horizon + Quick Actions */}
+    <div className="flex flex-col gap-5 animate-in fade-in duration-150 pb-12">
+      {/* TOP BAR: Day Header & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
         <div className="flex items-center gap-3">
           {onBack && (
@@ -229,14 +397,13 @@ export function TodayView({
               )}
             </div>
             <p className="text-xs text-secondary mt-0.5">
-              Chronological day agenda, time-blocked execution, and focus routines.
+              Day schedule, chronological time blocks, and task execution.
             </p>
           </div>
         </div>
 
-        {/* Live Horizon + Action Buttons */}
+        {/* Live Horizon Clock & Primary Action */}
         <div className="flex items-center flex-wrap gap-2.5">
-          {/* Live Horizon Clock */}
           <div className="px-3 py-1.5 bg-surface border border-border/80 rounded-xl flex items-center gap-2.5 shadow-2xs">
             <div className="text-[11px] font-semibold text-accent flex items-center gap-1.5">
               <span className="relative flex h-2 w-2">
@@ -252,12 +419,12 @@ export function TodayView({
 
           {onAddTimeBlock && (
             <button
-              onClick={() => onAddTimeBlock(day)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-semibold transition-all shadow-xs cursor-pointer"
+              onClick={() => onAddTimeBlock(day, getNextAvailableSlot(timeBlocks, day))}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-semibold transition-all shadow-xs cursor-pointer"
               title="Add Time Block"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Time Block</span>
+              <span>+ Time Block</span>
             </button>
           )}
 
@@ -265,146 +432,55 @@ export function TodayView({
             <button
               onClick={() => onAddTask(day)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface hover:bg-surface-hover text-primary border border-border text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
-              title="Add Task"
+              title="Add Task Modal"
             >
               <CalendarPlus className="w-3.5 h-3.5 text-secondary" />
               <span>Task</span>
             </button>
           )}
-
-          {onAddRoutine && (
-            <button
-              onClick={() => onAddRoutine(day)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface hover:bg-surface-hover text-primary border border-border text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
-              title="Add Routine"
-            >
-              <Flame className="w-3.5 h-3.5 text-amber-500" />
-              <span>Routine</span>
-            </button>
-          )}
         </div>
       </div>
 
-      {/* TWO-COLUMN GRID: Chronological Timeline (Left) + Companion Panel (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* MAIN COLUMN (8 cols): Chronological Timeline & Carried-Over Section */}
-        <div className="lg:col-span-8 flex flex-col gap-6">
-
-          {/* 1. CARRIED OVER / OVERDUE TASKS BANNER (if any) */}
-          {carriedOverTasks.length > 0 && (
-            <div className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 md:p-5 shadow-xs animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="flex items-center justify-between mb-3.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">
-                      Carried Over from Previous Days ({carriedOverTasks.length})
-                    </h3>
-                    <p className="text-[11px] text-amber-600/90 dark:text-amber-400/80">
-                      Uncompleted tasks from earlier dates carried over to keep your momentum intact.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {carriedOverTasks.map((task) => {
-                  const isDone = task.status === "DONE" || task.status === "REVIEW";
-                  const Icon = getIconForString(task.title);
-
-                  return (
-                    <div
-                      key={'carried-' + task.id}
-                      onClick={() => onClickTask(task)}
-                      className={cn(
-                        "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer group bg-surface shadow-2xs",
-                        isDone 
-                          ? "border-border/60 opacity-60" 
-                          : "border-amber-500/30 hover:border-amber-500 hover:shadow-xs"
-                      )}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onToggleTask(task, e);
-                          }}
-                          className={cn(
-                            "w-5 h-5 rounded-md flex items-center justify-center border transition-colors shrink-0",
-                            isDone 
-                              ? "bg-primary border-primary text-white" 
-                              : "border-border hover:border-accent text-transparent hover:text-accent"
-                          )}
-                        >
-                          <Check className="w-3 h-3 stroke-[2.5]" />
-                        </button>
-
-                        <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                          <Icon className="w-3.5 h-3.5" />
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className={cn(
-                              "text-xs font-semibold truncate",
-                              isDone ? "text-muted line-through" : "text-primary"
-                            )}>
-                              {task.title}
-                            </span>
-                            <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[9px] font-mono font-bold uppercase tracking-wider border border-amber-500/20 shrink-0">
-                              Carried Over
-                            </span>
-                            {task.priority && task.priority !== 'MEDIUM' && (
-                              <span className={cn(
-                                "px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase shrink-0",
-                                task.priority === 'URGENT' ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20" : "bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20"
-                              )}>
-                                {task.priority}
-                              </span>
-                            )}
-                          </div>
-                          {task.estimateMinutes && (
-                            <span className="text-[10px] text-secondary font-mono">
-                              Estimated: {task.estimateMinutes}m
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {onDeleteTask && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteTask(task);
-                          }}
-                          className="w-7 h-7 rounded-lg text-muted hover:text-rose-600 hover:bg-rose-500/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shrink-0 cursor-pointer"
-                          title="Delete task"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+      {/* OVERDUE / CARRIED-OVER TASKS ALERT (if any) */}
+      {carriedOverTasks.length > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-3.5 md:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-4 h-4" />
             </div>
-          )}
+            <div>
+              <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                {carriedOverTasks.length} overdue task{carriedOverTasks.length > 1 ? 's' : ''} carried over from previous days
+              </span>
+              <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
+                Keep your plan current by rescheduling incomplete tasks into today's agenda.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleRescheduleAllOverdue}
+            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold transition-colors shrink-0 shadow-2xs cursor-pointer"
+          >
+            Reschedule All to Today
+          </button>
+        </div>
+      )}
 
-          {/* 2. CHRONOLOGICAL EXECUTION TIMELINE CARD */}
+      {/* TWO-COLUMN COMMAND CENTER: Schedule (Left 7 cols) & Tasks/Backlog (Right 5 cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        {/* LEFT COLUMN (7 cols): CHRONOLOGICAL SCHEDULE & TIME BLOCKS */}
+        <div className="lg:col-span-7 flex flex-col gap-4">
           <div className="bg-surface border border-border rounded-2xl p-5 md:p-6 shadow-sm flex flex-col">
+            
             {/* Card Header */}
-            <div className="flex items-center justify-between pb-4 mb-6 border-b border-border">
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-accent/10 text-accent flex items-center justify-center">
                   <Clock4 className="w-4 h-4 stroke-[2]" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-primary">Daily Agenda & Timeline</h3>
+                  <h3 className="text-sm font-bold text-primary">Day Schedule</h3>
                   <p className="text-[11px] text-secondary">
                     Sequential chronological schedule for {format(day, 'MMM d, yyyy')}
                   </p>
@@ -415,288 +491,164 @@ export function TodayView({
                 <span className="px-2.5 py-1 rounded-lg bg-surface-hover border border-border text-[11px] font-mono font-medium text-secondary">
                   {timeBlocks.length} Blocks • {focusTimeString}
                 </span>
-                {onAddTimeBlock && (
-                  <button
-                    onClick={() => onAddTimeBlock(day)}
-                    className="w-7 h-7 rounded-lg bg-accent/10 hover:bg-accent hover:text-white text-accent flex items-center justify-center transition-colors cursor-pointer"
-                    title="Add Time Block"
-                  >
-                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                  </button>
-                )}
               </div>
             </div>
 
-            {/* Timeline Stream */}
-            {agendaItems.length === 0 ? (
-              <div className="py-16 text-center flex flex-col items-center justify-center border border-dashed border-border rounded-xl bg-surface-hover/30">
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-3">
+            {/* Schedule Items List */}
+            {timeBlocks.length === 0 ? (
+              <div className="py-16 text-center flex flex-col items-center justify-center border border-dashed border-border rounded-xl bg-surface-hover/30 p-6">
+                <div className="w-12 h-12 rounded-2xl bg-accent/10 text-accent flex items-center justify-center mb-3">
                   <Clock className="w-6 h-6 stroke-[1.75]" />
                 </div>
-                <h4 className="text-sm font-bold text-primary mb-1">No events scheduled for this day</h4>
-                <p className="text-xs text-secondary max-w-sm mb-4">
-                  Your agenda is clear. Plan your time blocks or schedule tasks to execute with precision.
+                <h4 className="text-sm font-bold text-primary mb-1">No time blocks scheduled for this day</h4>
+                <p className="text-xs text-secondary max-w-sm mb-4 leading-relaxed">
+                  Structure your day with focused time blocks. Schedule meetings, deep work sessions, or convert tasks from your backlog on the right.
                 </p>
                 <div className="flex items-center gap-2.5">
                   {onAddTimeBlock && (
                     <button
-                      onClick={() => onAddTimeBlock(day)}
-                      className="px-3.5 py-1.5 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                      onClick={() => onAddTimeBlock(day, getNextAvailableSlot(timeBlocks, day))}
+                      className="px-4 py-2 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-semibold transition-all shadow-xs cursor-pointer"
                     >
                       + Add Time Block
                     </button>
                   )}
-                  {onAddTask && (
-                    <button
-                      onClick={() => onAddTask(day)}
-                      className="px-3.5 py-1.5 rounded-xl bg-surface hover:bg-surface-hover text-primary border border-border text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      + Schedule Task
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setActiveTaskTab('backlog')}
+                    className="px-4 py-2 rounded-xl bg-surface hover:bg-surface-hover text-primary border border-border text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    Browse Backlog Tasks →
+                  </button>
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                {agendaItems.map((item) => {
-                  // RENDER UNLINKED TASK ITEM
-                  if (item.type === 'task') {
-                    const task = item.data;
-                    const isDone = task.status === "DONE" || task.status === "REVIEW";
-                    const Icon = getIconForString(task.title);
-
-                    return (
-                      <div key={item.id} className="relative group/timeline">
-                        {/* Connecting vertical line */}
-                        <div className="absolute left-[39px] -top-2 -bottom-6 w-[2px] border-l-2 border-dashed border-border group-last/timeline:hidden" />
-
-                        <div className="flex items-start gap-4 relative">
-                          {/* Time label on left */}
-                          <div className="w-[80px] shrink-0 text-right pt-2.5">
-                            <span className="text-[11px] font-mono font-medium text-secondary">
-                              Anytime
-                            </span>
-                          </div>
-
-                          {/* Node icon on line */}
-                          <div className={cn(
-                            "w-8 h-8 rounded-full ring-4 ring-canvas flex items-center justify-center transition-colors z-10 shrink-0",
-                            isDone 
-                              ? "bg-primary text-white" 
-                              : "bg-surface border-2 border-dashed border-border text-secondary"
-                          )}>
-                            {isDone ? (
-                              <Check className="w-3 h-3 stroke-[2.5]" />
-                            ) : (
-                              <Target className="w-3.5 h-3.5" />
-                            )}
-                          </div>
-
-                          {/* Card Content */}
-                          <div
-                            onClick={() => onClickTask(task)}
-                            className={cn(
-                              "flex-1 rounded-xl p-3.5 transition-all flex items-center justify-between border border-dashed cursor-pointer group/card",
-                              isDone 
-                                ? "bg-surface border-border/60 opacity-60" 
-                                : "bg-surface border-border hover:border-primary shadow-2xs hover:shadow-xs"
-                            )}
-                          >
-                            <div className="flex items-center gap-3.5 min-w-0">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onToggleTask(task, e);
-                                }}
-                                className={cn(
-                                  "w-5 h-5 rounded-md flex items-center justify-center border transition-colors shrink-0",
-                                  isDone 
-                                    ? "bg-primary border-primary text-white" 
-                                    : "border-border hover:border-accent text-transparent hover:text-accent"
-                                )}
-                              >
-                                <Check className="w-3 h-3 stroke-[2.5]" />
-                              </button>
-
-                              <div className={cn(
-                                "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors",
-                                isDone ? "bg-surface border border-border" : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
-                              )}>
-                                <Icon className="w-4 h-4 stroke-[1.75]" />
-                              </div>
-
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <h4 className={cn(
-                                    "font-semibold text-xs truncate mb-0.5",
-                                    isDone ? "text-muted line-through" : "text-primary"
-                                  )}>
-                                    {task.title}
-                                  </h4>
-                                  <span className="px-1.5 py-0.2 rounded bg-surface-hover text-secondary text-[9px] font-mono font-medium border border-border">
-                                    Day Task
-                                  </span>
-                                  {task.priority && task.priority !== 'MEDIUM' && (
-                                    <span className={cn(
-                                      "px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase",
-                                      task.priority === 'URGENT' ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-orange-500/10 text-orange-600 dark:text-orange-400"
-                                    )}>
-                                      {task.priority}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-[11px] text-secondary font-mono">
-                                  {task.estimateMinutes ? `${task.estimateMinutes}m estimated` : 'No estimate'}
-                                </div>
-                              </div>
-                            </div>
-
-                            {onDeleteTask && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onDeleteTask(task);
-                                }}
-                                className="w-8 h-8 rounded-lg text-muted hover:text-rose-600 hover:bg-rose-500/10 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-all shrink-0 cursor-pointer"
-                                title="Delete task"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  // RENDER TIME BLOCK ITEM
-                  const tb = item.data;
-                  const hasLinkedTask = !!item.linkedTask;
-                  const blockTitle = hasLinkedTask ? item.linkedTask.title : tb.title;
-                  const isDone = hasLinkedTask ? (item.linkedTask.status === "DONE" || item.linkedTask.status === "REVIEW") : false;
-                  const Icon = getIconForString(blockTitle);
+              <div className="space-y-3 relative">
+                {timeBlocks.map((tb: any, idx: number) => {
+                  const typeCfg = TYPE_CONFIG[tb.type as TimeBlockType] || TYPE_CONFIG.OTHER;
+                  const durationStr = getDurationString(tb.startTime, tb.endTime);
+                  const linkedTask = tb.taskId ? taskList.find((t: any) => t.id === tb.taskId) : null;
+                  const isTaskDone = linkedTask ? (linkedTask.status === "DONE" || linkedTask.status === "REVIEW") : false;
 
                   const now = currentTime.getTime();
                   const tbStart = new Date(tb.startTime).getTime();
                   const tbEnd = new Date(tb.endTime).getTime();
                   const isCurrent = isViewingToday && (now >= tbStart && now <= tbEnd);
-                  const isPast = isViewingToday ? now > tbEnd : day.getTime() < new Date().setHours(0,0,0,0);
+                  const percentElapsed = isCurrent && tbEnd > tbStart 
+                    ? Math.min(100, Math.max(0, Math.round(((now - tbStart) / (tbEnd - tbStart)) * 100))) 
+                    : 0;
+                  const minutesRemaining = isCurrent ? Math.max(0, Math.round((tbEnd - now) / 60000)) : 0;
+
+                  const nextTb = timeBlocks[idx + 1];
+                  let gapMinutes = 0;
+                  if (nextTb) {
+                    const nextStart = new Date(nextTb.startTime).getTime();
+                    gapMinutes = Math.round((nextStart - tbEnd) / 60000);
+                  }
 
                   return (
-                    <div key={item.id} className="relative group/timeline">
-                      {/* Connecting vertical line */}
-                      <div className="absolute left-[39px] -top-2 -bottom-6 w-[2px] bg-border group-last/timeline:hidden" />
-
-                      <div className="flex items-start gap-4 relative">
-                        {/* Time labels on left */}
-                        <div className="w-[80px] shrink-0 text-right pt-2 flex flex-col gap-0.5">
-                          <div className={cn(
+                    <div key={tb.id} className="flex flex-col gap-2">
+                      <div 
+                        onClick={() => onClickTimeBlock && onClickTimeBlock(tb)}
+                        className={cn(
+                          "relative flex items-start gap-3.5 p-3.5 rounded-xl border transition-all cursor-pointer group bg-surface shadow-2xs hover:shadow-xs overflow-hidden",
+                          typeCfg.border,
+                          "border-l-4",
+                          isCurrent ? "ring-2 ring-accent border-accent/40 bg-accent/5" : "border-border hover:border-accent/50"
+                        )}
+                      >
+                        {/* Left: Time & Duration Column */}
+                        <div className="w-[72px] shrink-0 text-right flex flex-col gap-0.5 pt-0.5">
+                          <span className={cn(
                             "text-xs font-mono font-bold tracking-tight",
                             isCurrent ? "text-accent" : "text-primary"
                           )}>
                             {formatTime(tb.startTime)}
-                          </div>
-                          <div className="text-[10px] font-mono text-secondary">
+                          </span>
+                          <span className="text-[10px] font-mono text-secondary">
                             {formatTime(tb.endTime)}
+                          </span>
+                          {durationStr && (
+                            <span className="text-[9px] font-mono text-muted mt-0.5">
+                              {durationStr}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Main Block Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className={cn(
+                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider font-mono",
+                              typeCfg.bg,
+                              typeCfg.color
+                            )}>
+                              {typeCfg.icon}
+                              {typeCfg.label}
+                            </span>
+
+                            {isCurrent && (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold uppercase tracking-wider border border-emerald-500/20">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                Active Now • {minutesRemaining}m remaining
+                              </span>
+                            )}
                           </div>
-                        </div>
 
-                        {/* Node circle on timeline */}
-                        <div className={cn(
-                          "w-8 h-8 rounded-full ring-4 ring-canvas flex items-center justify-center transition-all z-10 shrink-0",
-                          isDone 
-                            ? "bg-primary text-white shadow-xs" 
-                            : isCurrent 
-                            ? "bg-accent text-white ring-2 ring-accent/30 shadow-md animate-pulse" 
-                            : isPast 
-                            ? "bg-surface border-2 border-border text-muted" 
-                            : "bg-surface border-2 border-accent text-accent"
-                        )}>
-                          {isDone ? (
-                            <Check className="w-3 h-3 stroke-[2.5]" />
-                          ) : isCurrent ? (
-                            <span className="w-2 h-2 rounded-full bg-white" />
-                          ) : (
-                            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                          )}
-                        </div>
+                          <h4 className={cn(
+                            "font-bold text-xs text-primary truncate mb-1",
+                            isTaskDone && "line-through text-muted"
+                          )}>
+                            {tb.title}
+                          </h4>
 
-                        {/* Card Content */}
-                        <div
-                          onClick={() => onClickTimeBlock ? onClickTimeBlock(tb) : (hasLinkedTask && onClickTask(item.linkedTask))}
-                          className={cn(
-                            "flex-1 rounded-xl p-3.5 transition-all flex items-center justify-between border cursor-pointer group/card",
-                            isDone 
-                              ? "bg-surface border-border/60 opacity-60" 
-                              : isCurrent 
-                              ? "bg-surface border-accent ring-1 ring-accent/30 shadow-md" 
-                              : "bg-surface border-border hover:border-primary shadow-2xs hover:shadow-xs"
-                          )}
-                        >
-                          <div className="flex items-center gap-3.5 min-w-0">
-                            {hasLinkedTask && (
+                          {/* Linked Task badge if any */}
+                          {linkedTask && (
+                            <div 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (onClickTask) onClickTask(linkedTask);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-hover border border-border text-[11px] font-medium text-secondary hover:text-primary max-w-full truncate mt-1"
+                            >
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onToggleTask(item.linkedTask, e);
+                                  if (onToggleTask) onToggleTask(linkedTask, e);
                                 }}
-                                className={cn(
-                                  "w-5 h-5 rounded-md flex items-center justify-center border transition-colors shrink-0",
-                                  isDone 
-                                    ? "bg-primary border-primary text-white" 
-                                    : "border-border hover:border-accent text-transparent hover:text-accent"
-                                )}
+                                className="text-muted hover:text-emerald-500 shrink-0"
+                                title={isTaskDone ? "Mark incomplete" : "Mark done"}
                               >
-                                <Check className="w-3 h-3 stroke-[2.5]" />
+                                {isTaskDone ? (
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                ) : (
+                                  <Circle className="w-3 h-3" />
+                                )}
                               </button>
-                            )}
-
-                            <div className={cn(
-                              "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors",
-                              isDone 
-                                ? "bg-surface border border-border" 
-                                : isCurrent 
-                                ? "bg-accent text-white shadow-xs" 
-                                : "bg-accent/10 text-accent border border-accent/20"
-                            )}>
-                              <Icon className="w-4 h-4 stroke-[1.75]" />
+                              <span className="truncate">Task: {linkedTask.title}</span>
                             </div>
+                          )}
 
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className={cn(
-                                  "font-semibold text-xs truncate mb-0.5",
-                                  isDone ? "text-muted line-through" : "text-primary"
-                                )}>
-                                  {blockTitle}
-                                </h4>
-                                {isCurrent && (
-                                  <span className="px-1.5 py-0.2 rounded bg-accent/10 text-accent text-[9px] font-mono font-bold uppercase tracking-wider border border-accent/20 animate-pulse">
-                                    In Progress Now
-                                  </span>
-                                )}
-                                {hasLinkedTask && (
-                                  <span className="px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] font-mono font-bold uppercase tracking-wider border border-blue-500/20">
-                                    Linked Task
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-[11px] text-secondary font-mono flex items-center gap-2">
-                                <span className="px-1.5 py-0.2 bg-surface-hover rounded border border-border/80">
-                                  {tb.type || 'WORK'} Block
-                                </span>
-                                {tb.notes && (
-                                  <span className="truncate max-w-[200px] text-muted italic">
-                                    "{tb.notes}"
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                          {tb.notes && (
+                            <p className="text-[11px] text-muted line-clamp-1 mt-1 font-sans">
+                              {tb.notes}
+                            </p>
+                          )}
+                        </div>
 
+                        {/* Actions (Hover) */}
+                        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onClickTimeBlock) onClickTimeBlock(tb);
+                            }}
+                            className="w-7 h-7 rounded-lg text-muted hover:text-primary hover:bg-surface-hover flex items-center justify-center transition-colors"
+                            title="Edit time block"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
                           {onDeleteTimeBlock && (
                             <button
                               type="button"
@@ -704,14 +656,45 @@ export function TodayView({
                                 e.stopPropagation();
                                 onDeleteTimeBlock(tb);
                               }}
-                              className="w-8 h-8 rounded-lg text-muted hover:text-rose-600 hover:bg-rose-500/10 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-all shrink-0 cursor-pointer"
+                              className="w-7 h-7 rounded-lg text-muted hover:text-rose-600 hover:bg-rose-500/10 flex items-center justify-center transition-colors"
                               title="Delete time block"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
+
+                        {/* Active Progress Line */}
+                        {isCurrent && (
+                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500/15 overflow-hidden">
+                            <div 
+                              className="h-full bg-emerald-500 transition-all duration-1000" 
+                              style={{ width: `${percentElapsed}%` }} 
+                            />
+                          </div>
+                        )}
                       </div>
+
+                      {/* Gap Slot Filler */}
+                      {gapMinutes >= 30 && nextTb && (
+                        <div 
+                          onClick={() => onAddTimeBlock && onAddTimeBlock(day, {
+                            date: targetDateStr,
+                            startTime: formatTime(tb.endTime),
+                            endTime: formatTime(nextTb.startTime),
+                            type: 'WORK'
+                          })}
+                          className="my-1 py-1.5 px-3 rounded-lg border border-dashed border-border/80 hover:border-accent/50 hover:bg-accent/5 text-[11px] font-medium text-secondary hover:text-accent flex items-center justify-between cursor-pointer transition-colors group/gap"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <Plus className="w-3 h-3 text-muted group-hover/gap:text-accent" />
+                            Free window: {formatTime(tb.endTime)} - {formatTime(nextTb.startTime)} ({gapMinutes >= 60 ? `${Math.floor(gapMinutes/60)}h ${gapMinutes%60 > 0 ? `${gapMinutes%60}m` : ''}` : `${gapMinutes}m`})
+                          </span>
+                          <span className="text-[10px] font-mono text-muted group-hover/gap:text-accent">
+                            + Fill Slot
+                          </span>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -720,191 +703,287 @@ export function TodayView({
           </div>
         </div>
 
-        {/* COMPANION COLUMN (4 cols): Routines & Focus Metrics */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
+        {/* RIGHT COLUMN (5 cols): TASKS & SCHEDULING PANEL */}
+        <div className="lg:col-span-5 flex flex-col gap-4">
+          <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm flex flex-col min-h-[500px]">
 
-          {/* 1. DAILY ROUTINES / HABIT CHECKLIST */}
-          <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between pb-3.5 mb-3 border-b border-border">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                  <LayoutList className="w-3.5 h-3.5" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-primary uppercase tracking-wider">
-                    Daily Routines
-                  </h3>
-                  <span className="text-[11px] text-secondary font-mono">
-                    {completedRoutinesCount} of {routines.length} completed
+            {/* Segmented Pill Switcher: Today's Tasks vs Backlog */}
+            <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-border">
+              <div className="flex items-center p-1 rounded-xl bg-surface-hover/80 border border-border w-full">
+                <button
+                  type="button"
+                  onClick={() => setActiveTaskTab('today')}
+                  className={cn(
+                    "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
+                    activeTaskTab === 'today'
+                      ? "bg-surface text-primary shadow-xs border border-border/80"
+                      : "text-secondary hover:text-primary"
+                  )}
+                >
+                  <CalendarCheck className="w-3.5 h-3.5 text-accent" />
+                  <span>Today's Tasks</span>
+                  <span className={cn(
+                    "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
+                    activeTaskTab === 'today' ? "bg-accent/10 text-accent font-bold" : "bg-surface text-muted"
+                  )}>
+                    {todayTasks.length}
                   </span>
-                </div>
-              </div>
+                </button>
 
-              {routines.length > 0 && (
-                <span className={cn(
-                  "px-2 py-0.5 rounded-full text-[10px] font-mono font-bold",
-                  completedRoutinesCount === routines.length 
-                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" 
-                    : "bg-surface-hover text-secondary border border-border"
-                )}>
-                  {Math.round((completedRoutinesCount / routines.length) * 100)}%
-                </span>
-              )}
+                <button
+                  type="button"
+                  onClick={() => setActiveTaskTab('backlog')}
+                  className={cn(
+                    "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
+                    activeTaskTab === 'backlog'
+                      ? "bg-surface text-primary shadow-xs border border-border/80"
+                      : "text-secondary hover:text-primary"
+                  )}
+                >
+                  <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Workspace Backlog</span>
+                  <span className={cn(
+                    "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
+                    activeTaskTab === 'backlog' ? "bg-indigo-500/10 text-indigo-500 font-bold" : "bg-surface text-muted"
+                  )}>
+                    {backlogTasks.length}
+                  </span>
+                </button>
+              </div>
             </div>
 
-            {/* Progress bar */}
-            {routines.length > 0 && (
-              <div className="w-full h-1.5 bg-surface-hover rounded-full overflow-hidden mb-4 border border-border/50">
-                <div 
-                  className="h-full bg-emerald-500 transition-all duration-300 rounded-full"
-                  style={{ width: `${(completedRoutinesCount / routines.length) * 100}%` }}
-                />
+            {/* TAB 1: TODAY'S TASKS */}
+            {activeTaskTab === 'today' && (
+              <div className="flex flex-col flex-1 gap-3.5">
+                {/* Inline Task Add Input */}
+                <form onSubmit={handleCreateInlineTask} className="relative">
+                  <input
+                    type="text"
+                    value={inlineTaskTitle}
+                    onChange={(e) => setInlineTaskTitle(e.target.value)}
+                    placeholder="+ Add a task for today... (Press Enter)"
+                    className="w-full pl-3.5 pr-20 py-2 bg-surface-hover/50 border border-border rounded-xl text-xs text-primary placeholder:text-muted focus:outline-hidden focus:border-accent focus:bg-surface transition-colors"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!inlineTaskTitle.trim() || createTaskMutation.isPending}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-accent text-white text-[11px] font-semibold disabled:opacity-40 hover:bg-accent-hover transition-colors cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </form>
+
+                {/* Today's Tasks List */}
+                {todayTasks.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center py-12 text-center border border-dashed border-border rounded-xl bg-surface-hover/20 p-4">
+                    <Calendar className="w-8 h-8 text-muted mb-2 stroke-[1.5]" />
+                    <h5 className="text-xs font-bold text-primary mb-1">No tasks scheduled for today</h5>
+                    <p className="text-[11px] text-muted max-w-[240px] mb-3">
+                      Add a task above, or browse your workspace backlog to pull in pending tasks.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTaskTab('backlog')}
+                      className="px-3 py-1.5 bg-accent/10 hover:bg-accent hover:text-white text-accent rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      Browse Backlog ({backlogTasks.length})
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 overflow-y-auto max-h-[550px] pr-1">
+                    {todayTasks.map((task: any) => {
+                      const isDone = task.status === 'DONE';
+
+                      return (
+                        <div
+                          key={task.id}
+                          className={cn(
+                            "flex items-center justify-between p-2.5 rounded-xl border transition-all group bg-surface shadow-2xs",
+                            isDone ? "border-border/60 opacity-65 bg-surface-hover/30" : "border-border hover:border-accent/40 hover:shadow-xs"
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                if (onToggleTask) {
+                                  onToggleTask(task, e);
+                                } else {
+                                  updateTaskMutation.mutate({
+                                    id: task.id,
+                                    data: { status: isDone ? 'TODO' : 'DONE' }
+                                  });
+                                }
+                              }}
+                              className="text-muted hover:text-emerald-500 transition-colors shrink-0 cursor-pointer"
+                            >
+                              {isDone ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                              ) : (
+                                <Circle className="w-4 h-4" />
+                              )}
+                            </button>
+
+                            <div 
+                              className="min-w-0 flex-1 cursor-pointer"
+                              onClick={() => onClickTask && onClickTask(task)}
+                            >
+                              <span className={cn(
+                                "text-xs font-medium block truncate",
+                                isDone ? "text-muted line-through" : "text-primary"
+                              )}>
+                                {task.title}
+                              </span>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                {task.project?.name && (
+                                  <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border">
+                                    {task.project.name}
+                                  </span>
+                                )}
+                                {task.priority && task.priority !== 'MEDIUM' && (
+                                  <span className={cn(
+                                    "text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded",
+                                    task.priority === 'URGENT' ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                                  )}>
+                                    {task.priority}
+                                  </span>
+                                )}
+                                {task.estimateMinutes && (
+                                  <span className="text-[9px] font-mono text-muted">
+                                    {task.estimateMinutes}m
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quick Task Actions: Time Block, Unschedule, Delete */}
+                          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {onAddTimeBlock && (
+                              <button
+                                type="button"
+                                onClick={() => handleTimeBlockFromTask(task)}
+                                className="px-2 py-1 rounded-lg bg-accent/10 hover:bg-accent hover:text-white text-accent text-[10px] font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                                title="Schedule into a time block on your day timeline"
+                              >
+                                <Clock className="w-3 h-3" />
+                                <span>Time Block</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleUnschedule(task)}
+                              className="p-1 rounded-lg text-muted hover:text-primary hover:bg-surface-hover transition-colors"
+                              title="Move to backlog"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => deleteTaskMutation.mutate(task.id)}
+                              className="p-1 rounded-lg text-muted hover:text-rose-600 hover:bg-rose-500/10 transition-colors"
+                              title="Delete task"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
-            {routines.length === 0 ? (
-              <div className="p-4 text-center border border-dashed border-border rounded-xl bg-surface-hover/30">
-                <p className="text-xs text-muted mb-2">No routines scheduled for this day.</p>
-                {onAddRoutine && (
-                  <button
-                    onClick={() => onAddRoutine(day)}
-                    className="px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white text-emerald-600 dark:text-emerald-400 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    + Add Routine
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {routines.map(({ routine, occurrence }: any) => {
-                  const isDone = occurrence.completed;
+            {/* TAB 2: WORKSPACE BACKLOG */}
+            {activeTaskTab === 'backlog' && (
+              <div className="flex flex-col flex-1 gap-3.5">
+                {/* Search Backlog */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                  <input
+                    type="text"
+                    value={backlogSearch}
+                    onChange={(e) => setBacklogSearch(e.target.value)}
+                    placeholder="Search backlog tasks..."
+                    className="w-full pl-8 pr-3 py-1.5 bg-surface-hover/50 border border-border rounded-xl text-xs text-primary placeholder:text-muted focus:outline-hidden focus:border-accent transition-colors"
+                  />
+                </div>
 
-                  return (
-                    <div
-                      key={routine.id}
-                      onClick={() => onToggleRoutine(occurrence)}
-                      className={cn(
-                        "flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer group shadow-2xs",
-                        isDone 
-                          ? "bg-surface border-border/60 opacity-65" 
-                          : "bg-surface border-border hover:border-emerald-500/50 hover:shadow-xs"
-                      )}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <button
-                          type="button"
-                          className={cn(
-                            "w-5 h-5 rounded-full flex items-center justify-center transition-colors shrink-0",
-                            isDone 
-                              ? "text-emerald-500" 
-                              : "text-muted hover:text-emerald-500"
-                          )}
+                {/* Backlog Items List */}
+                {filteredBacklogTasks.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center py-12 text-center border border-dashed border-border rounded-xl bg-surface-hover/20 p-4">
+                    <Check className="w-8 h-8 text-emerald-500 mb-2 stroke-[2]" />
+                    <h5 className="text-xs font-bold text-primary mb-1">
+                      {backlogSearch ? "No matching backlog tasks" : "Workspace backlog is clear!"}
+                    </h5>
+                    <p className="text-[11px] text-muted max-w-[240px]">
+                      {backlogSearch ? "Try a different search term." : "All open tasks are scheduled or completed."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 overflow-y-auto max-h-[550px] pr-1">
+                    {filteredBacklogTasks.map((task: any) => (
+                      <div
+                        key={task.id}
+                        className="flex items-center justify-between p-2.5 rounded-xl border border-border hover:border-accent/40 bg-surface shadow-2xs hover:shadow-xs transition-all group"
+                      >
+                        <div 
+                          className="min-w-0 flex-1 cursor-pointer pr-2"
+                          onClick={() => onClickTask && onClickTask(task)}
                         >
-                          {isDone ? (
-                            <CheckCircle2 className="w-5 h-5 fill-emerald-500/10" />
-                          ) : (
-                            <Circle className="w-5 h-5" />
-                          )}
-                        </button>
-
-                        <div className="min-w-0">
-                          <span className={cn(
-                            "text-xs font-semibold block truncate",
-                            isDone ? "text-muted line-through" : "text-primary"
-                          )}>
-                            {routine.name}
+                          <span className="text-xs font-semibold text-primary block truncate">
+                            {task.title}
                           </span>
-                          {routine.frequency && (
-                            <span className="text-[10px] text-secondary font-mono uppercase">
-                              {routine.frequency}
-                            </span>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            {task.project?.name && (
+                              <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border">
+                                {task.project.name}
+                              </span>
+                            )}
+                            {task.priority && task.priority !== 'MEDIUM' && (
+                              <span className={cn(
+                                "text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded",
+                                task.priority === 'URGENT' ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                              )}>
+                                {task.priority}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Actions to schedule into day */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleScheduleForToday(task)}
+                            className="px-2.5 py-1 rounded-lg bg-surface-hover hover:bg-accent hover:text-white text-secondary text-[11px] font-semibold transition-colors border border-border cursor-pointer"
+                            title="Schedule for today"
+                          >
+                            + Today
+                          </button>
+
+                          {onAddTimeBlock && (
+                            <button
+                              type="button"
+                              onClick={() => handleTimeBlockFromTask(task)}
+                              className="px-2 py-1 rounded-lg bg-accent/10 hover:bg-accent hover:text-white text-accent text-[11px] font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                              title="Time block this task on your day timeline"
+                            >
+                              <Clock className="w-3 h-3" />
+                              <span>Time Block</span>
+                            </button>
                           )}
                         </div>
                       </div>
-
-                      {onDeleteRoutine && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteRoutine(routine);
-                          }}
-                          className="w-7 h-7 rounded-lg text-muted hover:text-rose-600 hover:bg-rose-500/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shrink-0 cursor-pointer"
-                          title="Delete routine"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {onAddRoutine && (
-                  <button
-                    onClick={() => onAddRoutine(day)}
-                    className="w-full mt-2 py-2 border border-dashed border-border hover:border-emerald-500 text-secondary hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add New Routine</span>
-                  </button>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
-          </div>
 
-          {/* 2. DAY FOCUS METRICS */}
-          <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm flex flex-col gap-4">
-            <div className="flex items-center gap-2 pb-2.5 border-b border-border">
-              <Zap className="w-4 h-4 text-accent" />
-              <h3 className="text-xs font-bold text-primary uppercase tracking-wider">
-                Day Execution Metrics
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 bg-surface-hover/50 border border-border rounded-xl">
-                <span className="text-[10px] text-secondary font-mono uppercase block mb-1">
-                  Focus Planned
-                </span>
-                <span className="text-base font-bold text-primary font-mono">
-                  {focusTimeString}
-                </span>
-              </div>
-
-              <div className="p-3 bg-surface-hover/50 border border-border rounded-xl">
-                <span className="text-[10px] text-secondary font-mono uppercase block mb-1">
-                  Time Blocks
-                </span>
-                <span className="text-base font-bold text-primary font-mono">
-                  {timeBlocks.length}
-                </span>
-              </div>
-
-              <div className="p-3 bg-surface-hover/50 border border-border rounded-xl">
-                <span className="text-[10px] text-secondary font-mono uppercase block mb-1">
-                  Tasks Done
-                </span>
-                <span className="text-base font-bold text-primary font-mono">
-                  {completedTasksCount} / {allDayTasks.length}
-                </span>
-              </div>
-
-              <div className="p-3 bg-surface-hover/50 border border-border rounded-xl">
-                <span className="text-[10px] text-secondary font-mono uppercase block mb-1">
-                  Routines Done
-                </span>
-                <span className="text-base font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                  {completedRoutinesCount} / {routines.length}
-                </span>
-              </div>
-            </div>
-
-            {carriedOverTasks.length > 0 && (
-              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-[11px] font-medium flex items-center gap-2">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                <span>{carriedOverTasks.length} carried-over task{carriedOverTasks.length > 1 ? 's' : ''} require attention.</span>
-              </div>
-            )}
           </div>
         </div>
 

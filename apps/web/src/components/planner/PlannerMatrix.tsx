@@ -5,8 +5,9 @@
 
 import { format, isSameDay, parseISO } from "date-fns";
 import { Plus, CheckCircle2, Circle, ChevronDown, ChevronUp, CircleDot, Target, Clock, Trash2, Users, User, BookOpen, Briefcase, Heart, FileText, Hash } from "lucide-react";
-import { useState, memo } from "react";
-import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { useState, useMemo, memo } from "react";
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
+import { cn } from "../../lib/utils";
 import type { PlannerData } from "../../types/planner";
 
 
@@ -43,9 +44,9 @@ const DEFAULT_EXPANDED: Record<MatrixCategory, boolean> = {
 const MATRIX_COLLAPSE_STORAGE_KEY = "krama.planner.matrix.expanded.v5";
 
 
-export function safeTimeFormat(dateString: string) {
+function safeTimeFormat(isoString: string) {
   try {
-    return format(parseISO(dateString), "HH:mm");
+    return format(parseISO(isoString), "HH:mm");
   } catch {
     return "";
   }
@@ -67,6 +68,8 @@ interface Props {
   onDeleteTimeBlock?: (block: any) => void;
   onDeleteRoutine?: (routine: any) => void;
   onOpenDayView?: (day: Date) => void;
+  onScheduleTask?: (taskId: string, targetDateStr: string) => void;
+  onLinkTaskToBlock?: (blockId: string, taskId: string) => void;
 }
 
 
@@ -258,6 +261,89 @@ function TimeBlockCell({ day, blocks, tasks, onClickTimeBlock, onAddTimeBlock, o
   );
 }
 
+const BacklogTaskCard = memo(function BacklogTaskCard({
+  task,
+  days,
+  onClickTask,
+  onToggleTask,
+  onScheduleTask,
+}: {
+  task: any;
+  days: Date[];
+  onClickTask?: (task: any) => void;
+  onToggleTask?: (task: any, e: any) => void;
+  onScheduleTask?: (taskId: string, targetDateStr: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `backlog-task-${task.id}`,
+    data: { type: 'Task', task },
+  });
+
+  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        "p-2.5 rounded-xl border border-border bg-surface hover:border-accent/40 shadow-2xs flex flex-col justify-between gap-2 group transition-all cursor-grab active:cursor-grabbing select-none",
+        isDragging && "opacity-40 ring-2 ring-accent z-50 shadow-md"
+      )}
+    >
+      <div className="flex items-start gap-2 min-w-0">
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => onToggleTask && onToggleTask(task, e)}
+          className="mt-0.5 shrink-0 transition-transform active:scale-90"
+        >
+          <Circle className="w-3 h-3 text-muted hover:text-accent transition-colors" />
+        </button>
+        <div
+          className="min-w-0 flex-1 cursor-pointer"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => onClickTask && onClickTask(task)}
+        >
+          <h5 className="text-xs font-semibold text-primary truncate group-hover:text-accent transition-colors">
+            {task.title}
+          </h5>
+          <span className="text-[9px] text-muted truncate block mt-0.5">
+            {task.project?.name || 'General Task'}
+          </span>
+        </div>
+      </div>
+
+      <div
+        className="flex items-center gap-1 pt-1 border-t border-border/50"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <span className="text-[9px] text-muted font-medium mr-0.5">Place:</span>
+        <button
+          type="button"
+          onClick={() => onScheduleTask && onScheduleTask(task.id, format(new Date(), 'yyyy-MM-dd'))}
+          className="px-1.5 py-0.5 rounded bg-accent/10 hover:bg-accent hover:text-white text-accent text-[9px] font-bold transition-colors cursor-pointer"
+          title="Schedule for Today"
+        >
+          Today
+        </button>
+        {days.map((d) => (
+          <button
+            key={d.toISOString()}
+            type="button"
+            onClick={() => onScheduleTask && onScheduleTask(task.id, format(d, 'yyyy-MM-dd'))}
+            className="px-1.5 py-0.5 rounded bg-surface-hover hover:bg-surface text-secondary hover:text-primary border border-border/60 text-[8.5px] font-medium transition-colors cursor-pointer"
+            title={`Schedule for ${format(d, 'EEEE, MMM d')}`}
+          >
+            {format(d, 'EEE')}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+});
+
 export function PlannerMatrix({
   data,
   days,
@@ -273,8 +359,45 @@ export function PlannerMatrix({
   onDeleteTimeBlock,
   onDeleteRoutine,
   onOpenDayView,
+  onScheduleTask,
+  onLinkTaskToBlock,
 }: Props) {
   const today = new Date();
+  const [showBacklog, setShowBacklog] = useState(true);
+  const [activeTask, setActiveTask] = useState<any | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  );
+
+  const handleDragStart = (event: any) => {
+    const activeData = event.active.data.current;
+    if (activeData?.type === 'Task') {
+      setActiveTask(activeData.task);
+    }
+  };
+
+  const handleDragEnd = (event: any) => {
+    setActiveTask(null);
+    const { active, over } = event;
+    if (!over) return;
+    const activeData = active.data.current;
+    const overData = over.data.current;
+
+    if (activeData?.type === 'Task') {
+      const task = activeData.task;
+      if (overData?.type === 'TaskColumn' && onScheduleTask) {
+        onScheduleTask(task.id, overData.date);
+      } else if (overData?.type === 'TimeBlock' && onLinkTaskToBlock) {
+        onLinkTaskToBlock(overData.block.id, task.id);
+      }
+    }
+  };
+
   const [expandedState, setExpandedState] = useState<Record<MatrixCategory, boolean>>(() => {
     try {
       const stored = localStorage.getItem(MATRIX_COLLAPSE_STORAGE_KEY);
@@ -300,8 +423,14 @@ export function PlannerMatrix({
 
   const normalBlocks = data.timeBlocks.filter(b => !(b as any).isExternal);
 
+  const unscheduledTasks = useMemo(() => {
+    return (data.tasks || []).filter(
+      (t: any) => !t.scheduledDate && !t.dueDate && t.status !== 'DONE' && t.status !== 'CANCELLED'
+    );
+  }, [data.tasks]);
+
   return (
-    <>
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <section className="bg-surface flex flex-col w-full flex-1 min-h-0 border border-border rounded-xl shadow-sm overflow-hidden">
         <div className="w-full flex flex-col flex-1 min-h-0 overflow-x-auto overflow-y-auto custom-scrollbar">
           <div className="min-w-[1020px] w-full flex flex-col flex-1">
@@ -355,7 +484,7 @@ export function PlannerMatrix({
               <div className="flex flex-col w-full">
                 <div className="grid grid-cols-[140px_repeat(7,minmax(125px,1fr))] w-full min-h-[36px]">
                   <div className="border-r border-border flex flex-col sticky left-0 z-20 bg-surface">
-                    <CategoryHeader icon={<Target size={13} className="text-purple-500" />} label="Schedule" subtitle={`${data.routines.length} items`} onToggle={() => handleToggle("routines")} onAdd={onAddRoutine} />
+                    <CategoryHeader icon={<Target size={13} className="text-purple-500" />} label="Routines" subtitle={`${data.routines.length} routines`} onToggle={() => handleToggle("routines")} onAdd={onAddRoutine} />
                   </div>
                   {days.map(day => <div key={dateKey(day)} className="border-r border-border last:border-r-0 h-full min-h-[36px]" />)}
                 </div>
@@ -414,20 +543,75 @@ export function PlannerMatrix({
               onToggle={() => handleToggle("tasks")}
               flexClass="h-auto"
             >
-              <div className="grid grid-cols-[140px_repeat(7,minmax(125px,1fr))] w-full h-full">
-                <div className="border-r border-border flex flex-col h-full sticky left-0 z-20 bg-surface">
-                  <CategoryHeader icon={<CheckCircle2 size={13} className="text-[var(--cat-routines)]" />} label="Tasks" subtitle="From Daily Schedule" onToggle={() => handleToggle("tasks")} onAdd={onAddTask} />
-                  <div className="px-3 pb-2 ml-4 text-[9px] text-muted font-medium">{data.tasks.length} tasks</div>
+              <div className="flex flex-col w-full">
+                <div className="grid grid-cols-[140px_repeat(7,minmax(125px,1fr))] w-full h-full">
+                  <div className="border-r border-border flex flex-col h-full sticky left-0 z-20 bg-surface">
+                    <CategoryHeader icon={<CheckCircle2 size={13} className="text-[var(--cat-routines)]" />} label="Tasks" subtitle="From Daily Schedule" onToggle={() => handleToggle("tasks")} onAdd={onAddTask} />
+                    <div className="px-3 pb-2 flex items-center justify-between">
+                      <span className="text-[9px] text-muted font-medium">{data.tasks.length} tasks</span>
+                      {unscheduledTasks.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowBacklog(prev => !prev)}
+                          className={cn(
+                            "text-[9px] font-bold px-1.5 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1",
+                            showBacklog 
+                              ? "bg-accent text-white" 
+                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
+                          )}
+                          title="Toggle Unscheduled Backlog drawer"
+                        >
+                          <span>Backlog</span>
+                          <span className="px-1 rounded-full bg-black/10 text-[8px] font-mono">{unscheduledTasks.length}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {days.map((day) => {
+                    const dayTasks = data.tasks.filter(
+                      (t) => (t.scheduledDate && isSameDay(parseISO(t.scheduledDate), day)) ||
+                             (!t.scheduledDate && t.dueDate && isSameDay(parseISO(t.dueDate), day))
+                    );
+                    return (
+                      <DroppableTaskCell key={dateKey(day)} day={day} tasks={dayTasks} dateKeyFn={dateKey} onClickTask={onClickTask} onToggleTask={onToggleTask} onAddTask={onAddTask} onDeleteTask={onDeleteTask} />
+                    );
+                  })}
                 </div>
-                {days.map((day) => {
-                  const dayTasks = data.tasks.filter(
-                    (t) => (t.scheduledDate && isSameDay(parseISO(t.scheduledDate), day)) ||
-                           (!t.scheduledDate && t.dueDate && isSameDay(parseISO(t.dueDate), day))
-                  );
-                  return (
-                    <DroppableTaskCell key={dateKey(day)} day={day} tasks={dayTasks} dateKeyFn={dateKey} onClickTask={onClickTask} onToggleTask={onToggleTask} onAddTask={onAddTask} onDeleteTask={onDeleteTask} />
-                  );
-                })}
+
+                {/* Collapsible Backlog Tray */}
+                {showBacklog && unscheduledTasks.length > 0 && (
+                  <div className="border-t border-border bg-surface-hover/30 p-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="text-xs font-bold text-primary">Unscheduled Backlog ({unscheduledTasks.length})</span>
+                        <span className="text-[10px] text-muted hidden sm:inline">
+                          Place a directive directly into this week's plan:
+                        </span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setShowBacklog(false)}
+                        className="text-[10px] text-muted hover:text-primary transition-colors cursor-pointer"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
+                      {unscheduledTasks.map((task: any) => (
+                        <BacklogTaskCard
+                          key={task.id}
+                          task={task}
+                          days={days}
+                          onClickTask={onClickTask}
+                          onToggleTask={onToggleTask}
+                          onScheduleTask={onScheduleTask}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </MatrixRow>
 
@@ -457,11 +641,19 @@ export function PlannerMatrix({
           </div>
         </div>
       </section>
+      <DragOverlay dropAnimation={{ duration: 150, easing: 'ease-out' }}>
+        {activeTask ? (
+          <div className="p-2.5 rounded-xl bg-surface border border-accent/40 shadow-2xl text-xs font-semibold text-primary max-w-[220px] truncate opacity-95 ring-2 ring-accent/30 flex items-center gap-2 pointer-events-none">
+            <Circle size={12} className="text-accent shrink-0" />
+            <span className="truncate">{activeTask.title}</span>
+          </div>
+        ) : null}
+      </DragOverlay>
       <style dangerouslySetInnerHTML={{ __html: `
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
-    </>
+    </DndContext>
   );
 }
 

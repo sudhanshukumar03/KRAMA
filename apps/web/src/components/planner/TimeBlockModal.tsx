@@ -34,44 +34,56 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  const [notes, setNotes] = useState('');
  const [error, setError] = useState('');
 
- useEffect(() => {
- if (open) {
- if (editingBlock) {
- setTitle(editingBlock.title);
- setDateStr(editingBlock.date ? editingBlock.date.split('T')[0] : '');
- 
- // Convert UTC ISO string to local HH:mm format
- if (editingBlock.startTime) {
- const d = new Date(editingBlock.startTime);
- setStartTime(`${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`);
- } else {
- setStartTime('09:00');
- }
+  useEffect(() => {
+    if (open) {
+      if (editingBlock) {
+        setTitle(editingBlock.title || '');
+        if (editingBlock.date) {
+          setDateStr(editingBlock.date.includes('T') ? editingBlock.date.split('T')[0] : editingBlock.date);
+        } else {
+          setDateStr(defaultDate.toISOString().split('T')[0]);
+        }
+        
+        // Handle either ISO string or 'HH:mm' string
+        if (editingBlock.startTime) {
+          if (editingBlock.startTime.includes('T')) {
+            const d = new Date(editingBlock.startTime);
+            setStartTime(`${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`);
+          } else {
+            setStartTime(editingBlock.startTime);
+          }
+        } else {
+          setStartTime('09:00');
+        }
 
- if (editingBlock.endTime) {
- const d = new Date(editingBlock.endTime);
- setEndTime(`${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`);
- } else {
- setEndTime('10:00');
- }
+        if (editingBlock.endTime) {
+          if (editingBlock.endTime.includes('T')) {
+            const d = new Date(editingBlock.endTime);
+            setEndTime(`${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`);
+          } else {
+            setEndTime(editingBlock.endTime);
+          }
+        } else {
+          setEndTime('10:00');
+        }
 
- setType(editingBlock.type || 'WORK');
- setTaskId(editingBlock.taskId || '');
- setProjectId(editingBlock.projectId || '');
- setNotes(editingBlock.notes || '');
- } else {
- setTitle('');
- setDateStr(defaultDate.toISOString().split('T')[0]);
- setStartTime('09:00');
- setEndTime('10:00');
- setType('WORK');
- setTaskId('');
- setProjectId('');
- setNotes('');
- }
- setError('');
- }
- }, [open, defaultDate, editingBlock]);
+        setType(editingBlock.type || 'WORK');
+        setTaskId(editingBlock.taskId || '');
+        setProjectId(editingBlock.projectId || '');
+        setNotes(editingBlock.notes || '');
+      } else {
+        setTitle('');
+        setDateStr(defaultDate.toISOString().split('T')[0]);
+        setStartTime('09:00');
+        setEndTime('10:00');
+        setType('WORK');
+        setTaskId('');
+        setProjectId('');
+        setNotes('');
+      }
+      setError('');
+    }
+  }, [open, defaultDate, editingBlock]);
 
  if (!open) return null;
 
