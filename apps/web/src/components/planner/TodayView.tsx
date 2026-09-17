@@ -13,7 +13,6 @@ import {
   Plus, 
   AlertTriangle, 
   ArrowLeft, 
-  Calendar, 
   LayoutList,
   Target,
   Zap,
@@ -779,7 +778,6 @@ export function TodayView({
               <div className="space-y-2">
                 {routines.map(({ routine, occurrence }: any) => {
                   const isDone = occurrence.completed;
-                  const Icon = getIconForString(routine.name);
 
                   return (
                     <div
