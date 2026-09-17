@@ -22,19 +22,36 @@ import { KnowledgeGraph } from './KnowledgeGraph';
 import { AutomationRules } from './AutomationRules';
 import { SkillsModule } from './SkillsModule';
 import { AIAssistant } from './AIAssistant';
-import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun } from 'lucide-react';
+import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun, PanelLeftOpen } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 
 export function AppShell() {
  const navigate = useNavigate();
  const location = useLocation();
- const isFlushRoute = location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/sprint') || location.pathname.startsWith('/app/operations') || location.pathname.startsWith('/app/planner') || location.pathname.startsWith('/app/timeline') || location.pathname.startsWith('/app/goals') || location.pathname.startsWith('/app/habits') || location.pathname.startsWith('/app/projects');
+ const isFlushRoute = location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/sprint') || location.pathname.startsWith('/app/operations') || location.pathname.startsWith('/app/planner') || location.pathname.startsWith('/app/timeline') || location.pathname.startsWith('/app/goals') || location.pathname.startsWith('/app/habits') || location.pathname.startsWith('/app/projects') || location.pathname.startsWith('/app/brain');
  const { toggleTheme, resolvedTheme } = useTheme();
  const [activePrefix, setActivePrefix] = useState<'g' | 'e' | 't' | 's' | null>(null);
  const [showCheatsheet, setShowCheatsheet] = useState(false);
  const [isOffline, setIsOffline] = useState(false);
  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
  const [focusMode, setFocusMode] = useState(false);
+ const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+ try {
+ const saved = localStorage.getItem('krama.sidebar.collapsed');
+ if (saved !== null) return JSON.parse(saved);
+ } catch {}
+ return typeof window !== 'undefined' ? window.innerWidth < 1024 : false;
+ });
+
+ const handleToggleSidebar = () => {
+ setSidebarCollapsed(prev => {
+ const next = !prev;
+ try {
+ localStorage.setItem('krama.sidebar.collapsed', JSON.stringify(next));
+ } catch {}
+ return next;
+ });
+ };
 
  useEffect(() => {
  const handleOffline = () => setIsOffline(true);
@@ -54,6 +71,13 @@ export function AppShell() {
  let timeoutId: ReturnType<typeof setTimeout>;
 
  const handleKeyDown = (e: KeyboardEvent) => {
+ // Notion-style Sidebar toggle with Ctrl+\ or Cmd+\
+ if ((e.metaKey || e.ctrlKey) && (e.key === '\\' || e.code === 'Backslash')) {
+ e.preventDefault();
+ handleToggleSidebar();
+ return;
+ }
+
  // Ignore if typing inside input, textarea, or contentEditable
  const target = e.target as HTMLElement;
  if (
@@ -137,11 +161,37 @@ export function AppShell() {
  {!focusMode && (
  <Sidebar 
  mobileOpen={mobileMenuOpen} 
- onMobileClose={() => setMobileMenuOpen(false)} 
+ onMobileClose={() => setMobileMenuOpen(false)}
+ isCollapsed={sidebarCollapsed}
+ onToggleCollapse={handleToggleSidebar}
  />
  )}
  
  <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+
+    {/* Notion-style Top Bar when sidebar is collapsed */}
+    {sidebarCollapsed && !focusMode && (
+      <div className="hidden md:flex items-center justify-between px-4 py-1.5 border-b border-border bg-surface/80 backdrop-blur-md shrink-0 z-30 animate-in fade-in slide-in-from-top duration-150">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleToggleSidebar}
+            className="px-2 py-1 rounded-md bg-surface hover:bg-surface-hover border border-border text-secondary hover:text-primary transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+            title="Open sidebar (Ctrl+\)"
+            aria-label="Open sidebar"
+          >
+            <PanelLeftOpen className="w-3.5 h-3.5 text-secondary group-hover:text-primary" />
+            <span className="text-[11px] font-medium text-secondary group-hover:text-primary">Sidebar</span>
+          </button>
+          <span className="text-muted text-xs">/</span>
+          <span className="text-caption font-mono font-medium text-secondary capitalize">
+            {location.pathname.replace('/app', '').replace('/', '') || 'Dashboard'}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-badge font-mono text-muted">
+          <span>Toggle:</span> <kbd className="bg-surface px-1 py-0.5 rounded border border-border text-[10px]">Ctrl+\</kbd>
+        </div>
+      </div>
+    )}
 
  {/* Focus Mode Floating Badge */}
  {focusMode && (

@@ -369,7 +369,7 @@ function Column({
     <div
       ref={setNodeRef}
       className={cn(
-        "w-full min-w-0 box-border h-full flex flex-col rounded-2xl border transition-all duration-150 overflow-hidden shadow-2xs",
+        "w-full min-w-[270px] lg:min-w-0 box-border h-full flex flex-col rounded-2xl border transition-all duration-150 overflow-hidden shadow-2xs",
         col.bgLight,
         isOver && "ring-2 ring-primary/60 bg-accent/10 border-primary"
       )}
@@ -1411,10 +1411,10 @@ export function KanbanBoard() {
         </div>
       </div>
 
-      {/* 4. Board Viewport - Concrete 4-column container with zero horizontal slide bar */}
-      <div className="flex-1 min-w-0 w-full overflow-x-auto overflow-y-hidden px-6 pb-6 pt-1 select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* 4. Board Viewport - Fluid Notion-style responsive columns */}
+      <div className="flex-1 min-w-0 w-full overflow-x-auto overflow-y-hidden px-4 md:px-6 pb-6 pt-1 select-none custom-scrollbar">
         {activeView === 'board' ? (
-          <div className="w-full h-full min-w-0 grid grid-cols-4 gap-4">
+          <div className="h-full min-w-full w-max md:w-full grid grid-cols-[repeat(4,minmax(270px,1fr))] gap-4">
             <DndContext
               sensors={sensors}
               collisionDetection={collisionDetectionStrategy}

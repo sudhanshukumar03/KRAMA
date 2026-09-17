@@ -302,12 +302,13 @@ export function PlannerMatrix({
 
   return (
     <>
-      <section className="overflow-hidden bg-surface flex flex-col w-full flex-1 min-h-0 border border-border rounded-xl shadow-sm">
-        <div className="w-full flex flex-col flex-1 min-h-0">
+      <section className="bg-surface flex flex-col w-full flex-1 min-h-0 border border-border rounded-xl shadow-sm overflow-hidden">
+        <div className="w-full flex flex-col flex-1 min-h-0 overflow-x-auto overflow-y-auto custom-scrollbar">
+          <div className="min-w-[1020px] w-full flex flex-col flex-1">
 
           {/* DAY HEADERS */}
-          <div className="grid grid-cols-[140px_repeat(7,minmax(0,1fr))] border-b border-border flex-shrink-0 bg-surface">
-            <div className="p-2 flex flex-col justify-start pt-2 text-[10px] font-bold uppercase tracking-wider text-primary border-r border-border">
+          <div className="grid grid-cols-[140px_repeat(7,minmax(125px,1fr))] border-b border-border flex-shrink-0 bg-surface sticky top-0 z-30">
+            <div className="p-2 flex flex-col justify-start pt-2 text-[10px] font-bold uppercase tracking-wider text-primary border-r border-border sticky left-0 z-40 bg-surface">
               <div className="flex items-center gap-1.5">
                 <ChevronUp size={13} className="text-secondary" />
                 CATEGORIES
@@ -352,15 +353,15 @@ export function PlannerMatrix({
               flexClass="flex-shrink-0"
             >
               <div className="flex flex-col w-full">
-                <div className="grid grid-cols-[140px_repeat(7,minmax(0,1fr))] w-full min-h-[36px]">
-                  <div className="border-r border-border flex flex-col">
+                <div className="grid grid-cols-[140px_repeat(7,minmax(125px,1fr))] w-full min-h-[36px]">
+                  <div className="border-r border-border flex flex-col sticky left-0 z-20 bg-surface">
                     <CategoryHeader icon={<Target size={13} className="text-purple-500" />} label="Schedule" subtitle={`${data.routines.length} items`} onToggle={() => handleToggle("routines")} onAdd={onAddRoutine} />
                   </div>
                   {days.map(day => <div key={dateKey(day)} className="border-r border-border last:border-r-0 h-full min-h-[36px]" />)}
                 </div>
                 {data.routines.map((routine, idx) => (
-                  <div key={routine.id} className="grid grid-cols-[140px_repeat(7,minmax(0,1fr))] w-full border-t border-border group/routine">
-                    <div className="border-r border-border p-2 flex items-center gap-2 relative">
+                  <div key={routine.id} className="grid grid-cols-[140px_repeat(7,minmax(125px,1fr))] w-full border-t border-border group/routine">
+                    <div className="border-r border-border p-2 flex items-center gap-2 relative sticky left-0 z-20 bg-surface">
                       <CircleDot size={12} className={ROUTINE_COLORS[idx % ROUTINE_COLORS.length]} />
                       <span className="text-[10px] font-bold text-primary truncate pr-4">{routine.name}</span>
                       {onDeleteRoutine && (
@@ -413,8 +414,8 @@ export function PlannerMatrix({
               onToggle={() => handleToggle("tasks")}
               flexClass="h-auto"
             >
-              <div className="grid grid-cols-[140px_repeat(7,minmax(0,1fr))] w-full h-full">
-                <div className="border-r border-border flex flex-col h-full">
+              <div className="grid grid-cols-[140px_repeat(7,minmax(125px,1fr))] w-full h-full">
+                <div className="border-r border-border flex flex-col h-full sticky left-0 z-20 bg-surface">
                   <CategoryHeader icon={<CheckCircle2 size={13} className="text-[var(--cat-routines)]" />} label="Tasks" subtitle="From Daily Schedule" onToggle={() => handleToggle("tasks")} onAdd={onAddTask} />
                   <div className="px-3 pb-2 ml-4 text-[9px] text-muted font-medium">{data.tasks.length} tasks</div>
                 </div>
@@ -439,8 +440,8 @@ export function PlannerMatrix({
               onToggle={() => handleToggle("timeBlocks")}
               flexClass="h-auto"
             >
-              <div className="grid grid-cols-[140px_repeat(7,minmax(0,1fr))] w-full h-full">
-                <div className="border-r border-border flex flex-col h-full">
+              <div className="grid grid-cols-[140px_repeat(7,minmax(125px,1fr))] w-full h-full">
+                <div className="border-r border-border flex flex-col h-full sticky left-0 z-20 bg-surface">
                   <CategoryHeader icon={<Clock size={13} className="text-muted" />} label="Time Blocks" subtitle="Planned time" onToggle={() => handleToggle("timeBlocks")} onAdd={onAddTimeBlock} />
                 </div>
                 {days.map((day) => {
@@ -452,6 +453,7 @@ export function PlannerMatrix({
               </div>
             </MatrixRow>
 
+          </div>
           </div>
         </div>
       </section>

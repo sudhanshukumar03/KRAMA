@@ -98,60 +98,60 @@ export function Dashboard() {
  const progressPercent = totalToday === 0 ? 0 : Math.round((completedToday / totalToday) * 100);
 
  return (
- <div className="h-full flex flex-col p-10 lg:p-16 max-w-[1400px] mx-auto space-y-12 overflow-y-auto custom-scrollbar animate-in fade-in duration-500">
- 
- {/* Header */}
- <div className="flex items-end justify-between">
- <div>
- <h1 className="text-3xl font-semibold text-primary mb-2 tracking-tight">{data.greeting}</h1>
- <p className="text-secondary text-lg">Here's what's happening today.</p>
- </div>
- </div>
+    <div className="h-full flex flex-col p-4 sm:p-6 lg:p-10 max-w-[1600px] w-full mx-auto space-y-6 md:space-y-8 overflow-y-auto custom-scrollbar animate-in fade-in duration-300">
+      
+      {/* Header */}
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-semibold text-primary mb-1 tracking-tight">{data.greeting}</h1>
+          <p className="text-secondary text-sm sm:text-base">Here's what's happening today.</p>
+        </div>
+      </div>
 
- {/* 4-Metric Overview Row */}
- {analyticsOverview && analyticsOverview.length > 0 && (
- <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
- <div className="v4-card p-6 shadow-sm flex items-center gap-6">
- <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
- <Activity className="w-5 h-5 text-accent" />
- </div>
- <div>
- <div className="text-2xl font-semibold text-primary">{analyticsOverview[analyticsOverview.length - 1].weeklyVelocity || 0}</div>
- <div className="text-xs text-secondary uppercase tracking-widest font-mono mt-0.5">Velocity (7d)</div>
- </div>
- </div>
- <div className="v4-card p-6 shadow-sm flex items-center gap-6">
- <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
- <CheckSquare className="w-5 h-5 text-blue-800" />
- </div>
- <div>
- <div className="text-2xl font-semibold text-primary">{Math.round((analyticsOverview[analyticsOverview.length - 1].okrPace || 0) * 100)}%</div>
- <div className="text-xs text-secondary uppercase tracking-widest font-mono mt-0.5">OKR Pace</div>
- </div>
- </div>
- <div className="v4-card p-6 shadow-sm flex items-center gap-6">
- <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
- <Zap className="w-5 h-5 text-accent" />
- </div>
- <div>
- <div className="text-2xl font-semibold text-primary">{analyticsOverview[analyticsOverview.length - 1].deepWorkLogged || 0}h</div>
- <div className="text-xs text-secondary uppercase tracking-widest font-mono mt-0.5">Deep Work</div>
- </div>
- </div>
- <div className="v4-card p-6 shadow-sm flex items-center gap-6">
- <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
- <Flame className="w-5 h-5 text-accent" />
- </div>
- <div>
- <div className="text-2xl font-semibold text-primary">{analyticsOverview[analyticsOverview.length - 1].activeStreaks || 0}</div>
- <div className="text-xs text-secondary uppercase tracking-widest font-mono mt-0.5">Active Streaks</div>
- </div>
- </div>
- </div>
- )}
+      {/* 4-Metric Overview Row */}
+      {analyticsOverview && analyticsOverview.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+          <div className="v4-card p-4 sm:p-6 shadow-sm flex items-center gap-3 sm:gap-6">
+            <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+              <Activity className="w-5 h-5 text-accent" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xl sm:text-2xl font-semibold text-primary">{analyticsOverview[analyticsOverview.length - 1].weeklyVelocity || 0}</div>
+              <div className="text-[10px] sm:text-xs text-secondary uppercase tracking-widest font-mono mt-0.5 truncate">Velocity (7d)</div>
+            </div>
+          </div>
+          <div className="v4-card p-4 sm:p-6 shadow-sm flex items-center gap-3 sm:gap-6">
+            <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+              <CheckSquare className="w-5 h-5 text-blue-800" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xl sm:text-2xl font-semibold text-primary">{Math.round((analyticsOverview[analyticsOverview.length - 1].okrPace || 0) * 100)}%</div>
+              <div className="text-[10px] sm:text-xs text-secondary uppercase tracking-widest font-mono mt-0.5 truncate">OKR Pace</div>
+            </div>
+          </div>
+          <div className="v4-card p-4 sm:p-6 shadow-sm flex items-center gap-3 sm:gap-6">
+            <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+              <Zap className="w-5 h-5 text-accent" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xl sm:text-2xl font-semibold text-primary">{analyticsOverview[analyticsOverview.length - 1].deepWorkLogged || 0}h</div>
+              <div className="text-[10px] sm:text-xs text-secondary uppercase tracking-widest font-mono mt-0.5 truncate">Deep Work</div>
+            </div>
+          </div>
+          <div className="v4-card p-4 sm:p-6 shadow-sm flex items-center gap-3 sm:gap-6">
+            <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+              <Flame className="w-5 h-5 text-accent" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xl sm:text-2xl font-semibold text-primary">{analyticsOverview[analyticsOverview.length - 1].activeStreaks || 0}</div>
+              <div className="text-[10px] sm:text-xs text-secondary uppercase tracking-widest font-mono mt-0.5 truncate">Active Streaks</div>
+            </div>
+          </div>
+        </div>
+      )}
 
- {/* Grid Layout */}
- <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Grid Layout */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
  
  {/* Left Column */}
  <div className="lg:col-span-2 space-y-6">

@@ -48,6 +48,17 @@ export const listPages = async (req: Request, res: Response) => {
         childPages: {
           where: { deletedAt: null },
         },
+        linkedProject: {
+          include: {
+            goal: true,
+            tasks: {
+              where: { deletedAt: null },
+            },
+            sprints: {
+              where: { deletedAt: null },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -69,7 +80,17 @@ export const getPage = async (req: Request, res: Response) => {
         childPages: {
           where: { deletedAt: null },
         },
-        linkedProject: true,
+        linkedProject: {
+          include: {
+            goal: true,
+            tasks: {
+              where: { deletedAt: null },
+            },
+            sprints: {
+              where: { deletedAt: null },
+            },
+          },
+        },
       },
     });
 
@@ -96,8 +117,20 @@ export const createPage = async (req: Request, res: Response) => {
         createdBy: req.user!.id,
       },
       include: {
-        childPages: true,
-        linkedProject: true,
+        childPages: {
+          where: { deletedAt: null },
+        },
+        linkedProject: {
+          include: {
+            goal: true,
+            tasks: {
+              where: { deletedAt: null },
+            },
+            sprints: {
+              where: { deletedAt: null },
+            },
+          },
+        },
       },
     });
 
@@ -118,10 +151,11 @@ export const createPage = async (req: Request, res: Response) => {
 export const updatePage = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const workspaceId = (req.headers['x-workspace-id'] || req.query.workspaceId || req.body.workspaceId) as string;
     const data = UpdatePageSchema.parse(req.body);
 
     const existing = await prisma.page.findUnique({ where: { id } });
-    if (!existing || existing.deletedAt || existing.workspaceId !== data.workspaceId) {
+    if (!existing || existing.deletedAt || (workspaceId && existing.workspaceId !== workspaceId)) {
       return res.status(404).json({ message: 'Page not found' });
     }
 
@@ -129,7 +163,7 @@ export const updatePage = async (req: Request, res: Response) => {
       return res.status(409).json({ message: 'Conflict: version mismatch' });
     }
 
-    const { version, workspaceId, ...updateData } = data;
+    const { version, workspaceId: _wId, ...updateData } = data;
 
     const page = await prisma.page.update({
       where: { id },
@@ -139,8 +173,20 @@ export const updatePage = async (req: Request, res: Response) => {
         updatedBy: req.user!.id,
       },
       include: {
-        childPages: true,
-        linkedProject: true,
+        childPages: {
+          where: { deletedAt: null },
+        },
+        linkedProject: {
+          include: {
+            goal: true,
+            tasks: {
+              where: { deletedAt: null },
+            },
+            sprints: {
+              where: { deletedAt: null },
+            },
+          },
+        },
       },
     });
 

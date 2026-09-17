@@ -7,7 +7,8 @@ import {
   Home, BookOpen, Target, Network, GraduationCap,
   Calendar, Clock4, KanbanSquare, Clock, TrendingUp,
   Scale, Search, LogOut, Moon, Sun, Download, X, 
-  Zap, ChevronDown, ChevronRight, Settings, User, Layers
+  Zap, ChevronDown, ChevronRight, Settings, User, Layers,
+  PanelLeftClose
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -52,7 +53,17 @@ const systemItems: NavItem[] = [
  { name: 'Automations', path: '/app/automations', icon: Zap, shortcut: 'S A', badgeKey: null },
 ];
 
-export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
+export function Sidebar({ 
+  mobileOpen = false, 
+  onMobileClose,
+  isCollapsed = false,
+  onToggleCollapse
+}: { 
+  mobileOpen?: boolean; 
+  onMobileClose?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+}) {
  const location = useLocation();
  const { toggleTheme, resolvedTheme } = useTheme();
   const { user, logout } = useAuth();
@@ -175,7 +186,18 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
       <Link to="/app/" className="hover:opacity-90 transition-opacity">
         <KramaLogo size="sm" withText textClassName="font-semibold tracking-tight text-primary text-body leading-none block" />
       </Link>
-      <div className="relative" ref={settingsRef}>
+      <div className="flex items-center gap-1">
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            className="p-1.5 rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors outline-none cursor-pointer border border-transparent"
+            title="Collapse sidebar (Ctrl+\)"
+            aria-label="Collapse sidebar"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
+        )}
+        <div className="relative" ref={settingsRef}>
         <button
           onClick={() => setSettingsOpen((prev) => !prev)}
           className={cn(
@@ -272,7 +294,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
           </div>
         )}
       </div>
- </div>
+      </div>
+  </div>
 
  {/* Search / Command Palette Trigger */}
  <div className="p-3 border-b border-border bg-surface">
@@ -354,9 +377,12 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: bo
 
  return (
  <>
- <div className="hidden md:block h-full shrink-0 w-[280px]">
- {sidebarContent}
- </div>
+      <div className={cn(
+        "hidden md:block h-full shrink-0 transition-[width,opacity] duration-200 ease-in-out relative overflow-hidden",
+        isCollapsed ? "w-0 opacity-0 pointer-events-none" : "w-[260px] lg:w-[280px] opacity-100"
+      )}>
+        {sidebarContent}
+      </div>
 
  {mobileOpen && (
  <div className="fixed inset-0 z-[60] md:hidden flex animate-in fade-in duration-150">
