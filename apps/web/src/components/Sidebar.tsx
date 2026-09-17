@@ -35,8 +35,8 @@ const planAndExecuteItems: NavItem[] = [
 ];
 
 const strategyItems: NavItem[] = [
-  { name: 'Goal', path: '/app/goals', icon: Target, shortcut: 'G G', badgeKey: 'goals' },
-  { name: 'Habit', path: '/app/habits', icon: TrendingUp, shortcut: 'E H', badgeKey: 'habits' },
+  { name: 'Goals', path: '/app/goals', icon: Target, shortcut: 'G G', badgeKey: 'goals' },
+  { name: 'Habits', path: '/app/habits', icon: TrendingUp, shortcut: 'E H', badgeKey: 'habits' },
   { name: 'Projects', path: '/app/projects', icon: Layers, shortcut: 'G P', badgeKey: 'projects' },
 ];
 
