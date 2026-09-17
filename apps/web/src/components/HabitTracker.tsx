@@ -1,8 +1,12 @@
 // UI-only refactor — no data/logic changes
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "../api/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Flame, TrendingUp, Plus, Clock, Sun, Sunset, Moon, Trash2, Pin, PinOff, Edit2, Sparkles, X, ChevronLeft, ChevronRight, Brain, Activity, Calendar } from 'lucide-react';
+import { 
+  Check, Flame, TrendingUp, Plus, Clock, Sun, Sunset, Moon, Trash2, 
+  Pin, PinOff, Edit2, Sparkles, X, ChevronLeft, ChevronRight, Brain, 
+  Activity, Calendar, Target, Zap, Heart, BookOpen, ClipboardList, Leaf, ArrowRight 
+} from 'lucide-react';
 import { ConfirmDeleteButton } from "./ui/ConfirmDeleteButton";
 import { toast } from "sonner";
 import { BaseButton } from "./ui/BaseButton";
@@ -14,6 +18,63 @@ import { resolveIcon } from "../lib/iconResolver";
 import { IconPicker } from "./ui/IconPicker";
 import { useHabitCompletion, isHabitCompletedToday } from "../hooks/useHabitCompletion";
 import { isHabitScheduledToday } from "../lib/habitFilters";
+
+function RadialProgress({ pct = 0, size = 76, strokeWidth = 6 }: { pct: number; size?: number; strokeWidth?: number }) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (pct / 100) * circumference;
+
+  return (
+    <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          className="text-border/40"
+          fill="transparent"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#EA580C"
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          className="transition-all duration-500 ease-out"
+          fill="transparent"
+        />
+      </svg>
+      <span className="absolute text-sm font-bold font-mono text-primary">{pct}%</span>
+    </div>
+  );
+}
+
+function PlantIllustration() {
+  return (
+    <div className="w-20 h-20 rounded-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/80 flex items-center justify-center mb-4 shadow-2xs">
+      <svg width="44" height="44" viewBox="0 0 64 64" fill="none" className="text-zinc-800 dark:text-zinc-100" xmlns="http://www.w3.org/2000/svg">
+        {/* Pot */}
+        <path d="M22 40H42L39.5 54H24.5L22 40Z" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <line x1="20" y1="40" x2="44" y2="40" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+        {/* Center stem */}
+        <path d="M32 40V19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        {/* Top leaf */}
+        <path d="M32 19C32 13 37 11 41 13C41 18 37 21 32 19Z" fill="currentColor" />
+        {/* Left upper leaf */}
+        <path d="M32 24C32 18 27 16 23 18C23 23 27 26 32 24Z" fill="currentColor" />
+        {/* Right lower leaf */}
+        <path d="M32 29C32 25 38 23 43 26C42 31 37 32 32 29Z" fill="currentColor" />
+        {/* Left lower leaf */}
+        <path d="M32 33C32 30 27 28 22 31C23 36 28 37 32 33Z" fill="currentColor" />
+      </svg>
+    </div>
+  );
+}
 
 const STARTER_HABITS = [
   {
@@ -214,39 +275,48 @@ function generate30DayPattern(habit: any) {
 }
 
 function HabitCreateModal({
- open,
- onClose,
- onSubmit,
- isSubmitting,
- goals,
+  open,
+  onClose,
+  onSubmit,
+  isSubmitting,
+  goals,
+  defaultTimeOfDay = "morning",
 }: {
- open: boolean;
- onClose: () => void;
- onSubmit: (data: {
- name: string;
- icon?: string;
- linkedGoalId?: string;
- cadence: string;
- category: string;
- difficulty: string;
- expectedDurationMinutes: number;
- scheduledDays: number[];
- timeOfDay: string;
- }) => void;
- isSubmitting: boolean;
- goals: any[];
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (data: {
+    name: string;
+    icon?: string;
+    linkedGoalId?: string;
+    cadence: string;
+    category: string;
+    difficulty: string;
+    expectedDurationMinutes: number;
+    scheduledDays: number[];
+    timeOfDay: string;
+    pinnedToPlanner?: boolean;
+  }) => void;
+  isSubmitting: boolean;
+  goals: any[];
+  defaultTimeOfDay?: string;
 }) {
- const [name, setName] = useState("");
- const [icon, setIcon] = useState<string | null>(null);
- const [linkedGoalId, setLinkedGoalId] = useState<string>("");
- const [cadence, setCadence] = useState("daily");
- const [category, setCategory] = useState("PRODUCTIVITY");
- const [difficulty, setDifficulty] = useState("MEDIUM");
- const [expectedDurationMinutes, setDuration] = useState(15);
- const [timeOfDay, setTimeOfDay] = useState("morning");
- const [scheduledDays, setScheduledDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [name, setName] = useState("");
+  const [icon, setIcon] = useState<string | null>(null);
+  const [linkedGoalId, setLinkedGoalId] = useState<string>("");
+  const [cadence, setCadence] = useState("daily");
+  const [category, setCategory] = useState("PRODUCTIVITY");
+  const [difficulty, setDifficulty] = useState("MEDIUM");
+  const [expectedDurationMinutes, setDuration] = useState(15);
+  const [timeOfDay, setTimeOfDay] = useState(defaultTimeOfDay);
+  const [scheduledDays, setScheduledDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
 
- if (!open) return null;
+  useEffect(() => {
+    if (open) {
+      setTimeOfDay(defaultTimeOfDay);
+    }
+  }, [open, defaultTimeOfDay]);
+
+  if (!open) return null;
 
  const handleSubmit = (e: React.FormEvent) => {
  e.preventDefault();
@@ -467,9 +537,13 @@ function HabitCreateModal({
  >
  Cancel
  </BaseButton>
- <BaseButton type="submit" disabled={isSubmitting || !name.trim()}>
- {isSubmitting ? "Creating..." : "Create Habit"}
- </BaseButton>
+          <button
+            type="submit"
+            disabled={isSubmitting || !name.trim()}
+            className="px-4 py-2 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-xs cursor-pointer"
+          >
+            {isSubmitting ? "Creating..." : "Create Habit"}
+          </button>
  </div>
  </form>
  </div>
@@ -735,14 +809,74 @@ function HabitEditModal({
  >
  Cancel
  </BaseButton>
- <BaseButton type="submit" disabled={isSubmitting || !name.trim()}>
- {isSubmitting ? "Saving..." : "Save Changes"}
- </BaseButton>
+          <button
+            type="submit"
+            disabled={isSubmitting || !name.trim()}
+            className="px-4 py-2 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-xs cursor-pointer"
+          >
+            {isSubmitting ? "Saving..." : "Save Changes"}
+          </button>
  </div>
  </form>
  </div>
  </div>
  );
+}
+
+function LearnHabitsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="v4-card w-full max-w-lg shadow-2xl overflow-hidden text-left"
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center">
+              <BookOpen className="w-4 h-4" />
+            </div>
+            <h3 className="text-sm font-bold text-primary">Mastering Daily Habits & Routines</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4 text-xs text-secondary leading-relaxed">
+          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-surface-hover/60 border border-border">
+            <Flame className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-primary mb-0.5">Streaks & Momentum</p>
+              <p>Check off habits daily to build streaks. The system tracks your 30-day activity horizon so you never lose momentum.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-surface-hover/60 border border-border">
+            <Sun className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-primary mb-0.5">Routines by Time of Day</p>
+              <p>Organize habits into Morning, Afternoon, Evening, or Anytime buckets to structure your day effortlessly.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-surface-hover/60 border border-border">
+            <Pin className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-primary mb-0.5">Weekly Planner Synchronization</p>
+              <p>Use the 📌 pin button to bring your core rituals directly into your 7-Day Planner Matrix for cohesive execution.</p>
+            </div>
+          </div>
+        </div>
+        <div className="px-6 py-3 border-t border-border bg-surface-hover/30 flex justify-end">
+          <BaseButton onClick={onClose} variant="secondary">Got it</BaseButton>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function HabitTracker() {
@@ -791,6 +925,8 @@ export function HabitTracker() {
  const [createModalOpen, setCreateModalOpen] = useState(false);
  const [editModalOpen, setEditModalOpen] = useState(false);
  const [editingHabit, setEditingHabit] = useState<any>(null);
+ const [learnModalOpen, setLearnModalOpen] = useState(false);
+ const [defaultTimeOfDay, setDefaultTimeOfDay] = useState("morning");
 
  const [todayTrackerOpen, setTodayTrackerOpen] = useState(() => {
    if (typeof window !== 'undefined') {
@@ -996,28 +1132,31 @@ export function HabitTracker() {
  const totalHabits = todaysHabits.length || 1;
  const progressPct = Math.round((completedCount / totalHabits) * 100);
 
- return (
-    <div 
-      onWheel={handleWheel}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      className="flex flex-col lg:flex-row h-full w-full bg-canvas animate-in fade-in duration-150 overflow-y-auto lg:overflow-hidden relative"
-    >
+  const formattedDate = new Date().toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+
+  const handleOpenCreateWithTime = (time: string) => {
+    setDefaultTimeOfDay(time);
+    setCreateModalOpen(true);
+  };
+
+  return (
+    <div className="flex flex-col lg:flex-row h-full w-full bg-canvas animate-in fade-in duration-150 overflow-y-auto lg:overflow-hidden relative">
       {/* LEFT COLUMN: Main Content */}
-      <div className={cn(
-        "flex-1 lg:h-full lg:overflow-y-auto px-6 py-6 space-y-6 relative border-b lg:border-b-0 transition-all duration-300 ease-in-out min-w-0",
-        todayTrackerOpen ? "lg:border-r border-border" : "lg:border-r-0"
-      )}>
-        {/* Top Page Header with Logo, Title, Tracker Toggle & New Habit */}
+      <div className="flex-1 lg:h-full lg:overflow-y-auto px-6 py-6 space-y-6 relative border-b lg:border-b-0 min-w-0">
+        {/* Top Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0 shadow-2xs">
-              <TrendingUp className="w-5 h-5 stroke-[1.75]" />
+              <TrendingUp className="w-5 h-5 stroke-[2]" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-primary tracking-tight">Habits & Routines</h1>
+              <h1 className="text-xl font-bold text-primary tracking-tight">Habit</h1>
               <p className="text-xs text-secondary mt-0.5">
-                Manage daily rituals, track consistent streaks, and sync core routines with your planner.
+                Manage, track, and maintain consistency across your daily routines.
               </p>
             </div>
           </div>
@@ -1025,524 +1164,537 @@ export function HabitTracker() {
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={toggleTodayTracker}
-              className={cn(
-                "px-3 py-1.5 rounded-xl border text-caption font-mono font-bold flex items-center gap-2 transition-all cursor-pointer shadow-2xs",
-                todayTrackerOpen
-                  ? "bg-orange-500/10 border-orange-500/30 text-orange-600 dark:text-orange-400"
-                  : "bg-surface hover:bg-surface-hover border-border text-secondary hover:text-primary"
-              )}
-              title={todayTrackerOpen ? "Hide Today's Tracker" : "Slide out Today's Tracker"}
+              onClick={() => setLearnModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl border border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary text-xs font-medium flex items-center gap-2 transition-all shadow-2xs cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-              <span>Today's Tracker</span>
-              <span className="bg-surface-hover px-1.5 py-0.5 rounded text-[10px] text-primary border border-border/60">
-                {completedCount}/{totalHabits} Done
-              </span>
-              <ChevronLeft className={cn("w-3.5 h-3.5 transition-transform duration-200", todayTrackerOpen ? "rotate-180" : "")} />
+              <BookOpen className="w-4 h-4 text-secondary" />
+              <span>Learn about habits</span>
             </button>
-            <BaseButton onClick={handleCreateHabit} className="shrink-0 cursor-pointer">
-              <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" />
-              New Habit
-            </BaseButton>
+            <button
+              type="button"
+              onClick={() => handleOpenCreateWithTime("morning")}
+              className="px-4 py-2 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-medium flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            >
+              <Plus className="w-4 h-4 stroke-[2]" />
+              <span>Create Habit</span>
+            </button>
           </div>
         </div>
 
-        {/* Category Filters - Only shown when habits exist */}
-        {habits.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-8">
-            <button
-              onClick={() => setActiveCategory(null)}
-              className={cn(
-                "px-3.5 py-1.5 rounded-full text-caption font-medium tracking-[0.02em] transition-all border shadow-2xs cursor-pointer",
-                activeCategory === null
-                  ? "bg-primary text-white border-primary"
-                  : "bg-surface text-secondary border-border hover:border-primary hover:text-primary",
-              )}
-            >
-              All ({habits.length})
-            </button>
-            {categories.map(([cat, count]) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={cn(
-                  "px-3.5 py-1.5 rounded-full text-caption font-medium tracking-[0.02em] transition-all border flex items-center gap-1.5 shadow-2xs cursor-pointer",
-                  activeCategory === cat
-                    ? "bg-primary text-white border-primary"
-                    : "bg-surface text-secondary border-border hover:border-primary hover:text-primary",
-                )}
-              >
-                {cat}{" "}
-                <span
-                  className={cn(
-                    "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
-                    activeCategory === cat
-                      ? "bg-surface/20"
-                      : "bg-surface-hover text-secondary border border-border",
-                  )}
-                >
-                  {count}
-                </span>
-              </button>
-            ))}
+        {/* Filter Pills row - ALWAYS present per screenshot */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => {
+              setActiveCategory(null);
+              setActiveDifficulty(null);
+            }}
+            className={cn(
+              "px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer shadow-2xs",
+              activeDifficulty === null && activeCategory === null
+                ? "bg-[#18181B] text-white dark:bg-white dark:text-zinc-900"
+                : "bg-surface text-secondary border border-border hover:border-primary hover:text-primary"
+            )}
+          >
+            All ({habits.length})
+          </button>
 
-            <div className="w-px h-6 bg-border mx-2 self-center"></div>
+          <button
+            onClick={() => setActiveDifficulty(null)}
+            className={cn(
+              "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-2xs",
+              activeDifficulty === null && activeCategory !== null
+                ? "bg-primary text-white border-primary"
+                : "bg-surface text-secondary border-border hover:border-primary hover:text-primary"
+            )}
+          >
+            All Diff
+          </button>
 
-            <button
-              onClick={() => setActiveDifficulty(null)}
-              className={cn(
-                "px-3.5 py-1.5 rounded-full text-caption font-medium tracking-[0.02em] transition-all border shadow-2xs cursor-pointer",
-                activeDifficulty === null
-                  ? "bg-primary text-white border-primary"
-                  : "bg-surface text-secondary border-border hover:border-primary hover:text-primary",
-              )}
-            >
-              All Diff
-            </button>
-            {difficulties.map((diff) => (
+          {difficulties.map((diff) => {
+            const isSelected = activeDifficulty === diff;
+            const label = diff.charAt(0).toUpperCase() + diff.slice(1).toLowerCase();
+            return (
               <button
                 key={diff}
-                onClick={() => setActiveDifficulty(diff)}
+                onClick={() => setActiveDifficulty(isSelected ? null : diff)}
                 className={cn(
-                  "px-3.5 py-1.5 rounded-full text-caption font-medium tracking-[0.02em] transition-all border flex items-center gap-1.5 shadow-2xs cursor-pointer",
-                  activeDifficulty === diff
+                  "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-2xs",
+                  isSelected
                     ? "bg-primary text-white border-primary"
-                    : "bg-surface text-secondary border-border hover:border-primary hover:text-primary",
+                    : "bg-surface text-secondary border-border hover:border-primary hover:text-primary"
                 )}
               >
-                {diff.charAt(0).toUpperCase() + diff.slice(1).toLowerCase()}
+                {label}
               </button>
-            ))}
+            );
+          })}
+        </div>
+
+        {/* Main Empty State Card (when habits.length === 0) */}
+        {habits.length === 0 ? (
+          <div className="rounded-2xl border border-border bg-surface p-8 sm:p-12 shadow-xs flex flex-col items-center text-center max-w-3xl mx-auto my-2">
+            <PlantIllustration />
+            <h2 className="text-base sm:text-lg font-bold text-primary tracking-tight">No habits created yet</h2>
+            <p className="text-xs text-secondary mt-1 max-w-sm">
+              Create your first routine to start building streaks and establishing consistency.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => handleOpenCreateWithTime("morning")}
+              className="mt-5 px-4 py-2 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-medium flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            >
+              <Plus className="w-4 h-4 stroke-[2]" />
+              <span>Create Habit</span>
+            </button>
+
+            {/* 4 Value propositions */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-border/60 w-full">
+              <div className="flex items-center justify-center gap-2 text-xs text-secondary font-medium">
+                <Target className="w-4 h-4 text-orange-500 stroke-[1.75]" />
+                <span>Build better routines</span>
+              </div>
+              <div className="flex items-center justify-center gap-2 text-xs text-secondary font-medium">
+                <TrendingUp className="w-4 h-4 text-orange-500 stroke-[1.75]" />
+                <span>Track your progress</span>
+              </div>
+              <div className="flex items-center justify-center gap-2 text-xs text-secondary font-medium">
+                <Zap className="w-4 h-4 text-orange-500 stroke-[1.75]" />
+                <span>Stay consistent</span>
+              </div>
+              <div className="flex items-center justify-center gap-2 text-xs text-secondary font-medium">
+                <Heart className="w-4 h-4 text-orange-500 stroke-[1.75]" />
+                <span>A better you</span>
+              </div>
+            </div>
+          </div>
+        ) : filteredHabits.length === 0 ? (
+          <EmptyStateInline
+            icon={Flame}
+            title="No matching habits"
+            description="No habits match your active difficulty or category filters."
+          />
+        ) : (
+          /* Habit Cards Grid with 30-Day Activity Heatmap */
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {filteredHabits.map((habit) => {
+              const Icon = resolveIcon(habit.icon);
+              const heatmap = generate30DayPattern(habit);
+
+              const difficultyLevel =
+                habit.difficulty === "EASY"
+                  ? 1
+                  : habit.difficulty === "MEDIUM"
+                  ? 2
+                  : habit.difficulty === "HARD"
+                  ? 3
+                  : habit.difficulty === "EXTREME"
+                  ? 4
+                  : 2;
+              const dots = Array.from({ length: 4 }).map((_, i) => i < difficultyLevel);
+              const linkedGoal = goals.find((g) => g.id === habit.linkedGoalId);
+
+              return (
+                <div
+                  key={habit.id}
+                  className="v4-card p-5 hover:border-primary transition-all cursor-pointer group flex flex-col justify-between gap-4"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="w-11 h-11 bg-surface-hover rounded-xl border border-border flex items-center justify-center shrink-0 group-hover:border-primary group-hover:bg-primary transition-all shadow-2xs">
+                      <Icon className="w-5 h-5 text-primary group-hover:text-white transition-colors stroke-[1.75]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <h3 className="text-card text-primary mb-1 truncate group-hover:text-primary transition-colors">
+                          {habit.name}
+                        </h3>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400 font-mono text-badge font-bold tracking-tight">
+                            <Flame className="w-3.5 h-3.5 text-orange-500 stroke-[2]" />{" "}
+                            {habit.streak}d
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePinHabitMutation.mutate({ id: habit.id, pinned: !habit.pinnedToPlanner });
+                            }}
+                            className={cn(
+                              "p-1.5 rounded-lg border transition-all cursor-pointer",
+                              habit.pinnedToPlanner
+                                ? "bg-accent/10 border-accent/30 text-accent font-semibold"
+                                : "bg-surface border-border text-muted hover:text-primary hover:border-primary/40"
+                            )}
+                            title={habit.pinnedToPlanner ? "Pinned to Planner (click to unpin)" : "Pin to Planner"}
+                          >
+                            {habit.pinnedToPlanner ? <Pin className="w-3.5 h-3.5 fill-current" /> : <PinOff className="w-3.5 h-3.5" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditHabit(habit);
+                            }}
+                            className="p-1.5 rounded-lg border border-border bg-surface text-muted hover:text-primary hover:border-primary/40 transition-colors cursor-pointer"
+                            title="Edit Habit"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <ConfirmDeleteButton
+                            onConfirm={(e) => {
+                              e.stopPropagation();
+                              deleteMutation.mutate(habit.id);
+                            }}
+                            className="opacity-70 hover:opacity-100"
+                            iconClassName="w-3.5 h-3.5"
+                          />
+                        </div>
+                      </div>
+                      {linkedGoal && (
+                        <div className="text-[11px] font-medium text-secondary truncate mb-2">
+                          Goal: {linkedGoal.title}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-caption text-secondary font-medium">
+                          {habit.category || "Uncategorized"}
+                        </span>
+                        <span className="text-[#E5E8EC] font-light">•</span>
+                        <div
+                          className="flex items-center gap-0.5"
+                          title={`Difficulty: ${habit.difficulty || "MEDIUM"}`}
+                        >
+                          {dots.map((active, idx) => (
+                            <div
+                              key={idx}
+                              className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                active ? "bg-secondary" : "bg-border",
+                              )}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[#E5E8EC] font-light">•</span>
+                        <span className="text-badge text-secondary font-mono flex items-center gap-1">
+                          <Clock className="w-3 h-3 stroke-[1.5]" />{" "}
+                          {habit.expectedDurationMinutes || 15}m
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 30-Day Activity Heatmap */}
+                  <div className="pt-3 border-t border-border/60">
+                    <div className="flex items-center justify-between text-[10px] text-muted uppercase font-mono mb-1.5">
+                      <span>30-Day Activity Horizon</span>
+                      <span>Last 30d</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-1">
+                      {heatmap.map((item, i) => (
+                        <div
+                          key={i}
+                          title={`Day ${item.dateStr}: ${item.level === -1 ? "Not created yet" : item.level === 0 ? "No activity" : "Completed"}`}
+                          className={cn(
+                            "w-2 h-4 rounded-xs transition-colors",
+                            item.level === 3
+                              ? "bg-[#EA580C]"
+                              : item.level === -1
+                              ? "bg-surface-hover border border-border/40 opacity-40"
+                              : "bg-surface-hover border border-border/60",
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* Habit Cards Grid with NEW 30-Day Activity Heatmap */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-10">
-          {habits.length === 0 ? (
-            <div className="col-span-full">
-              <div className="rounded-2xl border border-border bg-surface p-8 sm:p-10 shadow-xs flex flex-col items-center text-center max-w-2xl mx-auto my-4">
-                <div className="w-14 h-14 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-4 shadow-xs">
-                  <Flame className="w-7 h-7 stroke-[1.75]" />
-                </div>
-                <h2 className="text-xl font-bold text-primary tracking-tight">Build Consistency with Daily Habits & Routines</h2>
-                <p className="text-xs sm:text-sm text-secondary mt-1.5 max-w-md">
-                  Establish recurring habits to build streaks. Any habit can also be pinned directly into your Weekly Planner.
-                </p>
+        {/* Daily Routines Breakdown Section */}
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-primary">Daily Routines Breakdown</h2>
+              <p className="text-xs text-secondary mt-0.5">Organize your habits into routines for a more structured day.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleOpenCreateWithTime("morning")}
+              className="px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-hover text-xs font-medium text-primary flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Routine</span>
+            </button>
+          </div>
 
-                <div className="w-full mt-8">
-                  <div className="text-xs font-bold text-secondary uppercase tracking-wider mb-3 text-left">
-                    Quick-start from a proven ritual template:
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {/* Morning Routine Card */}
+            <div 
+              onClick={() => handleOpenCreateWithTime("morning")}
+              className="rounded-xl border border-border bg-surface p-4 hover:border-border/80 transition-all shadow-xs cursor-pointer group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500 flex items-center justify-center shrink-0">
+                    <Sun className="w-5 h-5 stroke-[1.75]" />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
-                    {STARTER_HABITS.map((starter) => (
-                      <button
-                        key={starter.name}
-                        type="button"
-                        disabled={createHabitMutation.isPending}
-                        onClick={() => handleCreateFromStarter(starter)}
-                        className="p-3.5 rounded-xl border border-border bg-surface hover:bg-surface-hover hover:border-orange-500/30 transition-all group flex flex-col gap-1 cursor-pointer disabled:opacity-50"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-primary group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
-                            {starter.name}
-                          </span>
-                          <Plus className="w-3.5 h-3.5 text-secondary group-hover:text-orange-500 transition-colors shrink-0" />
-                        </div>
-                        <p className="text-[11px] text-secondary leading-snug">
-                          {starter.description}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1 text-[10px] text-muted font-mono">
-                          <span className="capitalize">{starter.timeOfDay}</span>
-                          <span>•</span>
-                          <span>{starter.expectedDurationMinutes}m</span>
-                          <span>•</span>
-                          <span className="text-accent font-sans">Pins to Planner 📌</span>
-                        </div>
-                      </button>
-                    ))}
+                  <div>
+                    <h3 className="text-xs font-bold text-primary">Morning Routine</h3>
+                    {morningHabits.length === 0 ? (
+                      <>
+                        <p className="text-[11px] text-muted mt-0.5">No morning habits configured.</p>
+                        <p className="text-[11px] text-secondary font-medium">Start your day with intention</p>
+                      </>
+                    ) : (
+                      <p className="text-[11px] text-secondary mt-0.5">{morningHabits.length} habits configured</p>
+                    )}
                   </div>
                 </div>
-
-                <div className="mt-6 pt-6 border-t border-border w-full flex flex-wrap items-center justify-center gap-3">
-                  <span className="text-xs text-muted">Or design your own from scratch:</span>
-                  <BaseButton onClick={handleCreateHabit} className="cursor-pointer">
-                    <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" />
-                    Custom Habit
-                  </BaseButton>
+                <div className="flex items-center gap-1 text-xs text-muted font-mono">
+                  <span>{morningHabits.length} habits</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:translate-x-0.5 transition-transform" />
                 </div>
               </div>
-            </div>
-          ) : filteredHabits.length === 0 ? (
- <div className="col-span-full">
- <EmptyStateInline
- icon={Flame}
- title="No matching habits"
- description="No habits match your active category and difficulty filters."
- />
- </div>
- ) : (
- filteredHabits.map((habit) => {
- const Icon = resolveIcon(habit.icon);
- const heatmap = generate30DayPattern(habit);
-
- const difficultyLevel =
- habit.difficulty === "EASY"
- ? 1
- : habit.difficulty === "MEDIUM"
- ? 2
- : habit.difficulty === "HARD"
- ? 3
- : habit.difficulty === "EXTREME"
- ? 4
- : 2;
- const dots = Array.from({ length: 4 }).map(
- (_, i) => i < difficultyLevel,
- );
- const linkedGoal = goals.find((g) => g.id === habit.linkedGoalId);
-
- return (
- <div
- key={habit.id}
- className="v4-card p-5 hover:border-primary transition-all cursor-pointer group flex flex-col justify-between gap-4"
- >
- <div className="flex items-start gap-4">
- <div className="w-11 h-11 bg-surface-hover rounded-xl border border-border flex items-center justify-center shrink-0 group-hover:border-primary group-hover:bg-primary transition-all shadow-2xs">
- <Icon className="w-5 h-5 text-primary group-hover:text-white transition-colors stroke-[1.75]" />
- </div>
- <div className="flex-1 min-w-0">
- <div className="flex items-center justify-between gap-2 mb-1">
- <h3 className="text-card text-primary mb-1 truncate group-hover: transition-colors">
- {habit.name}
- </h3>
- <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400 font-mono text-badge font-bold tracking-tight">
-                      <Flame className="w-3.5 h-3.5 text-orange-500 stroke-[2]" />{" "}
-                      {habit.streak}d
-                    </span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        togglePinHabitMutation.mutate({ id: habit.id, pinned: !habit.pinnedToPlanner });
-                      }}
-                      className={cn(
-                        "p-1.5 rounded-lg border transition-all cursor-pointer",
-                        habit.pinnedToPlanner
-                          ? "bg-accent/10 border-accent/30 text-accent font-semibold"
-                          : "bg-surface border-border text-muted hover:text-primary hover:border-primary/40"
-                      )}
-                      title={habit.pinnedToPlanner ? "Pinned to Planner (click to unpin)" : "Pin to Planner"}
-                    >
-                      {habit.pinnedToPlanner ? <Pin className="w-3.5 h-3.5 fill-current" /> : <PinOff className="w-3.5 h-3.5" />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditHabit(habit);
-                      }}
-                      className="p-1.5 rounded-lg border border-border bg-surface text-muted hover:text-primary hover:border-primary/40 transition-colors cursor-pointer"
-                      title="Edit Habit"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <ConfirmDeleteButton
-                      onConfirm={(e) => {
-                        e.stopPropagation();
-                        deleteMutation.mutate(habit.id);
-                      }}
-                      className="opacity-70 hover:opacity-100"
-                      iconClassName="w-3.5 h-3.5"
-                    />
-                  </div>
- </div>
- {linkedGoal && (
- <div className="text-[11px] font-medium text-secondary truncate mb-2">
- Goal: {linkedGoal.title}
- </div>
- )}
- <div className="flex items-center gap-2">
- <span className="text-caption text-secondary font-medium">
- {habit.category || "Uncategorized"}
- </span>
- <span className="text-[#E5E8EC] font-light">•</span>
- <div
- className="flex items-center gap-0.5"
- title={`Difficulty: ${habit.difficulty || "MEDIUM"}`}
- >
- {dots.map((active, idx) => (
- <div
- key={idx}
- className={cn(
- "w-1.5 h-1.5 rounded-full",
- active ? "bg-secondary" : "bg-border",
- )}
- />
- ))}
- </div>
- <span className="text-[#E5E8EC] font-light">•</span>
- <span className="text-badge text-secondary font-mono flex items-center gap-1">
- <Clock className="w-3 h-3 stroke-[1.5]" />{" "}
- {habit.expectedDurationMinutes || 15}m
- </span>
- </div>
- </div>
- </div>
-
- {/* NEW: 30-Day Activity Heatmap Grid */}
- <div className="pt-3 border-t border-border/60">
- <div className="flex items-center justify-between text-[10px] text-muted uppercase font-mono mb-1.5">
- <span>30-Day Activity Horizon</span>
- <span>Last 30d</span>
- </div>
- <div className="flex items-center justify-between gap-1">
- {heatmap.map((item, i) => (
- <div
- key={i}
- title={`Day ${item.dateStr}: ${item.level === -1 ? "Not created yet" : item.level === 0 ? "No activity" : "Completed"}`}
- className={cn(
- "w-2 h-4 rounded-xs transition-colors",
- item.level === 3
- ? "bg-[#EA580C]"
- : item.level === -1
- ? "bg-surface-hover border border-border/40 opacity-40"
- : "bg-surface-hover border border-border/60",
- )}
- />
- ))}
- </div>
- </div>
- </div>
- );
- }))}
- </div>
-
-        {/* Daily Rituals Section - Only shown when habits exist */}
-        {habits.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-section text-primary">
-                Daily Rituals by Time of Day
-              </h2>
-              <button
-                type="button"
-                onClick={handleCreateHabit}
-                className="text-caption font-mono text-secondary hover:text-orange-500 flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" /> New Habit
-              </button>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Morning */}
-              <div className="v4-card p-5">
-                <h3 className="text-card text-primary mb-2 uppercase tracking-[0.02em] flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-primary font-semibold">
-                    <Sun className="w-3.5 h-3.5 text-orange-500" />
-                    Morning Rituals
-                  </span>
-                  <span className="font-mono text-[10px] text-muted">
-                    {morningHabits.length} habits
-                  </span>
-                </h3>
-                <div className="space-y-2">
+              {morningHabits.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border/60 space-y-2" onClick={(e) => e.stopPropagation()}>
                   {morningHabits.map((habit) => (
                     <HabitMainListItem key={habit.id} habit={habit} deleteMutation={deleteMutation} />
                   ))}
                 </div>
-                {morningHabits.length === 0 && (
-                  <span className="text-caption text-muted">
-                    No morning habits scheduled for today.
-                  </span>
-                )}
-              </div>
+              )}
+            </div>
 
-              {/* Afternoon */}
-              <div className="v4-card p-5">
-                <h3 className="text-card text-primary mb-2 uppercase tracking-[0.02em] flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-primary font-semibold">
-                    <Sunset className="w-3.5 h-3.5 text-amber-500" />
-                    Afternoon Rituals
-                  </span>
-                  <span className="font-mono text-[10px] text-muted">
-                    {afternoonHabits.length} habits
-                  </span>
-                </h3>
-                <div className="space-y-2">
+            {/* Afternoon Routine Card */}
+            <div 
+              onClick={() => handleOpenCreateWithTime("afternoon")}
+              className="rounded-xl border border-border bg-surface p-4 hover:border-border/80 transition-all shadow-xs cursor-pointer group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                    <Sunset className="w-5 h-5 stroke-[1.75]" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-primary">Afternoon Routine</h3>
+                    {afternoonHabits.length === 0 ? (
+                      <>
+                        <p className="text-[11px] text-muted mt-0.5">No afternoon habits configured.</p>
+                        <p className="text-[11px] text-secondary font-medium">Keep your energy and focus high</p>
+                      </>
+                    ) : (
+                      <p className="text-[11px] text-secondary mt-0.5">{afternoonHabits.length} habits configured</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted font-mono">
+                  <span>{afternoonHabits.length} habits</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </div>
+              {afternoonHabits.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border/60 space-y-2" onClick={(e) => e.stopPropagation()}>
                   {afternoonHabits.map((habit) => (
                     <HabitMainListItem key={habit.id} habit={habit} deleteMutation={deleteMutation} />
                   ))}
                 </div>
-                {afternoonHabits.length === 0 && (
-                  <span className="text-caption text-muted">
-                    No afternoon habits scheduled for today.
-                  </span>
-                )}
-              </div>
+              )}
+            </div>
 
-              {/* Evening */}
-              <div className="v4-card p-5">
-                <h3 className="text-card text-primary mb-2 uppercase tracking-[0.02em] flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-primary font-semibold">
-                    <Moon className="w-3.5 h-3.5 text-purple-500" />
-                    Evening Rituals
-                  </span>
-                  <span className="font-mono text-[10px] text-muted">
-                    {eveningHabits.length} habits
-                  </span>
-                </h3>
-                <div className="space-y-2">
+            {/* Evening Routine Card */}
+            <div 
+              onClick={() => handleOpenCreateWithTime("evening")}
+              className="rounded-xl border border-border bg-surface p-4 hover:border-border/80 transition-all shadow-xs cursor-pointer group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-500 flex items-center justify-center shrink-0">
+                    <Moon className="w-5 h-5 stroke-[1.75]" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-primary">Evening Routine</h3>
+                    {eveningHabits.length === 0 ? (
+                      <>
+                        <p className="text-[11px] text-muted mt-0.5">No evening habits configured.</p>
+                        <p className="text-[11px] text-secondary font-medium">Wind down and reflect</p>
+                      </>
+                    ) : (
+                      <p className="text-[11px] text-secondary mt-0.5">{eveningHabits.length} habits configured</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted font-mono">
+                  <span>{eveningHabits.length} habits</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </div>
+              {eveningHabits.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border/60 space-y-2" onClick={(e) => e.stopPropagation()}>
                   {eveningHabits.map((habit) => (
                     <HabitMainListItem key={habit.id} habit={habit} deleteMutation={deleteMutation} />
                   ))}
                 </div>
-                {eveningHabits.length === 0 && (
-                  <span className="text-caption text-muted">
-                    No evening habits scheduled for today.
-                  </span>
-                )}
-              </div>
+              )}
+            </div>
 
-              {/* Anytime */}
-              <div className="v4-card p-5">
-                <h3 className="text-card text-primary mb-2 uppercase tracking-[0.02em] flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-primary font-semibold">
-                    <Clock className="w-3.5 h-3.5 text-emerald-500" />
-                    Anytime Habits
-                  </span>
-                  <span className="font-mono text-[10px] text-muted">
-                    {anytimeHabits.length} habits
-                  </span>
-                </h3>
-                <div className="space-y-2">
+            {/* Anytime Habits Card */}
+            <div 
+              onClick={() => handleOpenCreateWithTime("anytime")}
+              className="rounded-xl border border-border bg-surface p-4 hover:border-border/80 transition-all shadow-xs cursor-pointer group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
+                    <Leaf className="w-5 h-5 stroke-[1.75]" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-primary">Anytime Habits</h3>
+                    {anytimeHabits.length === 0 ? (
+                      <>
+                        <p className="text-[11px] text-muted mt-0.5">No anytime habits configured.</p>
+                        <p className="text-[11px] text-secondary font-medium">Habits you can do anytime</p>
+                      </>
+                    ) : (
+                      <p className="text-[11px] text-secondary mt-0.5">{anytimeHabits.length} habits configured</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted font-mono">
+                  <span>{anytimeHabits.length} habits</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </div>
+              {anytimeHabits.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border/60 space-y-2" onClick={(e) => e.stopPropagation()}>
                   {anytimeHabits.map((habit) => (
                     <HabitMainListItem key={habit.id} habit={habit} deleteMutation={deleteMutation} />
                   ))}
                 </div>
-                {anytimeHabits.length === 0 && (
-                  <span className="text-caption text-muted">
-                    No anytime habits scheduled for today.
-                  </span>
-                )}
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT COLUMN: Today's Tracker Rail */}
+      <div className="w-full lg:w-[320px] xl:w-[360px] shrink-0 border-t lg:border-t-0 lg:border-l border-border bg-surface/40 p-6 space-y-4 lg:h-full lg:overflow-y-auto">
+        {/* Rail Header */}
+        <div className="flex items-center justify-between pb-1">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-orange-500" />
+            <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider font-mono">
+              TODAY'S TRACKER
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-secondary font-medium">
+            <Calendar className="w-3.5 h-3.5 text-muted" />
+            <span>{formattedDate}</span>
+          </div>
+        </div>
+
+        {/* Circular Progress Gauge Card */}
+        <div className="rounded-2xl border border-border bg-surface p-5 shadow-xs">
+          <div className="flex items-center gap-4">
+            <RadialProgress pct={progressPct} size={76} strokeWidth={6} />
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] text-secondary font-medium">Daily Completion Rate</div>
+              <div className="text-2xl font-bold text-primary font-mono mt-0.5">{progressPct}%</div>
+              <div className="text-[11px] text-muted mt-0.5">
+                {completedCount} of {todaysHabits.length} habits completed
+              </div>
+              <div className="h-1.5 w-full bg-surface-hover rounded-full overflow-hidden mt-2.5 border border-border/40">
+                <div
+                  className="h-full bg-orange-500 rounded-full transition-all duration-300"
+                  style={{ width: `${progressPct}%` }}
+                />
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
 
-    {/* RIGHT COLUMN: Daily Checklist Widget (Collapsible with smooth animation) */}
-    <div 
-      className={cn(
-        "bg-surface-hover/50 lg:h-full lg:overflow-y-auto transition-all duration-300 ease-in-out shrink-0",
-        todayTrackerOpen
-          ? "w-full lg:w-[340px] xl:w-[380px] opacity-100 px-6 py-6 border-t lg:border-t-0 lg:border-l border-border block space-y-4"
-          : "w-0 lg:w-0 px-0 py-0 opacity-0 overflow-hidden border-0 pointer-events-none hidden lg:block"
-      )}
-    >
-      <div className="rounded-2xl border border-border/80 bg-surface p-5 shadow-xs relative overflow-hidden min-w-[280px]">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-badge font-medium text-orange-600 dark:text-orange-400 uppercase tracking-[0.02em] flex items-center gap-1.5 font-mono">
-            <Sparkles className="w-3.5 h-3.5 text-orange-500 fill-orange-500/20" /> Today's Tracker
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="text-caption font-mono font-bold text-primary bg-surface-hover px-2 py-0.5 rounded-lg border border-border">
-              {completedCount}/{totalHabits} Done
-            </span>
+        {/* Today's Habits Section */}
+        <div className="rounded-2xl border border-border bg-surface p-4 shadow-xs">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold text-primary">Today's Habits</h3>
             <button
               type="button"
-              onClick={toggleTodayTracker}
-              className="p-1 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover transition-colors cursor-pointer"
-              title="Collapse Tracker"
+              onClick={() => {
+                setActiveDifficulty(null);
+                setActiveCategory(null);
+              }}
+              className="text-[11px] text-muted hover:text-primary flex items-center gap-1 transition-colors cursor-pointer"
             >
-              <ChevronRight className="w-4 h-4" />
+              <span>View All</span>
+              <ArrowRight className="w-3 h-3" />
             </button>
           </div>
-        </div>
-        <h2 className="text-base font-bold text-primary mb-3.5">{today}</h2>
 
-        {todaysHabits.length === 0 ? (
-          <div className="py-6 text-center border border-dashed border-border rounded-xl p-4 bg-surface-hover/20">
-            <Clock className="w-5 h-5 text-muted mx-auto mb-1.5" />
-            <p className="text-xs font-semibold text-primary">No habits scheduled for today</p>
-            <p className="text-[11px] text-muted mt-0.5">Habits you schedule will appear here for easy 1-click checkoff.</p>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {todaysHabits.map((habit, index) => (
-              <HabitTrackerRow key={habit.id} habit={habit} index={index} />
-            ))}
-          </div>
-        )}
-
-        {todaysHabits.length > 0 && (
-          <div className="mt-5 pt-4 border-t border-border space-y-2">
-            <div className="flex justify-between items-center text-caption">
-              <span className="text-secondary font-medium">Daily Completion Rate</span>
-              <span className="text-body font-medium text-primary font-mono">{progressPct}%</span>
+          {todaysHabits.length === 0 ? (
+            <div className="py-6 px-2 text-center">
+              <div className="w-12 h-12 rounded-full bg-surface-hover border border-border flex items-center justify-center mx-auto mb-2 text-muted shadow-2xs">
+                <ClipboardList className="w-5 h-5 stroke-[1.5]" />
+              </div>
+              <h4 className="text-xs font-bold text-primary">No habits for today</h4>
+              <p className="text-[11px] text-muted mt-1 max-w-[210px] mx-auto leading-relaxed">
+                Create habits and add them to your daily routines to see them here.
+              </p>
+              <button
+                type="button"
+                onClick={() => handleOpenCreateWithTime("morning")}
+                className="mt-3 px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-hover text-xs font-medium text-primary flex items-center gap-1.5 mx-auto transition-colors shadow-2xs cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 text-orange-500" />
+                <span>Create Your First Habit</span>
+              </button>
             </div>
-            <div className="h-2 w-full bg-surface-hover rounded-full overflow-hidden border border-border/40">
-              <div
-                className="h-full bg-orange-500 transition-all duration-400 ease-out rounded-full"
-                style={{ width: `${progressPct}%` }}
-              />
+          ) : (
+            <div className="space-y-2">
+              {todaysHabits.map((habit, index) => (
+                <HabitTrackerRow key={habit.id} habit={habit} index={index} />
+              ))}
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Planner Bridge Card */}
-      <div className="rounded-2xl border border-border/80 bg-surface p-4 shadow-xs flex items-start gap-3">
-        <div className="w-8 h-8 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0 border border-accent/20">
-          <Pin className="w-4 h-4 fill-current" />
+          )}
         </div>
-        <div className="min-w-0">
-          <h3 className="text-xs font-bold text-primary">Planner Synchronization</h3>
-          <p className="text-[11px] text-secondary mt-0.5 leading-relaxed">
-            Pin core daily routines with the 📌 icon to view and complete them directly on your 7-Day Weekly Matrix.
+
+        {/* Motivational Quote Card */}
+        <div className="rounded-2xl border border-border/80 bg-surface/60 p-4 shadow-xs flex items-center gap-3">
+          <span className="text-3xl text-muted/30 font-serif leading-none select-none">❝</span>
+          <p className="text-xs italic text-secondary leading-relaxed">
+            Small steps every day lead to big changes.
           </p>
         </div>
       </div>
+
+      <LearnHabitsModal
+        open={learnModalOpen}
+        onClose={() => setLearnModalOpen(false)}
+      />
+
+      <HabitCreateModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        defaultTimeOfDay={defaultTimeOfDay}
+        onSubmit={(data) => createHabitMutation.mutate(data)}
+        isSubmitting={createHabitMutation.isPending}
+        goals={goals}
+      />
+
+      {editingHabit && (
+        <HabitEditModal
+          open={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false);
+            setEditingHabit(null);
+          }}
+          onSubmit={(data) =>
+            editHabitMutation.mutate({ id: editingHabit.id, payload: data })
+          }
+          isSubmitting={editHabitMutation.isPending}
+          goals={goals}
+          initialData={editingHabit}
+        />
+      )}
     </div>
-
-  {/* Floating edge slide handle button when collapsed */}
-  {!todayTrackerOpen && (
-    <button
-      type="button"
-      onClick={toggleTodayTracker}
-      className="fixed lg:absolute right-0 top-1/2 -translate-y-1/2 z-30 bg-surface/90 hover:bg-surface border-y border-l border-border hover:border-orange-500/40 text-secondary hover:text-orange-500 shadow-md backdrop-blur-md py-3.5 px-1.5 rounded-l-xl flex flex-col items-center gap-2 group cursor-pointer transition-all hover:pr-2.5 animate-in fade-in slide-in-from-right-2 duration-200"
-      title="Slide to show Today's Tracker"
-    >
-      <ChevronLeft className="w-4 h-4 text-orange-500 group-hover:-translate-x-0.5 transition-transform" />
-      <span className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-mono font-bold tracking-wider uppercase text-secondary group-hover:text-primary">
-        Today's Tracker
-      </span>
-      <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-    </button>
-  )}
-
-  <HabitCreateModal
- open={createModalOpen}
- onClose={() => setCreateModalOpen(false)}
- onSubmit={(data) => createHabitMutation.mutate(data)}
- isSubmitting={createHabitMutation.isPending}
- goals={goals}
- />
-
- {editingHabit && (
- <HabitEditModal
- open={editModalOpen}
- onClose={() => {
- setEditModalOpen(false);
- setEditingHabit(null);
- }}
- onSubmit={(data) =>
- editHabitMutation.mutate({ id: editingHabit.id, payload: data })
- }
- isSubmitting={editHabitMutation.isPending}
- goals={goals}
- initialData={editingHabit}
- />
- )}
- </div>
- );
+  );
 }
