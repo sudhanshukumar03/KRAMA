@@ -97,7 +97,8 @@ export function usePlannerWeek() {
   const createTimeBlockMutation = useMutation({
     mutationFn: plannerApi.createTimeBlock,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['planner', 'week', weekStart] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['plannerDay'] });
     },
     onError: (err: any) => {
       toast.error('Failed to create time block: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
@@ -108,6 +109,7 @@ export function usePlannerWeek() {
     mutationFn: (args: { id: string, data: any }) => api.planner.updateTimeBlock(args.id, args.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['plannerDay'] });
     },
     onError: (err: any) => {
       toast.error('Failed to update time block: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
@@ -118,6 +120,7 @@ export function usePlannerWeek() {
     mutationFn: (id: string) => api.planner.deleteTimeBlock(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['plannerDay'] });
       toast.success('Time block deleted');
     },
     onError: (err: any) => {

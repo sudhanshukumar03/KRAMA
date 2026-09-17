@@ -236,15 +236,49 @@ export function TodayView({
 
   const formatTime = (iso: string) => {
     try {
+      if (!iso) return '';
+      if (typeof iso === 'string' && !iso.includes('T') && iso.includes(':')) {
+        return iso.slice(0, 5);
+      }
       return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
     } catch {
       return '';
     }
   };
 
+  const getHHMM = (isoOrTime: string) => {
+    try {
+      if (!isoOrTime) return '09:00';
+      if (typeof isoOrTime === 'string' && !isoOrTime.includes('T') && isoOrTime.includes(':')) {
+        const [h, m] = isoOrTime.split(':').map(Number);
+        return `${String(h || 0).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
+      }
+      const d = new Date(isoOrTime);
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    } catch {
+      return '09:00';
+    }
+  };
+
   const getDurationString = (startIso: string, endIso: string) => {
     try {
-      const mins = Math.max(0, Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000));
+      let sMin = 0;
+      let eMin = 0;
+      if (typeof startIso === 'string' && startIso.includes('T')) {
+        const s = new Date(startIso);
+        sMin = s.getHours() * 60 + s.getMinutes();
+      } else if (typeof startIso === 'string' && startIso.includes(':')) {
+        const [h, m] = startIso.split(':').map(Number);
+        sMin = (h || 0) * 60 + (m || 0);
+      }
+      if (typeof endIso === 'string' && endIso.includes('T')) {
+        const e = new Date(endIso);
+        eMin = e.getHours() * 60 + e.getMinutes();
+      } else if (typeof endIso === 'string' && endIso.includes(':')) {
+        const [h, m] = endIso.split(':').map(Number);
+        eMin = (h || 0) * 60 + (m || 0);
+      }
+      const mins = Math.max(0, eMin - sMin);
       if (mins < 60) return `${mins}m`;
       const h = Math.floor(mins / 60);
       const rem = mins % 60;
@@ -680,8 +714,8 @@ export function TodayView({
                         <div 
                           onClick={() => onAddTimeBlock && onAddTimeBlock(day, {
                             date: targetDateStr,
-                            startTime: formatTime(tb.endTime),
-                            endTime: formatTime(nextTb.startTime),
+                            startTime: getHHMM(tb.endTime),
+                            endTime: getHHMM(nextTb.startTime),
                             type: 'WORK'
                           })}
                           className="my-1 py-1.5 px-3 rounded-lg border border-dashed border-border/80 hover:border-accent/50 hover:bg-accent/5 text-[11px] font-medium text-secondary hover:text-accent flex items-center justify-between cursor-pointer transition-colors group/gap"

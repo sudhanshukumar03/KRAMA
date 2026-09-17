@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Calendar as CalendarIcon, Clock, Briefcase, User, GraduationCap, HeartPulse, Shield, Grid, Trash2 } from 'lucide-react';
 import type { TimeBlockType } from '../../types/planner';
 
@@ -33,9 +33,13 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  const [projectId, setProjectId] = useState('');
  const [notes, setNotes] = useState('');
  const [error, setError] = useState('');
+ const prevOpenRef = useRef(false);
 
   useEffect(() => {
-    if (open) {
+    const justOpened = open && !prevOpenRef.current;
+    prevOpenRef.current = open;
+
+    if (justOpened || (open && editingBlock?.id)) {
       if (editingBlock) {
         setTitle(editingBlock.title || '');
         if (editingBlock.date) {
@@ -116,9 +120,9 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  
  {/* Header */}
  <div className="flex items-center justify-between p-4 border-b border-border bg-slate-50/50 rounded-t-2xl">
- <h2 className="text-sm font-bold text-primary">{editingBlock ? 'Edit Time Block' : 'Add Time Block'}</h2>
+ <h2 className="text-sm font-bold text-primary">{editingBlock?.id ? 'Edit Time Block' : 'Add Time Block'}</h2>
  <div className="flex items-center gap-2">
- {editingBlock && onDelete && (
+ {editingBlock?.id && onDelete && (
  <button onClick={onDelete} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors" type="button">
  <Trash2 className="w-4 h-4" />
  </button>
