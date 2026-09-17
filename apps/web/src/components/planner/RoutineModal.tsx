@@ -50,7 +50,7 @@ export function RoutineModal({ open, onClose }: Props) {
  ) : unpinnedHabits.length === 0 ? (
  <div className="text-center py-6 px-4">
  <p className="text-sm text-primary font-medium mb-2">No available routines to pin.</p>
- <p className="text-[11px] text-muted">Go to the Daily Schedule to create more routines and habits, or unpin some to see them here.</p>
+ <p className="text-[11px] text-muted">Go to Habits in the sidebar to create more routines and habits, or unpin some to see them here.</p>
  </div>
  ) : (
  <div className="space-y-2">
