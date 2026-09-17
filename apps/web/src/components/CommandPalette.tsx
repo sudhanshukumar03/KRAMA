@@ -27,7 +27,6 @@ const typeIcons: Record<string, React.ReactNode> = {
  issue: <ListChecks className="w-4 h-4 text-[#2563EB]" />,
  project: <FolderKanban className="w-4 h-4 text-[#2563EB]" />,
  goal: <Target className="w-4 h-4 text-[#0D9488]" />,
- decision: <Scale className="w-4 h-4 text-[#D97706]" />,
 };
 
 const typeColors: Record<string, string> = {
@@ -35,7 +34,6 @@ const typeColors: Record<string, string> = {
  issue: 'text-[#2563EB] bg-[#2563EB]/10',
  project: 'text-[#2563EB] bg-[#2563EB]/10',
  goal: 'text-[#0D9488] bg-[#0D9488]/10',
- decision: 'text-[#D97706] bg-[#D97706]/10',
 };
 
 const typeLabels: Record<string, string> = {
@@ -43,7 +41,6 @@ const typeLabels: Record<string, string> = {
  issue: 'Active Issues & Tickets',
  project: 'Engineering Projects',
  goal: 'Strategic Goals',
- decision: 'Decision Log',
 };
 
 export function CommandPalette() {
