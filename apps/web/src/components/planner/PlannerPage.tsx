@@ -167,17 +167,17 @@ export function PlannerPage() {
  }
  });
 
- const deleteRoutineMutation = useMutation({
- mutationFn: (id: string) => api.habits.delete(id),
- onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['planner'] });
- queryClient.invalidateQueries({ queryKey: ['habits'] });
- toast.success('Routine deleted');
- },
- onError: (err: any) => {
- toast.error('Failed to delete routine: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
- }
- });
+  const deleteRoutineMutation = useMutation({
+    mutationFn: (id: string) => api.habits.update(id, { pinnedToPlanner: false }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      toast.success('Routine unpinned from planner');
+    },
+    onError: (err: any) => {
+      toast.error('Failed to unpin routine: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+    }
+  });
 
  if (isLoading) {
  return <PlannerSkeleton />;

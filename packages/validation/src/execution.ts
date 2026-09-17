@@ -74,6 +74,8 @@ export const CreateHabitSchema = WorkspaceScoped.extend({
   cadence: z.enum(["daily", "weekly"]).optional(),
   scheduledDays: z.array(z.number().int().min(0).max(6)).optional(),
   timeOfDay: z.enum(["morning", "afternoon", "evening", "anytime"]).optional(),
+  pinnedToPlanner: z.boolean().optional(),
+  metadata: z.any().optional(),
   skillIds: z.array(z.string()).optional(),
 });
 

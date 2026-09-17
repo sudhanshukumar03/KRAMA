@@ -4,7 +4,7 @@
 // The core 7-day grid with: Routines, Tasks, Schedule, Projects
 
 import { format, isSameDay, parseISO } from "date-fns";
-import { Plus, CheckCircle2, Circle, ChevronDown, ChevronUp, CircleDot, Target, Clock, Trash2, Users, User, BookOpen, Briefcase, Heart, FileText, Hash } from "lucide-react";
+import { Plus, CheckCircle2, Circle, ChevronDown, ChevronUp, CircleDot, Target, Clock, Trash2, PinOff, Users, User, BookOpen, Briefcase, Heart, FileText, Hash } from "lucide-react";
 import { useState, useMemo, memo } from "react";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
 import { cn } from "../../lib/utils";
@@ -503,10 +503,10 @@ export function PlannerMatrix({
                             e.preventDefault();
                             onDeleteRoutine(routine);
                           }}
-                          className="absolute right-1 opacity-0 group-hover/routine:opacity-100 p-0.5 hover:bg-error-tint text-error rounded transition-opacity shrink-0"
-                          title="Delete schedule item"
+                          className="absolute right-1 opacity-0 group-hover/routine:opacity-100 p-0.5 hover:bg-surface-hover text-muted hover:text-primary rounded transition-opacity shrink-0"
+                          title="Unpin routine from planner"
                         >
-                          <Trash2 size={10} />
+                          <PinOff size={11} />
                         </button>
                       )}
                     </div>
