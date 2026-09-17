@@ -4,10 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { toast } from 'sonner';
 import { 
-  Home, BookOpen, Target, Network, GraduationCap,
-  Calendar, Clock4, KanbanSquare, Clock, TrendingUp,
+  Home, BookOpen, Target, Network,
+  Calendar, KanbanSquare, Clock, TrendingUp,
   Search, LogOut, Moon, Sun, Download, X, 
-  Zap, ChevronDown, ChevronRight, Settings, User, Layers,
+  ChevronDown, ChevronRight, Settings, User, Layers,
   PanelLeftClose
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
@@ -16,23 +16,22 @@ import { cn } from '../lib/utils';
 import { KramaLogo } from './ui/KramaLogo';
 
 interface NavItem {
- name: string;
- path: string;
- icon: any;
- shortcut?: string;
- badgeKey: string | null;
+  name: string;
+  path: string;
+  icon: any;
+  shortcut?: string;
+  badgeKey: string | null;
 }
 
 // 5 Rule-of-5-7 Groups per KRAMA UI Design Direction
 const overviewItems: NavItem[] = [
- { name: 'Dashboard', path: '/app/', icon: Home, shortcut: 'G D', badgeKey: null },
+  { name: 'Dashboard', path: '/app/', icon: Home, shortcut: 'G D', badgeKey: null },
 ];
 
 const planAndExecuteItems: NavItem[] = [
   { name: 'Execution Board', path: '/app/board', icon: KanbanSquare, shortcut: 'E K', badgeKey: 'openIssues' },
   { name: 'Sprint', path: '/app/sprint', icon: Clock, shortcut: 'E S', badgeKey: 'sprintIssues' },
   { name: 'Planner', path: '/app/planner', icon: Calendar, shortcut: 'E W', badgeKey: null },
-  { name: 'Schedule', path: '/app/timeline', icon: Clock4, shortcut: 'E T', badgeKey: null },
 ];
 
 const strategyItems: NavItem[] = [
@@ -42,14 +41,12 @@ const strategyItems: NavItem[] = [
 ];
 
 const knowledgeItems: NavItem[] = [
- { name: 'Brain Workspace', path: '/app/brain', icon: BookOpen, shortcut: 'G B', badgeKey: 'pages' },
- { name: 'Knowledge Graph', path: '/app/graph', icon: Network, shortcut: 'G K', badgeKey: null },
+  { name: 'Brain Workspace', path: '/app/brain', icon: BookOpen, shortcut: 'G B', badgeKey: 'pages' },
+  { name: 'Knowledge Graph', path: '/app/graph', icon: Network, shortcut: 'G K', badgeKey: null },
 ];
 
 const systemItems: NavItem[] = [
- { name: 'Analytics', path: '/app/analytics', icon: TrendingUp, shortcut: 'S N', badgeKey: null },
- { name: 'Skills & Mastery', path: '/app/career', icon: GraduationCap, shortcut: 'S S', badgeKey: null },
- { name: 'Automations', path: '/app/automations', icon: Zap, shortcut: 'S A', badgeKey: null },
+  { name: 'Analytics', path: '/app/analytics', icon: TrendingUp, shortcut: 'S N', badgeKey: null },
 ];
 
 export function Sidebar({ 

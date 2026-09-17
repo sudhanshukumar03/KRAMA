@@ -17,7 +17,7 @@ import { TimeBlockModal } from './TimeBlockModal';
 import { RoutineModal } from './RoutineModal';
 import { QuickCaptureModal } from '../ui/QuickCaptureModal';
 import { toast } from 'sonner';
-import { } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { IssueEditModal } from '../KanbanBoard';
@@ -26,12 +26,16 @@ import { CapacitySettingsModal } from './CapacitySettingsModal';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function PlannerPage() {
- const { user } = useAuth();
-  const [mode, setMode] = useState<'plan' | 'calendar' | 'day'>('plan');
+  const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlMode = searchParams.get('mode');
+  const initialMode = (urlMode === 'day' || urlMode === 'schedule') ? 'day' : urlMode === 'calendar' ? 'calendar' : 'plan';
+  const [mode, setMode] = useState<'plan' | 'calendar' | 'day'>(initialMode);
   const [previousMode, setPreviousMode] = useState<'plan' | 'calendar'>('plan');
-  const [viewDay, setViewDay] = useState<Date>(new Date());
+  const dateParam = searchParams.get('date');
+  const [viewDay, setViewDay] = useState<Date>(() => dateParam ? new Date(dateParam) : new Date());
   const [calendarDate, setCalendarDate] = useState(new Date());
- const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
  useEffect(() => {
     const handleGoogleSync = async () => {
@@ -177,10 +181,12 @@ export function PlannerPage() {
     setViewDay(day);
     setPreviousMode(mode === 'calendar' ? 'calendar' : 'plan');
     setMode('day');
+    setSearchParams({ mode: 'day', date: format(day, 'yyyy-MM-dd') });
   };
 
   const handleBackFromDayView = () => {
     setMode(previousMode);
+    setSearchParams(previousMode === 'plan' ? {} : { mode: previousMode });
   };
 
   const headerTitle = mode === 'plan' 
@@ -283,7 +289,8 @@ export function PlannerPage() {
           mode={mode}
           onModeChange={(m) => {
             setMode(m);
-            setPreviousMode(m);
+            if (m !== 'day') setPreviousMode(m);
+            setSearchParams(m === 'plan' ? {} : { mode: m });
           }}
           title={headerTitle}
           subtitle={headerSubtitle}

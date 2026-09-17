@@ -15,11 +15,8 @@ import { Projects } from './Projects';
 import { SprintView } from './SprintView';
 import { ProjectDetail } from './ProjectDetail';
 import { PlannerPage } from './planner/PlannerPage';
-import { TimelineView } from './TimelineView';
 import { HabitTracker } from './HabitTracker';
 import { KnowledgeGraph } from './KnowledgeGraph';
-import { AutomationRules } from './AutomationRules';
-import { SkillsModule } from './SkillsModule';
 import { AIAssistant } from './AIAssistant';
 import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun, PanelLeftOpen } from 'lucide-react';
 import { useTheme } from '../lib/theme';
@@ -263,13 +260,13 @@ export function AppShell() {
  <Route path="/sprint/*" element={<SprintView />} />
  <Route path="/operations/*" element={<Navigate to="/app/sprint?tab=operations" replace />} />
  <Route path="/planner/*" element={<PlannerPage />} />
- <Route path="/timeline/*" element={<TimelineView />} />
+ <Route path="/timeline/*" element={<Navigate to="/app/planner?mode=day" replace />} />
  <Route path="/habits/*" element={<HabitTracker />} />
  <Route path="/analytics/*" element={<Analytics />} />
  <Route path="/decisions" element={<Navigate to="/app/brain" replace />} />
  <Route path="/graph" element={<KnowledgeGraph />} />
- <Route path="/automations" element={<AutomationRules />} />
- <Route path="/career" element={<SkillsModule />} />
+ <Route path="/automations" element={<Navigate to="/app/" replace />} />
+ <Route path="/career" element={<Navigate to="/app/" replace />} />
  </Routes></GlobalErrorBoundary>
  </main>
  </div>

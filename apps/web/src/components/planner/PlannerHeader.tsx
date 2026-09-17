@@ -3,7 +3,7 @@ import React from 'react';
 
 interface Props {
   mode: 'plan' | 'calendar' | 'day';
-  onModeChange: (mode: 'plan' | 'calendar') => void;
+  onModeChange: (mode: 'plan' | 'calendar' | 'day') => void;
   title: string;
   subtitle: string;
   weekRangeLabel?: string;
@@ -14,7 +14,6 @@ interface Props {
     lastSyncedAt?: string | null;
   } | null;
   calendarView?: 'month' | 'week' | 'list';
-  
   localOnly?: boolean;
   onLocalOnlyChange?: (val: boolean) => void;
   countryRegion?: string;
@@ -48,29 +47,40 @@ export function PlannerHeader({
           <h1 className="text-lg font-bold tracking-tight">Planner</h1>
         </div>
 
-        {/* TABS (Segmented Pill Switcher) */}
-        <div className="flex items-center p-0.5 rounded-lg bg-surface border border-border">
+        {/* TABS (Segmented Pill Switcher with WEEK, SCHEDULE, MONTH) */}
+        <div className="flex items-center p-0.5 rounded-lg bg-surface border border-border shadow-2xs">
           <button
             type="button"
             onClick={() => onModeChange('plan')}
-            className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+            className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
               mode === 'plan'
                 ? 'bg-accent text-white shadow-sm'
                 : 'text-secondary hover:text-primary hover:bg-surface-hover'
             }`}
           >
-            PLAN
+            WEEK
+          </button>
+          <button
+            type="button"
+            onClick={() => onModeChange('day')}
+            className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+              mode === 'day'
+                ? 'bg-accent text-white shadow-sm'
+                : 'text-secondary hover:text-primary hover:bg-surface-hover'
+            }`}
+          >
+            SCHEDULE
           </button>
           <button
             type="button"
             onClick={() => onModeChange('calendar')}
-            className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+            className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
               mode === 'calendar'
                 ? 'bg-accent text-white shadow-sm'
                 : 'text-secondary hover:text-primary hover:bg-surface-hover'
             }`}
           >
-            CALENDAR
+            MONTH
           </button>
         </div>
       </div>
@@ -79,7 +89,7 @@ export function PlannerHeader({
       <div className="flex items-center gap-2">
         <button 
           onClick={() => onNavigate('today')}
-          className="flex items-center gap-1 px-2.5 py-1 border border-border rounded-lg text-xs font-bold text-primary hover:bg-surface-hover transition-colors shadow-sm"
+          className="flex items-center gap-1 px-2.5 py-1 border border-border rounded-lg text-xs font-bold text-primary hover:bg-surface-hover transition-colors shadow-sm cursor-pointer"
         >
           <ArrowLeft size={12} className="text-secondary" /> Today
         </button>
@@ -87,13 +97,13 @@ export function PlannerHeader({
         <div className="flex items-center gap-0.5">
           <button
             onClick={() => onNavigate('prev')}
-            className="p-1 bg-surface border border-border rounded-md text-secondary hover:bg-surface-hover hover:text-primary transition-colors shadow-sm"
+            className="p-1 bg-surface border border-border rounded-md text-secondary hover:bg-surface-hover hover:text-primary transition-colors shadow-sm cursor-pointer"
           >
             <ChevronLeft size={15} />
           </button>
           <button
             onClick={() => onNavigate('next')}
-            className="p-1 bg-surface border border-border rounded-md text-secondary hover:bg-surface-hover hover:text-primary transition-colors shadow-sm"
+            className="p-1 bg-surface border border-border rounded-md text-secondary hover:bg-surface-hover hover:text-primary transition-colors shadow-sm cursor-pointer"
           >
             <ChevronRight size={15} />
           </button>
@@ -116,7 +126,7 @@ export function PlannerHeader({
             const event = new CustomEvent('oauth-google-sync');
             window.dispatchEvent(event);
           }}
-          className="flex items-center gap-1.5 px-2.5 py-1 bg-surface hover:bg-surface-hover border border-border rounded-lg text-[11px] font-bold text-accent transition-colors shadow-sm"
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-surface hover:bg-surface-hover border border-border rounded-lg text-[11px] font-bold text-accent transition-colors shadow-sm cursor-pointer"
         >
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24"><path fill="currentColor" d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.761H12.545z"></path></svg>
           <span>Sync</span>
