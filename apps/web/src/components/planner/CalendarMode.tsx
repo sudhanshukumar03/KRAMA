@@ -2,8 +2,6 @@ import { useMemo } from "react";
 import { 
   format, 
   parseISO, 
-  startOfMonth, 
-  endOfMonth, 
   eachDayOfInterval, 
   isSameMonth, 
   isSameDay, 
@@ -65,10 +63,10 @@ export function CalendarMode({
 
   const { data: monthData, isLoading: isHolidaysLoading } = useHolidays(currentCountry, currentRegion, calendarDate);
 
-  let holidays = monthData?.holidays || [];
-  if (localOnly) {
-    holidays = holidays.filter((h: any) => h.isPublicHoliday);
-  }
+  const holidays = useMemo(() => {
+    const raw = monthData?.holidays || [];
+    return localOnly ? raw.filter((h: any) => h.isPublicHoliday) : raw;
+  }, [monthData?.holidays, localOnly]);
 
   // Filter holidays belonging to the active month for the sidebar
   const currentMonthKey = format(calendarDate, 'yyyy-MM');

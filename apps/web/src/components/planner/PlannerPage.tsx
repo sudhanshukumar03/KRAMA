@@ -3,7 +3,7 @@
 // =============================================================================
 // Top-level page component orchestrating the planner system
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { format, addMonths, subMonths, addDays } from 'date-fns';
 import { usePlannerWeek } from '../../hooks/usePlannerWeek';
@@ -23,10 +23,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { IssueEditModal } from '../KanbanBoard';
 import { LocationSettingsModal, COUNTRIES, INDIAN_STATES } from './LocationSettingsModal';
 import { CapacitySettingsModal } from './CapacitySettingsModal';
-import { useAuth } from '../../contexts/AuthContext';
 
 export function PlannerPage() {
-  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlMode = searchParams.get('mode');
   const initialMode = (urlMode === 'day' || urlMode === 'schedule') ? 'day' : urlMode === 'calendar' ? 'calendar' : 'plan';
