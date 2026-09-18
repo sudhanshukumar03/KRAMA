@@ -171,6 +171,7 @@ model Workspace {
   focusSessions   FocusSession[]
   decisions       Decision[]
   automationRules AutomationRule[]
+  tags            Tag[]
 }
 
 model WorkspaceMember {
@@ -395,10 +396,13 @@ model Space {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+  order     Int       @default(0)
 
-  pages    Page[]
-  projects Project[]
-  goals    Goal[]
+  pages     Page[]
+  projects  Project[]
+  goals     Goal[]
+  folders   Folder[]
+  documents Document[]
 }
 
 model Page {
@@ -427,6 +431,126 @@ model Page {
   version   Int       @default(1)
 
   knowledgeChunks KnowledgeChunk[]
+}
+
+model Folder {
+  id             String   @id @default(cuid())
+  spaceId        String
+  space          Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  parentFolderId String?
+  parentFolder   Folder?  @relation("FolderHierarchy", fields: [parentFolderId], references: [id])
+  childFolders   Folder[] @relation("FolderHierarchy")
+  name           String
+  color          String?
+  order          Int      @default(0)
+
+  documents Document[]
+
+  @@index([spaceId])
+}
+
+enum DocumentType {
+  SPEC
+  NOTE
+  MEETING
+  IDEA
+  RFC
+  GENERAL
+}
+
+model Document {
+  id              String       @id @default(cuid())
+  spaceId         String
+  space           Space        @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  folderId        String?
+  folder          Folder?      @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  parentId        String?
+  parent          Document?    @relation("DocumentHierarchy", fields: [parentId], references: [id])
+  children        Document[]   @relation("DocumentHierarchy")
+  projectId       String?
+
+  title           String
+  subtitle        String?
+  icon            String?
+  contentJson     Json
+  contentMarkdown String       @db.Text
+  statusBadges    String[]
+  documentType    DocumentType @default(GENERAL)
+  isFavorite      Boolean      @default(false)
+  wordCount       Int          @default(0)
+  charCount       Int          @default(0)
+  searchVector    Unsupported("tsvector")?
+  deletedAt       DateTime?
+  createdById     String
+  lastEditedById  String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  versions        DocumentVersion[]
+  tags            DocumentTag[]
+
+  @@index([spaceId, deletedAt])
+  @@index([parentId])
+  @@index([projectId])
+}
+
+model DocumentVersion {
+  id            String   @id @default(cuid())
+  documentId    String
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  contentJson   Json
+  editedById    String
+  createdAt     DateTime @default(now())
+
+  @@unique([documentId, versionNumber])
+}
+
+model Tag {
+  id          String        @id @default(cuid())
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  color       String?
+
+  documents   DocumentTag[]
+
+  @@unique([workspaceId, name])
+}
+
+model DocumentTag {
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tagId      String
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, tagId])
+}
+
+enum EntityType {
+  DOCUMENT
+  PROJECT
+  TASK
+  MEETING
+}
+
+enum LinkType {
+  REFERENCE
+  RELATED
+}
+
+model EntityLink {
+  id          String     @id @default(cuid())
+  sourceType  EntityType
+  sourceId    String
+  targetType  EntityType
+  targetId    String
+  linkType    LinkType   @default(REFERENCE)
+  createdById String
+  createdAt   DateTime   @default(now())
+
+  @@unique([sourceType, sourceId, targetType, targetId, linkType])
+  @@index([targetType, targetId])
 }
 
 model Decision {

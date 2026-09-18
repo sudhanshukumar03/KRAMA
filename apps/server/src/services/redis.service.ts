@@ -103,6 +103,23 @@ class RedisService {
     }
     return count;
   }
+
+  async incr(key: string): Promise<number> {
+    if (this.isConnected && this.client.isOpen) {
+      try {
+        return await this.client.incr(key);
+      } catch {
+        // Fallback to memory
+      }
+    }
+    const item = this.memoryStore.get(key);
+    let val = 1;
+    if (item && !isNaN(Number(item.value))) {
+      val = Number(item.value) + 1;
+    }
+    this.memoryStore.set(key, { value: val.toString() });
+    return val;
+  }
 }
 
 export const redisService = new RedisService();

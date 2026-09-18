@@ -7,6 +7,7 @@ export const QUEUE_NAMES = {
   SPRINT_REPORT: 'sprint-report',
   ANALYTICS: 'analytics',
   EMBEDDING: 'embedding',
+  DOCUMENT_VERSION: 'document-version',
 };
 
 // Common queue options
@@ -49,4 +50,11 @@ export const embeddingQueue = new Queue(QUEUE_NAMES.EMBEDDING, {
   defaultJobOptions,
 });
 embeddingQueue.on('error', () => {});
+
+export const documentVersionQueue = new Queue(QUEUE_NAMES.DOCUMENT_VERSION, {
+  connection,
+  defaultJobOptions,
+});
+documentVersionQueue.on('error', () => {});
+
 

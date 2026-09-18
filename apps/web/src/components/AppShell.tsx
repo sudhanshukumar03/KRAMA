@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { GlobalErrorBoundary } from './ui/GlobalErrorBoundary';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
-import { Analytics } from './Analytics';
+
 import { Sidebar } from './Sidebar';
 import { KanbanBoard } from './KanbanBoard';
 import { BrainWorkspace } from './BrainWorkspace';
@@ -16,7 +16,7 @@ import { SprintView } from './SprintView';
 import { ProjectDetail } from './ProjectDetail';
 import { PlannerPage } from './planner/PlannerPage';
 import { HabitTracker } from './HabitTracker';
-import { KnowledgeGraph } from './KnowledgeGraph';
+
 import { AIAssistant } from './AIAssistant';
 import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun, PanelLeftOpen } from 'lucide-react';
 import { useTheme } from '../lib/theme';
@@ -124,8 +124,7 @@ export function AppShell() {
  } else if (activePrefix === 't') {
  if (key === 't') toggleTheme();
  } else if (activePrefix === 's') {
- if (key === 'n') navigate('/app/analytics');
- else if (key === 'a') window.dispatchEvent(new CustomEvent('open-ai-assistant'));
+ if (key === 'a') window.dispatchEvent(new CustomEvent('open-ai-assistant'));
  }
  setActivePrefix(null);
  clearTimeout(timeoutId);
@@ -262,9 +261,9 @@ export function AppShell() {
  <Route path="/planner/*" element={<PlannerPage />} />
  <Route path="/timeline/*" element={<Navigate to="/app/planner?mode=day" replace />} />
  <Route path="/habits/*" element={<HabitTracker />} />
- <Route path="/analytics/*" element={<Analytics />} />
+ <Route path="/analytics/*" element={<Navigate to="/app/" replace />} />
  <Route path="/decisions" element={<Navigate to="/app/brain" replace />} />
- <Route path="/graph" element={<KnowledgeGraph />} />
+ <Route path="/graph" element={<Navigate to="/app/brain" replace />} />
  <Route path="/automations" element={<Navigate to="/app/" replace />} />
  <Route path="/career" element={<Navigate to="/app/" replace />} />
  </Routes></GlobalErrorBoundary>
@@ -287,7 +286,7 @@ export function AppShell() {
  <div className="text-[10px] text-muted pl-2 border-l border-white/10">
  {activePrefix === 'g' ? 'D (Dash), B (Brain), G (Goals), P (Proj)' : 
  activePrefix === 'e' ? 'W (Plan), T (Time), K (Board), S (Sprint), H (Habit)' :
- activePrefix === 's' ? 'N (Analytics)' : 'T (Toggle Theme)'}
+ activePrefix === 's' ? 'A (AI Assistant)' : 'T (Toggle Theme)'}
  </div>
  </div>
  )}

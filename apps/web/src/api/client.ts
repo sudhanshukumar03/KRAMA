@@ -99,6 +99,89 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
   }
 }
 
+async function streamDocumentAi(
+  url: string,
+  body: Record<string, any>,
+  onChunk: (text: string) => void,
+  onDone: () => void,
+  onError: (err: any) => void,
+  signal?: AbortSignal
+) {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (currentAccessToken) headers['Authorization'] = `Bearer ${currentAccessToken}`;
+    if (currentWorkspaceId) headers['x-workspace-id'] = currentWorkspaceId;
+
+    const res = await fetch(`${API_BASE}${url}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      credentials: 'include',
+      signal,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: res.statusText }));
+      throw new Error(err.message || 'Stream request failed');
+    }
+
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error('No readable stream');
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('data: ')) {
+          const payload = trimmed.slice(6);
+          if (payload === '[DONE]') {
+            onDone();
+            return;
+          }
+          try {
+            const parsed = JSON.parse(payload);
+            if (parsed.text) onChunk(parsed.text);
+          } catch {}
+        }
+      }
+    }
+    onDone();
+  } catch (err: any) {
+    if (signal?.aborted) return;
+    onError(err);
+  }
+}
+
+async function downloadDocumentExport(id: string, format: 'md' | 'spec', filename?: string) {
+  const headers: Record<string, string> = {};
+  if (currentAccessToken) headers['Authorization'] = `Bearer ${currentAccessToken}`;
+  if (currentWorkspaceId) headers['x-workspace-id'] = currentWorkspaceId;
+
+  const res = await fetch(`${API_BASE}/documents/${id}/export?format=${format}`, {
+    headers,
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to export document');
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || `document-${id}.${format === 'spec' ? 'spec.md' : 'md'}`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+}
+
 export const api = {
   setAccessToken: (token: string | null) => { currentAccessToken = token; },
   setWorkspaceId: (wid: string | null) => { currentWorkspaceId = wid; },
@@ -159,6 +242,37 @@ export const api = {
     update: (id: string, data: Record<string, any>) => fetchApi<PageWithRelations>(`/pages/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/pages/${id}`, { method: 'DELETE' }),
     restore: (id: string) => fetchApi<any>(`/pages/${id}/restore`, { method: 'POST' }),
+  },
+  documents: {
+    list: () => fetchApi<any[]>('/documents'),
+    get: (id: string) => fetchApi<any>(`/documents/${id}`),
+    create: (data: Record<string, any>) => fetchApi<any>('/documents', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, any>) => fetchApi<any>(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    updateContent: (id: string, contentJson: any) => fetchApi<any>(`/documents/${id}/content`, { method: 'PATCH', body: JSON.stringify({ contentJson }) }),
+    delete: (id: string) => fetchApi<{ message: string }>(`/documents/${id}`, { method: 'DELETE' }),
+    restore: (id: string) => fetchApi<any>(`/documents/${id}/restore`, { method: 'POST' }),
+    move: (id: string, data: { targetFolderId?: string | null; targetParentId?: string | null }) => 
+      fetchApi<any>(`/documents/${id}/move`, { method: 'POST', body: JSON.stringify(data) }),
+    duplicate: (id: string) => fetchApi<any>(`/documents/${id}/duplicate`, { method: 'POST' }),
+    favorite: (id: string) => fetchApi<any>(`/documents/${id}/favorite`, { method: 'POST' }),
+    importSpec: (data: { content: string; spaceId?: string; parentId?: string }) => 
+      fetchApi<any>('/documents/import', { method: 'POST', body: JSON.stringify(data) }),
+    getVersions: (id: string) => fetchApi<any[]>(`/documents/${id}/versions`),
+    createVersion: (id: string) => fetchApi<any>(`/documents/${id}/versions`, { method: 'POST' }),
+    restoreVersion: (id: string, versionId: string) => fetchApi<any>(`/documents/${id}/versions/${versionId}/restore`, { method: 'POST' }),
+    getTags: (workspaceId: string) => fetchApi<any[]>(`/workspaces/${workspaceId}/tags`),
+    addTag: (id: string, tagName: string, color?: string) => fetchApi<any>(`/documents/${id}/tags`, { method: 'POST', body: JSON.stringify({ tagName, color }) }),
+    removeTag: (id: string, tagId: string) => fetchApi<any>(`/documents/${id}/tags/${tagId}`, { method: 'DELETE' }),
+    getLinks: (id: string) => fetchApi<{ outgoing: any[]; incoming: any[] }>(`/documents/${id}/links`),
+    addLink: (id: string, data: { targetType: string; targetId: string; linkType?: string }) => fetchApi<any>(`/documents/${id}/links`, { method: 'POST', body: JSON.stringify(data) }),
+    removeLink: (linkId: string) => fetchApi<any>(`/links/${linkId}`, { method: 'DELETE' }),
+    search: (workspaceId: string, q: string) => fetchApi<any[]>(`/workspaces/${workspaceId}/search?q=${encodeURIComponent(q)}`),
+    export: (id: string, format: 'md' | 'spec', filename?: string) => downloadDocumentExport(id, format, filename),
+    getGraph: (workspaceId: string) => fetchApi<{ nodes: any[]; links: any[] }>(`/workspaces/${workspaceId}/graph`),
+    aiAsk: (id: string, question: string, onChunk: (text: string) => void, onDone: () => void, onError: (err: any) => void, signal?: AbortSignal) =>
+      streamDocumentAi(`/documents/${id}/ai/ask`, { question }, onChunk, onDone, onError, signal),
+    aiCompose: (id: string, payload: { instruction: string; mode: 'write' | 'improve' | 'explain'; selection?: string }, onChunk: (text: string) => void, onDone: () => void, onError: (err: any) => void, signal?: AbortSignal) =>
+      streamDocumentAi(`/documents/${id}/ai/compose`, payload, onChunk, onDone, onError, signal),
   },
   goals: {
     list: () => fetchApi<GoalWithRelations[]>('/goals'),

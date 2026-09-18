@@ -58,7 +58,15 @@ export const requireWorkspaceRole = (minRole: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VI
     }
 
     // Attempt to extract workspaceId from params, body, query, or headers
-    const workspaceId = req.params.workspaceId || (req.body && req.body.workspaceId) || req.query.workspaceId || (req.headers['x-workspace-id'] as string);
+    let workspaceId = req.params.workspaceId || (req.body && req.body.workspaceId) || req.query.workspaceId || (req.headers['x-workspace-id'] as string) || (req as any).workspaceId;
+    if (!workspaceId) {
+      const firstMembership = await prisma.workspaceMember.findFirst({
+        where: { userId: req.user.id }
+      });
+      if (firstMembership) {
+        workspaceId = firstMembership.workspaceId;
+      }
+    }
     if (!workspaceId) {
       return res.status(400).json({ message: 'workspaceId is required' });
     }

@@ -113,8 +113,11 @@ app.use('/api/v1/planner/holidays', holidayRoutes);
 app.use('/api/v1/planner', plannerRoutes);
 app.use('/api/v1/search', searchRoutes);
 
+import documentRoutes from './routes/document.routes';
+
 app.use('/api/v1/automations', automationRoutes);
 app.use('/api/v1/spaces', spaceRoutes);
+app.use('/api/v1', documentRoutes);
 app.use('/api/v1/career', careerRoutes);
 app.use('/api/v1/upload', uploadRoutes);
 

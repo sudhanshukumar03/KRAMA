@@ -1,13 +1,13 @@
 // UI-only refactor — no data/logic changes
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "../api/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
-  Check, Flame, TrendingUp, Plus, Clock, Sun, Sunset, Moon, Trash2, 
-  Pin, PinOff, Edit2, Sparkles, X, ChevronLeft, ChevronRight, Brain, 
-  Activity, Calendar, Target, Zap, Heart, BookOpen, ClipboardList, Leaf, ArrowRight 
+  Check, Flame, TrendingUp, Plus, Clock, Sun, Sunset, Moon, 
+  Pin, PinOff, Edit2, X, 
+  Calendar, Target, Zap, Heart, ClipboardList, ArrowRight,
+  ChevronLeft, ChevronRight, MoreVertical, Trash2 
 } from 'lucide-react';
-import { ConfirmDeleteButton } from "./ui/ConfirmDeleteButton";
 import { toast } from "sonner";
 import { BaseButton } from "./ui/BaseButton";
 import { EmptyStateInline } from "./ui/EmptyStateInline";
@@ -76,107 +76,7 @@ function PlantIllustration() {
   );
 }
 
-const STARTER_HABITS = [
-  {
-    name: "Morning Sunlight & Hydration",
-    category: "HEALTH",
-    difficulty: "EASY",
-    expectedDurationMinutes: 15,
-    timeOfDay: "morning",
-    icon: "Sun",
-    description: "Hydrate and get 15 min natural morning light.",
-  },
-  {
-    name: "Deep Work Focus Block",
-    category: "PRODUCTIVITY",
-    difficulty: "HARD",
-    expectedDurationMinutes: 90,
-    timeOfDay: "morning",
-    icon: "Brain",
-    description: "90 minutes of distraction-free strategic output.",
-  },
-  {
-    name: "Daily Movement & Fitness",
-    category: "HEALTH",
-    difficulty: "MEDIUM",
-    expectedDurationMinutes: 45,
-    timeOfDay: "afternoon",
-    icon: "Activity",
-    description: "Workout, run, yoga, or active movement.",
-  },
-  {
-    name: "Evening Review & Shutdown",
-    category: "MINDFULNESS",
-    difficulty: "EASY",
-    expectedDurationMinutes: 15,
-    timeOfDay: "evening",
-    icon: "Moon",
-    description: "Reflect on wins and plan tomorrow's top 3.",
-  },
-];
 
-function HabitMainListItem({ habit, deleteMutation }: { habit: any; deleteMutation: any }) {
- const { isCompletedToday, toggleHabit, isPending } = useHabitCompletion(habit);
-
- return (
- <div
- onClick={() => {
- if (isPending) return;
- toggleHabit();
- }}
- className={cn(
- "flex justify-between items-center p-3 rounded-lg transition-colors group cursor-pointer border",
- isCompletedToday
- ? "bg-surface-hover border-transparent"
- : "bg-surface-hover border-border hover:border-primary",
- isPending && "opacity-50 cursor-not-allowed"
- )}
- >
- <div className="flex items-center gap-3">
- <button
- type="button"
- data-testid="habit-checkbox"
- className="focus:outline-none"
- disabled={isPending}
- onClick={(e) => {
- e.stopPropagation();
- if (isPending) return;
- toggleHabit();
- }}
- >
- {isCompletedToday ? (
- <div className="w-5 h-5 rounded-md bg-[#EA580C] text-white flex items-center justify-center shadow-2xs transition-all animate-in zoom-in-50 duration-150">
- <Check className="w-3.5 h-3.5 stroke-[2.5]" />
- </div>
- ) : (
- <div className="w-5 h-5 rounded-md border border-border bg-surface group-hover:border-accent transition-all flex items-center justify-center shadow-2xs" />
- )}
- </button>
- <span className={cn("text-body font-medium transition-colors", isCompletedToday ? "text-muted line-through" : "text-primary group-hover:text-primary")}>
- {habit.name}
- </span>
- </div>
-
- <div className="flex items-center gap-3">
- <span className="text-badge text-secondary font-mono">
- {habit.expectedDurationMinutes || 15}m
- </span>
- <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-orange-500/10 border border-orange-500/20 text-orange-500 font-mono text-[10px] font-bold tracking-tight">
- <Flame className="w-3 h-3 text-orange-500 stroke-[2]" />{" "}
- {habit.streak}d
- </span>
- <ConfirmDeleteButton
- onConfirm={(e) => {
- e.stopPropagation();
- deleteMutation.mutate(habit.id);
- }}
- className="opacity-0 group-hover:opacity-100"
- iconClassName="w-3.5 h-3.5"
- />
- </div>
- </div>
- );
-}
 
 function HabitTrackerRow({ habit, index }: { habit: any; index: number }) {
  const { isCompletedToday, toggleHabit, isPending } = useHabitCompletion(habit);
@@ -235,43 +135,107 @@ function HabitTrackerRow({ habit, index }: { habit: any; index: number }) {
  );
 }
 
-// Helper to generate a 30-day contribution heatmap pattern for a habit from real completions
-function generate30DayPattern(habit: any) {
- const days = [];
- const today = new Date();
- const createdAt = habit.createdAt ? new Date(habit.createdAt) : new Date(0);
- const createdAtStart = new Date(
- createdAt.getFullYear(),
- createdAt.getMonth(),
- createdAt.getDate(),
- ).getTime();
- const scheduled = habit.scheduledDays && habit.scheduledDays.length > 0
- ? habit.scheduledDays
- : [0, 1, 2, 3, 4, 5, 6];
+function HabitCardMenu({
+  habit,
+  onTogglePin,
+  onEdit,
+  onDelete,
+}: {
+  habit: any;
+  onTogglePin: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
- for (let i = 29; i >= 0; i--) {
- const d = new Date(
- today.getFullYear(),
- today.getMonth(),
- today.getDate() - i,
- );
- if (d.getTime() < createdAtStart || !scheduled.includes(d.getDay())) {
- days.push({
- level: -1,
- offset: i,
- dateStr: d.toISOString().split("T")[0],
- });
- continue;
- }
- const dStr = d.toISOString().split("T")[0] || "";
- const completed =
- habit.completions?.some(
- (c: any) => c.completedAt && c.completedAt.toString().startsWith(dStr)
- );
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [open]);
 
- days.push({ level: completed ? 3 : 0, offset: i, dateStr: dStr });
- }
- return days;
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
+        className={cn(
+          "p-1.5 rounded-lg border transition-all cursor-pointer",
+          open
+            ? "bg-surface-hover border-border text-primary shadow-2xs"
+            : "border-transparent text-muted hover:text-primary hover:bg-surface-hover hover:border-border"
+        )}
+        title="More options"
+        aria-label="Habit options"
+      >
+        <MoreVertical className="w-3.5 h-3.5" />
+      </button>
+
+      {open && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-0 top-full mt-1 w-44 bg-surface border border-border rounded-xl shadow-lg z-50 py-1 text-xs animate-in fade-in zoom-in-95 duration-100 divide-y divide-border/40"
+        >
+          <div className="py-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onTogglePin();
+              }}
+              className="w-full px-3 py-2 text-left text-secondary hover:text-primary hover:bg-surface-hover flex items-center gap-2.5 transition-colors cursor-pointer"
+            >
+              {habit.pinnedToPlanner ? (
+                <>
+                  <PinOff className="w-3.5 h-3.5 text-accent" />
+                  <span>Unpin from Planner</span>
+                </>
+              ) : (
+                <>
+                  <Pin className="w-3.5 h-3.5 text-muted" />
+                  <span>Pin to Planner</span>
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onEdit();
+              }}
+              className="w-full px-3 py-2 text-left text-secondary hover:text-primary hover:bg-surface-hover flex items-center gap-2.5 transition-colors cursor-pointer"
+            >
+              <Edit2 className="w-3.5 h-3.5 text-muted" />
+              <span>Edit Habit</span>
+            </button>
+          </div>
+          <div className="py-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onDelete();
+              }}
+              className="w-full px-3 py-2 text-left text-red-600 dark:text-red-400 hover:bg-red-500/10 flex items-center gap-2.5 transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-red-500" />
+              <span>Delete Habit</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function HabitCreateModal({
@@ -310,29 +274,42 @@ function HabitCreateModal({
   const [timeOfDay, setTimeOfDay] = useState(defaultTimeOfDay);
   const [scheduledDays, setScheduledDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
 
+  const resetForm = () => {
+    setName("");
+    setIcon(null);
+    setLinkedGoalId("");
+    setCadence("daily");
+    setCategory("PRODUCTIVITY");
+    setDifficulty("MEDIUM");
+    setDuration(15);
+    setTimeOfDay(defaultTimeOfDay);
+    setScheduledDays([0, 1, 2, 3, 4, 5, 6]);
+  };
+
   useEffect(() => {
     if (open) {
-      setTimeOfDay(defaultTimeOfDay);
+      resetForm();
     }
   }, [open, defaultTimeOfDay]);
 
   if (!open) return null;
 
- const handleSubmit = (e: React.FormEvent) => {
- e.preventDefault();
- if (!name.trim()) return;
- onSubmit({
- name: name.trim(),
- icon: icon || undefined,
- linkedGoalId: linkedGoalId || undefined,
- cadence,
- category,
- difficulty,
- expectedDurationMinutes,
- scheduledDays,
- timeOfDay,
- });
- };
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onSubmit({
+      name: name.trim(),
+      icon: icon || undefined,
+      linkedGoalId: linkedGoalId || undefined,
+      cadence,
+      category,
+      difficulty,
+      expectedDurationMinutes,
+      scheduledDays,
+      timeOfDay,
+    });
+    resetForm();
+  };
 
  const daysOfWeek = [
  { label: 'S', value: 0 }, { label: 'M', value: 1 }, { label: 'T', value: 2 },
@@ -823,61 +800,7 @@ function HabitEditModal({
  );
 }
 
-function LearnHabitsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  if (!open) return null;
-  return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="v4-card w-full max-w-lg shadow-2xl overflow-hidden text-left"
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center">
-              <BookOpen className="w-4 h-4" />
-            </div>
-            <h3 className="text-sm font-bold text-primary">Mastering Daily Habits & Routines</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="p-6 space-y-4 text-xs text-secondary leading-relaxed">
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-surface-hover/60 border border-border">
-            <Flame className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-primary mb-0.5">Streaks & Momentum</p>
-              <p>Check off habits daily to build streaks. The system tracks your 30-day activity horizon so you never lose momentum.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-surface-hover/60 border border-border">
-            <Sun className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-primary mb-0.5">Routines by Time of Day</p>
-              <p>Organize habits into Morning, Afternoon, Evening, or Anytime buckets to structure your day effortlessly.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-surface-hover/60 border border-border">
-            <Pin className="w-5 h-5 text-accent shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-primary mb-0.5">Weekly Planner Synchronization</p>
-              <p>Use the 📌 pin button to bring your core rituals directly into your 7-Day Planner Matrix for cohesive execution.</p>
-            </div>
-          </div>
-        </div>
-        <div className="px-6 py-3 border-t border-border bg-surface-hover/30 flex justify-end">
-          <BaseButton onClick={onClose} variant="secondary">Got it</BaseButton>
-        </div>
-      </div>
-    </div>
-  );
-}
+
 
 export function HabitTracker() {
  const queryClient = useQueryClient();
@@ -890,8 +813,7 @@ export function HabitTracker() {
  queryKey: ["goals"],
  queryFn: api.goals.list,
  });
- const [activeCategory, setActiveCategory] = useState<string | null>(null);
- const [activeDifficulty, setActiveDifficulty] = useState<string | null>(null);
+  const [activeTimeOfDay, setActiveTimeOfDay] = useState<string | null>(null);
 
  const restoreMutation = useMutation({
  mutationFn: (id: string) => api.habits.restore(id),
@@ -925,147 +847,103 @@ export function HabitTracker() {
  const [createModalOpen, setCreateModalOpen] = useState(false);
  const [editModalOpen, setEditModalOpen] = useState(false);
  const [editingHabit, setEditingHabit] = useState<any>(null);
- const [learnModalOpen, setLearnModalOpen] = useState(false);
  const [defaultTimeOfDay, setDefaultTimeOfDay] = useState("morning");
 
  const [todayTrackerOpen, setTodayTrackerOpen] = useState(() => {
-   if (typeof window !== 'undefined') {
-     const saved = localStorage.getItem('krama_habit_today_tracker_open');
-     return saved !== null ? saved === 'true' : false;
-   }
-   return false;
+ if (typeof window !== 'undefined') {
+ const saved = localStorage.getItem('krama_habit_today_tracker_open');
+ return saved !== null ? saved === 'true' : true;
+ }
+ return true;
  });
 
  const toggleTodayTracker = () => {
-   setTodayTrackerOpen(prev => {
-     const next = !prev;
-     localStorage.setItem('krama_habit_today_tracker_open', String(next));
-     return next;
-   });
- };
-
- const [touchStartX, setTouchStartX] = useState<number | null>(null);
-
- const handleWheel = (e: React.WheelEvent) => {
-   if (!todayTrackerOpen && e.deltaX > 25) {
-     setTodayTrackerOpen(true);
-     localStorage.setItem('krama_habit_today_tracker_open', 'true');
-   } else if (todayTrackerOpen && e.deltaX < -25) {
-     setTodayTrackerOpen(false);
-     localStorage.setItem('krama_habit_today_tracker_open', 'false');
-   }
- };
-
- const handleTouchStart = (e: React.TouchEvent) => {
-   setTouchStartX(e.touches[0].clientX);
- };
-
- const handleTouchEnd = (e: React.TouchEvent) => {
-   if (touchStartX === null) return;
-   const touchEndX = e.changedTouches[0].clientX;
-   const diff = touchStartX - touchEndX;
-   if (!todayTrackerOpen && diff > 50) {
-     setTodayTrackerOpen(true);
-     localStorage.setItem('krama_habit_today_tracker_open', 'true');
-   } else if (todayTrackerOpen && diff < -50) {
-     setTodayTrackerOpen(false);
-     localStorage.setItem('krama_habit_today_tracker_open', 'false');
-   }
-   setTouchStartX(null);
+ setTodayTrackerOpen(prev => {
+ const next = !prev;
+ localStorage.setItem('krama_habit_today_tracker_open', String(next));
+ return next;
+ });
  };
 
  const createHabitMutation = useMutation({
- mutationFn: (data: {
- name: string;
- icon?: string;
- linkedGoalId?: string;
- cadence: string;
- category: string;
- difficulty: string;
- expectedDurationMinutes: number;
- scheduledDays: number[];
- timeOfDay: string;
- }) =>
- api.habits.create({
- name: data.name,
- icon: data.icon,
- linkedGoalId: data.linkedGoalId,
- cadence: data.cadence,
- category: data.category as any,
- difficulty: data.difficulty as any,
- expectedDurationMinutes: data.expectedDurationMinutes,
- scheduledDays: data.scheduledDays,
- timeOfDay: data.timeOfDay,
- streak: 0,
- }),
- onSuccess: (newHabit) => {
- queryClient.invalidateQueries({ queryKey: ["habits"] });
- setCreateModalOpen(false);
- toast.success(`Created "${newHabit?.name || "Habit"}"`);
- },
- onError: () => {
- toast.error("Failed to create habit");
- },
- });
+    mutationFn: (data: {
+      name: string;
+      icon?: string;
+      linkedGoalId?: string;
+      cadence: string;
+      category: string;
+      difficulty: string;
+      expectedDurationMinutes: number;
+      scheduledDays: number[];
+      timeOfDay: string;
+      pinnedToPlanner?: boolean;
+    }) =>
+      api.habits.create({
+        name: data.name,
+        icon: data.icon,
+        linkedGoalId: data.linkedGoalId,
+        cadence: data.cadence,
+        category: data.category as any,
+        difficulty: data.difficulty as any,
+        expectedDurationMinutes: data.expectedDurationMinutes,
+        scheduledDays: data.scheduledDays,
+        timeOfDay: data.timeOfDay,
+        pinnedToPlanner: data.pinnedToPlanner,
+        streak: 0,
+      }),
+    onSuccess: (newHabit) => {
+      queryClient.invalidateQueries({ queryKey: ["habits"] });
+      setCreateModalOpen(false);
+      toast.success(`Created "${newHabit?.name || "Habit"}"`);
+    },
+    onError: () => {
+      toast.error("Failed to create habit");
+    },
+  });
 
+  const togglePinHabitMutation = useMutation({
+    mutationFn: (data: { id: string; pinned: boolean }) => api.habits.update(data.id, { pinnedToPlanner: data.pinned }),
+    onMutate: async ({ id, pinned }) => {
+      await queryClient.cancelQueries({ queryKey: ["habits"] });
+      const previousHabits = queryClient.getQueryData<any[]>(["habits"]);
+      if (previousHabits) {
+        queryClient.setQueryData(
+          ["habits"],
+          previousHabits.map((h) => (h.id === id ? { ...h, pinnedToPlanner: pinned } : h))
+        );
+      }
+      return { previousHabits };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousHabits) {
+        queryClient.setQueryData(["habits"], context.previousHabits);
+      }
+      toast.error("Failed to pin habit");
+    },
+    onSuccess: (_, variables) => {
+      toast.success(variables.pinned ? "Habit pinned to Planner" : "Habit unpinned from Planner");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["habits"] });
+      queryClient.invalidateQueries({ queryKey: ["planner"] });
+    },
+  });
 
- const togglePinHabitMutation = useMutation({
- mutationFn: (data: { id: string; pinned: boolean }) => api.habits.update(data.id, { pinnedToPlanner: data.pinned }),
- onMutate: async ({ id, pinned }) => {
- await queryClient.cancelQueries({ queryKey: ["habits"] });
- const previousHabits = queryClient.getQueryData<any[]>(["habits"]);
- if (previousHabits) {
- queryClient.setQueryData(
- ["habits"],
- previousHabits.map((h) => (h.id === id ? { ...h, pinnedToPlanner: pinned } : h))
- );
- }
- return { previousHabits };
- },
- onError: (_err, _variables, context) => {
- if (context?.previousHabits) {
- queryClient.setQueryData(["habits"], context.previousHabits);
- }
- toast.error("Failed to pin habit");
- },
- onSettled: () => {
- queryClient.invalidateQueries({ queryKey: ["habits"] });
- queryClient.invalidateQueries({ queryKey: ["planner"] });
- },
- });
-
- const editHabitMutation = useMutation({
- mutationFn: (data: {
- id: string;
- payload: any;
- }) => api.habits.update(data.id, data.payload),
- onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ["habits"] });
- setEditModalOpen(false);
- setEditingHabit(null);
- toast.success("Habit updated successfully");
- },
- onError: () => {
- toast.error("Failed to update habit");
- },
- });
-
- const handleCreateHabit = () => {
- setCreateModalOpen(true);
- };
-
- const handleCreateFromStarter = (starter: (typeof STARTER_HABITS)[0]) => {
-   createHabitMutation.mutate({
-     name: starter.name,
-     category: starter.category,
-     difficulty: starter.difficulty,
-     expectedDurationMinutes: starter.expectedDurationMinutes,
-     timeOfDay: starter.timeOfDay,
-     cadence: "daily",
-     scheduledDays: [0, 1, 2, 3, 4, 5, 6],
-     pinnedToPlanner: true,
-   });
- };
+  const editHabitMutation = useMutation({
+    mutationFn: (data: {
+      id: string;
+      payload: any;
+    }) => api.habits.update(data.id, data.payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["habits"] });
+      setEditModalOpen(false);
+      setEditingHabit(null);
+      toast.success("Habit updated successfully");
+    },
+    onError: () => {
+      toast.error("Failed to update habit");
+    },
+  });
 
  const handleEditHabit = (habit: any) => {
  setEditingHabit(habit);
@@ -1094,43 +972,31 @@ export function HabitTracker() {
  );
  }
 
- const categoriesMap = new Map<string, number>();
- habits.forEach((h) => {
- const cat = h.category || "Uncategorized";
- categoriesMap.set(cat, (categoriesMap.get(cat) || 0) + 1);
- });
- const categories = Array.from(categoriesMap.entries()).sort(
- (a, b) => b[1] - a[1],
- );
+  const getHabitTime = (h: any) => h.metadata?.timeOfDay || h.timeOfDay || "anytime";
 
- const difficulties = ["EASY", "MEDIUM", "HARD", "EXTREME"];
+  const morningHabits = habits.filter((h) => getHabitTime(h) === "morning");
+  const afternoonHabits = habits.filter((h) => getHabitTime(h) === "afternoon");
+  const eveningHabits = habits.filter((h) => getHabitTime(h) === "evening");
+  const anytimeHabits = habits.filter((h) => getHabitTime(h) === "anytime");
 
- const filteredHabits = habits.filter((h) => {
- if (activeCategory && (h.category || "Uncategorized") !== activeCategory)
- return false;
- if (activeDifficulty && (h.difficulty || "MEDIUM") !== activeDifficulty)
- return false;
- return true;
- });
+  const TIME_FILTERS = [
+    { id: "morning", label: "Morning", icon: Sun, iconColor: "text-amber-500", count: morningHabits.length },
+    { id: "afternoon", label: "Afternoon", icon: Sunset, iconColor: "text-orange-500", count: afternoonHabits.length },
+    { id: "evening", label: "Evening", icon: Moon, iconColor: "text-purple-500", count: eveningHabits.length },
+    { id: "anytime", label: "Anytime", icon: Clock, iconColor: "text-emerald-500", count: anytimeHabits.length },
+  ];
 
- const getHabitTime = (h: any) => h.metadata?.timeOfDay || h.timeOfDay || "anytime";
+  const filteredHabits = habits.filter((h) => {
+    if (activeTimeOfDay && getHabitTime(h) !== activeTimeOfDay)
+      return false;
+    return true;
+  });
 
- const morningHabits = habits.filter((h) => getHabitTime(h) === "morning" && isHabitScheduledToday(h));
- const afternoonHabits = habits.filter((h) => getHabitTime(h) === "afternoon" && isHabitScheduledToday(h));
- const eveningHabits = habits.filter((h) => getHabitTime(h) === "evening" && isHabitScheduledToday(h));
- const anytimeHabits = habits.filter((h) => getHabitTime(h) === "anytime" && isHabitScheduledToday(h));
+  const todaysHabits = habits.filter(isHabitScheduledToday);
 
- const today = new Date().toLocaleDateString("en-US", {
- weekday: "long",
- month: "long",
- day: "numeric",
- });
-
- const todaysHabits = habits.filter(isHabitScheduledToday);
-
- const completedCount = todaysHabits.filter((h) => isHabitCompletedToday(h)).length;
- const totalHabits = todaysHabits.length || 1;
- const progressPct = Math.round((completedCount / totalHabits) * 100);
+  const completedCount = todaysHabits.filter((h) => isHabitCompletedToday(h)).length;
+  const totalHabits = todaysHabits.length || 1;
+  const progressPct = Math.round((completedCount / totalHabits) * 100);
 
   const formattedDate = new Date().toLocaleDateString("en-US", {
     weekday: "short",
@@ -1164,15 +1030,7 @@ export function HabitTracker() {
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={() => setLearnModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl border border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary text-xs font-medium flex items-center gap-2 transition-all shadow-2xs cursor-pointer"
-            >
-              <BookOpen className="w-4 h-4 text-secondary" />
-              <span>Learn about habits</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleOpenCreateWithTime("morning")}
+              onClick={() => handleOpenCreateWithTime(activeTimeOfDay || "morning")}
               className="px-4 py-2 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-medium flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[2]" />
@@ -1181,50 +1039,46 @@ export function HabitTracker() {
           </div>
         </div>
 
-        {/* Filter Pills row - ALWAYS present per screenshot */}
+        {/* Time of Day Filter Pills row */}
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => {
-              setActiveCategory(null);
-              setActiveDifficulty(null);
-            }}
+            type="button"
+            onClick={() => setActiveTimeOfDay(null)}
             className={cn(
-              "px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer shadow-2xs",
-              activeDifficulty === null && activeCategory === null
-                ? "bg-[#18181B] text-white dark:bg-white dark:text-zinc-900"
+              "px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer shadow-2xs flex items-center gap-1.5",
+              activeTimeOfDay === null
+                ? "bg-[#18181B] text-white dark:bg-white dark:text-zinc-900 font-semibold shadow-xs"
                 : "bg-surface text-secondary border border-border hover:border-primary hover:text-primary"
             )}
           >
-            All ({habits.length})
+            <span>All ({habits.length})</span>
           </button>
 
-          <button
-            onClick={() => setActiveDifficulty(null)}
-            className={cn(
-              "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-2xs",
-              activeDifficulty === null && activeCategory !== null
-                ? "bg-primary text-white border-primary"
-                : "bg-surface text-secondary border-border hover:border-primary hover:text-primary"
-            )}
-          >
-            All Diff
-          </button>
-
-          {difficulties.map((diff) => {
-            const isSelected = activeDifficulty === diff;
-            const label = diff.charAt(0).toUpperCase() + diff.slice(1).toLowerCase();
+          {TIME_FILTERS.map((tf) => {
+            const isSelected = activeTimeOfDay === tf.id;
+            const Icon = tf.icon;
             return (
               <button
-                key={diff}
-                onClick={() => setActiveDifficulty(isSelected ? null : diff)}
+                key={tf.id}
+                type="button"
+                onClick={() => setActiveTimeOfDay(isSelected ? null : tf.id)}
                 className={cn(
-                  "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-2xs",
+                  "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-2xs flex items-center gap-1.5",
                   isSelected
-                    ? "bg-primary text-white border-primary"
+                    ? "bg-[#18181B] text-white border-[#18181B] dark:bg-white dark:text-zinc-900 dark:border-white font-semibold shadow-xs"
                     : "bg-surface text-secondary border-border hover:border-primary hover:text-primary"
                 )}
               >
-                {label}
+                <Icon className={cn("w-3.5 h-3.5", isSelected ? "text-current" : tf.iconColor)} />
+                <span>{tf.label}</span>
+                <span className={cn(
+                  "text-[10px] font-mono px-1.5 py-0.2 rounded-full",
+                  isSelected
+                    ? "bg-white/20 text-white dark:bg-zinc-800 dark:text-zinc-100"
+                    : "bg-surface-hover text-muted"
+                )}>
+                  {tf.count}
+                </span>
               </button>
             );
           })}
@@ -1272,14 +1126,13 @@ export function HabitTracker() {
           <EmptyStateInline
             icon={Flame}
             title="No matching habits"
-            description="No habits match your active difficulty or category filters."
+            description={activeTimeOfDay ? `No ${activeTimeOfDay} habits configured.` : "No habits match the selected filter."}
           />
         ) : (
-          /* Habit Cards Grid with 30-Day Activity Heatmap */
+          /* Habit Cards Grid */
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {filteredHabits.map((habit) => {
               const Icon = resolveIcon(habit.icon);
-              const heatmap = generate30DayPattern(habit);
 
               const difficultyLevel =
                 habit.difficulty === "EASY"
@@ -1297,7 +1150,7 @@ export function HabitTracker() {
               return (
                 <div
                   key={habit.id}
-                  className="v4-card p-5 hover:border-primary transition-all cursor-pointer group flex flex-col justify-between gap-4"
+                  className="v4-card p-5 hover:border-primary transition-all cursor-pointer group flex flex-col justify-between gap-3"
                 >
                   <div className="flex items-start gap-4">
                     <div className="w-11 h-11 bg-surface-hover rounded-xl border border-border flex items-center justify-center shrink-0 group-hover:border-primary group-hover:bg-primary transition-all shadow-2xs">
@@ -1309,44 +1162,28 @@ export function HabitTracker() {
                           {habit.name}
                         </h3>
                         <div className="flex items-center gap-1.5 shrink-0">
+                          {habit.pinnedToPlanner && (
+                            <span 
+                              className="p-1 rounded-md bg-accent/10 text-accent font-semibold"
+                              title="Pinned to Planner"
+                            >
+                              <Pin className="w-3.5 h-3.5 fill-current" />
+                            </span>
+                          )}
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400 font-mono text-badge font-bold tracking-tight">
                             <Flame className="w-3.5 h-3.5 text-orange-500 stroke-[2]" />{" "}
                             {habit.streak}d
                           </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePinHabitMutation.mutate({ id: habit.id, pinned: !habit.pinnedToPlanner });
-                            }}
-                            className={cn(
-                              "p-1.5 rounded-lg border transition-all cursor-pointer",
-                              habit.pinnedToPlanner
-                                ? "bg-accent/10 border-accent/30 text-accent font-semibold"
-                                : "bg-surface border-border text-muted hover:text-primary hover:border-primary/40"
-                            )}
-                            title={habit.pinnedToPlanner ? "Pinned to Planner (click to unpin)" : "Pin to Planner"}
-                          >
-                            {habit.pinnedToPlanner ? <Pin className="w-3.5 h-3.5 fill-current" /> : <PinOff className="w-3.5 h-3.5" />}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditHabit(habit);
-                            }}
-                            className="p-1.5 rounded-lg border border-border bg-surface text-muted hover:text-primary hover:border-primary/40 transition-colors cursor-pointer"
-                            title="Edit Habit"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <ConfirmDeleteButton
-                            onConfirm={(e) => {
-                              e.stopPropagation();
-                              deleteMutation.mutate(habit.id);
-                            }}
-                            className="opacity-70 hover:opacity-100"
-                            iconClassName="w-3.5 h-3.5"
+                          <HabitCardMenu
+                            habit={habit}
+                            onTogglePin={() =>
+                              togglePinHabitMutation.mutate({
+                                id: habit.id,
+                                pinned: !habit.pinnedToPlanner,
+                              })
+                            }
+                            onEdit={() => handleEditHabit(habit)}
+                            onDelete={() => deleteMutation.mutate(habit.id)}
                           />
                         </div>
                       </div>
@@ -1360,50 +1197,22 @@ export function HabitTracker() {
                           {habit.category || "Uncategorized"}
                         </span>
                         <span className="text-[#E5E8EC] font-light">•</span>
-                        <div
-                          className="flex items-center gap-0.5"
-                          title={`Difficulty: ${habit.difficulty || "MEDIUM"}`}
-                        >
-                          {dots.map((active, idx) => (
-                            <div
-                              key={idx}
+                        <span className="text-caption text-secondary font-mono">
+                          {habit.expectedDurationMinutes || 15}m
+                        </span>
+                        <span className="text-[#E5E8EC] font-light">•</span>
+                        <div className="flex items-center gap-0.5" title={`Difficulty: ${habit.difficulty || "MEDIUM"}`}>
+                          {dots.map((active, i) => (
+                            <span
+                              key={i}
                               className={cn(
-                                "w-1.5 h-1.5 rounded-full",
-                                active ? "bg-secondary" : "bg-border",
+                                "w-1 h-2 rounded-2xs transition-colors",
+                                active ? "bg-[#EA580C]" : "bg-surface-hover border border-border/60"
                               )}
                             />
                           ))}
                         </div>
-                        <span className="text-[#E5E8EC] font-light">•</span>
-                        <span className="text-badge text-secondary font-mono flex items-center gap-1">
-                          <Clock className="w-3 h-3 stroke-[1.5]" />{" "}
-                          {habit.expectedDurationMinutes || 15}m
-                        </span>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* 30-Day Activity Heatmap */}
-                  <div className="pt-3 border-t border-border/60">
-                    <div className="flex items-center justify-between text-[10px] text-muted uppercase font-mono mb-1.5">
-                      <span>30-Day Activity Horizon</span>
-                      <span>Last 30d</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-1">
-                      {heatmap.map((item, i) => (
-                        <div
-                          key={i}
-                          title={`Day ${item.dateStr}: ${item.level === -1 ? "Not created yet" : item.level === 0 ? "No activity" : "Completed"}`}
-                          className={cn(
-                            "w-2 h-4 rounded-xs transition-colors",
-                            item.level === 3
-                              ? "bg-[#EA580C]"
-                              : item.level === -1
-                              ? "bg-surface-hover border border-border/40 opacity-40"
-                              : "bg-surface-hover border border-border/60",
-                          )}
-                        />
-                      ))}
                     </div>
                   </div>
                 </div>
@@ -1411,174 +1220,15 @@ export function HabitTracker() {
             })}
           </div>
         )}
-
-        {/* Daily Routines Breakdown Section */}
-        <div className="space-y-3 pt-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-primary">Daily Routines Breakdown</h2>
-              <p className="text-xs text-secondary mt-0.5">Organize your habits into routines for a more structured day.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleOpenCreateWithTime("morning")}
-              className="px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-hover text-xs font-medium text-primary flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Routine</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            {/* Morning Routine Card */}
-            <div 
-              onClick={() => handleOpenCreateWithTime("morning")}
-              className="rounded-xl border border-border bg-surface p-4 hover:border-border/80 transition-all shadow-xs cursor-pointer group"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-500 flex items-center justify-center shrink-0">
-                    <Sun className="w-5 h-5 stroke-[1.75]" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-primary">Morning Routine</h3>
-                    {morningHabits.length === 0 ? (
-                      <>
-                        <p className="text-[11px] text-muted mt-0.5">No morning habits configured.</p>
-                        <p className="text-[11px] text-secondary font-medium">Start your day with intention</p>
-                      </>
-                    ) : (
-                      <p className="text-[11px] text-secondary mt-0.5">{morningHabits.length} habits configured</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted font-mono">
-                  <span>{morningHabits.length} habits</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </div>
-              {morningHabits.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-border/60 space-y-2" onClick={(e) => e.stopPropagation()}>
-                  {morningHabits.map((habit) => (
-                    <HabitMainListItem key={habit.id} habit={habit} deleteMutation={deleteMutation} />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Afternoon Routine Card */}
-            <div 
-              onClick={() => handleOpenCreateWithTime("afternoon")}
-              className="rounded-xl border border-border bg-surface p-4 hover:border-border/80 transition-all shadow-xs cursor-pointer group"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
-                    <Sunset className="w-5 h-5 stroke-[1.75]" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-primary">Afternoon Routine</h3>
-                    {afternoonHabits.length === 0 ? (
-                      <>
-                        <p className="text-[11px] text-muted mt-0.5">No afternoon habits configured.</p>
-                        <p className="text-[11px] text-secondary font-medium">Keep your energy and focus high</p>
-                      </>
-                    ) : (
-                      <p className="text-[11px] text-secondary mt-0.5">{afternoonHabits.length} habits configured</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted font-mono">
-                  <span>{afternoonHabits.length} habits</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </div>
-              {afternoonHabits.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-border/60 space-y-2" onClick={(e) => e.stopPropagation()}>
-                  {afternoonHabits.map((habit) => (
-                    <HabitMainListItem key={habit.id} habit={habit} deleteMutation={deleteMutation} />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Evening Routine Card */}
-            <div 
-              onClick={() => handleOpenCreateWithTime("evening")}
-              className="rounded-xl border border-border bg-surface p-4 hover:border-border/80 transition-all shadow-xs cursor-pointer group"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-500 flex items-center justify-center shrink-0">
-                    <Moon className="w-5 h-5 stroke-[1.75]" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-primary">Evening Routine</h3>
-                    {eveningHabits.length === 0 ? (
-                      <>
-                        <p className="text-[11px] text-muted mt-0.5">No evening habits configured.</p>
-                        <p className="text-[11px] text-secondary font-medium">Wind down and reflect</p>
-                      </>
-                    ) : (
-                      <p className="text-[11px] text-secondary mt-0.5">{eveningHabits.length} habits configured</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted font-mono">
-                  <span>{eveningHabits.length} habits</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </div>
-              {eveningHabits.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-border/60 space-y-2" onClick={(e) => e.stopPropagation()}>
-                  {eveningHabits.map((habit) => (
-                    <HabitMainListItem key={habit.id} habit={habit} deleteMutation={deleteMutation} />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Anytime Habits Card */}
-            <div 
-              onClick={() => handleOpenCreateWithTime("anytime")}
-              className="rounded-xl border border-border bg-surface p-4 hover:border-border/80 transition-all shadow-xs cursor-pointer group"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
-                    <Leaf className="w-5 h-5 stroke-[1.75]" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-primary">Anytime Habits</h3>
-                    {anytimeHabits.length === 0 ? (
-                      <>
-                        <p className="text-[11px] text-muted mt-0.5">No anytime habits configured.</p>
-                        <p className="text-[11px] text-secondary font-medium">Habits you can do anytime</p>
-                      </>
-                    ) : (
-                      <p className="text-[11px] text-secondary mt-0.5">{anytimeHabits.length} habits configured</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted font-mono">
-                  <span>{anytimeHabits.length} habits</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </div>
-              {anytimeHabits.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-border/60 space-y-2" onClick={(e) => e.stopPropagation()}>
-                  {anytimeHabits.map((habit) => (
-                    <HabitMainListItem key={habit.id} habit={habit} deleteMutation={deleteMutation} />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* RIGHT COLUMN: Today's Tracker Rail */}
-      <div className="w-full lg:w-[320px] xl:w-[360px] shrink-0 border-t lg:border-t-0 lg:border-l border-border bg-surface/40 p-6 space-y-4 lg:h-full lg:overflow-y-auto">
+      <div className={cn(
+        "w-full shrink-0 border-t lg:border-t-0 lg:border-l border-border bg-surface/40 p-6 space-y-4 lg:h-full lg:overflow-y-auto transition-all duration-300",
+        todayTrackerOpen 
+          ? "lg:w-[320px] xl:w-[360px] block" 
+          : "hidden lg:hidden"
+      )}>
         {/* Rail Header */}
         <div className="flex items-center justify-between pb-1">
           <div className="flex items-center gap-2">
@@ -1587,9 +1237,19 @@ export function HabitTracker() {
               TODAY'S TRACKER
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-secondary font-medium">
-            <Calendar className="w-3.5 h-3.5 text-muted" />
-            <span>{formattedDate}</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-secondary font-medium">
+              <Calendar className="w-3.5 h-3.5 text-muted" />
+              <span>{formattedDate}</span>
+            </div>
+            <button
+              type="button"
+              onClick={toggleTodayTracker}
+              className="p-1 rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors cursor-pointer hidden lg:flex items-center justify-center"
+              title="Collapse Today's Tracker"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
@@ -1620,8 +1280,7 @@ export function HabitTracker() {
             <button
               type="button"
               onClick={() => {
-                setActiveDifficulty(null);
-                setActiveCategory(null);
+                setActiveTimeOfDay(null);
               }}
               className="text-[11px] text-muted hover:text-primary flex items-center gap-1 transition-colors cursor-pointer"
             >
@@ -1657,28 +1316,49 @@ export function HabitTracker() {
           )}
         </div>
 
-        {/* Motivational Quote Card */}
-        <div className="rounded-2xl border border-border/80 bg-surface/60 p-4 shadow-xs flex items-center gap-3">
-          <span className="text-3xl text-muted/30 font-serif leading-none select-none">❝</span>
-          <p className="text-xs italic text-secondary leading-relaxed">
-            Small steps every day lead to big changes.
-          </p>
-        </div>
+
       </div>
 
-      <LearnHabitsModal
-        open={learnModalOpen}
-        onClose={() => setLearnModalOpen(false)}
-      />
+      {/* Small hover-revealed arrow toggle near the grid (<>) */}
+      <div 
+        className={cn(
+          "hidden lg:flex items-center absolute top-1/2 -translate-y-1/2 z-30 transition-all duration-300 py-6 px-1 group/divider",
+          todayTrackerOpen 
+            ? "right-[320px] xl:right-[360px] translate-x-1/2" 
+            : "right-0"
+        )}
+      >
+        <button
+          type="button"
+          onClick={toggleTodayTracker}
+          className={cn(
+            "w-5 h-9 rounded-full border border-border bg-surface hover:bg-surface-hover text-secondary hover:text-orange-500 shadow-sm flex items-center justify-center cursor-pointer transition-all duration-200",
+            todayTrackerOpen
+              ? "opacity-0 group-hover/divider:opacity-100 hover:scale-110"
+              : "opacity-30 hover:opacity-100 group-hover/divider:opacity-100 rounded-l-md rounded-r-none border-r-0 hover:scale-105"
+          )}
+          title={todayTrackerOpen ? "Collapse Today's Tracker" : "Expand Today's Tracker"}
+        >
+          {todayTrackerOpen ? (
+            <ChevronRight className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronLeft className="w-3.5 h-3.5" />
+          )}
+        </button>
+      </div>
 
-      <HabitCreateModal
-        open={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        defaultTimeOfDay={defaultTimeOfDay}
-        onSubmit={(data) => createHabitMutation.mutate(data)}
-        isSubmitting={createHabitMutation.isPending}
-        goals={goals}
-      />
+
+
+      {createModalOpen && (
+        <HabitCreateModal
+          open={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          defaultTimeOfDay={defaultTimeOfDay}
+          onSubmit={(data) => createHabitMutation.mutate(data)}
+          isSubmitting={createHabitMutation.isPending}
+          goals={goals}
+        />
+      )}
 
       {editingHabit && (
         <HabitEditModal

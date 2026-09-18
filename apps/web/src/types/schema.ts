@@ -11,6 +11,11 @@ import type {
   HabitCompletion,
   Space,
   Page,
+  Document,
+  DocumentVersion,
+  Tag,
+  DocumentTag,
+  EntityLink,
   Decision,
   DailyLog,
   SprintReport,
@@ -24,7 +29,7 @@ import type {
   TaskPriority
 } from "@prisma/client";
 
-export type { TaskStatus, TaskPriority };
+export type { TaskStatus, TaskPriority, Tag, DocumentTag, EntityLink, DocumentVersion };
 
 export type Habit = PrismaHabit & {
   linkedGoal?: Goal | null;
@@ -44,6 +49,7 @@ export type {
   HabitCompletion,
   Space,
   Page,
+  Document,
   Decision,
   DailyLog,
   SprintReport,
@@ -79,6 +85,7 @@ export type ProjectWithRelations = Project & {
   targetDate?: string | Date | null;
   tasks?: Issue[];
   pages?: Page[];
+  documents?: Document[];
   sprints?: Sprint[];
   roadmapItems?: RoadmapItem[];
   goal?: GoalWithRelations | null;
@@ -88,6 +95,7 @@ export type ProjectWithRelations = Project & {
     sprints?: number;
     roadmapItems?: number;
     pages?: number;
+    documents?: number;
   };
 };
 
@@ -99,6 +107,20 @@ export type PageWithRelations = Page & {
     sprints?: Sprint[];
   }) | null;
   space?: Space | null;
+};
+
+export type DocumentWithRelations = Document & {
+  children?: Document[];
+  parent?: Document | null;
+  space?: Space | null;
+  linkedProjectId?: string | null;
+  tags?: (DocumentTag & { tag: Tag })[];
+  versions?: DocumentVersion[];
+  linkedProject?: (Project & {
+    tasks?: Issue[];
+    goal?: Goal | null;
+    sprints?: Sprint[];
+  }) | null;
 };
 
 export type IssueWithRelations = Issue & {

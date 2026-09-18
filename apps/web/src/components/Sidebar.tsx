@@ -4,10 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { toast } from 'sonner';
 import { 
-  Home, BookOpen, Target, Network,
+  Home, BookOpen, Target,
   Calendar, KanbanSquare, Clock, TrendingUp,
   Search, LogOut, Moon, Sun, Download, X, 
-  ChevronDown, ChevronRight, Settings, User, Layers,
+  Settings, User, Layers,
   PanelLeftClose
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
@@ -41,12 +41,7 @@ const strategyItems: NavItem[] = [
 ];
 
 const knowledgeItems: NavItem[] = [
-  { name: 'Brain Workspace', path: '/app/brain', icon: BookOpen, shortcut: 'G B', badgeKey: 'pages' },
-  { name: 'Knowledge Graph', path: '/app/graph', icon: Network, shortcut: 'G K', badgeKey: null },
-];
-
-const systemItems: NavItem[] = [
-  { name: 'Analytics', path: '/app/analytics', icon: TrendingUp, shortcut: 'S N', badgeKey: null },
+  { name: 'Brain Workspace', path: '/app/brain', icon: BookOpen, shortcut: 'G B', badgeKey: 'documents' },
 ];
 
 export function Sidebar({ 
@@ -63,7 +58,6 @@ export function Sidebar({
  const location = useLocation();
  const { toggleTheme, resolvedTheme } = useTheme();
   const { user, logout } = useAuth();
-  const [systemOpen, setSystemOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
 
@@ -87,7 +81,7 @@ export function Sidebar({
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
   const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
   const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
-  const { data: pages = [] } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
+  const { data: documents = [] } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
 
   const activeSprint = sprints.find(s => s.status === 'active') || sprints[0];
   const openIssuesCount = issues.filter(i => i.status !== "DONE" && i.status !== "REVIEW").length;
@@ -102,7 +96,7 @@ export function Sidebar({
     if (key === 'projects') return activeProjectsCount;
     if (key === 'goals') return goals.length;
     if (key === 'habits') return habits.length;
-    if (key === 'pages') return pages.length;
+    if (key === 'documents') return documents.length;
     return null;
   };
 
@@ -350,22 +344,6 @@ export function Sidebar({
  <div className="space-y-0.5">
  {knowledgeItems.map(renderLink)}
  </div>
- </div>
-
- {/* Utilities Collapsible */}
- <div className="pt-2 border-t border-border">
- <button
- onClick={() => setSystemOpen(!systemOpen)}
- className="w-full flex items-center justify-between text-badge font-mono font-semibold text-muted uppercase tracking-wider mb-1 px-2.5 py-1 rounded hover:text-primary hover:bg-surface-hover transition-colors"
- >
- <span>Utilities</span>
- {systemOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
- </button>
- {systemOpen && (
- <div className="space-y-0.5 mt-1">
- {systemItems.map(renderLink)}
- </div>
- )}
  </div>
  </div>
  </div>
