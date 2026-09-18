@@ -225,16 +225,7 @@ export const api = {
     update: (id: string, data: Partial<Space>) => fetchApi<Space>(`/spaces/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ success: boolean }>(`/spaces/${id}`, { method: 'DELETE' }),
   },
-  career: {
-    getData: () => fetchApi<any>('/career'),
-    createSkill: (data: any) => fetchApi<any>('/career/skills', { method: 'POST', body: JSON.stringify(data) }),
-    updateSkill: (id: string, data: any) => fetchApi<any>(`/career/skills/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    deleteSkill: (id: string) => fetchApi<{ success: boolean }>(`/career/skills/${id}`, { method: 'DELETE' }),
-    createCert: (data: any) => fetchApi<any>('/career/certifications', { method: 'POST', body: JSON.stringify(data) }),
-    deleteCert: (id: string) => fetchApi<{ success: boolean }>(`/career/certifications/${id}`, { method: 'DELETE' }),
-    createMilestone: (data: any) => fetchApi<any>('/career/milestones', { method: 'POST', body: JSON.stringify(data) }),
-    deleteMilestone: (id: string) => fetchApi<{ success: boolean }>(`/career/milestones/${id}`, { method: 'DELETE' }),
-  },
+
   pages: {
     list: () => fetchApi<PageWithRelations[]>('/pages'),
     get: (id: string) => fetchApi<PageWithRelations>(`/pages/${id}`),
@@ -305,6 +296,7 @@ export const api = {
   
   sprints: {
     list: () => fetchApi<Sprint[]>('/sprints'),
+    getReport: (id: string) => fetchApi<any>(`/sprints/${id}/reports`),
     create: (data: Record<string, any>) => fetchApi<Sprint>('/sprints', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<Sprint>(`/sprints/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<void>(`/sprints/${id}`, { method: 'DELETE' }),
@@ -334,10 +326,7 @@ export const api = {
     delete: (id: string) => fetchApi<{ success: boolean }>(`/decisions/${id}`, { method: 'DELETE' }),
     restore: (id: string) => fetchApi<{ success: boolean }>(`/decisions/${id}/restore`, { method: 'POST' }),
   },
-  oauth: {
-    disconnectGoogle: () => fetchApi<{ success: boolean }>('/oauth/google/disconnect', { method: 'DELETE' }),
-    syncGoogle: (start?: string, end?: string) => fetchApi<{ success: boolean }>('/oauth/google/sync', { method: 'POST', body: JSON.stringify({ start, end }) }),
-  },
+
   ai: {
     complete: (data: Record<string, any>) => fetchApi<any>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),
     ragQuery: (data: Record<string, any>) => fetchApi<any>('/ai/rag-query', { method: 'POST', body: JSON.stringify(data) }),
@@ -353,12 +342,7 @@ export const api = {
     list: () => fetchApi<any[]>('/notifications', { method: 'GET' }),
     markAsRead: (id: string) => fetchApi<any>(`/notifications/${id}/read`, { method: 'PATCH' })
   },
-  automations: {
-    list: () => fetchApi<any[]>('/automations'),
-    create: (data: Record<string, any>) => fetchApi<any>('/automations', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, any>) => fetchApi<any>(`/automations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<{ success: boolean }>(`/automations/${id}`, { method: 'DELETE' }),
-  },
+
   dashboard: {
     get: () => fetchApi<any>('/dashboard', { method: 'GET' })
   },

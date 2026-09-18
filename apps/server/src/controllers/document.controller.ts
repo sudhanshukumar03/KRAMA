@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../prisma';
 import { DocumentService } from '../services/document.service';
 import { extractMarkdown, extractPlainText, calculateCounts } from '../utils/tiptap';
-import { documentVersionQueue } from '../queues';
+import { documentVersionQueue, embeddingQueue } from '../queues';
 import { redisService } from '../services/redis.service';
 import Groq from 'groq-sdk';
 
@@ -121,6 +121,13 @@ export const createWorkspaceDocument = async (req: Request, res: Response) => {
       documentType,
     });
 
+    if (doc.contentMarkdown) {
+      embeddingQueue.add('embed-document', {
+        documentId: doc.id,
+        content: doc.contentMarkdown,
+      }).catch(console.error);
+    }
+
     res.status(201).json(doc);
   } catch (error: any) {
     res.status(400).json({ message: error.message });
@@ -168,6 +175,13 @@ export const createDocument = async (req: Request, res: Response) => {
       createdById: userId,
       documentType,
     });
+
+    if (doc.contentMarkdown) {
+      embeddingQueue.add('embed-document', {
+        documentId: doc.id,
+        content: doc.contentMarkdown,
+      }).catch(console.error);
+    }
 
     res.status(201).json(doc);
   } catch (error: any) {
@@ -304,6 +318,16 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
         lastEditedById: userId,
       }
     });
+
+    if (contentMarkdown) {
+      embeddingQueue.add('embed-document', {
+        documentId: id,
+        content: contentMarkdown,
+      }, {
+        jobId: `embed-doc-${id}`,
+        delay: 2000,
+      }).catch(console.error);
+    }
 
     // Handle autosave versioning: 50 mutations or 5 min idle
     const mutations = await redisService.incr(`doc:${id}:mutations`);

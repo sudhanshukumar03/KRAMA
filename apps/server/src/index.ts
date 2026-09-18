@@ -30,9 +30,7 @@ import './events/subscribers';
 // Route imports
 import authRoutes from './routes/auth.routes';
 import workspaceRoutes from './routes/workspace.routes';
-import automationRoutes from './routes/automation.routes';
 import spaceRoutes from './routes/space.routes';
-import careerRoutes from './routes/career.routes';
 import uploadRoutes from './routes/upload.routes';
 import projectRoutes from './routes/project.routes';
 import taskRoutes from './routes/task.routes';
@@ -51,7 +49,6 @@ import decisionRoutes from './routes/decision.routes';
 import plannerRoutes from './routes/planner.routes';
 import holidayRoutes from './routes/holiday.routes';
 import searchRoutes from './routes/search.routes';
-import { oauthRoutes } from './routes/oauth.routes';
 
 const app = express();
 
@@ -96,7 +93,6 @@ app.use('/api/v1/workspaces', workspaceRoutes);
 app.use('/api/v1/projects', projectRoutes);
 app.use('/api/v1/tasks', taskRoutes);
 app.use('/api/v1/pages', pageRoutes);
-app.use('/api/v1/oauth', oauthRoutes);
 
 app.use('/api/v1/goals', goalRoutes);
 app.use('/api/v1/habits', habitRoutes);
@@ -115,10 +111,8 @@ app.use('/api/v1/search', searchRoutes);
 
 import documentRoutes from './routes/document.routes';
 
-app.use('/api/v1/automations', automationRoutes);
 app.use('/api/v1/spaces', spaceRoutes);
 app.use('/api/v1', documentRoutes);
-app.use('/api/v1/career', careerRoutes);
 app.use('/api/v1/upload', uploadRoutes);
 
 app.use('/api/v1', (req, res) => {

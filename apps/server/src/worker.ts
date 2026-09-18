@@ -10,9 +10,9 @@ import { habitStreakQueue, sprintReportQueue, analyticsQueue } from './queues';
 // Schedule repeatable jobs safely
 const scheduleJobs = async () => {
   try {
-    // Nightly at midnight UTC
+    // Hourly streak evaluation across timezones
     await habitStreakQueue.upsertJobScheduler('recalculate-streaks-job', {
-      pattern: '0 0 * * *'
+      pattern: '0 * * * *'
     }, {
       name: 'recalculate-streaks'
     });

@@ -8,16 +8,22 @@ export async function vectorSearch(
   const vectorString = `[${embedding.join(',')}]`;
   return prisma.$queryRaw<any[]>`
     SELECT
-      id,
-      "pageId",
-      content,
-      "chunkIndex",
+      kc.id,
+      kc."pageId",
+      kc."documentId",
+      kc.content,
+      kc."chunkIndex",
+      COALESCE(d.title, p.title, 'Untitled Document') AS "title",
+      COALESCE(d.title, p.title, 'Untitled Document') AS "pageTitle",
+      COALESCE(kc."documentId", kc."pageId") AS "sourceId",
       1 - (
-        embedding <=> ${vectorString}::vector
+        kc.embedding <=> ${vectorString}::vector
       ) AS similarity
-    FROM "KnowledgeChunk"
-    WHERE "workspaceId" = ${workspaceId}
-    ORDER BY embedding <=> ${vectorString}::vector
+    FROM "KnowledgeChunk" kc
+    LEFT JOIN "Document" d ON d.id = kc."documentId"
+    LEFT JOIN "Page" p ON p.id = kc."pageId"
+    WHERE kc."workspaceId" = ${workspaceId}
+    ORDER BY kc.embedding <=> ${vectorString}::vector
     LIMIT ${limit}
   `;
 }
@@ -29,17 +35,23 @@ export async function keywordSearch(
 ) {
   return prisma.$queryRaw<any[]>`
     SELECT
-      id,
-      "pageId",
-      content,
+      kc.id,
+      kc."pageId",
+      kc."documentId",
+      kc.content,
+      COALESCE(d.title, p.title, 'Untitled Document') AS "title",
+      COALESCE(d.title, p.title, 'Untitled Document') AS "pageTitle",
+      COALESCE(kc."documentId", kc."pageId") AS "sourceId",
       ts_rank(
-        to_tsvector('english', content),
+        to_tsvector('english', kc.content),
         plainto_tsquery('english', ${query})
       ) AS similarity
-    FROM "KnowledgeChunk"
+    FROM "KnowledgeChunk" kc
+    LEFT JOIN "Document" d ON d.id = kc."documentId"
+    LEFT JOIN "Page" p ON p.id = kc."pageId"
     WHERE
-      "workspaceId" = ${workspaceId}
-      AND to_tsvector('english', content)
+      kc."workspaceId" = ${workspaceId}
+      AND to_tsvector('english', kc.content)
           @@ plainto_tsquery('english', ${query})
     ORDER BY similarity DESC
     LIMIT ${limit}
@@ -59,29 +71,23 @@ export function mergeAndRank(
     const rank = index + 1;
     rrfScore.set(result.id, {
       ...result,
-      score: 1 / (k + rank),
-      source: 'vector'
+      score: 1 / (k + rank)
     });
   });
 
   keywordResults.forEach((result, index) => {
     const rank = index + 1;
-    if (rrfScore.has(result.id)) {
-      const existing = rrfScore.get(result.id);
+    const existing = rrfScore.get(result.id);
+    if (existing) {
       existing.score += 1 / (k + rank);
-      existing.source = 'hybrid';
     } else {
       rrfScore.set(result.id, {
         ...result,
-        score: 1 / (k + rank),
-        source: 'keyword'
+        score: 1 / (k + rank)
       });
     }
   });
 
-  const sortedCandidates = Array.from(rrfScore.values()).sort(
-    (a, b) => b.score - a.score
-  );
-
-  return sortedCandidates;
+  return Array.from(rrfScore.values())
+    .sort((a, b) => b.score - a.score);
 }

@@ -13,16 +13,8 @@ export class CalendarificHolidayProvider implements HolidayProvider {
     const { countryCode, regionCode, year } = input;
 
     if (!this.apiKey) {
-      console.warn("CALENDARIFIC_API_KEY is not set. Using mock holidays for demonstration.");
-      return [
-        { name: "New Year", date: new Date(`${year}-01-01`), type: "NATIONAL", isPublicHoliday: true, isOptional: false, countryCode, source: "mock" },
-        { name: "Republic Day", date: new Date(`${year}-01-26`), type: "NATIONAL", isPublicHoliday: true, isOptional: false, countryCode, source: "mock" },
-        { name: "Holi", date: new Date(`${year}-03-25`), type: "REGIONAL", isPublicHoliday: true, isOptional: false, countryCode, source: "mock" },
-        { name: "Independence Day", date: new Date(`${year}-08-15`), type: "NATIONAL", isPublicHoliday: true, isOptional: false, countryCode, source: "mock" },
-        { name: "Raksha Bandhan", date: new Date(`${year}-08-28`), type: "OBSERVANCE", isPublicHoliday: false, isOptional: true, countryCode, source: "mock" },
-        { name: "Diwali", date: new Date(`${year}-11-01`), type: "NATIONAL", isPublicHoliday: true, isOptional: false, countryCode, source: "mock" },
-        { name: "Christmas Day", date: new Date(`${year}-12-25`), type: "INTERNATIONAL", isPublicHoliday: true, isOptional: false, countryCode, source: "mock" },
-      ] as any[];
+      console.warn("CALENDARIFIC_API_KEY is not set. Holiday fetching skipped.");
+      return [];
     }
 
     try {

@@ -11,7 +11,7 @@ ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 RUN pnpm install --frozen-lockfile
 RUN cd apps/server && npx prisma generate
 RUN pnpm --filter "./packages/*" run build
-RUN cd apps/server && pnpm exec esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.js --external:@prisma/client --external:bcrypt --external:express --external:cors --external:jwt-simple --external:googleapis --external:socket.io --external:@socket.io/redis-adapter --external:multer --external:ioredis --external:groq-sdk --external:@google/genai
+RUN cd apps/server && pnpm exec esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.js --external:@prisma/client --external:bcrypt --external:express --external:cors --external:jwt-simple --external:socket.io --external:@socket.io/redis-adapter --external:multer --external:ioredis --external:groq-sdk --external:@google/genai
 RUN cd apps/server && pnpm exec esbuild src/worker.ts --bundle --platform=node --format=cjs --outfile=dist/worker.js --external:@prisma/client --external:bcrypt --external:bullmq --external:ioredis --external:@xenova/transformers --external:groq-sdk --external:@google/genai
 RUN pnpm --filter server deploy --legacy --prod /app/out
 FROM node:24-alpine AS runner

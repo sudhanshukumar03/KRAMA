@@ -8,29 +8,52 @@ import { createChunks } from '../services/rag/chunker';
 export const embeddingWorker = new Worker(
   QUEUE_NAMES.EMBEDDING,
   async (job) => {
-    const { pageId, content } = job.data;
-    if (!pageId || !content) {
+    const { pageId, documentId, content } = job.data;
+    if ((!pageId && !documentId) || !content) {
       return { skipped: true, reason: 'Missing data' };
     }
 
-    const page = await prisma.page.findUnique({
-      where: { id: pageId },
-      select: { workspaceId: true }
-    });
-
-    if (!page) {
-      return { skipped: true, reason: 'Page not found' };
+    let workspaceId: string | null = null;
+    if (documentId) {
+      const doc = await prisma.document.findUnique({
+        where: { id: documentId },
+        include: { space: { select: { workspaceId: true } } }
+      });
+      if (!doc) {
+        return { skipped: true, reason: 'Document not found' };
+      }
+      workspaceId = doc.space?.workspaceId || null;
+    } else if (pageId) {
+      const page = await prisma.page.findUnique({
+        where: { id: pageId },
+        select: { workspaceId: true }
+      });
+      if (!page) {
+        return { skipped: true, reason: 'Page not found' };
+      }
+      workspaceId = page.workspaceId;
     }
 
-    console.log(`[Worker:Embedding] Chunking and embedding page ${pageId}...`);
+    if (!workspaceId) {
+      return { skipped: true, reason: 'Workspace not found' };
+    }
+
+    const entityLabel = documentId ? `document ${documentId}` : `page ${pageId}`;
+    console.log(`[Worker:Embedding] Chunking and embedding ${entityLabel}...`);
     
     // 1. Chunk content
     const chunks = createChunks(content, 800, 100);
 
     // 2. Delete old chunks
-    await prisma.knowledgeChunk.deleteMany({
-      where: { pageId }
-    });
+    if (documentId) {
+      await prisma.knowledgeChunk.deleteMany({
+        where: { documentId }
+      });
+    } else {
+      await prisma.knowledgeChunk.deleteMany({
+        where: { pageId }
+      });
+    }
 
     // 3. Embed and save new chunks
     for (let i = 0; i < chunks.length; i++) {
@@ -39,19 +62,20 @@ export const embeddingWorker = new Worker(
       const vectorString = `[${embeddingArray.join(',')}]`;
 
       await prisma.$executeRawUnsafe(`
-        INSERT INTO "KnowledgeChunk" ("id", "workspaceId", "pageId", "content", "chunkIndex", "embedding", "createdAt", "updatedAt")
-        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::vector, NOW(), NOW())
-      `, page.workspaceId, pageId, chunkText, i, vectorString);
+        INSERT INTO "KnowledgeChunk" ("id", "workspaceId", "pageId", "documentId", "content", "chunkIndex", "embedding", "createdAt", "updatedAt")
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6::vector, NOW(), NOW())
+      `, workspaceId, pageId || null, documentId || null, chunkText, i, vectorString);
     }
 
-    return { pageId, success: true, chunksCount: chunks.length };
+    return { pageId, documentId, success: true, chunksCount: chunks.length };
   },
   { connection }
 );
 
 embeddingWorker.on('completed', (job, result) => {
   if (!result?.skipped) {
-    console.log(`[Worker:Embedding] Completed for page ${result.pageId}`);
+    const id = result.documentId || result.pageId;
+    console.log(`[Worker:Embedding] Completed for ${id}`);
   }
 });
 

@@ -38,62 +38,7 @@ export function PlannerPage() {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const openGoogleAuthPopup = (userId: string) => {
-      const url = `/api/v1/oauth/google/connect?userId=${userId}`;
-      const width = 580;
-      const height = 680;
-      const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
-      const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
-      
-      toast.info('Opening Google authorization in a new window...', { id: 'google-sync' });
-      const popup = window.open(
-        url,
-        'krama_google_oauth',
-        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no`
-      );
-      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-        window.open(url, '_blank');
-      }
-    };
 
-    const handleGoogleSync = async () => {
-      try {
-        toast.loading('Syncing Google Calendar...', { id: 'google-sync' });
-        await api.oauth.syncGoogle();
-        toast.success('Calendar synced successfully', { id: 'google-sync' });
-        queryClient.invalidateQueries({ queryKey: ['planner'] });
-        queryClient.invalidateQueries({ queryKey: ['issues'] });
-      } catch (err: any) {
-        if (err.message && err.message.includes('not connected')) {
-          if (user?.id) {
-            openGoogleAuthPopup(user.id);
-          } else {
-            toast.error('User not identified for Google sync', { id: 'google-sync' });
-          }
-        } else {
-          toast.error(`Failed to sync calendar: ${err.message}`, { id: 'google-sync' });
-        }
-      }
-    };
-
-    const handleAuthMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'GOOGLE_OAUTH_SUCCESS') {
-        toast.success('Google Calendar connected and synced successfully!', { id: 'google-sync' });
-        queryClient.invalidateQueries({ queryKey: ['planner'] });
-        queryClient.invalidateQueries({ queryKey: ['issues'] });
-      } else if (event.data?.type === 'GOOGLE_OAUTH_ERROR') {
-        toast.error(`Google Calendar connection failed: ${event.data.message || 'Unknown error'}`, { id: 'google-sync' });
-      }
-    };
-
-    window.addEventListener('oauth-google-sync', handleGoogleSync);
-    window.addEventListener('message', handleAuthMessage);
-    return () => {
-      window.removeEventListener('oauth-google-sync', handleGoogleSync);
-      window.removeEventListener('message', handleAuthMessage);
-    };
-  }, [user?.id, queryClient]);
 
  const {
  data,

@@ -5,7 +5,7 @@ import { api } from '../api/client';
 import {
   Clock, Play, Pause, CheckCircle2, CircleDashed, Check,
   ArrowRight, Plus, MoreVertical, Search,
-  Folder, Trash2, Edit2, X
+  Folder, Trash2, Edit2, X, Target, Activity, TrendingUp
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -44,6 +44,13 @@ export function SprintView() {
     }
     return sprints.find(s => s.status === 'active') || sprints[0] || null;
   }, [sprints, selectedSprintId]);
+
+  // Sprint Report for burndown / pacing telemetry
+  const { data: sprintReport } = useQuery({
+    queryKey: ['sprint-report', activeSprint?.id],
+    queryFn: () => (activeSprint?.id ? api.sprints.getReport(activeSprint.id) : null),
+    enabled: !!activeSprint?.id
+  });
 
   // Modals state
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -92,6 +99,7 @@ export function SprintView() {
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      queryClient.invalidateQueries({ queryKey: ['sprint-report'] });
       setEditingIssue(null);
       toast.success(`Updated "${updated?.title || 'Directive'}"`);
     },
@@ -110,6 +118,7 @@ export function SprintView() {
     onSuccess: (newIssue) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      queryClient.invalidateQueries({ queryKey: ['sprint-report'] });
       setCreateModalOpen(false);
       toast.success(`Created "${newIssue?.title || 'Directive'}" in sprint`);
     },
@@ -128,6 +137,7 @@ export function SprintView() {
             await api.tasks.restore(issue.id);
             queryClient.invalidateQueries({ queryKey: ['issues'] });
             queryClient.invalidateQueries({ queryKey: ['sprints'] });
+            queryClient.invalidateQueries({ queryKey: ['sprint-report'] });
             toast.success(`Restored "${issue.title}"`);
           }
         },
@@ -146,6 +156,7 @@ export function SprintView() {
       await api.tasks.update(issue.id, { status: nextStatus });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      queryClient.invalidateQueries({ queryKey: ['sprint-report'] });
       toast.success(isDone ? `Reopened "${issue.title}"` : `Marked "${issue.title}" as Done!`);
     } catch {
       toast.error('Failed to update directive status');
@@ -214,6 +225,7 @@ export function SprintView() {
         status: 'completed'
       });
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      queryClient.invalidateQueries({ queryKey: ['sprint-report'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       toast.success(`Completed sprint "${activeSprint.name}"`);
       setSprintMenuOpen(false);
@@ -263,6 +275,7 @@ export function SprintView() {
       await api.tasks.update(issueId, { sprintId: activeSprint.id });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      queryClient.invalidateQueries({ queryKey: ['sprint-report'] });
       toast.success('Added directive to sprint');
     } catch {
       toast.error('Failed to add directive to sprint');
@@ -275,6 +288,7 @@ export function SprintView() {
       await api.tasks.update(issueId, { sprintId: null });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      queryClient.invalidateQueries({ queryKey: ['sprint-report'] });
       toast.success('Moved directive to backlog');
     } catch {
       toast.error('Failed to move directive to backlog');
@@ -290,6 +304,7 @@ export function SprintView() {
       );
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      queryClient.invalidateQueries({ queryKey: ['sprint-report'] });
       toast.success(`Added ${filteredBacklogDirectives.length} directive(s) to sprint`);
       setBacklogModalOpen(false);
     } catch {
@@ -521,6 +536,51 @@ export function SprintView() {
               {sprintDates.daysRemaining} days remaining
             </span>
           </div>
+
+          {/* Burndown & Velocity Telemetry */}
+          {sprintReport && (
+            <div className="mt-4 pt-4 border-t border-border/60 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-2.5 rounded-xl bg-canvas/60 border border-border/60 flex flex-col">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-secondary font-semibold flex items-center gap-1.5">
+                  <Target className="w-3 h-3 text-blue-500" /> Ideal Left
+                </span>
+                <span className="text-base font-bold font-mono text-primary mt-1">
+                  {sprintReport.idealRemaining ?? sprintReport.metrics?.idealRemaining ?? 0} <span className="text-xs font-normal text-secondary">tasks</span>
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-canvas/60 border border-border/60 flex flex-col">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-secondary font-semibold flex items-center gap-1.5">
+                  <Activity className="w-3 h-3 text-amber-500" /> Actual Left
+                </span>
+                <span className="text-base font-bold font-mono text-primary mt-1">
+                  {sprintReport.actualRemaining ?? sprintReport.metrics?.actualRemaining ?? 0} <span className="text-xs font-normal text-secondary">tasks</span>
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-canvas/60 border border-border/60 flex flex-col">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-secondary font-semibold flex items-center gap-1.5">
+                  <TrendingUp className="w-3 h-3 text-emerald-500" /> Velocity
+                </span>
+                <span className="text-base font-bold font-mono text-primary mt-1">
+                  {sprintReport.pace ?? sprintReport.metrics?.pace ?? 0} <span className="text-xs font-normal text-secondary">tasks/day</span>
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-canvas/60 border border-border/60 flex flex-col justify-between">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-secondary font-semibold">
+                  Trajectory
+                </span>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className={cn(
+                    "px-2 py-0.5 rounded text-[11px] font-mono font-bold uppercase tracking-wider border",
+                    (sprintReport.burndown?.behindOrAhead === 'behind' || (sprintReport.actualRemaining > sprintReport.idealRemaining))
+                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25"
+                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25"
+                  )}>
+                    {(sprintReport.burndown?.behindOrAhead === 'behind' || (sprintReport.actualRemaining > sprintReport.idealRemaining)) ? 'Behind Ideal' : 'On Track'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 4. SPRINT WORK SECTION */}

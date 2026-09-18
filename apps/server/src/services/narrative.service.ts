@@ -1,9 +1,7 @@
 import { SkillService } from './skill.service';
-import { GoogleGenAI } from '@google/genai';
+import { aiService } from './ai.service';
 import { prisma } from '../prisma';
 import { z } from 'zod';
-
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 // We define the schema for proposed actions
 const NarrativeResponseSchema = z.object({
@@ -72,14 +70,16 @@ Output exactly a JSON object matching this schema:
 }
 `;
 
-    // 3. Call Gemini API
-    const response = await genAI.models.generateContent({
+    // 3. Call Gemini API via aiService gateway for telemetry
+    const response = await aiService.generateContentWithGemini({
+      prompt,
       model: 'gemini-3.7-flash',
-      contents: prompt,
       config: {
         responseMimeType: 'application/json',
         temperature: 0.2
-      }
+      },
+      workspaceId,
+      userId
     });
 
     const text = response.text || '{}';

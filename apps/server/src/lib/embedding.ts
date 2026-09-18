@@ -1,9 +1,7 @@
-import { GoogleGenAI } from '@google/genai';
-let client: GoogleGenAI | null = null;
+import { getGeminiClient } from '../services/ai.service';
+
 export async function getEmbedding(text: string): Promise<number[]> {
-  if (!client) {
-    client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  }
+  const client = getGeminiClient();
   const result = await client.models.embedContent({
     model: 'text-embedding-004',
     contents: text,

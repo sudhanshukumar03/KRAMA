@@ -32,9 +32,7 @@ describe('P1 Post-Commit Event Publishing Suite', () => {
     }
   });
 
-  after(async () => {
-    await prisma.$disconnect();
-  });
+
 
   describe('runInTransaction Post-Commit Guarantees', () => {
     it('does NOT publish events when a transaction rolls back', async () => {

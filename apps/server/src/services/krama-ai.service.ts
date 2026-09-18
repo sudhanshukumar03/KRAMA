@@ -1,8 +1,8 @@
-import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { prisma } from '../prisma';
 import { vectorSearch } from './rag/retriever';
 import { getEmbedding } from '../lib/embedding';
+import { aiService } from './ai.service';
 
 export const ResponseTypeSchema = z.enum([
   "direct",
@@ -53,14 +53,7 @@ export type AIResponse = z.infer<typeof AIResponseSchema>;
 export type AIIntent = "general" | "knowledge" | "productivity" | "planning" | "task" | "summary";
 
 export class KramaAIService {
-  private client: GoogleGenAI;
-
-  constructor() {
-    this.client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-  }
-
-  private async detectIntent(message: string): Promise<AIIntent> {
-    
+  private async detectIntent(message: string, workspaceId: string, userId: string): Promise<AIIntent> {
     const prompt = `
 You are the intent router for KRAMA OS.
 Classify the user's request into exactly ONE category:
@@ -76,8 +69,13 @@ summary: Requests to summarize KRAMA information.
 
 User: ${message}
 Return ONLY the category word.`;
-    const interaction = await this.client.interactions.create({ model: 'gemini-3.6-flash', input: prompt });
-    const value = (interaction.output_text || '').trim().toLowerCase();
+    const outputText = await aiService.interactWithGemini({
+      input: prompt,
+      model: 'gemini-3.6-flash',
+      workspaceId,
+      userId,
+    });
+    const value = (outputText || '').trim().toLowerCase();
     const valid: AIIntent[] = ["general", "knowledge", "productivity", "planning", "task", "summary"];
     return valid.includes(value as AIIntent) ? (value as AIIntent) : "general";
   }
@@ -157,9 +155,13 @@ Return ONLY valid JSON matching this schema:
 `;
   }
 
-  private async generateKramaResponse(prompt: string): Promise<AIResponse> {
-    const interaction = await this.client.interactions.create({ model: "gemini-3.6-flash", input: prompt });
-    const raw = interaction.output_text || "";
+  private async generateKramaResponse(prompt: string, workspaceId: string, userId: string): Promise<AIResponse> {
+    const raw = await aiService.interactWithGemini({
+      input: prompt,
+      model: "gemini-3.6-flash",
+      workspaceId,
+      userId,
+    });
 
     let cleanRaw = raw.trim();
     cleanRaw = cleanRaw.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
@@ -167,7 +169,6 @@ Return ONLY valid JSON matching this schema:
     let parsed: unknown;
     try {
       parsed = JSON.parse(cleanRaw);
-
     } catch {
       return { type: "direct", answer: raw, sections: [], actions: [], sources: [] };
     }
@@ -179,7 +180,7 @@ Return ONLY valid JSON matching this schema:
   }
 
   public async askKrama(message: string, workspaceId: string, userId: string, ragEnabled = false) {
-    const intent = await this.detectIntent(message);
+    const intent = await this.detectIntent(message, workspaceId, userId);
     const context = await this.getKramaContext(workspaceId, userId);
     const kramaContext = this.formatKramaContext(context);
 
@@ -188,16 +189,16 @@ Return ONLY valid JSON matching this schema:
     if (ragEnabled || intent === "knowledge") {
       const embedding = await getEmbedding(message);
       const chunks = await vectorSearch(workspaceId, embedding, 8);
-      ragContext = chunks.map((chunk: any, i: number) => `SOURCE ${i + 1}\nPage ID: ${chunk.pageId}\nTitle: ${chunk.pageTitle}\nContent:\n${chunk.content}\n`).join("\n");
-      sourcesList = chunks.map((chunk: any) => ({ pageId: chunk.pageId, title: chunk.pageTitle, chunkId: chunk.id }));
+      ragContext = chunks.map((chunk: any, i: number) => `SOURCE ${i + 1}\nPage ID: ${chunk.pageId || chunk.documentId || ''}\nTitle: ${chunk.title || chunk.pageTitle || ''}\nContent:\n${chunk.content}\n`).join("\n");
+      sourcesList = chunks.map((chunk: any) => ({ pageId: chunk.pageId || chunk.documentId || chunk.id, title: chunk.title || chunk.pageTitle || 'Source', chunkId: chunk.id }));
     }
 
     const prompt = this.buildPrompt(message, intent, kramaContext, ragContext);
-    const response = await this.generateKramaResponse(prompt);
+    const response = await this.generateKramaResponse(prompt, workspaceId, userId);
     
     // Inject retrieved sources directly into the response if it's a RAG intent and the AI didn't properly include them
     if (sourcesList.length > 0 && (!response.sources || response.sources.length === 0)) {
-        response.sources = sourcesList.slice(0, 3); // top 3
+      response.sources = sourcesList.slice(0, 3); // top 3
     }
     
     return { ...response, intent };

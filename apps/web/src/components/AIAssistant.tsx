@@ -2,73 +2,101 @@ import { useState, useEffect, useRef } from 'react';
 import { Bot, Send, Sparkles, User, X, RefreshCcw, Database } from 'lucide-react';
 import { api } from '../api/client';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 export function AIResponseRenderer({ response, navigate }: { response: any, navigate: any }) {
- if (typeof response === 'string') {
- return <p className="whitespace-pre-wrap leading-relaxed text-sm">{response}</p>;
- }
+  const queryClient = useQueryClient();
 
- return (
- <div className="space-y-4">
- {response.title && (
- <h3 className="font-semibold text-sm border-b border-border/30 pb-1.5 mb-2 text-primary">
- {response.title}
- </h3>
- )}
+  if (typeof response === 'string') {
+    return <p className="whitespace-pre-wrap leading-relaxed text-sm">{response}</p>;
+  }
 
- {response.answer && (
- <p className="whitespace-pre-wrap text-sm leading-relaxed text-primary">
- {response.answer}
- </p>
- )}
+  return (
+    <div className="space-y-4">
+      {response.title && (
+        <h3 className="font-semibold text-sm border-b border-border/30 pb-1.5 mb-2 text-primary">
+          {response.title}
+        </h3>
+      )}
 
- {response.sections && response.sections.length > 0 && response.sections.map((section: any, index: number) => (
- <section key={index} className="space-y-1.5 mt-4">
- <h4 className="font-bold text-[13px] uppercase tracking-wider text-secondary">{section.title}</h4>
- <p className="text-sm text-primary whitespace-pre-wrap leading-relaxed">{section.content}</p>
- </section>
- ))}
+      {response.answer && (
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-primary">
+          {response.answer}
+        </p>
+      )}
 
- {response.actions && response.actions.length > 0 && (
- <div className="flex flex-wrap gap-2 mt-4 pt-2">
- {response.actions.map((action: any, index: number) => (
- <button
- key={index}
- onClick={() => {
- if (action.type === 'open_page' && action.id) {
- navigate(`/app/pages/${action.id}`);
- } else if (action.type === 'open_project' && action.id) {
- navigate(`/app/projects/${action.id}`);
- }
- }}
- className="rounded-lg border border-border bg-surface-hover hover:bg-surface text-primary px-3.5 py-2 text-xs font-bold transition-all shadow-sm active:scale-95"
- >
- {action.label}
- </button>
- ))}
- </div>
- )}
+      {response.sections && response.sections.length > 0 && response.sections.map((section: any, index: number) => (
+        <section key={index} className="space-y-1.5 mt-4">
+          <h4 className="font-bold text-[13px] uppercase tracking-wider text-secondary">{section.title}</h4>
+          <p className="text-sm text-primary whitespace-pre-wrap leading-relaxed">{section.content}</p>
+        </section>
+      ))}
 
- {response.sources && response.sources.length > 0 && (
- <div className="mt-4 pt-3 border-t border-border/30">
- <span className="text-[10px] font-bold text-secondary mb-2 block uppercase tracking-wider">Brain Sources</span>
- <div className="flex flex-wrap gap-1.5">
- {response.sources.map((source: any) => (
- <a
- key={source.pageId || source.id}
- href={`/app/pages/${source.pageId || source.id}`}
- target="_blank"
- rel="noreferrer"
- className="text-[10px] font-medium border border-border bg-surface px-2 py-1.5 rounded-md hover:bg-surface-hover transition-colors truncate max-w-[220px] text-primary flex items-center gap-1.5 shadow-2xs"
- >
- <span className="opacity-50">📄</span> {source.title}
- </a>
- ))}
- </div>
- </div>
- )}
- </div>
- );
+      {response.actions && response.actions.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-4 pt-2">
+          {response.actions.map((action: any, index: number) => (
+            <button
+              key={index}
+              onClick={async () => {
+                if (action.type === 'open_page' && action.id) {
+                  navigate(`/app/brain?doc=${action.id}`);
+                } else if (action.type === 'open_project' && action.id) {
+                  navigate(`/app/projects/${action.id}`);
+                } else if (action.type === 'create_task') {
+                  try {
+                    const taskTitle = action.label || action.id || 'New Task';
+                    await api.tasks.create({ title: taskTitle });
+                    queryClient.invalidateQueries({ queryKey: ['issues'] });
+                    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+                    toast.success(`Task created: "${taskTitle}"`);
+                  } catch (err: any) {
+                    toast.error(err?.message || 'Failed to create task');
+                  }
+                } else if (action.type === 'complete_task' && action.id) {
+                  try {
+                    await api.tasks.complete(action.id);
+                    queryClient.invalidateQueries({ queryKey: ['issues'] });
+                    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+                    toast.success('Task marked as complete');
+                  } catch (err: any) {
+                    toast.error(err?.message || 'Failed to complete task');
+                  }
+                }
+              }}
+              className="rounded-lg border border-border bg-surface-hover hover:bg-surface text-primary px-3.5 py-2 text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {response.sources && response.sources.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-border/30">
+          <span className="text-[10px] font-bold text-secondary mb-2 block uppercase tracking-wider">Brain Sources</span>
+          <div className="flex flex-wrap gap-1.5">
+            {response.sources.map((source: any) => {
+              const docId = source.documentId || source.pageId || source.id;
+              return (
+                <a
+                  key={docId}
+                  href={`/app/brain?doc=${docId}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate(`/app/brain?doc=${docId}`);
+                  }}
+                  className="text-[10px] font-medium border border-border bg-surface px-2 py-1.5 rounded-md hover:bg-surface-hover transition-colors truncate max-w-[220px] text-primary flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                >
+                  <span className="opacity-50">📄</span> {source.title}
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function AIAssistant() {

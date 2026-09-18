@@ -8,7 +8,7 @@ interface Props {
   subtitle: string;
   weekRangeLabel?: string;
   onNavigate: (dir: 'prev' | 'next' | 'today') => void;
-  syncStatus: {
+  syncStatus?: {
     provider?: string | null;
     status?: string;
     lastSyncedAt?: string | null;
@@ -18,10 +18,6 @@ interface Props {
   onLocalOnlyChange?: (val: boolean) => void;
   countryRegion?: string;
   rightSlot?: React.ReactNode;
-  isGoogleConnected?: boolean;
-  onDisconnectGoogle?: () => void;
-  onSyncGoogle?: () => void;
-  isSyncingGoogle?: boolean;
   onLocationClick?: () => void;
 }
 
@@ -121,16 +117,6 @@ export function PlannerHeader({
 
       {/* RIGHT CONTROLS */}
       <div className="flex items-center gap-2">
-        <button 
-          onClick={() => {
-            const event = new CustomEvent('oauth-google-sync');
-            window.dispatchEvent(event);
-          }}
-          className="flex items-center gap-1.5 px-2.5 py-1 bg-surface hover:bg-surface-hover border border-border rounded-lg text-[11px] font-bold text-accent transition-colors shadow-sm cursor-pointer"
-        >
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24"><path fill="currentColor" d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.761H12.545z"></path></svg>
-          <span>Sync</span>
-        </button>
         <div 
           onClick={onLocationClick}
           className="flex items-center gap-1 px-2.5 py-1 bg-surface hover:bg-surface-hover border border-border rounded-lg text-[11px] font-bold text-primary transition-colors cursor-pointer shadow-sm"
@@ -147,7 +133,7 @@ export function PlannerHeader({
               onChange={(e) => onLocalOnlyChange && onLocalOnlyChange(e.target.checked)}
               className="rounded border-border text-accent focus:ring-blue-500 w-3.5 h-3.5"
             />
-            Local only
+            <span title="Filter to official public holidays, hiding observances and optional days">Public holidays only</span>
           </label>
         )}
 

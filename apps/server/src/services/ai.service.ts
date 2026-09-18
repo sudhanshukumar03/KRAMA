@@ -50,11 +50,18 @@ class GroqProvider implements AIProvider {
 
 import { GoogleGenAI } from '@google/genai';
 
-class GeminiProvider implements AIProvider {
-  private client: GoogleGenAI;
-  constructor() {
+let geminiClientInstance: GoogleGenAI | null = null;
+export function getGeminiClient(): GoogleGenAI {
+  if (!geminiClientInstance) {
     if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured.");
-    this.client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    geminiClientInstance = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
+  return geminiClientInstance;
+}
+
+class GeminiProvider implements AIProvider {
+  private get client(): GoogleGenAI {
+    return getGeminiClient();
   }
   async complete(prompt: string, model: string): Promise<ProviderResponse> {
     const response = await this.client.models.generateContent({
@@ -87,6 +94,8 @@ const COST_MAP: Record<string, { prompt: number, completion: number }> = {
   'llama-3.1-8b-instant': { prompt: 0.05 / 1_000_000, completion: 0.08 / 1_000_000 },
   'llama-3.1-70b-versatile': { prompt: 0.59 / 1_000_000, completion: 0.79 / 1_000_000 },
   'gemini-1.5-flash-latest': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
+  'gemini-3.6-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
+  'gemini-3.7-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
 };
 
 export class AiService {
@@ -165,6 +174,90 @@ export class AiService {
     });
 
     return response.completionText;
+  }
+
+  public async interactWithGemini(params: {
+    input: string;
+    model?: string;
+    workspaceId: string;
+    userId: string;
+  }): Promise<string> {
+    const startTime = Date.now();
+    const model = params.model || 'gemini-3.6-flash';
+    const client = getGeminiClient();
+
+    const interaction = await client.interactions.create({
+      model,
+      input: params.input,
+    });
+
+    const completionText = interaction.output_text || '';
+    const latencyMs = Date.now() - startTime;
+    const promptTokens = Math.ceil(params.input.length / 4);
+    const completionTokens = Math.ceil(completionText.length / 4);
+    const estimatedCostUsd = this.calculateCost(model, promptTokens, completionTokens);
+
+    await prisma.aiRequest.create({
+      data: {
+        userId: params.userId,
+        workspaceId: params.workspaceId,
+        prompt: params.input,
+        response: completionText,
+        model,
+        provider: 'gemini',
+        tokensUsed: promptTokens + completionTokens,
+        promptTokens,
+        completionTokens,
+        estimatedCostUsd,
+        latencyMs,
+        cacheHit: false,
+      },
+    });
+
+    return completionText;
+  }
+
+  public async generateContentWithGemini(params: {
+    prompt: string;
+    model?: string;
+    config?: any;
+    workspaceId: string;
+    userId: string;
+  }): Promise<{ text: string }> {
+    const startTime = Date.now();
+    const model = params.model || 'gemini-3.7-flash';
+    const client = getGeminiClient();
+
+    const response = await client.models.generateContent({
+      model,
+      contents: params.prompt,
+      config: params.config,
+    });
+
+    const completionText = response.text || '';
+    const latencyMs = Date.now() - startTime;
+    const promptTokens = response.usageMetadata?.promptTokenCount || Math.ceil(params.prompt.length / 4);
+    const completionTokens = response.usageMetadata?.candidatesTokenCount || Math.ceil(completionText.length / 4);
+    const estimatedCostUsd = this.calculateCost(model, promptTokens, completionTokens);
+
+    await prisma.aiRequest.create({
+      data: {
+        userId: params.userId,
+        workspaceId: params.workspaceId,
+        prompt: params.prompt,
+        response: completionText,
+        model,
+        provider: 'gemini',
+        tokensUsed: promptTokens + completionTokens,
+        promptTokens,
+        completionTokens,
+        estimatedCostUsd,
+        latencyMs,
+        cacheHit: false,
+      },
+    });
+
+    return { text: completionText };
   }
 
   public async buildWorkspaceContext(workspaceId: string): Promise<string> {

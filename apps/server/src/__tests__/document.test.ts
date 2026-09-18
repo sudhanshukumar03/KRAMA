@@ -35,7 +35,6 @@ describe('Brain Workspace - Step 1: Tree + CRUD', () => {
     if (space) {
       await prisma.space.delete({ where: { id: space.id } });
     }
-    await prisma.$disconnect();
   });
 
   it('Creating a 4th nesting level returns an error', async () => {

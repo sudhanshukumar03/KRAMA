@@ -122,8 +122,6 @@ model User {
   milestones       Milestone[]
   externalItems    ExternalItem[]
   skills           Skill[]
-  certifications   Certification[]
-  careerMilestones CareerMilestone[]
 }
 
 model Session {
@@ -488,6 +486,7 @@ model Document {
 
   versions        DocumentVersion[]
   tags            DocumentTag[]
+  knowledgeChunks KnowledgeChunk[]
 
   @@index([spaceId, deletedAt])
   @@index([parentId])
@@ -736,7 +735,8 @@ model KnowledgeChunk {
   id String @id @default(cuid())
 
   workspaceId String
-  pageId      String
+  pageId      String?
+  documentId  String?
 
   content    String
   chunkIndex Int
@@ -748,10 +748,12 @@ model KnowledgeChunk {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  page     Page?     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  document Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
   @@index([pageId])
+  @@index([documentId])
 }
 
 // -----------------------------------------------------------------------------
@@ -874,30 +876,4 @@ model Skill {
   projects Project[]
   tasks    Task[]
   habits   Habit[]
-}
-
-model Certification {
-  id           String    @id @default(uuid())
-  name         String
-  issuer       String?
-  dateObtained DateTime
-  expiryDate   DateTime?
-  url          String?
-  userId       String
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-}
-
-model CareerMilestone {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  company     String?
-  type        String?
-  date        DateTime
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 }

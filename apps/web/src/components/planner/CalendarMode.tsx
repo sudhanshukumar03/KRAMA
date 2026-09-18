@@ -10,7 +10,7 @@ import {
   isToday 
 } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
-import { useHolidays } from "../../hooks/useHolidays";
+import { useHolidays, getCalendarGridRange } from "../../hooks/useHolidays";
 import { api } from "../../api/client";
 import { 
   Calendar as CalendarIcon, 
@@ -22,6 +22,20 @@ import {
   Sparkles
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+
+function getHolidayDateKey(dateVal: any): string {
+  if (!dateVal) return '';
+  if (typeof dateVal === 'string') return dateVal.slice(0, 10);
+  if (dateVal instanceof Date) return format(dateVal, 'yyyy-MM-dd');
+  return '';
+}
+
+function parseCalendarDate(dateVal: any): Date {
+  const key = getHolidayDateKey(dateVal);
+  if (!key) return new Date();
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1, 12, 0, 0);
+}
 
 interface Props {
   calendarDate: Date;
@@ -56,24 +70,17 @@ export function CalendarMode({
     holidays = holidays.filter((h: any) => h.isPublicHoliday);
   }
 
-  const upcomingHolidays = holidays.filter((h: any) => {
-    try {
-      return parseISO(h.date) >= new Date(new Date().setHours(0, 0, 0, 0));
-    } catch {
-      return false;
-    }
-  });
+  // Filter holidays belonging to the active month for the sidebar
+  const currentMonthKey = format(calendarDate, 'yyyy-MM');
+  const monthHolidays = useMemo(() => {
+    return holidays.filter((h: any) => {
+      const key = getHolidayDateKey(h.date);
+      return key.startsWith(currentMonthKey);
+    });
+  }, [holidays, currentMonthKey]);
 
-  // Calendar Grid Math (Monday start)
-  const monthStart = startOfMonth(calendarDate);
-  const monthEnd = endOfMonth(calendarDate);
-
-  const startDate = new Date(monthStart);
-  startDate.setDate(startDate.getDate() - startDate.getDay() + (startDate.getDay() === 0 ? -6 : 1));
-
-  const endDate = new Date(monthEnd);
-  endDate.setDate(endDate.getDate() + (7 - endDate.getDay() === 7 ? 0 : 7 - endDate.getDay()));
-
+  // Calendar Grid Math (Monday start, shared with useHolidays)
+  const { startDate, endDate } = getCalendarGridRange(calendarDate);
   const monthDays = eachDayOfInterval({ start: startDate, end: endDate });
 
   // Filter tasks belonging to current active month
@@ -136,12 +143,9 @@ export function CalendarMode({
         {/* Month matrix cells */}
         <div className="grid grid-cols-7 auto-rows-fr gap-0 flex-1 overflow-hidden border-l border-t border-border rounded-xl shadow-2xs">
           {monthDays.map((day) => {
+            const dayKey = format(day, 'yyyy-MM-dd');
             const dayHolidays = holidays.filter((h: any) => {
-              try {
-                return isSameDay(parseISO(h.date), day);
-              } catch {
-                return false;
-              }
+              return getHolidayDateKey(h.date) === dayKey;
             });
 
             const dayTasks = taskList.filter((t: any) => {
@@ -343,13 +347,13 @@ export function CalendarMode({
           <div className="flex flex-col gap-2">
             {isHolidaysLoading ? (
               <div className="text-xs text-muted animate-pulse py-2">Loading holidays...</div>
-            ) : upcomingHolidays.length === 0 ? (
+            ) : monthHolidays.length === 0 ? (
               <div className="text-xs text-secondary py-4 text-center italic border border-dashed border-border rounded-xl">
-                No upcoming holidays.
+                No holidays in this month.
               </div>
             ) : (
-              upcomingHolidays.slice(0, 4).map((h: any) => {
-                const hDate = parseISO(h.date);
+              monthHolidays.slice(0, 6).map((h: any) => {
+                const hDate = parseCalendarDate(h.date);
                 return (
                   <div 
                     key={h.id || h.name} 

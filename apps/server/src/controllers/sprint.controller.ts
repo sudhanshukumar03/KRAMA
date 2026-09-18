@@ -155,3 +155,94 @@ export const getSprintTasks = async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+export const getSprintReport = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+
+    const sprint = await prisma.sprint.findUnique({
+      where: { id },
+      include: {
+        tasks: {
+          where: { deletedAt: null },
+          select: { id: true, status: true, priority: true, estimateMinutes: true, metadata: true, updatedAt: true, createdAt: true }
+        }
+      }
+    });
+
+    if (!sprint || sprint.deletedAt) {
+      return res.status(404).json({ message: 'Sprint not found' });
+    }
+
+    // Check if pre-computed SprintReport exists
+    const report = await prisma.sprintReport.findUnique({
+      where: { sprintId: id }
+    });
+
+    const tasks = sprint.tasks || [];
+    const tasksCompleted = tasks.filter(t => t.status === 'DONE').length;
+    const tasksPlanned = tasks.length;
+    const tasksInProgress = tasks.filter(t => t.status === 'IN_PROGRESS').length;
+    const tasksTodo = tasks.filter(t => t.status === 'TODO' || t.status === 'BACKLOG').length;
+    const getTaskPoints = (t: any) => Number(t.metadata?.points || (t.estimateMinutes ? Math.round(t.estimateMinutes / 60) : 0) || t.points || 0);
+    const totalPoints = tasks.reduce((sum, t) => sum + getTaskPoints(t), 0);
+    const completedPoints = tasks.filter(t => t.status === 'DONE').reduce((sum, t) => sum + getTaskPoints(t), 0);
+    const completionRate = tasksPlanned > 0 ? Math.round((tasksCompleted / tasksPlanned) * 100) : 0;
+
+    const startDate = sprint.startDate ? new Date(sprint.startDate) : new Date(sprint.createdAt);
+    const endDate = sprint.endDate ? new Date(sprint.endDate) : new Date(startDate.getTime() + 14 * 86400000);
+    const daysTotal = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86400000));
+    const now = new Date();
+    const daysElapsed = Math.min(daysTotal, Math.max(0, Math.round((now.getTime() - startDate.getTime()) / 86400000)));
+
+    const idealRemaining = Math.max(0, Math.round(tasksPlanned - (tasksPlanned / daysTotal) * daysElapsed));
+    const actualRemaining = Math.max(0, tasksPlanned - tasksCompleted);
+
+    const isBehind = actualRemaining > idealRemaining;
+    const pace = daysElapsed > 0 ? Number((tasksCompleted / daysElapsed).toFixed(2)) : 0;
+
+    const reportData = {
+      id: report?.id || `computed-${sprint.id}`,
+      sprintId: sprint.id,
+      workspaceId: sprint.workspaceId,
+      sprintName: sprint.name,
+      startDate: sprint.startDate,
+      endDate: sprint.endDate,
+      status: sprint.status,
+      generatedAt: report?.generatedAt || new Date(),
+      tasksPlanned,
+      tasksCompleted,
+      tasksInProgress,
+      tasksTodo,
+      totalPoints,
+      completedPoints,
+      completionRate,
+      daysTotal,
+      daysElapsed,
+      idealRemaining,
+      actualRemaining,
+      pace,
+      metrics: {
+        tasksPlanned,
+        tasksCompleted,
+        totalPoints,
+        completedPoints,
+        daysTotal,
+        daysElapsed,
+        idealRemaining,
+        actualRemaining,
+        pace,
+      },
+      burndown: {
+        idealRemaining,
+        actualRemaining,
+        behindOrAhead: isBehind ? 'behind' : 'on-track',
+      },
+      metadata: report?.metadata || null
+    };
+
+    return res.status(200).json(reportData);
+  } catch (error: any) {
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};

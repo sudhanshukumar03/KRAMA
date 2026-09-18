@@ -116,17 +116,21 @@ router.get('/week', async (req: Request, res: Response) => {
       fetchHolidays(user.countryCode || 'IN', weekStart.getFullYear()),
     ]);
 
+    const workDayMinutes = Math.round((user.weeklyCapacityMinutes ?? 2400) / 5);
+
     const holidayBlocks = (holidaysList || []).filter((h: any) => {
       const hDate = new Date(h.date);
       return hDate >= weekStart && hDate <= weekEnd;
     }).map((h: any) => {
       const hDate = new Date(h.date);
+      const startTime = new Date(hDate.getTime() + 1000 * 60 * 60 * 9); // 9:00 AM start
+      const endTime = new Date(startTime.getTime() + workDayMinutes * 60 * 1000); // full configured working day
       return {
         id: 'holiday-' + h.name,
         title: h.name,
         date: hDate,
-        startTime: new Date(hDate.getTime() + 1000 * 60 * 60 * 8), // 8 AM placeholder
-        endTime: new Date(hDate.getTime() + 1000 * 60 * 60 * 9), // 9 AM placeholder
+        startTime,
+        endTime,
         type: 'OTHER',
         isExternal: true,
         source: 'Holiday'
