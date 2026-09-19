@@ -8,7 +8,7 @@ import {
   Calendar, KanbanSquare, Clock, TrendingUp,
   Search, LogOut, Moon, Sun, Download, X, 
   Settings, User, Layers,
-  PanelLeftClose
+  PanelLeftClose, Timer, ExternalLink
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +21,7 @@ interface NavItem {
   icon: any;
   shortcut?: string;
   badgeKey: string | null;
+  external?: boolean;
 }
 
 // 5 Rule-of-5-7 Groups per KRAMA UI Design Direction
@@ -32,6 +33,7 @@ const planAndExecuteItems: NavItem[] = [
   { name: 'Execution Board', path: '/app/board', icon: KanbanSquare, shortcut: 'E K', badgeKey: 'openIssues' },
   { name: 'Sprint', path: '/app/sprint', icon: Clock, shortcut: 'E S', badgeKey: 'sprintIssues' },
   { name: 'Planner', path: '/app/planner', icon: Calendar, shortcut: 'E W', badgeKey: null },
+  { name: 'Focus Timer', path: '/focus', icon: Timer, shortcut: '⌃⇧Q', badgeKey: null, external: true },
 ];
 
 const strategyItems: NavItem[] = [
@@ -120,54 +122,83 @@ export function Sidebar({
  }
  };
 
- const renderLink = (item: NavItem) => {
- const isActive = location.pathname === item.path || (item.path !== '/app/' && location.pathname.startsWith(item.path));
- const Icon = item.icon;
- const badgeVal = getBadgeValue(item.badgeKey);
+  const renderLink = (item: NavItem) => {
+    const isActive = location.pathname === item.path || (item.path !== '/app/' && location.pathname.startsWith(item.path));
+    const Icon = item.icon;
+    const badgeVal = getBadgeValue(item.badgeKey);
 
- return (
- <Link
- key={item.path}
- to={item.path}
- onClick={onMobileClose}
- className={cn(
- "group flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption transition-colors duration-150 outline-none select-none relative",
- isActive 
- ? "text-primary font-medium bg-surface-hover border border-border" 
- : "text-secondary hover:text-primary hover:bg-surface-hover border border-transparent"
- )}
- >
- {isActive && (
- <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.75 h-4 bg-accent rounded-r" />
- )}
- <div className="flex items-center gap-2.5 min-w-0 z-10 pl-1">
- <Icon className={cn(
- "w-4 h-4 shrink-0 stroke-[1.75] transition-colors",
- isActive ? "text-accent" : "text-muted group-hover:text-primary"
- )} />
- <span className="truncate">{item.name}</span>
- </div>
+    if (item.external) {
+      return (
+        <button
+          key={item.path}
+          type="button"
+          onClick={() => {
+            onMobileClose?.();
+            window.open(item.path, '_blank');
+          }}
+          className="w-full group flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption transition-colors duration-150 outline-none select-none relative text-secondary hover:text-primary hover:bg-surface-hover border border-transparent cursor-pointer text-left"
+          title={`${item.name} (Opens in new full-screen tab)`}
+        >
+          <div className="flex items-center gap-2.5 min-w-0 z-10 pl-1">
+            <Icon className="w-4 h-4 shrink-0 stroke-[1.75] transition-colors text-muted group-hover:text-primary" />
+            <span className="truncate">{item.name}</span>
+          </div>
 
- <div className="flex items-center gap-1.5 shrink-0 ml-2">
- {badgeVal !== null && badgeVal > 0 && (
- <span className={cn(
- "px-1.5 py-0.2 rounded font-mono text-badge leading-tight border transition-colors",
- isActive 
- ? "bg-accent-tint text-accent border-accent/20 font-semibold" 
- : "bg-surface-hover text-muted border-border/80 group-hover:text-secondary"
- )}>
- {badgeVal}
- </span>
- )}
- {item.shortcut && (
- <kbd className="opacity-0 group-hover:opacity-100 transition-opacity">
- {item.shortcut}
- </kbd>
- )}
- </div>
- </Link>
- );
- };
+          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+            {item.shortcut && (
+              <kbd className="opacity-0 group-hover:opacity-100 font-mono text-[10px] text-muted transition-opacity">
+                {item.shortcut}
+              </kbd>
+            )}
+            <ExternalLink className="w-3 h-3 text-muted/60 group-hover:text-muted transition-colors" />
+          </div>
+        </button>
+      );
+    }
+
+    return (
+      <Link
+        key={item.path}
+        to={item.path}
+        onClick={onMobileClose}
+        className={cn(
+          "group flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption transition-colors duration-150 outline-none select-none relative",
+          isActive 
+            ? "text-primary font-medium bg-surface-hover border border-border" 
+            : "text-secondary hover:text-primary hover:bg-surface-hover border border-transparent"
+        )}
+      >
+        {isActive && (
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.75 h-4 bg-accent rounded-r" />
+        )}
+        <div className="flex items-center gap-2.5 min-w-0 z-10 pl-1">
+          <Icon className={cn(
+            "w-4 h-4 shrink-0 stroke-[1.75] transition-colors",
+            isActive ? "text-accent" : "text-muted group-hover:text-primary"
+          )} />
+          <span className="truncate">{item.name}</span>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          {badgeVal !== null && badgeVal > 0 && (
+            <span className={cn(
+              "px-1.5 py-0.2 rounded font-mono text-badge leading-tight border transition-colors",
+              isActive 
+                ? "bg-accent-tint text-accent border-accent/20 font-semibold" 
+                : "bg-surface-hover text-muted border-border/80 group-hover:text-secondary"
+            )}>
+              {badgeVal}
+            </span>
+          )}
+          {item.shortcut && (
+            <kbd className="opacity-0 group-hover:opacity-100 transition-opacity">
+              {item.shortcut}
+            </kbd>
+          )}
+        </div>
+      </Link>
+    );
+  };
 
  const sidebarContent = (
  <div className="w-[280px] border-r border-border bg-surface flex flex-col h-full flex-shrink-0 select-none shadow-level-1 z-10">

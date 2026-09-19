@@ -37,7 +37,9 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
     const headers = new Headers(options.headers || {});
     if (token) headers.set('Authorization', `Bearer ${token}`);
     if (currentWorkspaceId) headers.set('x-workspace-id', currentWorkspaceId);
-    headers.set('Content-Type', 'application/json');
+    if (!(options.body instanceof FormData)) {
+      headers.set('Content-Type', 'application/json');
+    }
 
     const res = await fetch(`${API_BASE}${endpoint}`, { 
       ...options, 
@@ -347,7 +349,9 @@ export const api = {
     get: () => fetchApi<any>('/dashboard', { method: 'GET' })
   },
   focusSessions: {
-    complete: (data: Record<string, any>) => fetchApi<any>('/focus-sessions', { method: 'POST', body: JSON.stringify(data) })
+    complete: (data: Record<string, any>) => fetchApi<any>('/focus-sessions', { method: 'POST', body: JSON.stringify(data) }),
+    getSchedule: () => fetchApi<any>('/focus-sessions/schedule'),
+    getWallpaper: (category: string) => fetchApi<any>(`/focus-sessions/wallpaper?category=${encodeURIComponent(category)}`),
   },
   analytics: {
     overview: (range: string) => fetchApi<any[]>(`/analytics/overview?range=${range}`, { method: 'GET' }),

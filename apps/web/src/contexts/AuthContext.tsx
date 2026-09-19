@@ -11,7 +11,13 @@ interface User {
       sprint?: number;
       deep?: number;
       quick?: number;
+      focusDuration?: number;
+      shortBreak?: number;
+      longBreak?: number;
+      longBreakAfter?: number;
     };
+    focusWallpaper?: { type: string; value: string };
+    focusLayout?: string;
     [key: string]: any;
   };
 }

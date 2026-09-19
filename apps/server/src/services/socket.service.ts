@@ -33,7 +33,7 @@ class SocketService {
       }
       try {
         const decoded = jwt.decode(token, JWT_SECRET) as any;
-        (socket as any).user = decoded;
+        (socket as any).user = { ...decoded, id: decoded.sub || decoded.id };
         next();
       } catch (err) {
         next(new Error('Authentication error: Invalid token'));
@@ -41,9 +41,10 @@ class SocketService {
     });
 
     this.io.on('connection', (socket: Socket) => {
-      const userId = (socket as any).user.id;
-      
-      socket.join(userId);
+      const userId = (socket as any).user.id || (socket as any).user.sub;
+      if (userId) {
+        socket.join(userId);
+      }
       console.log(`[Socket] User ${userId} connected (${socket.id})`);
 
       socket.on('disconnect', () => {

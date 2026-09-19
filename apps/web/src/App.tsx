@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AppShell } from './components/AppShell';
 import { LandingPage } from './components/LandingPage';
@@ -7,6 +7,7 @@ import { Signup } from './components/Signup';
 import { AuthGuard } from './components/AuthGuard';
 import { useTheme } from './lib/theme';
 import { SocketProvider } from './providers/SocketProvider';
+import { FocusPage } from './components/FocusPage';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NotFound } from './components/NotFound';
@@ -31,6 +32,12 @@ function App() {
               </SocketProvider>
             </ErrorBoundary>
           } />
+          <Route path="/focus" element={
+            <ErrorBoundary>
+              <FocusPage />
+            </ErrorBoundary>
+          } />
+          <Route path="/dashboard" element={<Navigate to="/app/" replace />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

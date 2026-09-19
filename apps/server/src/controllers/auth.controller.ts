@@ -148,9 +148,9 @@ export const updatePreferences = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
     const userId = req.user.id;
-    const { timerPreferences, locationConfig, weeklyCapacityMinutes } = req.body;
+    const { timerPreferences, locationConfig, weeklyCapacityMinutes, focusWallpaper, focusLayout } = req.body;
 
-    if (!timerPreferences && !locationConfig && weeklyCapacityMinutes === undefined) {
+    if (!timerPreferences && !locationConfig && weeklyCapacityMinutes === undefined && !focusWallpaper && !focusLayout) {
       return res.status(400).json({ message: 'No valid fields provided' });
     }
 
@@ -160,13 +160,17 @@ export const updatePreferences = async (req: Request, res: Response) => {
     const currentMetadata = (user.metadata as Record<string, any>) || {};
     
     const updateData: any = {};
-    if (timerPreferences) {
+    if (timerPreferences || focusWallpaper || focusLayout) {
       updateData.metadata = {
         ...currentMetadata,
-        timerPreferences: {
-          ...(currentMetadata.timerPreferences || {}),
-          ...timerPreferences
-        }
+        ...(timerPreferences ? {
+          timerPreferences: {
+            ...(currentMetadata.timerPreferences || {}),
+            ...timerPreferences
+          }
+        } : {}),
+        ...(focusWallpaper ? { focusWallpaper } : {}),
+        ...(focusLayout ? { focusLayout } : {})
       };
     }
     if (locationConfig) {

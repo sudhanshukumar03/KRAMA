@@ -8,7 +8,6 @@ import { KanbanBoard } from './KanbanBoard';
 import { BrainWorkspace } from './BrainWorkspace';
 import { Dashboard } from './Dashboard';
 import { CommandPalette } from './CommandPalette';
-import { FocusTimerWidget } from './FocusTimerWidget';
 
 import { Goals } from './Goals';
 import { Projects } from './Projects';
@@ -71,6 +70,13 @@ export function AppShell() {
  if ((e.metaKey || e.ctrlKey) && (e.key === '\\' || e.code === 'Backslash')) {
  e.preventDefault();
  handleToggleSidebar();
+ return;
+ }
+
+ // Focus Timer in new tab: Ctrl+Shift+Q or Cmd+Shift+Q
+ if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'Q' || e.key === 'q')) {
+ e.preventDefault();
+ window.open('/focus', '_blank');
  return;
  }
 
@@ -151,7 +157,6 @@ export function AppShell() {
  return (
  <div className="flex flex-col md:flex-row h-screen w-full bg-canvas text-primary overflow-hidden font-sans select-none">
  <CommandPalette />
- <FocusTimerWidget />
 
  {!focusMode && (
  <Sidebar 
@@ -342,10 +347,13 @@ export function AppShell() {
  <span>Command Palette</span>
  <span className="font-mono bg-surface-hover px-1.5 py-0.5 rounded border border-border">CMD / CTRL + K</span>
  </div>
+ <div className="flex items-center justify-between text-caption text-secondary mt-1">
+ <span>Focus Timer</span>
+ <span className="font-mono bg-surface-hover px-1.5 py-0.5 rounded border border-border">Ctrl + Shift + Q</span>
+ </div>
  </div>
  </div>
  )}
  </div>
  );
 }
-
