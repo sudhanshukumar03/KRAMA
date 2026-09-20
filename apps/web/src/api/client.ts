@@ -1,5 +1,5 @@
 import type { 
-  Workspace, Space, ProjectWithRelations, IssueWithRelations, PageWithRelations, GoalWithRelations, Habit, Sprint, DailyLog, DecisionWithRelations, SearchResult
+  Workspace, Space, ProjectWithRelations, IssueWithRelations, PageWithRelations, GoalWithRelations, Habit, Sprint, DailyLog, SearchResult
 } from '../types/schema';
 import { toast } from 'sonner';
 
@@ -320,13 +320,6 @@ export const api = {
   },
   search: {
     query: (q: string) => fetchApi<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}`),
-  },
-  decisions: {
-    list: () => fetchApi<DecisionWithRelations[]>('/decisions'),
-    create: (data: Record<string, any>) => fetchApi<DecisionWithRelations>('/decisions', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, any>) => fetchApi<DecisionWithRelations>(`/decisions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<{ success: boolean }>(`/decisions/${id}`, { method: 'DELETE' }),
-    restore: (id: string) => fetchApi<{ success: boolean }>(`/decisions/${id}/restore`, { method: 'POST' }),
   },
 
   ai: {

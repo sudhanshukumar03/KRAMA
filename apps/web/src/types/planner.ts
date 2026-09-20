@@ -94,7 +94,7 @@ export interface PlannerData {
   milestones: Milestone[];
   holidays: Holiday[];
   capacity: PlannerCapacity;
-  syncStatus: {
+  syncStatus?: {
     provider?: string | null;
     status?: string;
     lastSyncedAt?: string | null;

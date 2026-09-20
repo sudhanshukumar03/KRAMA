@@ -1,3 +1,4 @@
+import React from 'react';
 import { Sliders, Maximize, Minimize } from 'lucide-react';
 import type { TimerLayoutProps } from './types';
 import { TimerMoreMenu } from './TimerMoreMenu';
@@ -47,7 +48,7 @@ export const TimerLayoutZen: React.FC<TimerLayoutProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 w-screen h-screen flex flex-col justify-between items-center p-6 md:p-12 select-none overflow-hidden z-10">
+    <div className="fixed inset-0 w-full h-full flex flex-col justify-between items-center p-6 md:p-12 select-none overflow-hidden z-10">
       {/* Top minimal header — always visible in normal tab, hidden by default in fullscreen */}
       <div
         className={`w-full flex items-center justify-between transition-all duration-300 z-30 ${
@@ -97,6 +98,7 @@ export const TimerLayoutZen: React.FC<TimerLayoutProps> = ({
             layout={layout}
             onSelectLayout={onSelectLayout}
             onToggleMode={onToggleMode}
+            onChangeMode={onChangeMode}
             onSkip={onSkip}
             onOpenWallpaper={onOpenWallpaper}
             onOpenLayoutPicker={onOpenLayoutPicker}

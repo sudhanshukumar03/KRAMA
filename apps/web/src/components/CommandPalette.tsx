@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Command } from 'cmdk';
 import { useNavigate } from 'react-router-dom';
-import { FileText, KanbanSquare, Target, Search, Brain, Calendar, Clock, Plus, ArrowRight, Zap, Rocket, ListChecks, FolderKanban, Loader2 } from 'lucide-react';
+import { FileText, KanbanSquare, Target, Search, Brain, Calendar, Clock, Plus, ArrowRight, Zap, Rocket, ListChecks, FolderKanban, Loader2, Timer, TrendingUp, Layers } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { cn } from '../lib/utils';
@@ -291,13 +291,43 @@ export function CommandPalette() {
  onSelect={() => runCommand(() => navigate('/app/sprint'))}
  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
  >
- <Clock className="w-4 h-4 text-secondary" /> Active Sprint Burndown View
+ <Clock className="w-4 h-4 text-secondary" /> Active Sprint Burndown
+ </Command.Item>
+ <Command.Item 
+ onSelect={() => runCommand(() => navigate('/app/planner'))}
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ >
+ <Calendar className="w-4 h-4 text-secondary" /> Time-Block Planner
+ </Command.Item>
+ <Command.Item 
+ onSelect={() => runCommand(() => navigate('/focus'))}
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ >
+ <Timer className="w-4 h-4 text-secondary" /> Focus Mode & Soundscapes
  </Command.Item>
  <Command.Item 
  onSelect={() => runCommand(() => navigate('/app/goals'))}
  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
  >
- <Target className="w-4 h-4 text-secondary" /> Goal
+ <Target className="w-4 h-4 text-secondary" /> Strategic Goals
+ </Command.Item>
+ <Command.Item 
+ onSelect={() => runCommand(() => navigate('/app/habits'))}
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ >
+ <TrendingUp className="w-4 h-4 text-secondary" /> Habit Tracker
+ </Command.Item>
+ <Command.Item 
+ onSelect={() => runCommand(() => navigate('/app/projects'))}
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ >
+ <Layers className="w-4 h-4 text-secondary" /> Engineering Projects
+ </Command.Item>
+ <Command.Item 
+ onSelect={() => runCommand(() => navigate('/app/brain'))}
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ >
+ <Brain className="w-4 h-4 text-secondary" /> Brain Knowledge Base
  </Command.Item>
  </Command.Group>
 

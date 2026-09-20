@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Palette, Settings, Calendar, 
-  X, LayoutGrid, Volume2, VolumeX, SkipForward, Sliders
+  X, LayoutGrid, Volume2, VolumeX, SkipForward, Clock, Sliders
 } from 'lucide-react';
-import type { OperatingMode, LayoutName } from './types';
+import type { OperatingMode, LayoutName, TimerMode } from './types';
 
 interface TimerMoreMenuProps {
   operatingMode: OperatingMode;
@@ -11,6 +11,7 @@ interface TimerMoreMenuProps {
   onSelectLayout?: (layout: LayoutName) => void;
   onOpenLayoutPicker?: () => void;
   onToggleMode: () => void;
+  onChangeMode?: (mode: TimerMode) => void;
   onSkip?: () => void;
   onOpenWallpaper: () => void;
   onOpenSettings: () => void;
@@ -23,6 +24,7 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
   operatingMode,
   onOpenLayoutPicker,
   onToggleMode,
+  onChangeMode,
   onSkip,
   onOpenWallpaper,
   onOpenSettings,
@@ -55,7 +57,7 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         className="p-2 rounded-full bg-black/40 hover:bg-black/60 text-white/80 hover:text-white transition-all backdrop-blur-md border border-white/15 focus:outline-none cursor-pointer"
-        title="Settings"
+        title="Settings & Options"
         aria-label="Settings and options"
         aria-haspopup="true"
         aria-expanded={isOpen}
@@ -71,13 +73,27 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
             <div className="flex items-center gap-2">
               <Settings className="w-3.5 h-3.5 text-teal-400" />
               <span className="text-xs font-mono uppercase tracking-wider font-bold text-white/90">
-                Settings
+                Timer Options
               </span>
             </div>
           </div>
 
           {/* Section: Customization & Controls */}
           <div className="py-1">
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onChangeMode?.('pomodoro');
+              }}
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-white/10 transition-colors text-left cursor-pointer"
+            >
+              <span className="flex items-center gap-2.5">
+                <Clock className="w-3.5 h-3.5 text-teal-400" />
+                <span>Focus (Pomodoro)</span>
+              </span>
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -97,11 +113,11 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
                 setIsOpen(false);
                 onOpenWallpaper();
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-white/10 transition-colors text-left"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-white/10 transition-colors text-left cursor-pointer"
             >
               <span className="flex items-center gap-2.5">
                 <Palette className="w-3.5 h-3.5 text-pink-400" />
-                <span>Wallpaper</span>
+                <span>Wallpaper & Layout</span>
               </span>
               <kbd className="text-[10px] font-mono text-white/40">W</kbd>
             </button>

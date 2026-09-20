@@ -117,7 +117,7 @@ export const updateDailyLog = async (req: Request, res: Response) => {
       return res.status(409).json({ message: 'Conflict: version mismatch' });
     }
 
-    const { version, workspaceId, date, ...updateData } = data;
+    const { version: _version, workspaceId: _workspaceId, date, ...updateData } = data;
 
     const log = await prisma.dailyLog.update({
       where: { id },

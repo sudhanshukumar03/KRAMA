@@ -1,5 +1,5 @@
 // UI-only refactor — no data/logic changes
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../api/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
@@ -274,7 +274,7 @@ function HabitCreateModal({
   const [timeOfDay, setTimeOfDay] = useState(defaultTimeOfDay);
   const [scheduledDays, setScheduledDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setName("");
     setIcon(null);
     setLinkedGoalId("");
@@ -284,13 +284,13 @@ function HabitCreateModal({
     setDuration(15);
     setTimeOfDay(defaultTimeOfDay);
     setScheduledDays([0, 1, 2, 3, 4, 5, 6]);
-  };
+  }, [defaultTimeOfDay]);
 
   useEffect(() => {
     if (open) {
       resetForm();
     }
-  }, [open, defaultTimeOfDay]);
+  }, [open, defaultTimeOfDay, resetForm]);
 
   if (!open) return null;
 

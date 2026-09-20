@@ -23,18 +23,58 @@ export const completeFocusSession = async (req: Request, res: Response) => {
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
     const { duration, startTime, endTime, type, projectId, taskId } = req.body;
-    if (!duration || !startTime) return res.status(400).json({ message: 'duration and startTime are required' });
+    if (duration === undefined || startTime === undefined) {
+      return res.status(400).json({ message: 'duration and startTime are required' });
+    }
+
+    const numDuration = typeof duration === 'number' ? duration : parseInt(duration, 10);
+    if (isNaN(numDuration) || numDuration <= 0 || numDuration > 86400) {
+      return res.status(400).json({ message: 'duration must be a positive number of seconds (up to 86400)' });
+    }
+
+    const parsedStart = new Date(startTime);
+    if (isNaN(parsedStart.getTime())) {
+      return res.status(400).json({ message: 'startTime must be a valid date' });
+    }
+
+    const parsedEnd = endTime ? new Date(endTime) : new Date();
+    if (isNaN(parsedEnd.getTime())) {
+      return res.status(400).json({ message: 'endTime must be a valid date' });
+    }
+
+    const ALLOWED_TYPES = ['pomodoro', 'short_break', 'long_break', 'custom', 'clock'];
+    const sessionType = typeof type === 'string' && ALLOWED_TYPES.includes(type) ? type : 'pomodoro';
+
+    // Verify task and project belong to current workspace if provided
+    let validTaskId: string | null = null;
+    let validProjectId: string | null = null;
+
+    if (taskId && typeof taskId === 'string') {
+      const task = await prisma.task.findFirst({
+        where: { id: taskId, workspaceId },
+        select: { id: true }
+      });
+      if (task) validTaskId = task.id;
+    }
+
+    if (projectId && typeof projectId === 'string') {
+      const project = await prisma.project.findFirst({
+        where: { id: projectId, workspaceId },
+        select: { id: true }
+      });
+      if (project) validProjectId = project.id;
+    }
 
     // 1. Save FocusSession
     const session = await prisma.focusSession.create({
       data: {
-        startTime: new Date(startTime),
-        endTime: endTime ? new Date(endTime) : new Date(),
-        duration,
+        startTime: parsedStart,
+        endTime: parsedEnd,
+        duration: numDuration,
         completed: true,
-        type: type || 'pomodoro',
-        projectId,
-        taskId,
+        type: sessionType,
+        projectId: validProjectId,
+        taskId: validTaskId,
         userId,
         workspaceId
       }
@@ -155,7 +195,9 @@ export const getSchedule = async (req: Request, res: Response) => {
 
 export const getWallpaper = async (req: Request, res: Response) => {
   try {
-    const category = (req.query.category as string) || 'nature';
+    const rawCategory = typeof req.query.category === 'string' ? req.query.category.toLowerCase().trim() : 'nature';
+    const ALLOWED_CATEGORIES = ['nature', 'minimal', 'space', 'abstract', 'dark', 'city'];
+    const category = ALLOWED_CATEGORIES.includes(rawCategory) ? rawCategory : 'nature';
     const apiKey = process.env.UNSPLASH_ACCESS_KEY;
     if (!apiKey) {
       return res.status(200).json({ error: 'UNSPLASH_NOT_CONFIGURED', wallpapers: [] });

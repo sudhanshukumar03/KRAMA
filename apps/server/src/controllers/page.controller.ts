@@ -163,7 +163,7 @@ export const updatePage = async (req: Request, res: Response) => {
       return res.status(409).json({ message: 'Conflict: version mismatch' });
     }
 
-    const { version, workspaceId: _wId, ...updateData } = data;
+    const { version: _version, workspaceId: _wId, ...updateData } = data;
 
     const page = await prisma.page.update({
       where: { id },

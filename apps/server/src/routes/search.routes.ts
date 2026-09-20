@@ -19,32 +19,32 @@ router.get('/', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'workspaceId is required' });
     }
 
-    const [tasks, pages, goals, projects] = await Promise.all([
+    const [tasks, documents, goals, projects] = await Promise.all([
       prisma.task.findMany({
         where: {
           workspaceId,
           deletedAt: null,
           OR: [
             { title: { contains: q, mode: 'insensitive' } },
-            
+            { description: { contains: q, mode: 'insensitive' } },
           ],
         },
         take: 10,
         orderBy: { updatedAt: 'desc' },
-        select: { id: true, title: true, status: true, updatedAt: true },
+        select: { id: true, title: true, status: true, description: true, updatedAt: true },
       }),
-      prisma.page.findMany({
+      prisma.document.findMany({
         where: {
-          workspaceId,
+          space: { workspaceId },
           deletedAt: null,
           OR: [
             { title: { contains: q, mode: 'insensitive' } },
-            
+            { contentMarkdown: { contains: q, mode: 'insensitive' } },
           ],
         },
         take: 10,
         orderBy: { updatedAt: 'desc' },
-        select: { id: true, title: true, updatedAt: true },
+        select: { id: true, title: true, subtitle: true, documentType: true, contentMarkdown: true, updatedAt: true },
       }),
       prisma.goal.findMany({
         where: {
@@ -62,20 +62,52 @@ router.get('/', async (req: Request, res: Response) => {
           deletedAt: null,
           OR: [
             { name: { contains: q, mode: 'insensitive' } },
-            
+            { problemStatement: { contains: q, mode: 'insensitive' } },
           ],
         },
         take: 10,
         orderBy: { updatedAt: 'desc' },
-        select: { id: true, name: true, status: true, updatedAt: true },
+        select: { id: true, name: true, status: true, problemStatement: true, updatedAt: true },
       }),
     ]);
 
     const results = [
-      ...tasks.map(t => ({ id: t.id, title: t.title, type: 'task' as const, status: t.status, updatedAt: t.updatedAt })),
-      ...pages.map(p => ({ id: p.id, title: p.title, type: 'page' as const, updatedAt: p.updatedAt })),
-      ...goals.map(g => ({ id: g.id, title: g.title, type: 'goal' as const, updatedAt: g.updatedAt })),
-      ...projects.map(p => ({ id: p.id, title: p.name, type: 'project' as const, status: p.status, updatedAt: p.updatedAt })),
+      ...tasks.map(t => ({
+        id: t.id,
+        title: t.title,
+        type: 'issue' as const,
+        badge: t.status,
+        url: '/app/board',
+        snippet: t.description || 'Task Directive',
+        updatedAt: t.updatedAt,
+      })),
+      ...documents.map(d => ({
+        id: d.id,
+        title: d.title,
+        type: 'page' as const,
+        badge: d.documentType || 'DOC',
+        url: `/app/brain?doc=${d.id}`,
+        snippet: d.subtitle || (d.contentMarkdown ? d.contentMarkdown.slice(0, 120) : 'Brain Workspace Document'),
+        updatedAt: d.updatedAt,
+      })),
+      ...goals.map(g => ({
+        id: g.id,
+        title: g.title,
+        type: 'goal' as const,
+        badge: `${g.progress}%`,
+        url: '/app/goals',
+        snippet: `Strategic Goal • ${g.progress}% complete`,
+        updatedAt: g.updatedAt,
+      })),
+      ...projects.map(p => ({
+        id: p.id,
+        title: p.name,
+        type: 'project' as const,
+        badge: p.status,
+        url: `/app/projects/${p.id}`,
+        snippet: p.problemStatement || 'Engineering Project',
+        updatedAt: p.updatedAt,
+      })),
     ].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
     return res.json({ results });

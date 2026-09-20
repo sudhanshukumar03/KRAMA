@@ -1,4 +1,3 @@
-import { SkillService } from '../services/skill.service';
 import type { Request, Response } from 'express';
 import { CreateProjectSchema, UpdateProjectSchema, ReorderSchema } from '@krama/validation';
 
@@ -64,12 +63,7 @@ export const createProject = async (req: Request, res: Response) => {
     });
     const position = lastProject ? lastProject.position + 1.0 : 1.0;
 
-    if ((data as any).skillIds !== undefined) {
-      await SkillService.validateSkillLinking(req.user!.id, data.workspaceId, (data as any).skillIds);
-      const ids = (data as any).skillIds;
-      delete (data as any).skillIds;
-      (data as any).skills = { connect: ids.map((id: string) => ({ id })) };
-    }
+
 
     const { targetDate, progress, ...cleanData } = data as any;
     const metadata = cleanData.metadata || (targetDate ? { targetDate } : undefined);
@@ -112,12 +106,7 @@ export const updateProject = async (req: Request, res: Response) => {
 
     const { version, workspaceId: bodyWorkspaceId, targetDate, progress, ...updateData } = data as any;
 
-    if ((data as any).skillIds !== undefined) {
-      await SkillService.validateSkillLinking(req.user!.id, (data.workspaceId || workspaceId) as string, (data as any).skillIds);
-      const ids = (data as any).skillIds;
-      delete (data as any).skillIds;
-      (updateData as any).skills = { set: ids.map((id: string) => ({ id })) };
-    }
+
 
     let metadata = updateData.metadata !== undefined ? updateData.metadata : (existing.metadata as any || {});
     if (targetDate !== undefined) {

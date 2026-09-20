@@ -1,4 +1,3 @@
-import { SkillService } from './skill.service';
 import { prisma } from '../prisma';
 import { taskRepository } from '../repositories/task.repository';
 import { TaskStatus, TaskPriority } from '@prisma/client';
@@ -53,12 +52,7 @@ export class TaskService {
     return runInTransaction(async (tx, publishAfterCommit) => {
       const maxPos = await taskRepository.findMaxPosition(data.workspaceId, tx);
       const position = maxPos + 1.0;
-      if (data.skillIds !== undefined) {
-        await SkillService.validateSkillLinking(userId, data.workspaceId, data.skillIds);
-        const ids = data.skillIds;
-        delete data.skillIds;
-        (data as any).skills = { connect: ids.map((id: string) => ({ id })) };
-      }
+
 
       if (data.sprintId) {
         const sprint = await tx.sprint.findUnique({ where: { id: data.sprintId } });
@@ -93,12 +87,7 @@ export class TaskService {
       }
 
       const { version, workspaceId: _, ...updateData } = data;
-      if (updateData.skillIds !== undefined) {
-        await SkillService.validateSkillLinking(userId, workspaceId, updateData.skillIds);
-        const ids = updateData.skillIds;
-        delete updateData.skillIds;
-        (updateData as any).skills = { set: ids.map((id: string) => ({ id })) };
-      }
+
 
       if (updateData.sprintId) {
         const sprint = await tx.sprint.findUnique({ where: { id: updateData.sprintId } });

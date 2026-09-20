@@ -49,14 +49,14 @@ export const TimerLayoutCentered: React.FC<TimerLayoutProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 w-screen h-screen flex flex-col justify-between items-center p-6 md:p-10 select-none overflow-hidden z-10">
+    <div className="fixed inset-0 w-full h-full flex flex-col justify-between items-center p-6 md:p-10 select-none overflow-hidden z-10">
       {/* Top Header Overlay: Always visible in normal tab, hidden by default in fullscreen */}
       <div
         className={`w-full flex items-center justify-between transition-all duration-300 z-30 ${controlsVisible ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-3 pointer-events-none'
           }`}
       >
-        {/* Left: Mode Tabs & Full Screen Tab */}
-        {operatingMode === 'manual' ? (
+        {/* Left: Mode Tabs & Planned Session Badge */}
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 p-1 bg-black/40 backdrop-blur-2xl rounded-full border border-white/15 shadow-2xl">
             <button type="button" onClick={() => onChangeMode('pomodoro')}
               className={`px-3.5 py-1 text-xs font-medium rounded-full transition-all cursor-pointer ${mode === 'pomodoro' ? 'bg-white text-black font-semibold shadow-md' : 'text-white/70 hover:text-white hover:bg-white/10'}`}>
@@ -79,30 +79,34 @@ export const TimerLayoutCentered: React.FC<TimerLayoutProps> = ({
               Normal Clock
             </button>
           </div>
-        ) : (
-          <div className="flex items-center gap-2 p-1 bg-black/40 backdrop-blur-2xl rounded-full border border-emerald-500/20 shadow-2xl px-3">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-            <span className="text-[11px] font-mono text-emerald-300 tracking-wide">
-              {mode === 'pomodoro' ? 'Focus' : mode === 'short_break' ? 'Short Break' : mode === 'long_break' ? 'Long Break' : 'Break'}
-            </span>
-            {taskTitle && (
-              <><span className="text-white/20 text-xs">•</span>
-              <span className="text-[11px] font-mono text-white/70 max-w-[200px] truncate">{taskTitle}</span></>
-            )}
-            <span className="text-[10px] font-mono text-white/40 ml-1">({currentSlotIndex + 1}/{totalSlots})</span>
-          </div>
-        )}
+
+          {operatingMode === 'planner' && (
+            <div className="flex items-center gap-2 p-1 bg-black/40 backdrop-blur-2xl rounded-full border border-emerald-500/20 shadow-2xl px-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span className="text-[11px] font-mono text-emerald-300 tracking-wide">
+                {mode === 'pomodoro' ? 'Focus' : mode === 'short_break' ? 'Short Break' : mode === 'long_break' ? 'Long Break' : 'Break'}
+              </span>
+              {taskTitle && (
+                <><span className="text-white/20 text-xs">•</span>
+                <span className="text-[11px] font-mono text-white/70 max-w-[200px] truncate">{taskTitle}</span></>
+              )}
+              <span className="text-[10px] font-mono text-white/40 ml-1">({currentSlotIndex + 1}/{totalSlots})</span>
+            </div>
+          )}
+        </div>
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
-          {/* Full Screen Icon Button */}
+          {/* Full Screen Button */}
           <button
             type="button"
             onClick={onToggleFullscreen}
-            className="p-2 rounded-full bg-black/40 hover:bg-black/60 text-white/80 hover:text-white transition-all backdrop-blur-md border border-white/15 cursor-pointer"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 hover:bg-black/60 text-white/80 hover:text-white transition-all backdrop-blur-md border border-white/15 cursor-pointer text-xs font-medium"
+            title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+            aria-label={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
           >
-            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+            {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+            <span>{isFullscreen ? 'Exit Full Screen' : 'Full Screen'}</span>
           </button>
 
           {/* Three-Dot Menu */}
@@ -111,6 +115,7 @@ export const TimerLayoutCentered: React.FC<TimerLayoutProps> = ({
             layout={layout}
             onSelectLayout={onSelectLayout}
             onToggleMode={onToggleMode}
+            onChangeMode={onChangeMode}
             onSkip={onSkip}
             onOpenWallpaper={onOpenWallpaper}
             onOpenLayoutPicker={onOpenLayoutPicker}

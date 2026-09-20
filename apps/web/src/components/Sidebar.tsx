@@ -5,9 +5,9 @@ import { api } from '../api/client';
 import { toast } from 'sonner';
 import { 
   Home, BookOpen, Target,
-  Calendar, KanbanSquare, Clock, TrendingUp,
+  Calendar, KanbanSquare, Clock, BarChart2,
   Search, LogOut, Moon, Sun, Download, X, 
-  Settings, User, Layers,
+  Settings, User, Briefcase,
   PanelLeftClose, Timer, ExternalLink
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
@@ -38,8 +38,8 @@ const planAndExecuteItems: NavItem[] = [
 
 const strategyItems: NavItem[] = [
   { name: 'Goals', path: '/app/goals', icon: Target, shortcut: 'G G', badgeKey: 'goals' },
-  { name: 'Habits', path: '/app/habits', icon: TrendingUp, shortcut: 'E H', badgeKey: 'habits' },
-  { name: 'Projects', path: '/app/projects', icon: Layers, shortcut: 'G P', badgeKey: 'projects' },
+  { name: 'Habits', path: '/app/habits', icon: BarChart2, shortcut: 'E H', badgeKey: 'habits' },
+  { name: 'Projects', path: '/app/projects', icon: Briefcase, shortcut: 'G P', badgeKey: 'projects' },
 ];
 
 const knowledgeItems: NavItem[] = [

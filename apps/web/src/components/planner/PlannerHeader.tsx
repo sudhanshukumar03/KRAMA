@@ -8,11 +8,6 @@ interface Props {
   subtitle: string;
   weekRangeLabel?: string;
   onNavigate: (dir: 'prev' | 'next' | 'today') => void;
-  syncStatus?: {
-    provider?: string | null;
-    status?: string;
-    lastSyncedAt?: string | null;
-  } | null;
   calendarView?: 'month' | 'week' | 'list';
   localOnly?: boolean;
   onLocalOnlyChange?: (val: boolean) => void;

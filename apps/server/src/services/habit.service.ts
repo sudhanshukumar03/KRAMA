@@ -1,4 +1,3 @@
-import { SkillService } from './skill.service';
 import { habitRepository } from '../repositories/habit.repository';
 import { runInTransaction } from '../prisma';
 
@@ -33,13 +32,7 @@ export class HabitService {
       if (timeOfDay !== undefined) metadata.timeOfDay = timeOfDay;
       if (pinnedToPlanner !== undefined) metadata.pinnedToPlanner = pinnedToPlanner;
 
-      
-      if (data.skillIds !== undefined) {
-        await SkillService.validateSkillLinking(userId, data.workspaceId, data.skillIds);
-        const ids = data.skillIds;
-        delete data.skillIds;
-        (data as any).skills = { connect: ids.map((id: string) => ({ id })) };
-      }
+
 
       const habit = await habitRepository.create({
         ...restData,
@@ -72,13 +65,7 @@ export class HabitService {
         ...(pinnedToPlanner !== undefined ? { pinnedToPlanner } : {}),
       };
 
-      
-      if (data.skillIds !== undefined) {
-        await SkillService.validateSkillLinking(userId, workspaceId, data.skillIds);
-        const ids = data.skillIds;
-        delete data.skillIds;
-        (data as any).skills = { set: ids.map((id: string) => ({ id })) };
-      }
+
 
       const habit = await habitRepository.update(id, {
         ...restData,

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../api/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { useFocusSchedule } from '../hooks/useFocusSchedule';
 import { io, Socket } from 'socket.io-client';
 import { toast } from 'sonner';
 import { TimerLayoutStandby } from './focus/TimerLayoutStandby';
@@ -14,7 +16,7 @@ import { WallpaperPicker } from './focus/WallpaperPicker';
 import { TimerLayoutPicker } from './focus/TimerLayoutPicker';
 import { BUNDLED_WALLPAPERS } from './focus/constants';
 import { SettingsPanel } from './focus/SettingsPanel';
-import type { TimerMode, OperatingMode, SessionSlot, FocusScheduleData, TimerSettings, WallpaperConfig, LayoutName, ClockDisplay } from './focus/types';
+import type { TimerMode, OperatingMode, SessionSlot, TimerSettings, WallpaperConfig, LayoutName, ClockDisplay } from './focus/types';
 
 const DEFAULT_SETTINGS: TimerSettings = {
   focusDuration: 25,
@@ -55,7 +57,7 @@ function playAudioChime() {
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
     if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
+      ctx.resume().catch(() => { });
     }
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -80,13 +82,15 @@ function playAudioChime() {
 export const FocusPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, accessToken, status } = useAuth();
+  const queryClient = useQueryClient();
+  const { schedule, refetchSchedule, completeSession } = useFocusSchedule();
 
   // Settings
   const [settings, setSettings] = useState<TimerSettings>(() => {
     try {
       const saved = localStorage.getItem('krama.focus.settings');
       if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
-    } catch {}
+    } catch { }
     return DEFAULT_SETTINGS;
   });
 
@@ -95,7 +99,7 @@ export const FocusPage: React.FC = () => {
     try {
       const saved = localStorage.getItem('krama.focus.wallpaper');
       if (saved) return JSON.parse(saved);
-    } catch {}
+    } catch { }
     return DEFAULT_WALLPAPER;
   });
 
@@ -106,7 +110,7 @@ export const FocusPage: React.FC = () => {
       if (saved && ['standby', 'centered', 'overlay', 'sidebar', 'card', 'zen'].includes(saved)) {
         return saved;
       }
-    } catch {}
+    } catch { }
     return 'standby';
   });
 
@@ -126,9 +130,9 @@ export const FocusPage: React.FC = () => {
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+      document.documentElement.requestFullscreen().catch(() => { });
     } else {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
     }
   }, []);
 
@@ -139,12 +143,24 @@ export const FocusPage: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Guarantee black canvas and prevent body bounce/scroll on Focus page
+  useEffect(() => {
+    const origBg = document.body.style.backgroundColor;
+    const origOverflow = document.body.style.overflow;
+    document.body.style.backgroundColor = '#000000';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.backgroundColor = origBg;
+      document.body.style.overflow = origOverflow;
+    };
+  }, []);
+
   // Operating Mode
   const [operatingMode, setOperatingMode] = useState<OperatingMode>(() => {
     try {
       const saved = localStorage.getItem('krama.focus.mode') as OperatingMode;
       if (saved === 'manual' || saved === 'planner') return saved;
-    } catch {}
+    } catch { }
     return 'planner';
   });
 
@@ -166,12 +182,14 @@ export const FocusPage: React.FC = () => {
   const modeRef = useRef<TimerMode>('pomodoro');
   const settingsRef = useRef<TimerSettings>(settings);
   const operatingModeRef = useRef<OperatingMode>('planner');
+  const isActiveRef = useRef<boolean>(false);
   useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
   useEffect(() => { currentSlotIndexRef.current = currentSlotIndex; }, [currentSlotIndex]);
   useEffect(() => { planRef.current = plan; }, [plan]);
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
   useEffect(() => { operatingModeRef.current = operatingMode; }, [operatingMode]);
+  useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
 
   // Modals & Controls
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
@@ -188,17 +206,20 @@ export const FocusPage: React.FC = () => {
       return;
     }
 
+    if (showWallpaperModal || showLayoutModal || showSettingsModal) {
+      setControlsVisible(true);
+      return;
+    }
+
     setControlsVisible(false);
 
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const handleMouseMove = (e: MouseEvent) => {
-      if (e.clientY < 75) {
-        setControlsVisible(true);
-        if (timeoutId) clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-          setControlsVisible(false);
-        }, 3000);
-      }
+    const handleMouseMove = () => {
+      setControlsVisible(true);
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setControlsVisible(false);
+      }, 3000);
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -206,7 +227,7 @@ export const FocusPage: React.FC = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [isFullscreen]);
+  }, [isFullscreen, showWallpaperModal, showLayoutModal, showSettingsModal]);
 
   // Socket
   const socketRef = useRef<Socket | null>(null);
@@ -222,6 +243,15 @@ export const FocusPage: React.FC = () => {
 
     sock.on('notification', (data: any) => {
       toast(data.title, { description: data.message });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    });
+
+    sock.on('task:updated', () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+    });
+
+    sock.on('focus:session:completed', () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
     });
 
     socketRef.current = sock;
@@ -229,7 +259,7 @@ export const FocusPage: React.FC = () => {
     return () => {
       sock.disconnect();
     };
-  }, [status, accessToken]);
+  }, [status, accessToken, queryClient]);
 
   // Sync user preferences if loaded from backend
   useEffect(() => {
@@ -258,35 +288,25 @@ export const FocusPage: React.FC = () => {
     }
   }, [user]);
 
-  // Load Schedule from backend PlannerTimerAlgo
-  const loadSchedule = useCallback(async () => {
-    try {
-      const data: FocusScheduleData = await api.focusSessions.getSchedule();
-      if (data && data.plan && data.plan.length > 0) {
-        setPlan(data.plan);
+  // Sync schedule plan into local timer machine state from React Query cache
+  useEffect(() => {
+    if (schedule?.plan && schedule.plan.length > 0) {
+      setPlan(schedule.plan);
+      // Initialize slot and countdown if timer is idle and plan was not set yet
+      if (!isActiveRef.current && planRef.current.length === 0) {
         setCurrentSlotIndex(0);
-        const firstSlot = data.plan[0];
+        const firstSlot = schedule.plan[0];
         if (firstSlot) {
           setMode(firstSlot.type);
           const initialSecs = firstSlot.durationMin * 60;
           setTimeLeft(initialSecs);
           setDuration(initialSecs);
         }
-      } else {
-        setPlan([]);
-        setOperatingMode('manual');
       }
-    } catch (err: any) {
-      console.warn('Could not load focus schedule:', err);
-      setOperatingMode('manual');
+    } else if (schedule && (!schedule.plan || schedule.plan.length === 0)) {
+      setPlan([]);
     }
-  }, []);
-
-  useEffect(() => {
-    if (status === 'authed') {
-      loadSchedule();
-    }
-  }, [status, loadSchedule]);
+  }, [schedule]);
 
   // Timer complete — uses refs for stable values, no stale closure risk
   const handleCompleteSession = useCallback(async () => {
@@ -310,7 +330,7 @@ export const FocusPage: React.FC = () => {
     const currentSlot = snap_operatingMode === 'planner' ? snap_plan[snap_slotIndex] : null;
 
     try {
-      await api.focusSessions.complete({
+      await completeSession({
         startTime: (snap_startTime || new Date()).toISOString(),
         endTime: new Date().toISOString(),
         duration: elapsedSeconds,
@@ -318,14 +338,8 @@ export const FocusPage: React.FC = () => {
         taskId: currentSlot?.taskId || undefined,
         projectId: currentSlot?.projectId || undefined,
       });
-      toast.success(
-        snap_mode === 'pomodoro'
-          ? '🎉 Focus session saved! Great work.'
-          : 'Break completed. Ready to focus again!'
-      );
-    } catch (err: any) {
-      console.error('Error logging focus session:', err);
-      toast.error('Failed to log session: ' + (err?.message || 'Server error'));
+    } catch {
+      // Error notifications and retries are managed by useMutation
     }
 
     setStartTime(null);
@@ -372,12 +386,12 @@ export const FocusPage: React.FC = () => {
         snap_mode === 'pomodoro'
           ? snap_settings.focusDuration * 60
           : snap_mode === 'short_break'
-          ? snap_settings.shortBreak * 60
-          : snap_settings.longBreak * 60;
+            ? snap_settings.shortBreak * 60
+            : snap_settings.longBreak * 60;
       setTimeLeft(defaultSecs);
       setDuration(defaultSecs);
     }
-  }, [startTime, duration]);
+  }, [startTime, duration, completeSession]);
 
   // Drift-free countdown loop using timestamp deltas
   useEffect(() => {
@@ -444,6 +458,33 @@ export const FocusPage: React.FC = () => {
     };
   }, [timeLeft, mode, clock]);
 
+  const handleSkip = useCallback(() => {
+    targetEndTimeRef.current = null;
+    setIsActive(false);
+    setStartTime(null);
+    if (operatingMode === 'planner' && plan.length > 0) {
+      // Linear advance — same logic as handleCompleteSession, no wrap-around
+      const nextIndex = currentSlotIndex + 1;
+      if (nextIndex < plan.length) {
+        const targetSlot = plan[nextIndex];
+        if (!targetSlot) return;
+        setCurrentSlotIndex(nextIndex);
+        setMode(targetSlot.type);
+        const secs = targetSlot.durationMin * 60;
+        setTimeLeft(secs);
+        setDuration(secs);
+      } else {
+        // Was last slot — finish plan
+        toast.success('🏆 All planned sessions for today completed!');
+        setOperatingMode('manual');
+        const defaultSecs = settings.focusDuration * 60;
+        setMode('pomodoro');
+        setTimeLeft(defaultSecs);
+        setDuration(defaultSecs);
+      }
+    }
+  }, [operatingMode, plan, currentSlotIndex, settings.focusDuration]);
+
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -473,7 +514,7 @@ export const FocusPage: React.FC = () => {
           setShowSettingsModal(false);
         } else if (isFullscreen) {
           if (document.fullscreenElement) {
-            document.exitFullscreen().catch(() => {});
+            document.exitFullscreen().catch(() => { });
           }
         }
       } else if (e.key.toLowerCase() === 'w' && !e.ctrlKey && !e.metaKey) {
@@ -490,7 +531,7 @@ export const FocusPage: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [startTime, showWallpaperModal, showSettingsModal, mode, isFullscreen]);
+  }, [startTime, showWallpaperModal, showSettingsModal, mode, isFullscreen, handleSkip]);
 
   // Control handlers
   const handleStart = () => {
@@ -518,41 +559,22 @@ export const FocusPage: React.FC = () => {
         modeRef.current === 'pomodoro'
           ? settingsRef.current.focusDuration * 60
           : modeRef.current === 'short_break'
-          ? settingsRef.current.shortBreak * 60
-          : modeRef.current === 'long_break'
-          ? settingsRef.current.longBreak * 60
-          : modeRef.current === 'custom'
-          ? (settingsRef.current.customDuration || 45) * 60
-          : 0;
+            ? settingsRef.current.shortBreak * 60
+            : modeRef.current === 'long_break'
+              ? settingsRef.current.longBreak * 60
+              : modeRef.current === 'custom'
+                ? (settingsRef.current.customDuration || 45) * 60
+                : 0;
       setTimeLeft(secs);
       setDuration(secs);
     }
   };
 
-  const handleSkip = () => {
-    targetEndTimeRef.current = null;
-    setIsActive(false);
-    setStartTime(null);
-    if (operatingMode === 'planner' && plan.length > 0) {
-      // Linear advance — same logic as handleCompleteSession, no wrap-around
-      const nextIndex = currentSlotIndex + 1;
-      if (nextIndex < plan.length) {
-        handleSelectSlot(nextIndex);
-      } else {
-        // Was last slot — finish plan
-        toast.success('🏆 All planned sessions for today completed!');
-        setOperatingMode('manual');
-        const defaultSecs = settings.focusDuration * 60;
-        setMode('pomodoro');
-        setTimeLeft(defaultSecs);
-        setDuration(defaultSecs);
-      }
-    }
-  };
-
   const handleChangeMode = (newMode: TimerMode) => {
-    // In planner mode, mode tabs derail the slot sequence — ignore them
-    if (operatingMode === 'planner') return;
+    if (operatingMode === 'planner') {
+      setOperatingMode('manual');
+      localStorage.setItem('krama.focus.mode', 'manual');
+    }
     targetEndTimeRef.current = null;
     setMode(newMode);
     setIsActive(false);
@@ -613,7 +635,20 @@ export const FocusPage: React.FC = () => {
     } else {
       setOperatingMode('planner');
       localStorage.setItem('krama.focus.mode', 'planner');
-      loadSchedule();
+      refetchSchedule().then((res) => {
+        const planData = res.data?.plan;
+        if (planData && planData.length > 0) {
+          setPlan(planData);
+          setCurrentSlotIndex(0);
+          const firstSlot = planData[0];
+          if (firstSlot) {
+            setMode(firstSlot.type);
+            const initialSecs = firstSlot.durationMin * 60;
+            setTimeLeft(initialSecs);
+            setDuration(initialSecs);
+          }
+        }
+      });
     }
   };
 
@@ -625,12 +660,12 @@ export const FocusPage: React.FC = () => {
         mode === 'pomodoro'
           ? newSettings.focusDuration * 60
           : mode === 'short_break'
-          ? newSettings.shortBreak * 60
-          : mode === 'long_break'
-          ? newSettings.longBreak * 60
-          : mode === 'custom'
-          ? (newSettings.customDuration || 45) * 60
-          : 0;
+            ? newSettings.shortBreak * 60
+            : mode === 'long_break'
+              ? newSettings.longBreak * 60
+              : mode === 'custom'
+                ? (newSettings.customDuration || 45) * 60
+                : 0;
       setTimeLeft(secs);
       setDuration(secs);
     }
@@ -642,19 +677,21 @@ export const FocusPage: React.FC = () => {
         longBreak: newSettings.longBreak,
         longBreakAfter: newSettings.longBreakAfter,
       },
-    }).catch(() => {});
+    }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+    }).catch(() => { });
   };
 
   const handleSelectWallpaper = (newWallpaper: WallpaperConfig) => {
     setWallpaper(newWallpaper);
     localStorage.setItem('krama.focus.wallpaper', JSON.stringify(newWallpaper));
-    api.auth.updatePreferences({ focusWallpaper: newWallpaper }).catch(() => {});
+    api.auth.updatePreferences({ focusWallpaper: newWallpaper }).catch(() => { });
   };
 
   const handleSelectLayout = (newLayout: LayoutName) => {
     setLayout(newLayout);
     localStorage.setItem('krama.focus.layout', newLayout);
-    api.auth.updatePreferences({ focusLayout: newLayout }).catch(() => {});
+    api.auth.updatePreferences({ focusLayout: newLayout }).catch(() => { });
   };
 
   // Get active wallpaper background styling
@@ -720,13 +757,13 @@ export const FocusPage: React.FC = () => {
         if (window.opener || window.history.length <= 1) {
           window.close();
         }
-      } catch {}
+      } catch { }
       navigate('/app/');
     },
   };
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden select-none bg-black text-white">
+    <div className="fixed inset-0 w-full h-full min-h-screen overflow-hidden select-none bg-black text-white">
       {/* Background Wallpaper (Disabled for StandBy layout to enforce pure OLED black screen) */}
       {layout !== 'standby' && (
         <>
@@ -766,11 +803,13 @@ export const FocusPage: React.FC = () => {
         />
       )}
 
-      {/* Wallpaper Gallery Modal */}
+      {/* Wallpaper & Layout Modal */}
       {showWallpaperModal && (
         <WallpaperPicker
           currentWallpaper={wallpaper}
+          currentLayout={layout}
           onSelectWallpaper={handleSelectWallpaper}
+          onSelectLayout={handleSelectLayout}
           onClose={() => setShowWallpaperModal(false)}
         />
       )}

@@ -23,7 +23,7 @@ import { useTheme } from '../lib/theme';
 export function AppShell() {
  const navigate = useNavigate();
  const location = useLocation();
- const isFlushRoute = location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/sprint') || location.pathname.startsWith('/app/operations') || location.pathname.startsWith('/app/planner') || location.pathname.startsWith('/app/timeline') || location.pathname.startsWith('/app/goals') || location.pathname.startsWith('/app/habits') || location.pathname.startsWith('/app/projects') || location.pathname.startsWith('/app/brain');
+ const isFlushRoute = location.pathname === '/app' || location.pathname === '/app/' || location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/sprint') || location.pathname.startsWith('/app/operations') || location.pathname.startsWith('/app/planner') || location.pathname.startsWith('/app/timeline') || location.pathname.startsWith('/app/goals') || location.pathname.startsWith('/app/habits') || location.pathname.startsWith('/app/projects') || location.pathname.startsWith('/app/brain');
  const { toggleTheme, resolvedTheme } = useTheme();
  const [activePrefix, setActivePrefix] = useState<'g' | 'e' | 't' | 's' | null>(null);
  const [showCheatsheet, setShowCheatsheet] = useState(false);
@@ -261,6 +261,7 @@ export function AppShell() {
  <Route path="/projects/:id" element={<ProjectDetail />} />
  <Route path="/board/*" element={<KanbanBoard />} />
  <Route path="/kanban/*" element={<KanbanBoard />} />
+ <Route path="/tasks/*" element={<Navigate to="/app/board" replace />} />
  <Route path="/sprint/*" element={<SprintView />} />
  <Route path="/operations/*" element={<Navigate to="/app/sprint?tab=operations" replace />} />
  <Route path="/planner/*" element={<PlannerPage />} />
@@ -269,8 +270,6 @@ export function AppShell() {
  <Route path="/analytics/*" element={<Navigate to="/app/" replace />} />
  <Route path="/decisions" element={<Navigate to="/app/brain" replace />} />
  <Route path="/graph" element={<Navigate to="/app/brain" replace />} />
- <Route path="/automations" element={<Navigate to="/app/" replace />} />
- <Route path="/career" element={<Navigate to="/app/" replace />} />
  </Routes></GlobalErrorBoundary>
  </main>
  </div>
@@ -278,7 +277,7 @@ export function AppShell() {
 
  {/* NEW: Visual Two-Key Chord HUD Indicator */}
  {activePrefix && (
- <div className="fixed bottom-6 right-6 z-50 bg-primary text-white px-4 py-3 rounded-xl shadow-2xl border border-white/10 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-150 font-mono text-caption">
+ <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-primary text-white px-4 py-3 rounded-xl shadow-2xl border border-white/10 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-150 font-mono text-caption whitespace-nowrap">
  <div className="w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center font-bold shadow-sm">
  <Terminal className="w-3.5 h-3.5" />
  </div>

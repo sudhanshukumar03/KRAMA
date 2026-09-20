@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { 
-  ChevronRight, ChevronDown, Plus, FileSignature, Brain, Clock, AlignLeft, 
+  ChevronRight, ChevronDown, Plus, FileSignature, Brain, 
   BookOpen, Heading1, Heading2, List, ListOrdered, Quote, Code, 
-  Minus, Command, FolderKanban, Link2, 
+  Minus, FolderKanban, Link2, 
   Sparkles, Search, Download, X, 
   History, Network, FileText, RefreshCw, Check, 
   Send, Trash2, ZoomIn, ZoomOut, RotateCcw,
@@ -185,6 +185,228 @@ function MoveDocumentModal({
 }
 
 // ==========================================
+// 1B. CREATE DOCUMENT MODAL
+// ==========================================
+interface CreateDocumentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  target: { parentId?: string; parentTitle?: string } | null;
+  projects: any[];
+  spaces: any[];
+  activeWorkspaceId: string;
+  onSuccess: (newPageId: string) => void;
+}
+
+function CreateDocumentModal({
+  isOpen,
+  onClose,
+  target,
+  projects,
+  spaces,
+  activeWorkspaceId,
+  onSuccess,
+}: CreateDocumentModalProps) {
+  const [title, setTitle] = useState('');
+  const [documentType, setDocumentType] = useState('SPEC');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (isOpen) {
+      setTitle('');
+      setDocumentType('SPEC');
+      setSelectedProjectId('');
+      const t = setTimeout(() => inputRef.current?.focus(), 60);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleCreate = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanTitle = title.trim();
+    if (!cleanTitle) {
+      toast.error('Please enter a document name');
+      inputRef.current?.focus();
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      let defaultSpaceId = spaces[0]?.id;
+      if (!defaultSpaceId && spaces.length === 0) {
+        try {
+          const createdSpace = await api.spaces.create({ name: 'General' });
+          defaultSpaceId = createdSpace.id;
+          queryClient.invalidateQueries({ queryKey: ['spaces'] });
+        } catch {
+          // Server will fallback to auto-provisioning
+        }
+      }
+
+      const newPage = await api.documents.create({
+        title: cleanTitle,
+        workspaceId: activeWorkspaceId || undefined,
+        spaceId: defaultSpaceId,
+        parentId: target?.parentId || undefined,
+        projectId: selectedProjectId || undefined,
+        documentType: documentType || 'SPEC',
+        blocks: [],
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['spaces'] });
+      toast.success(`Created document "${cleanTitle}"`);
+      onClose();
+      if (newPage?.id) {
+        onSuccess(newPage.id);
+      }
+    } catch (err: any) {
+      toast.error('Failed to create document: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+      <div 
+        className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onClose();
+        }}
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+              <BookOpen className="w-4 h-4 stroke-[1.75]" />
+            </div>
+            <div>
+              <h3 className="font-bold text-primary text-body leading-tight">
+                {target?.parentTitle ? 'New Sub-document' : 'Create New Document'}
+              </h3>
+              {target?.parentTitle && (
+                <p className="text-[11px] font-mono text-secondary truncate max-w-[260px]">
+                  Inside: <span className="text-primary font-medium">{target.parentTitle}</span>
+                </p>
+              )}
+            </div>
+          </div>
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-surface-hover transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleCreate} className="p-5 space-y-4">
+          <div>
+            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
+              Document Name <span className="text-blue-600 dark:text-blue-400">*</span>
+            </label>
+            <input
+              ref={inputRef}
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. System Architecture Spec, API Contract..."
+              className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-sans text-body transition-all"
+              autoFocus
+            />
+          </div>
+
+          {/* Document Type Selector */}
+          <div>
+            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
+              Document Type
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { id: 'SPEC', label: 'SPEC' },
+                { id: 'RFC', label: 'RFC' },
+                { id: 'GENERAL', label: 'GENERAL' },
+                { id: 'MEETING', label: 'MEETING' },
+                { id: 'IDEA', label: 'IDEA' },
+                { id: 'NOTE', label: 'NOTE' },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setDocumentType(t.id)}
+                  className={cn(
+                    "py-1.5 px-2 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer text-center border",
+                    documentType === t.id
+                      ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                      : "bg-surface hover:bg-surface-hover text-secondary border-border"
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Optional Project Link */}
+          {projects.length > 0 && (
+            <div>
+              <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
+                Link to Project (Optional)
+              </label>
+              <select
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="w-full p-2 rounded-xl border border-border bg-surface text-primary outline-none focus:border-blue-500 font-sans text-caption"
+              >
+                <option value="">No Project</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Footer Actions */}
+          <div className="pt-3 border-t border-border flex items-center justify-between">
+            <span className="text-[11px] font-mono text-muted flex items-center gap-1">
+              <kbd className="bg-surface-hover px-1.5 py-0.5 rounded border border-border text-[10px]">Enter ↵</kbd> to create
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3.5 py-2 rounded-xl border border-border text-caption font-medium hover:bg-surface-hover transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || !title.trim()}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-caption font-bold flex items-center gap-1.5 transition-all shadow-xs",
+                  title.trim() && !isSubmitting
+                    ? "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                    : "bg-blue-600/40 text-white/60 cursor-not-allowed"
+                )}
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2]" />
+                <span>{isSubmitting ? 'Creating...' : 'Create Document'}</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
 // 1. PAGE TREE NAVIGATION NODE
 // ==========================================
 function PageTreeNode({ 
@@ -193,14 +415,16 @@ function PageTreeNode({
   level = 0, 
   onSelect, 
   selectedId,
-  onMoveDoc
+  onMoveDoc,
+  onCreateDoc
 }: { 
-  page: DocumentWithRelations;
-  pages: DocumentWithRelations[];
-  level?: number;
-  onSelect: (id: string) => void;
+  page: DocumentWithRelations; 
+  pages: DocumentWithRelations[]; 
+  level?: number; 
+  onSelect: (id: string) => void; 
   selectedId: string | null;
   onMoveDoc?: (doc: DocumentWithRelations) => void;
+  onCreateDoc?: (target: { parentId?: string; parentTitle?: string }) => void;
 }) {
   const [expanded, setExpanded] = useState(level === 0 || selectedId === page.id);
   const queryClient = useQueryClient();
@@ -314,7 +538,7 @@ function PageTreeNode({
         </div>
 
         {/* Hover Actions */}
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1">
+        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-0.5 bg-surface/95 backdrop-blur-xs py-0.5 px-1 rounded-lg border border-border shadow-xs z-10">
           <button
             onClick={handleToggleFavorite}
             className={cn("p-1 rounded transition-colors",
@@ -343,9 +567,16 @@ function PageTreeNode({
           </button>
           {level < 2 && (
             <button
-              onClick={handleCreateChildPage}
-              className="p-1 rounded text-muted hover:text-blue-600 hover:bg-blue-500/10 transition-colors"
-              title="Add child page"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onCreateDoc) {
+                  onCreateDoc({ parentId: page.id, parentTitle: page.title });
+                } else {
+                  handleCreateChildPage(e);
+                }
+              }}
+              className="p-1 rounded text-muted hover:text-blue-600 hover:bg-blue-500/10 transition-colors cursor-pointer"
+              title="Add sub-document"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -372,6 +603,7 @@ function PageTreeNode({
               onSelect={onSelect} 
               selectedId={selectedId}
               onMoveDoc={onMoveDoc}
+              onCreateDoc={onCreateDoc}
             />
           ))}
         </div>
@@ -400,7 +632,7 @@ function Breadcrumbs({
   }
 
   return (
-    <div className="flex items-center gap-2 text-caption text-secondary mb-4 font-mono select-none overflow-x-auto py-1 border-b border-border/60 pb-2">
+    <div className="flex items-center gap-1.5 text-caption text-secondary font-mono select-none overflow-x-auto py-0.5 min-w-0">
       <span 
         onClick={() => trail[0] && onSelect(trail[0].id)}
         className="flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors shrink-0 font-bold uppercase tracking-wider text-[11px]"
@@ -408,18 +640,17 @@ function Breadcrumbs({
         <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0 stroke-[1.75]" /> Brain Base
       </span>
       {trail.map((p, idx) => (
-        <div key={p.id} className="flex items-center gap-2 flex-shrink-0">
+        <div key={p.id} className="flex items-center gap-1.5 flex-shrink-0">
           <ChevronRight className="w-3.5 h-3.5 text-muted shrink-0 stroke-[1.5]" />
           <span 
             onClick={() => onSelect(p.id)}
-            className={cn("flex items-center gap-1.5 px-2 py-0.5 rounded-lg transition-all text-[12px] cursor-pointer", 
+            className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-all text-[12px] cursor-pointer", 
               idx === trail.length - 1 
-                ? "text-blue-600 dark:text-blue-400 font-bold bg-blue-500/10 border border-blue-500/20" 
-                : "hover:text-blue-600 hover:bg-surface-hover text-secondary font-medium"
+                ? "text-primary font-medium" 
+                : "hover:text-primary text-muted"
             )}
           >
-            {React.createElement(resolveIcon(p.icon), { className: idx === trail.length - 1 ? "w-3 h-3 text-blue-600 dark:text-blue-400 shrink-0" : "w-3 h-3 text-secondary shrink-0" })}
-            <span className="font-sans truncate max-w-[140px]">{p.title || 'Untitled Document'}</span>
+            <span className="font-sans truncate max-w-[180px]">{p.title || 'Untitled Document'}</span>
           </span>
         </div>
       ))}
@@ -687,7 +918,7 @@ function AddEntityLinkModal({
     else if (targetType === 'PROJECT' && projects[0]) setTargetId(projects[0].id);
     else if (targetType === 'TASK' && tasks[0]) setTargetId(tasks[0].id);
     else setTargetId('');
-  }, [targetType, tasks, projects]);
+  }, [targetType, tasks, projects, availableDocs]);
 
   const handleCreate = async () => {
     if (!targetId) {
@@ -841,10 +1072,10 @@ function GroundedAIPanel({
 
   // Read selection from editor if any
   const selectionText = useMemo(() => {
-    if (!editor || editor.isDestroyed) return '';
+    if (!isOpen || !editor || editor.isDestroyed) return '';
     const { from, to } = editor.state.selection;
     return editor.state.doc.textBetween(from, to, ' ');
-  }, [editor, isOpen, tab]);
+  }, [editor, isOpen]);
 
   const handleAsk = () => {
     if (!question.trim()) return;
@@ -859,7 +1090,7 @@ function GroundedAIPanel({
       () => setIsAsking(false),
       (err) => {
         setIsAsking(false);
-        toast.error('AI Q&A failed: ' + (err?.message || 'Check GROQ_API_KEY'));
+        toast.error('AI Q&A failed: ' + (err?.message || 'Check AI API key configuration'));
       },
       abortControllerRef.current.signal
     );
@@ -882,7 +1113,7 @@ function GroundedAIPanel({
       () => setIsComposing(false),
       (err) => {
         setIsComposing(false);
-        toast.error('AI Compose failed: ' + (err?.message || 'Check GROQ_API_KEY'));
+        toast.error('AI Compose failed: ' + (err?.message || 'Check AI API key configuration'));
       },
       abortControllerRef.current.signal
     );
@@ -1289,7 +1520,7 @@ function KnowledgeGraphCanvas({
       if (hoveredNode.type === 'PROJECT') {
         navigate(`/app/projects/${hoveredNode.id}`);
       } else if (hoveredNode.type === 'TASK') {
-        navigate('/app/tasks');
+        navigate('/app/board');
       } else {
         onSelectDoc(hoveredNode.id);
       }
@@ -1422,6 +1653,21 @@ function Editor({
     }, 500);
   };
 
+  const handleTitleBlur = () => {
+    if (titleDebounceRef.current) {
+      clearTimeout(titleDebounceRef.current);
+      titleDebounceRef.current = null;
+    }
+    const clean = title.trim();
+    if (clean && clean !== page.title) {
+      api.documents.update(page.id, { title: clean })
+        .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
+        .catch((err: any) => {
+          toast.error('Failed to update page title: ' + (err?.message || 'Unknown error'));
+        });
+    }
+  };
+
   const handleLinkProject = async (projectId: string | null) => {
     try {
       await api.documents.update(page.id, { projectId: projectId || null, linkedProjectId: projectId || null });
@@ -1437,7 +1683,7 @@ function Editor({
       await api.documents.update(page.id, { documentType: type });
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast.success(`Document type updated to ${type}`);
-    } catch (err: any) {
+    } catch {
       toast.error('Failed to update type');
     }
   };
@@ -1517,80 +1763,38 @@ function Editor({
     } else if (editor) {
       editor.commands.setContent('');
     }
-  }, [page.id, editor]);
+  }, [page.id, page.contentJson, editor]);
 
   // Word count & metrics
   const textContent = editor ? editor.getText() : (page.title || '');
   const words = textContent.trim().split(/\s+/).filter((w: string) => w.length > 0);
   const wordCount = words.length;
-  const charCount = textContent.length;
   const readTimeMins = Math.max(1, Math.ceil(wordCount / 200));
-
   return (
     <div className="flex-1 flex h-full overflow-hidden relative">
-      <div className="flex-1 overflow-y-auto py-6 px-4 md:px-8 max-w-5xl mx-auto flex flex-col font-sans">
-        <Breadcrumbs page={page} pages={pages} onSelect={onSelectDoc} />
+      <div className="flex-1 overflow-y-auto py-5 px-4 md:px-8 max-w-5xl mx-auto flex flex-col font-sans w-full">
+        {/* Top Control Bar: Breadcrumbs on Left, Utility Actions on Right */}
+        <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-border">
+          <div className="min-w-0 flex-1">
+            <Breadcrumbs page={page} pages={pages} onSelect={onSelectDoc} />
+          </div>
 
-        {/* Telemetry Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-2xs hover:bg-blue-500/20 transition-colors cursor-pointer">
-              <IconPicker
-                value={page.icon}
-                onChange={(newIcon) => {
-                  api.documents.update(page.id, { icon: newIcon })
-                    .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
-                    .catch(() => toast.error('Failed to update icon'));
-                }}
-                triggerClassName="border-none hover:border-none shadow-none bg-transparent hover:bg-transparent !p-0"
-              />
-            </div>
-
+          <div className="flex items-center gap-1.5 shrink-0">
             {/* Favorite Star Button */}
             <button
               onClick={handleToggleFavorite}
-              className={cn("p-2 rounded-xl border transition-colors cursor-pointer shrink-0",
+              className={cn("p-1.5 rounded-lg border transition-colors cursor-pointer shrink-0",
                 page.isFavorite 
                   ? "bg-amber-500/10 border-amber-500/30 text-amber-500 hover:bg-amber-500/20" 
                   : "border-border bg-surface hover:bg-surface-hover text-muted hover:text-primary"
               )}
               title={page.isFavorite ? "Favorited" : "Star as favorite"}
             >
-              <Star className={cn("w-4 h-4", page.isFavorite && "fill-amber-500")} />
+              <Star className={cn("w-3.5 h-3.5", page.isFavorite && "fill-amber-500")} />
             </button>
 
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                {/* Document Type Picker */}
-                <select
-                  value={page.documentType || 'GENERAL'}
-                  onChange={(e) => handleDocumentTypeChange(e.target.value)}
-                  className="bg-surface-hover text-secondary hover:text-primary px-2 py-0.5 rounded-md border border-border text-[11px] font-mono font-bold outline-none cursor-pointer"
-                >
-                  <option value="GENERAL">GENERAL</option>
-                  <option value="SPEC">SPEC</option>
-                  <option value="RFC">RFC</option>
-                  <option value="MEETING">MEETING</option>
-                  <option value="IDEA">IDEA</option>
-                  <option value="NOTE">NOTE</option>
-                </select>
-                <span className="text-secondary font-mono text-[11px]">•</span>
-                <span className="text-caption font-mono text-secondary flex items-center gap-2">
-                  <span className="flex items-center gap-1 font-bold">
-                    <AlignLeft className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 stroke-[1.5]" /> {wordCount} words ({charCount} chars)
-                  </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-bold">
-                    <Clock className="w-3.5 h-3.5 stroke-[1.5]" /> ~{readTimeMins}m read
-                  </span>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
             {/* Project Linker */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border bg-surface text-caption font-mono">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-border bg-surface text-caption font-mono">
               <FolderKanban className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
               <select
                 value={page.projectId || page.linkedProjectId || ''}
@@ -1610,7 +1814,7 @@ function Editor({
               className="p-1.5 rounded-lg border border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary transition-colors cursor-pointer"
               title="Move Document..."
             >
-              <FolderInput className="w-4 h-4 stroke-[1.5]" />
+              <FolderInput className="w-3.5 h-3.5 stroke-[1.5]" />
             </button>
 
             {/* Duplicate Document Button */}
@@ -1619,7 +1823,7 @@ function Editor({
               className="p-1.5 rounded-lg border border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary transition-colors cursor-pointer"
               title="Duplicate Document Subtree"
             >
-              <Copy className="w-4 h-4 stroke-[1.5]" />
+              <Copy className="w-3.5 h-3.5 stroke-[1.5]" />
             </button>
 
             {/* Version History Button */}
@@ -1628,16 +1832,16 @@ function Editor({
               className="p-1.5 rounded-lg border border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary transition-colors cursor-pointer"
               title="Version Snapshots & Restore"
             >
-              <History className="w-4 h-4 stroke-[1.5]" />
+              <History className="w-3.5 h-3.5 stroke-[1.5]" />
             </button>
 
             {/* Export Dropdown */}
             <div className="relative group">
               <button 
-                className="px-2.5 py-1 rounded-lg border border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary text-caption font-mono font-bold flex items-center gap-1.5 cursor-pointer"
+                className="px-2 py-1 rounded-lg border border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary text-caption font-mono font-bold flex items-center gap-1 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Export</span>
+                <span className="text-[11px]">Export</span>
                 <ChevronDown className="w-3 h-3 text-muted" />
               </button>
               <div className="absolute right-0 top-full mt-1 hidden group-hover:block bg-surface border border-border rounded-xl shadow-xl py-1 w-48 z-30 font-mono text-caption">
@@ -1661,7 +1865,7 @@ function Editor({
             {/* AI Assistant Button */}
             <button
               onClick={() => setIsAiOpen(!isAiOpen)}
-              className={cn("px-3 py-1.5 rounded-xl text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer",
+              className={cn("px-2.5 py-1 rounded-lg text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer text-[11px]",
                 isAiOpen 
                   ? "bg-blue-600 text-white" 
                   : "bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30"
@@ -1673,8 +1877,43 @@ function Editor({
           </div>
         </div>
 
-        {/* Tags Bar */}
-        <div className="flex flex-wrap items-center gap-1.5 mb-5">
+        {/* Properties & Telemetry Row: Icon, DocType, Non-wrapping Stats Pill, and Tags */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-2xs hover:bg-blue-500/20 transition-colors cursor-pointer">
+              <IconPicker
+                value={page.icon}
+                onChange={(newIcon) => {
+                  api.documents.update(page.id, { icon: newIcon })
+                    .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
+                    .catch(() => toast.error('Failed to update icon'));
+                }}
+                triggerClassName="border-none hover:border-none shadow-none bg-transparent hover:bg-transparent !p-0"
+              />
+            </div>
+
+            {/* Document Type Picker */}
+            <select
+              value={page.documentType || 'GENERAL'}
+              onChange={(e) => handleDocumentTypeChange(e.target.value)}
+              className="bg-surface-hover text-secondary hover:text-primary px-2.5 py-1 rounded-lg border border-border text-[11px] font-mono font-bold outline-none cursor-pointer"
+            >
+              <option value="GENERAL">GENERAL</option>
+              <option value="SPEC">SPEC</option>
+              <option value="RFC">RFC</option>
+              <option value="MEETING">MEETING</option>
+              <option value="IDEA">IDEA</option>
+              <option value="NOTE">NOTE</option>
+            </select>
+
+            {/* Simple, clean word count & reading time */}
+            <span className="text-muted font-mono text-[11px] select-none">
+              {wordCount} words · {readTimeMins} min read
+            </span>
+          </div>
+
+          {/* Tags */}
+          <div className="flex flex-wrap items-center gap-1.5">
           {page.tags?.map((item: any) => {
             const tag = item.tag || item;
             const colorClass = getTagColor(tag.color);
@@ -1722,6 +1961,7 @@ function Editor({
               <span>Tag</span>
             </button>
           )}
+          </div>
         </div>
 
         {/* Writing Canvas Container */}
@@ -1730,9 +1970,6 @@ function Editor({
           {editor && (
             <div className="bg-surface-hover/80 backdrop-blur-md px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0 border-b border-border">
               <div className="flex flex-wrap items-center gap-1">
-                <span className="text-caption font-mono font-bold text-secondary flex items-center gap-1 mr-2 px-1 select-none uppercase tracking-wider text-[11px]">
-                  <Command className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 stroke-[1.75]" /> Insert:
-                </span>
                 <button
                   onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
                   className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer",
@@ -1809,6 +2046,7 @@ function Editor({
                 type="text" 
                 value={title}
                 onChange={(e) => handleTitleChange(e.target.value)}
+                onBlur={handleTitleBlur}
                 className="text-3xl md:text-4xl font-extrabold bg-transparent border-none outline-none text-primary placeholder:text-muted w-full mb-6 font-sans tracking-tight focus:ring-0 px-0 leading-tight"
                 placeholder="Untitled Document..."
               />
@@ -1887,7 +2125,7 @@ function Editor({
                       } else if (link.targetType === 'PROJECT') {
                         navigate(`/app/projects/${link.targetId}`);
                       } else if (link.targetType === 'TASK') {
-                        navigate('/app/tasks');
+                        navigate('/app/board');
                       }
                     };
 
@@ -1946,8 +2184,8 @@ function Editor({
                   <span className="font-bold text-primary font-sans">{page.linkedProject.name}</span>
                 </div>
                 <button
-                  onClick={() => window.location.href = `/app/projects/${page.linkedProject?.id}`}
-                  className="text-blue-600 hover:text-blue-500 font-bold flex items-center gap-1 text-[12px]"
+                  onClick={() => navigate(`/app/projects/${page.linkedProject?.id}`)}
+                  className="text-blue-600 hover:text-blue-500 font-bold flex items-center gap-1 text-[12px] cursor-pointer"
                 >
                   View Project <ArrowUpRight className="w-3.5 h-3.5" />
                 </button>
@@ -2012,60 +2250,27 @@ export function BrainWorkspace() {
 
   const activeWorkspaceId = workspaceId || workspaces[0]?.id || (typeof window !== 'undefined' ? localStorage.getItem('krama_active_workspace') : '') || '';
 
-  const [selectedPageId, setSelectedPageId] = useState<string | null>(pages[0]?.id || null);
+  const [searchParams] = useSearchParams();
+  const docParam = searchParams.get('doc');
+
+  const [selectedPageId, setSelectedPageId] = useState<string | null>(() => searchParams.get('doc') || pages[0]?.id || null);
   const [viewMode, setViewMode] = useState<'editor' | 'graph'>('editor');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [moveDocTarget, setMoveDocTarget] = useState<DocumentWithRelations | null>(null);
+  const [createDocTarget, setCreateDocTarget] = useState<{ parentId?: string; parentTitle?: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Sync initial selection
+  // Sync selection from ?doc= URL parameter or default to first page
   useEffect(() => {
-    if (!selectedPageId && pages.length > 0) {
+    if (docParam && pages.some(p => p.id === docParam)) {
+      setSelectedPageId(docParam);
+      setViewMode('editor');
+    } else if (!selectedPageId && pages.length > 0) {
       setSelectedPageId(pages[0].id);
     }
-  }, [pages, selectedPageId]);
+  }, [docParam, pages, selectedPageId]);
 
-  // Global shortcut for Cmd/Ctrl+K search
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsSearchOpen(prev => !prev);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
-  const handleCreateRootPage = async () => {
-    try {
-      let defaultSpaceId = pages[0]?.spaceId || spaces[0]?.id;
-      if (!defaultSpaceId && spaces.length === 0) {
-        try {
-          const createdSpace = await api.spaces.create({ name: 'General' });
-          defaultSpaceId = createdSpace.id;
-          queryClient.invalidateQueries({ queryKey: ['spaces'] });
-        } catch {
-          // Server will fallback to auto-provisioning
-        }
-      }
-      const newPage = await api.documents.create({
-        title: 'Untitled Specification',
-        workspaceId: activeWorkspaceId || undefined,
-        spaceId: defaultSpaceId,
-        blocks: []
-      });
-      queryClient.invalidateQueries({ queryKey: ['documents'] });
-      queryClient.invalidateQueries({ queryKey: ['spaces'] });
-      if (newPage?.id) {
-        setSelectedPageId(newPage.id);
-        setViewMode('editor');
-      }
-      toast.success('Created new document');
-    } catch (err: any) {
-      toast.error('Failed to create document: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
-    }
-  };
 
   const handleImportSpecClick = () => {
     fileInputRef.current?.click();
@@ -2128,17 +2333,7 @@ export function BrainWorkspace() {
         icon={Brain}
         iconColorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
         title="Brain Workspace"
-        statPill={{ 
-          icon: Sparkles, 
-          label: `${pages.length} Specifications`, 
-          colorClass: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20" 
-        }}
-        description="Engineering specs, RFCs, and meeting notes with bidirectional entity links, grounded AI, and interactive graph."
-        primaryAction={{
-          label: "New Document",
-          icon: Plus,
-          onClick: handleCreateRootPage,
-        }}
+        description="Engineering specs, RFCs, and notes."
         className="mb-0 rounded-none border-x-0 border-t-0 border-b bg-surface shadow-none px-6 py-3.5"
       >
         {/* Actions & View Mode Toggle & Search trigger */}
@@ -2159,7 +2354,6 @@ export function BrainWorkspace() {
           >
             <Search className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             <span className="hidden sm:inline">Search Specs...</span>
-            <kbd className="hidden sm:inline text-[10px] bg-surface-hover px-1.5 py-0.5 rounded border border-border text-muted">⌘K</kbd>
           </button>
 
           <div className="flex items-center p-1 rounded-xl bg-surface-hover border border-border">
@@ -2208,9 +2402,9 @@ export function BrainWorkspace() {
                   <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 stroke-[1.75]" /> Documents
                 </span>
                 <button 
-                  onClick={handleCreateRootPage}
+                  onClick={() => setCreateDocTarget({})}
                   className="text-secondary hover:text-blue-600 hover:bg-blue-500/10 border border-transparent hover:border-blue-500/20 transition-all rounded-lg p-1 cursor-pointer"
-                  title="Add Root Document"
+                  title="Add Document"
                 >
                   <Plus className="w-4 h-4 stroke-[1.5]" />
                 </button>
@@ -2224,6 +2418,7 @@ export function BrainWorkspace() {
                     onSelect={setSelectedPageId} 
                     selectedId={selectedPage?.id || null} 
                     onMoveDoc={setMoveDocTarget}
+                    onCreateDoc={setCreateDocTarget}
                   />
                 ))}
               </div>
@@ -2247,7 +2442,7 @@ export function BrainWorkspace() {
                     title="No Specification Selected"
                     description="Select a document from the page tree on the left or create a new specification to start writing."
                     actionLabel="Create New Spec"
-                    onAction={handleCreateRootPage}
+                    onAction={() => setCreateDocTarget({})}
                   />
                 </div>
               )}
@@ -2274,6 +2469,20 @@ export function BrainWorkspace() {
         isOpen={!!moveDocTarget}
         onClose={() => setMoveDocTarget(null)}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ['documents'] })}
+      />
+
+      {/* Create Document Dialog */}
+      <CreateDocumentModal
+        isOpen={createDocTarget !== null}
+        onClose={() => setCreateDocTarget(null)}
+        target={createDocTarget}
+        projects={projects}
+        spaces={spaces}
+        activeWorkspaceId={activeWorkspaceId}
+        onSuccess={(newPageId) => {
+          setSelectedPageId(newPageId);
+          setViewMode('editor');
+        }}
       />
     </div>
   );

@@ -5,6 +5,7 @@ import { extractMarkdown, extractPlainText, calculateCounts } from '../utils/tip
 import { documentVersionQueue, embeddingQueue } from '../queues';
 import { redisService } from '../services/redis.service';
 import Groq from 'groq-sdk';
+import { GoogleGenAI } from '@google/genai';
 
 export const getDocuments = async (req: Request, res: Response) => {
   try {
@@ -755,34 +756,69 @@ export const aiAsk = async (req: Request, res: Response) => {
       }
     }
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const availableAnchorsList = allAnchors.length > 0 ? `Available section anchor citations: ${allAnchors.slice(0, 25).join(', ')}` : '';
     const systemPrompt = `You are an AI assistant grounded ONLY in the following knowledge base content:\n\n${contextText}\n\n${availableAnchorsList}\n\nAnswer the user's question accurately. When citing information, you MUST cite the specific document section using its anchor slug like [#section-title] where applicable.`;
 
-    const stream = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: question }
-      ],
-      stream: true
-    });
+    if (process.env.GEMINI_API_KEY) {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const responseStream = await ai.models.generateContentStream({
+        model: 'gemini-3.6-flash',
+        contents: question,
+        config: {
+          systemInstruction: systemPrompt
+        }
+      });
 
-    for await (const chunk of stream) {
-      const text = chunk.choices[0]?.delta?.content || '';
-      if (text) {
-        res.write(`data: ${JSON.stringify({ text })}\n\n`);
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      for await (const chunk of responseStream) {
+        const text = chunk.text || '';
+        if (text) {
+          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        }
       }
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
     }
-    res.write('data: [DONE]\n\n');
-    res.end();
+
+    if (process.env.GROQ_API_KEY) {
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      const stream = await groq.chat.completions.create({
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: question }
+        ],
+        stream: true
+      });
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      for await (const chunk of stream) {
+        const text = chunk.choices[0]?.delta?.content || '';
+        if (text) {
+          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        }
+      }
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+
+    throw new Error('Neither GEMINI_API_KEY nor GROQ_API_KEY is configured.');
   } catch (error: any) {
-    if (!res.headersSent) res.status(500).json({ message: error.message });
-    else res.end();
+    if (!res.headersSent) {
+      res.status(500).json({ message: error.message });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+    }
   }
 };
 
@@ -798,31 +834,68 @@ export const aiCompose = async (req: Request, res: Response) => {
     if (mode === 'improve') systemPrompt += `\nTask: Improve the selected text based on this instruction: ${instruction}`;
     if (mode === 'explain') systemPrompt += `\nTask: Explain the selected text based on this instruction: ${instruction}`;
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    const userPrompt = selection ? `Selection: ${selection}\n\nInstruction: ${instruction}` : instruction;
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const stream = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: selection ? `Selection: ${selection}` : instruction }
-      ],
-      stream: true
-    });
+    if (process.env.GEMINI_API_KEY) {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const responseStream = await ai.models.generateContentStream({
+        model: 'gemini-3.6-flash',
+        contents: userPrompt,
+        config: {
+          systemInstruction: systemPrompt
+        }
+      });
 
-    for await (const chunk of stream) {
-      const text = chunk.choices[0]?.delta?.content || '';
-      if (text) {
-        res.write(`data: ${JSON.stringify({ text })}\n\n`);
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      for await (const chunk of responseStream) {
+        const text = chunk.text || '';
+        if (text) {
+          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        }
       }
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
     }
-    res.write('data: [DONE]\n\n');
-    res.end();
+
+    if (process.env.GROQ_API_KEY) {
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      const stream = await groq.chat.completions.create({
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: selection ? `Selection: ${selection}` : instruction }
+        ],
+        stream: true
+      });
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      for await (const chunk of stream) {
+        const text = chunk.choices[0]?.delta?.content || '';
+        if (text) {
+          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        }
+      }
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+
+    throw new Error('Neither GEMINI_API_KEY nor GROQ_API_KEY is configured.');
   } catch (error: any) {
-    if (!res.headersSent) res.status(500).json({ message: error.message });
-    else res.end();
+    if (!res.headersSent) {
+      res.status(500).json({ message: error.message });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+    }
   }
 };
 

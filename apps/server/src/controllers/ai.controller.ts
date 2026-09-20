@@ -21,18 +21,18 @@ export const kramaChat = async (req: any, res: any) => {
     }
 
     if (provider && provider !== 'gemini') {
-        const prompt = message;
-        if (ragEnabled) {
-            const queryVector = await getEmbedding(prompt);
-            const vectorResults = await vectorSearch(workspaceId, queryVector, 8);
-            const contextStr = vectorResults.map((c: any) => c.content).join('\n\n');
-            const systemPrompt = `Answer using only this context:\n${contextStr}\n\nQuestion: ${prompt}`;
-            const answer = await aiService.complete({ prompt: systemPrompt, workspaceId, userId, provider, model: req.body.model });
-            return res.json({ type: "direct", answer, sources: vectorResults.map((c:any) => ({ id: c.pageId, chunkId: c.id })) });
-        } else {
-            const answer = await aiService.complete({ prompt: message, workspaceId, userId, provider, model: req.body.model });
-            return res.json({ type: "direct", answer });
-        }
+      const prompt = message;
+      if (ragEnabled) {
+        const queryVector = await getEmbedding(prompt);
+        const vectorResults = await vectorSearch(workspaceId, queryVector, 8);
+        const contextStr = vectorResults.map((c: any) => c.content).join('\n\n');
+        const systemPrompt = `Answer using only this context:\n${contextStr}\n\nQuestion: ${prompt}`;
+        const answer = await aiService.complete({ prompt: systemPrompt, workspaceId, userId, provider, model: req.body.model });
+        return res.json({ type: "direct", answer, sources: vectorResults.map((c: any) => ({ id: c.pageId, chunkId: c.id })) });
+      } else {
+        const answer = await aiService.complete({ prompt: message, workspaceId, userId, provider, model: req.body.model });
+        return res.json({ type: "direct", answer });
+      }
     }
 
     const response = await kramaAiService.askKrama(message, workspaceId, userId, ragEnabled);
@@ -128,7 +128,7 @@ export const completeAiRequest = async (req: Request, res: Response) => {
 
       let contextStr = '<system_project_context>\n';
       contextStr += "The user has invoked the @project command. Use the following real-time data from their workspace to inform your answer:\n\n";
-      
+
       if (activeSprint) {
         contextStr += `# Current Sprint: "${activeSprint.name}" (${activeSprint.startDate.toISOString().split('T')[0]} - ${activeSprint.endDate.toISOString().split('T')[0]})\n`;
       } else {
@@ -155,9 +155,9 @@ export const completeAiRequest = async (req: Request, res: Response) => {
       } else {
         contextStr += `# Open Tasks: None\n`;
       }
-      
+
       contextStr += '</system_project_context>\n\n';
-      
+
       const strippedPrompt = prompt.replace('@project', '').trim();
       finalPrompt = KRAMA_SYSTEM_PROMPT + '\n\n' + contextStr + strippedPrompt;
     } else {
@@ -175,10 +175,10 @@ export const completeAiRequest = async (req: Request, res: Response) => {
     return res.status(200).json({ completion });
   } catch (error: any) {
     logger.error('Error in completeAiRequest', { error: error.message, stack: error.stack });
-    return res.status(500).json({ 
-      success: false, 
-      code: "AI_PROVIDER_ERROR", 
-      message: "Unable to generate a response." 
+    return res.status(500).json({
+      success: false,
+      code: "AI_PROVIDER_ERROR",
+      message: "Unable to generate a response."
     });
   }
 };
@@ -216,7 +216,7 @@ export const getConfig = async (req: Request, res: Response) => {
   // Return the active configuration dynamically based on the environment
   let provider = 'groq';
   let model = 'llama-3.1-8b-instant';
-  
+
   if (process.env.GEMINI_API_KEY) {
     provider = 'gemini';
     model = 'gemini-1.5-flash';
@@ -251,7 +251,7 @@ export const ragQuery = async (req: Request, res: Response) => {
 
     // 3. Merge and rank via RRF
     const candidates = mergeAndRank(vectorResults, keywordResults);
-    
+
     // 4. Rerank (take top 8)
     const relevantChunks = candidates.slice(0, 8);
 
@@ -315,22 +315,22 @@ User question: ${prompt}`;
       where: { id: { in: pageIds } },
       select: { id: true, title: true }
     });
-    
+
     const sources = relevantChunks.map(c => {
       const page = pages.find(p => p.id === c.pageId);
       return { id: c.pageId, title: page?.title || 'Unknown Page', chunkId: c.id };
     });
 
-    return res.status(200).json({ 
-      completion: answer, 
+    return res.status(200).json({
+      completion: answer,
       sources: sources
     });
   } catch (error: any) {
     logger.error('Error in ragQuery', { error: error.message, stack: error.stack });
-    return res.status(500).json({ 
-      success: false, 
-      code: "AI_PROVIDER_ERROR", 
-      message: "Unable to generate a response." 
+    return res.status(500).json({
+      success: false,
+      code: "AI_PROVIDER_ERROR",
+      message: "Unable to generate a response."
     });
   }
 };
@@ -344,7 +344,7 @@ export const getDashboardInsight = async (req: Request, res: Response) => {
 
     const force = req.query.force === 'true';
     const cacheKey = `ai:dashboard_insight:${workspaceId}`;
-    
+
     if (!force) {
       const cached = await redisService.get(cacheKey);
       if (cached) {
@@ -385,10 +385,10 @@ ${contextStr}`;
     return res.status(200).json({ insight: answer });
   } catch (error: any) {
     logger.error('Error in getDashboardInsight', { error: error.message, stack: error.stack });
-    return res.status(500).json({ 
-      success: false, 
-      code: "AI_PROVIDER_ERROR", 
-      message: "Unable to generate insight." 
+    return res.status(500).json({
+      success: false,
+      code: "AI_PROVIDER_ERROR",
+      message: "Unable to generate insight."
     });
   }
 };
@@ -403,7 +403,7 @@ export const analyzeTelemetry = async (req: Request, res: Response) => {
     const { mood, energy, reflection, sessionSeconds, wins } = req.body;
 
     const contextStr = await aiService.buildWorkspaceContext(workspaceId);
-    
+
     let telemetryPrompt = `You are the AI Sunset Sentinel for Krama OS, an execution and productivity platform.
 The user is closing out their work session and has provided the following telemetry data:
 - Deep Focus Time Logged: ${Math.floor((sessionSeconds || 0) / 60)} minutes
@@ -426,10 +426,10 @@ Based on this telemetry and context, provide a highly tactical, 2-3 sentence deb
     return res.status(200).json({ insight: answer });
   } catch (error: any) {
     logger.error('Error in analyzeTelemetry', { error: error.message, stack: error.stack });
-    return res.status(500).json({ 
-      success: false, 
-      code: "AI_PROVIDER_ERROR", 
-      message: "Unable to generate telemetry insight." 
+    return res.status(500).json({
+      success: false,
+      code: "AI_PROVIDER_ERROR",
+      message: "Unable to generate telemetry insight."
     });
   }
 };

@@ -75,7 +75,6 @@ router.get('/week', async (req: Request, res: Response) => {
       timeBlocks,
       projects,
       milestones,
-      syncRecord,
       holidaysList,
     ] = await Promise.all([
       prisma.habit.findMany({
@@ -107,11 +106,6 @@ router.get('/week', async (req: Request, res: Response) => {
       }),
       prisma.milestone.findMany({
         where: { userId, date: { gte: weekStart, lte: weekEnd } },
-      }),
-
-      prisma.externalItem.findFirst({
-        where: { userId },
-        orderBy: { updatedAt: 'desc' },
       }),
       fetchHolidays(user.countryCode || 'IN', weekStart.getFullYear()),
     ]);
@@ -242,13 +236,6 @@ router.get('/week', async (req: Request, res: Response) => {
       timeBlocks: allTimeBlocks,
       milestones,
       occurrences: allOccurrences,
-      syncStatus: syncRecord
-        ? {
-            provider: syncRecord.provider,
-            status: syncRecord.syncStatus,
-            lastSyncedAt: syncRecord.updatedAt ? (syncRecord.updatedAt instanceof Date ? syncRecord.updatedAt.toISOString() : new Date(syncRecord.updatedAt).toISOString()) : null,
-          }
-        : null,
     });
   } catch (error: any) {
     console.error('Planner week error:', error);

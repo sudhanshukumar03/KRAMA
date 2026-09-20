@@ -1,4 +1,3 @@
-import { SkillService } from './skill.service';
 import { goalRepository } from '../repositories/goal.repository';
 import { runInTransaction } from '../prisma';
 
@@ -17,18 +16,11 @@ export class GoalService {
 
   async createGoal(data: any, userId: string) {
     return runInTransaction(async (tx, publishAfterCommit) => {
-      const { status, skillIds, ...restData } = data;
+      const { status, ...restData } = data;
       const metadata = status ? { status } : undefined;
-
-      let skillsConnect: any = undefined;
-      if (skillIds !== undefined) {
-        await SkillService.validateSkillLinking(userId, data.workspaceId, skillIds);
-        skillsConnect = { connect: skillIds.map((id: string) => ({ id })) };
-      }
 
       const goal = await goalRepository.create({
         ...restData,
-        ...(skillsConnect ? { skills: skillsConnect } : {}),
         metadata,
         createdBy: userId,
         updatedBy: userId,
@@ -63,12 +55,7 @@ export class GoalService {
       
       const newMetadata = status ? { ...(existingMetadata || {}), status } : existingMetadata;
 
-      if (data.skillIds !== undefined) {
-        await SkillService.validateSkillLinking(userId, workspaceId, data.skillIds);
-        const ids = data.skillIds;
-        delete data.skillIds;
-        (updateData as any).skills = { set: ids.map((id: string) => ({ id })) };
-      }
+
 
       const goal = await goalRepository.update(id, {
         ...updateData,

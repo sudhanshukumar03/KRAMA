@@ -52,11 +52,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     });
 
-    socketInstance.on('automation:triggered', (data) => {
-      toast.info('Automation Fired', { description: data.ruleName });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    });
-
     socketInstance.on('focus:session:completed', () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['daily-logs'] });

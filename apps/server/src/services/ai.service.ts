@@ -31,8 +31,8 @@ class GroqProvider implements AIProvider {
   private client: Groq;
   constructor() {
     if (!process.env.GROQ_API_KEY) throw new Error("GROQ_API_KEY is not configured.");
-    this.client = new Groq({ 
-      apiKey: process.env.GROQ_API_KEY 
+    this.client = new Groq({
+      apiKey: process.env.GROQ_API_KEY
     });
   }
   async complete(prompt: string, model: string): Promise<ProviderResponse> {
@@ -135,7 +135,7 @@ export class AiService {
       if (activeProvider === 'gemini') activeModel = 'gemini-1.5-flash-latest';
       else if (activeProvider === 'groq') activeModel = 'llama-3.1-8b-instant';
     }
-    
+
     // If neither is provided, fallback based on available environment variables
     if (!activeProvider || !activeModel) {
       if (process.env.GROQ_API_KEY) {
@@ -149,7 +149,7 @@ export class AiService {
         activeModel = 'llama-3.1-8b-instant';
       }
     }
-    
+
     const providerInstance = ProviderFactory.getProvider(activeProvider);
     const response = await this.executeWithRetry(providerInstance, params.prompt, activeModel);
     const latencyMs = Date.now() - startTime;
@@ -277,11 +277,11 @@ export class AiService {
     });
 
     let contextStr = "--- WORKSPACE CONTEXT ---\n";
-    
+
     if (activeSprint) {
       contextStr += `Current Sprint: "${activeSprint.name}"\n`;
     }
-    
+
     if (activeGoals.length > 0) {
       contextStr += `Active Goals:\n` + activeGoals.map(g => `- ${g.title} (${g.progress}% complete)`).join('\n') + '\n';
     }

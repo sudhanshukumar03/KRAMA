@@ -120,8 +120,6 @@ model User {
   comments         Comment[]
   timeBlocks       TimeBlock[]
   milestones       Milestone[]
-  externalItems    ExternalItem[]
-  skills           Skill[]
 }
 
 model Session {
@@ -168,7 +166,6 @@ model Workspace {
   labels          Label[]
   focusSessions   FocusSession[]
   decisions       Decision[]
-  automationRules AutomationRule[]
   tags            Tag[]
 }
 
@@ -218,7 +215,6 @@ model Project {
   focusSessions FocusSession[]
   timeBlocks    TimeBlock[]
   milestones    Milestone[]
-  skills        Skill[]
 }
 
 model Task {
@@ -261,7 +257,6 @@ model Task {
   comments      Comment[]
   focusSessions FocusSession[]
   timeBlocks    TimeBlock[]
-  skills        Skill[]
 }
 
 model Sprint {
@@ -320,7 +315,6 @@ model Goal {
   projects  Project[]
   habits    Habit[]
   snapshots GoalProgressSnapshot[]
-  skills    Skill[]
 }
 
 model GoalProgressSnapshot {
@@ -358,7 +352,6 @@ model Habit {
   version   Int       @default(1)
 
   completions HabitCompletion[]
-  skills      Skill[]
 }
 
 model HabitCompletion {
@@ -817,63 +810,5 @@ model Holiday {
 
   @@unique([countryCode, regionCode, date, name])
   @@index([countryCode, regionCode, year])
-  @@index([countryCode, regionCode, date])
 }
 
-model ExternalItem {
-  id              String     @id @default(uuid())
-  userId          String
-  provider        String
-  externalId      String
-  entityType      String
-  internalId      String
-  syncStatus      SyncStatus @default(SYNCED)
-  lastSyncedAt    DateTime?
-  remoteUpdatedAt DateTime?
-  localUpdatedAt  DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, externalId, userId])
-  @@index([userId, internalId])
-}
-
-model AutomationRule {
-  id          String  @id @default(uuid())
-  workspaceId String
-  name        String
-  description String?
-  isActive    Boolean @default(true)
-
-  triggerType   String
-  conditions    Json?
-  actionType    String
-  actionPayload Json
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId])
-}
-
-model Skill {
-  id           String   @id @default(uuid())
-  name         String
-  level        String?
-  currentLevel Int?     @default(1)
-  targetLevel  Int?     @default(5)
-  category     String?
-  status       String?  @default("LEARNING")
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  goals    Goal[]
-  projects Project[]
-  tasks    Task[]
-  habits   Habit[]
-}

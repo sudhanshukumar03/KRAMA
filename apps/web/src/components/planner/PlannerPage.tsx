@@ -364,7 +364,6 @@ export function PlannerPage() {
           title={headerTitle}
           subtitle={headerSubtitle}
           onNavigate={handleNavigate}
-          syncStatus={data.syncStatus}
           localOnly={localOnly}
           onLocalOnlyChange={setLocalOnly}
           countryRegion={countryRegionStr}

@@ -3,4 +3,12 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
+onlyBuiltDependencies:
+  - '@google/genai'
+  - '@prisma/client'
+  - '@prisma/engines'
+  - 'bcrypt'
+  - 'esbuild'
+  - 'prisma'
+
 dangerouslyAllowAllBuilds: true

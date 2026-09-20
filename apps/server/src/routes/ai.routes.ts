@@ -1,7 +1,7 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 import { aiLimiter } from '../middlewares/rateLimit.middleware';
-import { completeAiRequest, getUsage, getConfig, ragQuery, getDashboardInsight, analyzeTelemetry, kramaChat } from '../controllers/ai.controller';
+import { getUsage, getConfig, getDashboardInsight, analyzeTelemetry, kramaChat } from '../controllers/ai.controller';
 
 const router: Router = Router();
 
@@ -37,5 +37,3 @@ router.get('/dashboard-insight', getDashboardInsight);
 router.post('/analyze-telemetry', analyzeTelemetry);
 
 export default router;
-
-
