@@ -49,15 +49,19 @@ export function QuickCaptureModal({ open, onClose, defaultMode = 'task', default
         queryClient.invalidateQueries({ queryKey: ['planner'] });
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
       } else if (mode === 'note') {
-        await api.pages.create({ title, content });
-        toast.success('Note created', { action: { label: 'Undo', onClick: () => {} } });
+        await api.documents.create({ title, documentType: 'NOTE' });
+        toast.success('Note created in Brain');
+        queryClient.invalidateQueries({ queryKey: ['documents'] });
       } else if (mode === 'idea') {
-        await api.pages.create({ title, content, tags: ['Idea'] });
-        toast.success('Idea saved', { action: { label: 'Undo', onClick: () => {} } });
+        await api.documents.create({ title, documentType: 'IDEA' });
+        toast.success('Idea saved in Brain');
+        queryClient.invalidateQueries({ queryKey: ['documents'] });
       } else if (mode === 'link') {
-        await api.pages.create({ title: title || 'Bookmark', content: content, tags: ['Bookmark'] });
-        toast.success('Bookmark saved', { action: { label: 'Undo', onClick: () => {} } });
+        await api.documents.create({ title: title || 'Bookmark', documentType: 'GENERAL' });
+        toast.success('Bookmark saved in Brain');
+        queryClient.invalidateQueries({ queryKey: ['documents'] });
       }
+
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setTitle('');
       setContent('');

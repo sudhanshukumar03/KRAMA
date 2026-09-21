@@ -12,6 +12,7 @@ import type {
   Space,
   Page,
   Document,
+  DocumentType,
   DocumentVersion,
   Tag,
   DocumentTag,
@@ -29,7 +30,7 @@ import type {
   TaskPriority
 } from "@prisma/client";
 
-export type { TaskStatus, TaskPriority, Tag, DocumentTag, EntityLink, DocumentVersion };
+export type { TaskStatus, TaskPriority, Tag, DocumentTag, EntityLink, DocumentVersion, DocumentType };
 
 export type Habit = PrismaHabit & {
   linkedGoal?: Goal | null;

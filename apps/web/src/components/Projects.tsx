@@ -155,7 +155,7 @@ export function Projects() {
  const queryClient = useQueryClient();
  const { data: projects = [], isLoading: pLoading } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
  const { data: issues = [], isLoading: iLoading } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
- const { data: pages = [], isLoading: docLoading } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
+ const { data: pages = [], isLoading: docLoading } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
  const { data: sprints = [], isLoading: sLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
 
  const handleDeleteProject = async (e: React.MouseEvent, project: any) => {
@@ -312,7 +312,7 @@ export function Projects() {
  <div className="flex flex-col gap-4">
  {statusProjects.map(project => {
  const projectIssues = project.tasks || issues.filter(i => i.projectId === project.id);
- const totalDocs = project._count?.pages ?? (project.pages?.length || pages.filter(p => p.linkedProjectId === project.id).length);
+ const totalDocs = pages.filter(p => p.linkedProjectId === project.id || p.projectId === project.id).length;
  const totalSprints = project._count?.sprints ?? (project.sprints?.length || sprints.filter(s => s.projectId === project.id).length);
  
  const completedIssues = projectIssues.filter((i: any) => i.status === "DONE" || i.status === "REVIEW").length;

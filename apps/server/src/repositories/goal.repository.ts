@@ -8,11 +8,13 @@ const defaultGoalInclude = {
   habits: { select: { id: true } },
   snapshots: { orderBy: { date: 'asc' as const } },
   childGoals: {
+    where: { deletedAt: null },
     include: {
       _count: { select: { projects: true, habits: true } },
       habits: { select: { id: true } },
       snapshots: { orderBy: { date: 'asc' as const } },
       childGoals: {
+        where: { deletedAt: null },
         include: {
           _count: { select: { projects: true, habits: true } },
           habits: { select: { id: true } },

@@ -309,17 +309,18 @@ User question: ${prompt}`;
       model: req.body.model,
     });
 
-    // We can fetch the actual Page titles for the sources
-    const pageIds = [...new Set(relevantChunks.map(c => c.pageId))];
-    const pages = await prisma.page.findMany({
+    // We can fetch the actual Document titles for the sources
+    const pageIds = [...new Set(relevantChunks.map(c => c.pageId || (c as any).documentId))];
+    const docs = await prisma.document.findMany({
       where: { id: { in: pageIds } },
       select: { id: true, title: true }
     });
 
     const sources = relevantChunks.map(c => {
-      const page = pages.find(p => p.id === c.pageId);
-      return { id: c.pageId, title: page?.title || 'Unknown Page', chunkId: c.id };
+      const doc = docs.find(p => p.id === (c.pageId || (c as any).documentId));
+      return { id: c.pageId, title: doc?.title || 'Unknown Document', chunkId: c.id };
     });
+
 
     return res.status(200).json({
       completion: answer,

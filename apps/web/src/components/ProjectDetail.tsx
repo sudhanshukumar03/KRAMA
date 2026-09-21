@@ -196,7 +196,7 @@ export function ProjectDetail() {
 
   const { data: projects = [], isLoading: pLoading, isError: pError } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
   const { data: issues = [], isLoading: iLoading, isError: iError } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
-  const { data: pages = [], isLoading: docsLoading } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
+  const { data: pages = [], isLoading: docsLoading } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
   const { data: goals = [], isLoading: goalsLoading } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
 
   const project = projects.find(p => p.id === id);
@@ -250,8 +250,9 @@ export function ProjectDetail() {
   );
 
   const projectIssues = project.tasks || issues.filter(i => i.projectId === project.id);
-  const projectDocs = project.pages || pages.filter(p => p.linkedProjectId === project.id);
+  const projectDocs = pages.filter(p => p.linkedProjectId === project.id || p.projectId === project.id);
   const projectGoal = project.goal || (project.goalId ? goals.find(g => g.id === project.goalId) : null);
+
 
   const completedIssues = projectIssues.filter((i: any) => i.status === "DONE" || i.status === "REVIEW");
   const openIssues = projectIssues.filter((i: any) => i.status !== "DONE" && i.status !== "REVIEW");
@@ -476,8 +477,9 @@ export function ProjectDetail() {
                 </div>
                 <div className="divide-y divide-border border border-border rounded-2xl bg-surface shadow-xs overflow-hidden">
                   {projectDocs.slice(0, 3).map((doc: any) => (
-                    <div key={doc.id} onClick={() => navigate(`/app/brain`)} className="p-4 hover:bg-surface-hover transition-colors flex items-center gap-3.5 cursor-pointer group">
+                    <div key={doc.id} onClick={() => navigate(`/app/brain?doc=${doc.id}`)} className="p-4 hover:bg-surface-hover transition-colors flex items-center gap-3.5 cursor-pointer group">
                       <div className="w-9 h-9 rounded-xl bg-surface-hover border border-border flex items-center justify-center shrink-0 group-hover:bg-[#7C3AED]/10 :bg-[#A78BFA]/10 transition-colors">
+
                         {React.createElement(resolveIcon(doc.icon), { className: "w-4 h-4 text-[#7C3AED] group-hover:scale-110 transition-transform" })}
                       </div>
                       <div className="flex flex-col min-w-0">
@@ -660,9 +662,10 @@ export function ProjectDetail() {
             {projectDocs.map((doc: any) => (
               <div
                 key={doc.id}
-                onClick={() => navigate(`/app/brain`)}
+                onClick={() => navigate(`/app/brain?doc=${doc.id}`)}
                 className="bg-surface border border-border p-6 rounded-2xl hover:border-[#7C3AED] :border-[#A78BFA] transition-all cursor-pointer group flex flex-col justify-between shadow-xs hover:shadow-md min-h-[180px] gap-5 relative overflow-hidden"
               >
+
                 <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#7C3AED] opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div>
                   <div className="mb-4 group-hover:scale-110 transition-transform w-fit p-2.5 rounded-xl bg-surface-hover border border-border/80">{React.createElement(resolveIcon(doc.icon), { className: "w-6 h-6 text-[#7C3AED]" })}</div>

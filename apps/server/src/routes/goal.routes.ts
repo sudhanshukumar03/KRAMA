@@ -20,7 +20,7 @@ router.get('/', requireWorkspaceRole('VIEWER'), listGoals);
 router.get('/:id', requireWorkspaceRole('VIEWER'), getGoal);
 router.post('/', requireWorkspaceRole('MEMBER'), createGoal);
 router.patch('/:id', requireWorkspaceRole('MEMBER'), updateGoal);
-router.delete('/:id', requireWorkspaceRole('ADMIN'), deleteGoal);
+router.delete('/:id', requireWorkspaceRole('MEMBER'), deleteGoal);
 router.post('/:id/restore', requireWorkspaceRole('MEMBER'), restoreGoal);
 
 export default router;

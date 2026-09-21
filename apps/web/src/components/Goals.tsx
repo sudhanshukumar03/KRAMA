@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { Target, CheckCircle2, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, X, Sparkles, Pencil, FolderKanban, ArrowRight } from 'lucide-react';
+import { Target, CheckCircle2, Calendar, AlertCircle, ArrowUpCircle, XCircle, Plus, X, Sparkles, Pencil, FolderKanban, ArrowRight, Activity } from 'lucide-react';
 import { ConfirmDeleteButton } from './ui/ConfirmDeleteButton';
 import { BaseButton } from './ui/BaseButton';
 import { EmptyState } from './ui/EmptyState';
@@ -14,6 +14,8 @@ import { computeGoalPace } from '../lib/goalUtils';
 import { toast } from 'sonner';
 import { IconPicker } from './ui/IconPicker';
 import { resolveIcon } from '../lib/iconResolver';
+
+type GoalStatus = 'ACTIVE' | 'PAUSED' | 'CANCELED';
 
 interface GoalCardProps {
   goal: GoalWithRelations;
@@ -100,6 +102,17 @@ function GoalCard({ goal, depth = 0, onAddChild, onEdit, projects = [] }: GoalCa
                 <span className="text-[10px] font-mono font-bold uppercase tracking-[0.02em] text-[#0D9488] bg-[#0D9488]/10 border border-[#0D9488]/20 px-2 py-0.5 rounded">
                   {depth > 0 ? 'Key Result' : (goal.type === 'quarterly' || goal.type === 'yearly' ? `${goal.type} OKR` : goal.type)}
                 </span>
+                {/* Feature #2: Status badge chips for non-active states */}
+                {((goal as any).metadata?.status === 'PAUSED' || (goal as any).status === 'PAUSED') && (
+                  <span className="text-[10px] font-mono font-bold uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">
+                    Paused
+                  </span>
+                )}
+                {((goal as any).metadata?.status === 'CANCELED' || (goal as any).status === 'CANCELED') && (
+                  <span className="text-[10px] font-mono font-bold uppercase bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 px-2 py-0.5 rounded">
+                    Canceled
+                  </span>
+                )}
                 <h3 className="text-base font-semibold text-primary group-hover/goal:text-[#0D9488] transition-colors">
                   {goal.title}
                 </h3>
@@ -192,13 +205,10 @@ function GoalCard({ goal, depth = 0, onAddChild, onEdit, projects = [] }: GoalCa
               <div className="flex items-center gap-3">
                 <span>Adjust completion percentage:</span>
                 {hasChildren && (
-                  <button
-                    type="button"
-                    onClick={() => setSliderVal(krAverage)}
-                    className="text-[11px] text-[#0D9488] hover:underline font-semibold flex items-center gap-1"
-                  >
-                    Sync with KRs ({krAverage}%)
-                  </button>
+                  <span className="text-[11px] text-teal-600 dark:text-teal-400 font-medium flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Auto-synced from KRs ({krAverage}%)
+                  </span>
                 )}
               </div>
               <span className="font-bold text-[#0D9488] text-body">{sliderVal}%</span>
@@ -338,6 +348,23 @@ function GoalCard({ goal, depth = 0, onAddChild, onEdit, projects = [] }: GoalCa
             })}
           </div>
         )}
+
+        {/* Feature #3: Linked Habits display */}
+        {(goal._count?.habits ?? 0) > 0 && (
+          <div className="mt-2 pt-2 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-secondary flex items-center gap-1 shrink-0">
+              <Activity className="w-3.5 h-3.5 text-orange-500" />
+              Linked Habits ({goal._count?.habits}):
+            </span>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); navigate(`/app/habits?goalId=${goal.id}`); }}
+              className="px-2.5 py-1 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 text-orange-600 dark:text-orange-400 text-caption font-medium transition-all flex items-center gap-1.5"
+            >
+              View Habits <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        )}
       </div>
       
       {/* Child Goals */}
@@ -362,7 +389,7 @@ function GoalCard({ goal, depth = 0, onAddChild, onEdit, projects = [] }: GoalCa
 interface GoalFormModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: { title: string; type: string; progress?: number; targetDate: string; icon?: string; parentGoalId?: string | null }) => void;
+  onSubmit: (data: { title: string; type: string; progress?: number; targetDate: string; icon?: string; parentGoalId?: string | null; status?: GoalStatus }) => void;
   isSubmitting: boolean;
   initialData?: GoalWithRelations | null;
   parentGoal?: { id: string; title: string } | null;
@@ -380,6 +407,7 @@ function GoalFormModal({
   const [icon, setIcon] = useState<string | null>('Target');
   const [type, setType] = useState('quarterly');
   const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState<GoalStatus>('ACTIVE');
   const [targetDate, setTargetDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 90);
@@ -395,6 +423,9 @@ function GoalFormModal({
         setIcon(initialData.icon || 'Target');
         setType(initialData.type || 'quarterly');
         setProgress(initialData.progress || 0);
+        // Pre-fill status from metadata or status field; COMPLETED goals show as ACTIVE in the edit modal
+        const rawStatus = ((initialData as any).metadata?.status || (initialData as any).status || 'ACTIVE') as string;
+        setStatus((rawStatus === 'COMPLETED' ? 'ACTIVE' : rawStatus) as GoalStatus);
         if (initialData.targetDate) {
           setTargetDate(new Date(initialData.targetDate).toISOString().split('T')[0]);
         } else {
@@ -407,6 +438,7 @@ function GoalFormModal({
         setIcon('Target');
         setType(parentGoal ? 'quarterly' : 'quarterly');
         setProgress(0);
+        setStatus('ACTIVE');
         const d = new Date();
         d.setDate(d.getDate() + (parentGoal ? 60 : 90));
         setTargetDate(d.toISOString().split('T')[0]);
@@ -424,6 +456,7 @@ function GoalFormModal({
       icon: icon || undefined,
       type,
       progress,
+      status,
       targetDate,
       parentGoalId: parentGoal?.id || initialData?.parentGoalId || null
     });
@@ -528,24 +561,39 @@ function GoalFormModal({
             </div>
           </div>
 
-          {!isEditMode && (
-            <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <label className="text-caption font-mono font-medium text-secondary uppercase">
-                  Initial Progress
-                </label>
-                <span className="text-caption font-mono font-bold text-[#0D9488]">{progress}%</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={progress}
-                onChange={e => setProgress(Number(e.target.value))}
-                className="w-full accent-[#0D9488] cursor-pointer"
-              />
+          {/* Feature #5: Progress editable in both create AND edit modes */}
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="text-caption font-mono font-medium text-secondary uppercase">
+                {isEditMode ? 'Progress' : 'Initial Progress'}
+              </label>
+              <span className="text-caption font-mono font-bold text-[#0D9488]">{progress}%</span>
             </div>
-          )}
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={progress}
+              onChange={e => setProgress(Number(e.target.value))}
+              className="w-full accent-[#0D9488] cursor-pointer"
+            />
+          </div>
+
+          {/* Feature #2: Status selector */}
+          <div>
+            <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
+              Status
+            </label>
+            <select
+              value={status}
+              onChange={e => setStatus(e.target.value as GoalStatus)}
+              className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488] transition-all"
+            >
+              <option value="ACTIVE">🟢 Active</option>
+              <option value="PAUSED">🟡 Paused</option>
+              <option value="CANCELED">🔴 Canceled</option>
+            </select>
+          </div>
 
           <div className="pt-4 border-t border-border flex justify-end gap-3">
             <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
@@ -565,7 +613,7 @@ export function Goals() {
   const { data: goals = [], isLoading: goalsLoading, isError: goalsError } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'completed'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'paused' | 'canceled' | 'completed'>('all');
 
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [parentGoalForModal, setParentGoalForModal] = useState<{ id: string; title: string } | null>(null);
@@ -631,6 +679,8 @@ export function Goals() {
           title: data.title,
           type: data.type,
           icon: data.icon,
+          progress: data.progress,
+          status: data.status,
           targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : null,
         }
       });
@@ -640,11 +690,19 @@ export function Goals() {
   };
 
   const rootGoals = useMemo(() => goals.filter(g => !g.parentGoalId), [goals]);
-  const activeCount = useMemo(() => rootGoals.filter(g => g.progress < 100).length, [rootGoals]);
+
+  const getGoalStatus = (g: GoalWithRelations): GoalStatus =>
+    (((g as any).metadata?.status || (g as any).status || 'ACTIVE') as GoalStatus);
+
+  const activeCount = useMemo(() => rootGoals.filter(g => g.progress < 100 && getGoalStatus(g) === 'ACTIVE').length, [rootGoals]);
+  const pausedCount = useMemo(() => rootGoals.filter(g => getGoalStatus(g) === 'PAUSED').length, [rootGoals]);
+  const canceledCount = useMemo(() => rootGoals.filter(g => getGoalStatus(g) === 'CANCELED').length, [rootGoals]);
   const completedCount = useMemo(() => rootGoals.filter(g => g.progress >= 100).length, [rootGoals]);
 
   const filteredGoals = useMemo(() => {
-    if (activeTab === 'active') return rootGoals.filter(g => g.progress < 100);
+    if (activeTab === 'active') return rootGoals.filter(g => g.progress < 100 && getGoalStatus(g) === 'ACTIVE');
+    if (activeTab === 'paused') return rootGoals.filter(g => getGoalStatus(g) === 'PAUSED');
+    if (activeTab === 'canceled') return rootGoals.filter(g => getGoalStatus(g) === 'CANCELED');
     if (activeTab === 'completed') return rootGoals.filter(g => g.progress >= 100);
     return rootGoals;
   }, [rootGoals, activeTab]);
@@ -668,7 +726,7 @@ export function Goals() {
   }
 
   return (
-    <div className="p-6 md:p-8 flex flex-col h-full bg-canvas overflow-y-auto min-w-0 select-none animate-in fade-in duration-150">
+    <div className="p-6 md:p-8 flex flex-col h-full bg-canvas overflow-y-auto min-w-0 animate-in fade-in duration-150">
       {/* Top Page Header with Logo, Title, Tabs and Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 mb-6">
         <div className="flex items-center gap-3.5">
@@ -676,7 +734,7 @@ export function Goals() {
             <Target className="w-5 h-5 stroke-[1.75]" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-primary tracking-tight">Goal</h1>
+            <h1 className="text-xl font-bold text-primary tracking-tight">Goals</h1>
             <p className="text-xs text-secondary mt-0.5">
               Strategic quarterly objectives, key results, and OKR pacing metrics.
             </p>
@@ -684,43 +742,40 @@ export function Goals() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Status Filter Tabs */}
-          <div className="flex items-center bg-surface-hover p-1 rounded-lg border border-border text-caption font-mono">
-            <button
-              type="button"
-              onClick={() => setActiveTab('all')}
-              className={cn(
-                "px-2.5 py-1 rounded-md transition-all",
-                activeTab === 'all' ? "bg-card text-primary font-bold shadow-2xs" : "text-secondary hover:text-primary"
-              )}
-            >
+          {/* Feature #2: Extended status filter tabs */}
+          <div className="flex items-center bg-surface-hover p-1 rounded-lg border border-border text-caption font-mono flex-wrap">
+            <button type="button" onClick={() => setActiveTab('all')}
+              className={cn("px-2.5 py-1 rounded-md transition-all", activeTab === 'all' ? "bg-card text-primary font-bold shadow-2xs" : "text-secondary hover:text-primary")}>
               All ({rootGoals.length})
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('active')}
-              className={cn(
-                "px-2.5 py-1 rounded-md transition-all",
-                activeTab === 'active' ? "bg-card text-primary font-bold shadow-2xs" : "text-secondary hover:text-primary"
-              )}
-            >
+            <button type="button" onClick={() => setActiveTab('active')}
+              className={cn("px-2.5 py-1 rounded-md transition-all", activeTab === 'active' ? "bg-card text-primary font-bold shadow-2xs" : "text-secondary hover:text-primary")}>
               Active ({activeCount})
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('completed')}
-              className={cn(
-                "px-2.5 py-1 rounded-md transition-all",
-                activeTab === 'completed' ? "bg-card text-primary font-bold shadow-2xs" : "text-secondary hover:text-primary"
-              )}
-            >
+            {pausedCount > 0 && (
+              <button type="button" onClick={() => setActiveTab('paused')}
+                className={cn("px-2.5 py-1 rounded-md transition-all", activeTab === 'paused' ? "bg-card text-amber-600 font-bold shadow-2xs" : "text-secondary hover:text-amber-600")}>
+                Paused ({pausedCount})
+              </button>
+            )}
+            {canceledCount > 0 && (
+              <button type="button" onClick={() => setActiveTab('canceled')}
+                className={cn("px-2.5 py-1 rounded-md transition-all", activeTab === 'canceled' ? "bg-card text-red-600 font-bold shadow-2xs" : "text-secondary hover:text-red-500")}>
+                Canceled ({canceledCount})
+              </button>
+            )}
+            <button type="button" onClick={() => setActiveTab('completed')}
+              className={cn("px-2.5 py-1 rounded-md transition-all", activeTab === 'completed' ? "bg-card text-primary font-bold shadow-2xs" : "text-secondary hover:text-primary")}>
               Completed ({completedCount})
             </button>
           </div>
 
-          <BaseButton onClick={handleCreateGoal} className="flex items-center gap-1.5 shadow-2xs">
-            <Plus className="w-4 h-4 stroke-[2]" /> New Goal
-          </BaseButton>
+          {/* Fix: hide header CTA in zero-state — EmptyState provides the primary CTA */}
+          {rootGoals.length > 0 && (
+            <BaseButton onClick={handleCreateGoal} className="flex items-center gap-1.5 shadow-2xs">
+              <Plus className="w-4 h-4 stroke-[2]" /> New Goal
+            </BaseButton>
+          )}
         </div>
       </div>
 

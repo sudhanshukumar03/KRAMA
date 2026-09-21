@@ -25,8 +25,9 @@ export const getDashboardData = async (req: Request, res: Response) => {
       prisma.project.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { updatedAt: 'desc' } }),
       prisma.task.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { updatedAt: 'desc' } }),
       prisma.habit.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { updatedAt: 'desc' }, include: { completions: true } }),
-      prisma.page.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { updatedAt: 'desc' } }),
+      prisma.document.findMany({ where: { space: { workspaceId }, deletedAt: null }, orderBy: { updatedAt: 'desc' } }),
       prisma.dailyLog.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { date: 'desc' }, take: 14 }),
+
       prisma.focusSession.findMany({ where: { workspaceId }, orderBy: { createdAt: 'desc' } }),
       prisma.activityLog.findMany({ where: { workspaceId }, orderBy: { createdAt: 'desc' }, take: 20 }),
       prisma.goal.findMany({ where: { workspaceId, deletedAt: null } })

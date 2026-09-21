@@ -54,7 +54,7 @@ export function CommandPalette() {
  const navigate = useNavigate();
 
  // Fallback local data for when no search query is active
- const { data: pages = [] } = useQuery({ queryKey: ['pages'], queryFn: api.pages.list });
+ const { data: pages = [] } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
  const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
  const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
@@ -339,7 +339,7 @@ export function CommandPalette() {
  {pages.map((page) => (
  <Command.Item 
  key={page.id}
- onSelect={() => runCommand(() => navigate(`/app/brain`))}
+ onSelect={() => runCommand(() => navigate(`/app/brain?doc=${page.id}`))}
  className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
  >
  <div className="flex items-center gap-2.5 truncate">

@@ -23,8 +23,18 @@ const ensureWorkspaceId = async (req: any, res: any, next: any) => {
   next();
 };
 
+// Workspace param helper for routes with /workspaces/:id
+const ensureWorkspaceParamId = (req: any, res: any, next: any) => {
+  if (req.params.id) {
+    req.workspaceId = req.params.id;
+    if (req.body) req.body.workspaceId = req.params.id;
+    req.headers['x-workspace-id'] = req.params.id;
+  }
+  next();
+};
+
 // GET /spaces/:spaceId/documents
-router.get('/spaces/:spaceId/documents', requireAuth, documentController.getDocuments);
+router.get('/spaces/:spaceId/documents', requireAuth, ensureWorkspaceId, requireWorkspaceRole('VIEWER'), documentController.getDocuments);
 router.post('/spaces/:spaceId/documents', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.createDocument);
 
 router.get('/documents', requireAuth, ensureWorkspaceId, requireWorkspaceRole('VIEWER'), documentController.getWorkspaceDocuments);
@@ -32,12 +42,12 @@ router.post('/documents', requireAuth, ensureWorkspaceId, requireWorkspaceRole('
 router.post('/documents/import', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.importDocumentSpec);
 
 // Document specific routes
-router.get('/documents/:id', requireAuth, documentController.getDocumentById);
+router.get('/documents/:id', requireAuth, ensureWorkspaceId, requireWorkspaceRole('VIEWER'), documentController.getDocumentById);
 router.patch('/documents/:id', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.updateDocumentMetadata);
 router.patch('/documents/:id/content', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.updateDocumentContent);
-router.get('/documents/:id/versions', requireAuth, documentController.getVersions);
+router.get('/documents/:id/versions', requireAuth, ensureWorkspaceId, requireWorkspaceRole('VIEWER'), documentController.getVersions);
 router.post('/documents/:id/versions', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.createVersion);
-router.get('/documents/:id/versions/:versionId', requireAuth, documentController.getVersion);
+router.get('/documents/:id/versions/:versionId', requireAuth, ensureWorkspaceId, requireWorkspaceRole('VIEWER'), documentController.getVersion);
 router.post('/documents/:id/versions/:versionId/restore', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.restoreVersion);
 router.post('/documents/:id/move', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.moveDocument);
 router.post('/documents/:id/duplicate', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.duplicateDocument);
@@ -46,22 +56,24 @@ router.delete('/documents/:id', requireAuth, ensureWorkspaceId, requireWorkspace
 router.post('/documents/:id/restore', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.restoreDocument);
 
 // Tags & Links
-router.get('/workspaces/:id/tags', requireAuth, documentController.getWorkspaceTags);
+router.get('/workspaces/:id/tags', requireAuth, ensureWorkspaceParamId, requireWorkspaceRole('VIEWER'), documentController.getWorkspaceTags);
 router.post('/documents/:id/tags', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.addDocumentTag);
 router.delete('/documents/:id/tags/:tagId', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.removeDocumentTag);
-router.get('/documents/:id/links', requireAuth, documentController.getDocumentLinks);
+router.get('/documents/:id/links', requireAuth, ensureWorkspaceId, requireWorkspaceRole('VIEWER'), documentController.getDocumentLinks);
 router.post('/documents/:id/links', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.addDocumentLink);
 router.delete('/links/:linkId', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.removeLink);
+router.post('/documents/:id/tasks', requireAuth, ensureWorkspaceId, requireWorkspaceRole('MEMBER'), documentController.createTaskFromDocument);
+
 
 // Search & Export
-router.get('/workspaces/:id/search', requireAuth, documentController.searchDocuments);
-router.get('/documents/:id/export', requireAuth, documentController.exportDocument);
+router.get('/workspaces/:id/search', requireAuth, ensureWorkspaceParamId, requireWorkspaceRole('VIEWER'), documentController.searchDocuments);
+router.get('/documents/:id/export', requireAuth, ensureWorkspaceId, requireWorkspaceRole('VIEWER'), documentController.exportDocument);
 
 // AI (Rate limited via aiLimiter, workspaceId populated)
 router.post('/documents/:id/ai/ask', requireAuth, ensureWorkspaceId, aiLimiter, documentController.aiAsk);
 router.post('/documents/:id/ai/compose', requireAuth, ensureWorkspaceId, aiLimiter, documentController.aiCompose);
 
 // Graph
-router.get('/workspaces/:id/graph', requireAuth, documentController.getWorkspaceGraph);
+router.get('/workspaces/:id/graph', requireAuth, ensureWorkspaceParamId, requireWorkspaceRole('VIEWER'), documentController.getWorkspaceGraph);
 
 export default router;

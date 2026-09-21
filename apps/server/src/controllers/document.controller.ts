@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../prisma';
+import { Prisma } from '@prisma/client';
+
 import { DocumentService } from '../services/document.service';
 import { extractMarkdown, extractPlainText, calculateCounts } from '../utils/tiptap';
 import { documentVersionQueue, embeddingQueue } from '../queues';
@@ -7,9 +9,55 @@ import { redisService } from '../services/redis.service';
 import Groq from 'groq-sdk';
 import { GoogleGenAI } from '@google/genai';
 
+/**
+ * Helper to ensure the target document belongs to the active workspace.
+ */
+const verifyDocWorkspace = async (docId: string, req: Request): Promise<{ ok: boolean; doc?: any }> => {
+  const workspaceId = (req as any).workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+  const userId = (req as any).user?.id;
+  const doc = await prisma.document.findUnique({
+    where: { id: docId },
+    include: { space: true }
+  });
+  if (!doc) return { ok: false };
+  if (workspaceId && doc.space?.workspaceId !== workspaceId) {
+    return { ok: false };
+  }
+  if (userId) {
+    const isMember = await prisma.workspaceMember.findFirst({
+      where: { workspaceId: doc.space?.workspaceId, userId }
+    });
+    if (!isMember) return { ok: false };
+  }
+  return { ok: true, doc };
+};
+
 export const getDocuments = async (req: Request, res: Response) => {
   try {
-    const { spaceId } = req.params;
+    const spaceId = req.params.spaceId as string;
+    const userId = (req as any).user?.id;
+
+    if (!spaceId) {
+      return res.status(400).json({ message: 'Space ID is required' });
+    }
+
+    const space = await prisma.space.findUnique({
+      where: { id: spaceId },
+      select: { workspaceId: true }
+    });
+    if (!space) {
+      return res.status(404).json({ message: 'Space not found' });
+    }
+
+    if (userId) {
+      const isMember = await prisma.workspaceMember.findFirst({
+        where: { workspaceId: space.workspaceId, userId }
+      });
+      if (!isMember) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+    }
+
     const folderId = req.query.folderId as string | undefined;
     const parentId = req.query.parentId as string | undefined;
     const projectId = req.query.projectId as string | undefined;
@@ -84,7 +132,7 @@ export const createWorkspaceDocument = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Workspace ID is required' });
     }
 
-    const { title, folderId, parentId, projectId, documentType, spaceId } = req.body;
+    const { title, folderId, parentId, projectId, documentType, spaceId, contentJson } = req.body;
     const userId = (req as any).user?.id || 'system';
 
     if (!title) {
@@ -120,6 +168,7 @@ export const createWorkspaceDocument = async (req: Request, res: Response) => {
       title,
       createdById: userId,
       documentType,
+      contentJson,
     });
 
     if (doc.contentMarkdown) {
@@ -138,14 +187,15 @@ export const createWorkspaceDocument = async (req: Request, res: Response) => {
 export const getDocumentById = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const document = await prisma.document.findUnique({
-      where: { id, deletedAt: null },
-      include: { tags: { include: { tag: true } } }
-    });
-
-    if (!document) {
+    const { ok, doc } = await verifyDocWorkspace(id, req);
+    if (!ok || !doc || doc.deletedAt) {
       return res.status(404).json({ message: 'Document not found' });
     }
+
+    const document = await prisma.document.findUnique({
+      where: { id },
+      include: { tags: { include: { tag: true } } }
+    });
 
     res.status(200).json(document);
   } catch (error: any) {
@@ -156,11 +206,28 @@ export const getDocumentById = async (req: Request, res: Response) => {
 export const createDocument = async (req: Request, res: Response) => {
   try {
     const { spaceId } = req.params;
-    const { title, folderId, parentId, projectId, documentType } = req.body;
+    const { title, folderId, parentId, projectId, documentType, contentJson } = req.body;
     const userId = (req as any).user?.id; // Assuming auth middleware sets req.user
 
     if (!spaceId || typeof spaceId !== 'string') {
       return res.status(400).json({ message: 'Space ID is required' });
+    }
+
+    const space = await prisma.space.findUnique({
+      where: { id: spaceId },
+      select: { workspaceId: true }
+    });
+    if (!space) {
+      return res.status(404).json({ message: 'Space not found' });
+    }
+
+    if (userId) {
+      const isMember = await prisma.workspaceMember.findFirst({
+        where: { workspaceId: space.workspaceId, userId }
+      });
+      if (!isMember) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
     }
 
     if (!title) {
@@ -175,12 +242,16 @@ export const createDocument = async (req: Request, res: Response) => {
       title,
       createdById: userId,
       documentType,
+      contentJson,
     });
 
     if (doc.contentMarkdown) {
       embeddingQueue.add('embed-document', {
         documentId: doc.id,
         content: doc.contentMarkdown,
+      }, {
+        jobId: `embed-doc-${doc.id}`,
+        delay: 2000,
       }).catch(console.error);
     }
 
@@ -193,6 +264,9 @@ export const createDocument = async (req: Request, res: Response) => {
 export const updateDocumentMetadata = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
     const { title, subtitle, statusBadges, documentType, isFavorite, icon, projectId, linkedProjectId } = req.body;
     const project = projectId !== undefined ? projectId : linkedProjectId;
 
@@ -221,6 +295,9 @@ export const moveDocument = async (req: Request, res: Response) => {
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ message: 'Document ID is required' });
     }
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
     const { targetFolderId, targetParentId } = req.body;
 
     const doc = await DocumentService.moveDocument(id, targetFolderId, targetParentId);
@@ -236,6 +313,9 @@ export const duplicateDocument = async (req: Request, res: Response) => {
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ message: 'Document ID is required' });
     }
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
     const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ message: 'Unauthorized' });
@@ -256,8 +336,8 @@ export const toggleFavorite = async (req: Request, res: Response) => {
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ message: 'Document ID is required' });
     }
-    const doc = await prisma.document.findUnique({ where: { id } });
-    if (!doc) return res.status(404).json({ message: 'Not found' });
+    const { ok, doc } = await verifyDocWorkspace(id, req);
+    if (!ok || !doc) return res.status(404).json({ message: 'Not found' });
 
     const updated = await prisma.document.update({
       where: { id },
@@ -276,6 +356,9 @@ export const deleteDocument = async (req: Request, res: Response) => {
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ message: 'Document ID is required' });
     }
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
     await DocumentService.deepDelete(id);
     res.status(200).json({ message: 'Deleted successfully' });
   } catch (error: any) {
@@ -289,6 +372,9 @@ export const restoreDocument = async (req: Request, res: Response) => {
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ message: 'Document ID is required' });
     }
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
     await DocumentService.deepRestore(id);
     res.status(200).json({ message: 'Restored successfully' });
   } catch (error: any) {
@@ -302,6 +388,9 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ message: 'Document ID is required' });
     }
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
     const { contentJson } = req.body;
     const userId = (req as any).user?.id || 'system';
 
@@ -330,37 +419,41 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
       }).catch(console.error);
     }
 
-    // Handle autosave versioning: 50 mutations or 5 min idle
-    const mutations = await redisService.incr(`doc:${id}:mutations`);
-    const idleJobId = `idle-snapshot-${id}`;
-    
-    if (mutations >= 50) {
-      await documentVersionQueue.add('snapshot', {
-        documentId: id,
-        userId,
-        contentJson
-      });
-      await redisService.del(`doc:${id}:mutations`);
+    // Handle autosave versioning: 50 mutations or 5 min idle (safe against Redis errors)
+    try {
+      const mutations = await redisService.incr(`doc:${id}:mutations`);
+      const idleJobId = `idle-snapshot-${id}`;
       
-      // Clear any pending idle snapshot since we just took one
-      const pendingIdleJob = await documentVersionQueue.getJob(idleJobId);
-      if (pendingIdleJob) {
-        await pendingIdleJob.remove();
+      if (mutations >= 50) {
+        await documentVersionQueue.add('snapshot', {
+          documentId: id,
+          userId,
+          contentJson
+        });
+        await redisService.del(`doc:${id}:mutations`);
+        
+        // Clear any pending idle snapshot since we just took one
+        const pendingIdleJob = await documentVersionQueue.getJob(idleJobId);
+        if (pendingIdleJob) {
+          await pendingIdleJob.remove();
+        }
+      } else {
+        // Debounce a 5-minute idle snapshot
+        const pendingIdleJob = await documentVersionQueue.getJob(idleJobId);
+        if (pendingIdleJob) {
+          await pendingIdleJob.remove().catch(() => {});
+        }
+        await documentVersionQueue.add('snapshot', {
+          documentId: id,
+          userId,
+          contentJson
+        }, {
+          jobId: idleJobId,
+          delay: 5 * 60 * 1000 // 5 minutes
+        });
       }
-    } else {
-      // Debounce a 5-minute idle snapshot
-      const pendingIdleJob = await documentVersionQueue.getJob(idleJobId);
-      if (pendingIdleJob) {
-        await pendingIdleJob.remove().catch(() => {});
-      }
-      await documentVersionQueue.add('snapshot', {
-        documentId: id,
-        userId,
-        contentJson
-      }, {
-        jobId: idleJobId,
-        delay: 5 * 60 * 1000 // 5 minutes
-      });
+    } catch (redisErr) {
+      console.warn('[updateDocumentContent] Redis versioning skipped:', redisErr);
     }
 
     res.status(200).json({ 
@@ -376,6 +469,9 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
 export const getVersions = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
     const versions = await prisma.documentVersion.findMany({
       where: { documentId: id },
       select: { id: true, versionNumber: true, createdAt: true, editedById: true },
@@ -391,27 +487,31 @@ export const getVersions = async (req: Request, res: Response) => {
 export const createVersion = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const userId = (req as any).user?.id || 'system';
+    const { ok, doc } = await verifyDocWorkspace(id, req);
+    if (!ok || !doc) return res.status(404).json({ message: 'Document not found' });
 
-    const doc = await prisma.document.findUnique({ where: { id } });
-    if (!doc) return res.status(404).json({ message: 'Document not found' });
+    const userId = (req as any).user?.id || 'system';
 
     // Cancel any pending idle snapshot
     const idleJobId = `idle-snapshot-${id}`;
-    const pendingIdleJob = await documentVersionQueue.getJob(idleJobId);
-    if (pendingIdleJob) {
-      await pendingIdleJob.remove().catch(() => {});
+    try {
+      const pendingIdleJob = await documentVersionQueue.getJob(idleJobId);
+      if (pendingIdleJob) {
+        await pendingIdleJob.remove().catch(() => {});
+      }
+
+      // Create snapshot immediately via queue
+      await documentVersionQueue.add('snapshot', {
+        documentId: id,
+        userId,
+        contentJson: doc.contentJson
+      });
+
+      // Reset mutation counter
+      await redisService.del(`doc:${id}:mutations`);
+    } catch (qErr) {
+      console.warn('[createVersion] Queue error:', qErr);
     }
-
-    // Create snapshot immediately via queue
-    await documentVersionQueue.add('snapshot', {
-      documentId: id,
-      userId,
-      contentJson: doc.contentJson
-    });
-
-    // Reset mutation counter
-    await redisService.del(`doc:${id}:mutations`);
 
     res.status(201).json({ message: 'Version snapshot created' });
   } catch (error: any) {
@@ -422,6 +522,9 @@ export const createVersion = async (req: Request, res: Response) => {
 export const getVersion = async (req: Request, res: Response) => {
   try {
     const { id, versionId } = req.params as { id: string; versionId: string };
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
     const version = await prisma.documentVersion.findUnique({
       where: { id: versionId }
     });
@@ -437,6 +540,9 @@ export const getVersion = async (req: Request, res: Response) => {
 export const restoreVersion = async (req: Request, res: Response) => {
   try {
     const { id, versionId } = req.params as { id: string; versionId: string };
+    const { ok, doc: currentDoc } = await verifyDocWorkspace(id, req);
+    if (!ok || !currentDoc) return res.status(404).json({ message: 'Document not found' });
+
     const userId = (req as any).user?.id || 'system';
     
     const versionToRestore = await prisma.documentVersion.findUnique({
@@ -447,15 +553,16 @@ export const restoreVersion = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Version not found' });
     }
 
-    const currentDoc = await prisma.document.findUnique({ where: { id }});
-    if (!currentDoc) return res.status(404).json({ message: 'Document not found' });
-
     // Snapshot current state first
-    await documentVersionQueue.add('snapshot', {
-      documentId: id,
-      userId,
-      contentJson: currentDoc.contentJson
-    });
+    try {
+      await documentVersionQueue.add('snapshot', {
+        documentId: id,
+        userId,
+        contentJson: currentDoc.contentJson
+      });
+    } catch (qErr) {
+      console.warn('[restoreVersion] Snapshot queue error:', qErr);
+    }
 
     // Restore
     const plainText = extractPlainText(versionToRestore.contentJson);
@@ -482,12 +589,26 @@ export const restoreVersion = async (req: Request, res: Response) => {
 export const getWorkspaceTags = async (req: Request, res: Response) => {
   try {
     let id = req.params.id as string; // workspaceId
+    const userId = (req as any).user?.id;
     if (!id || id === 'undefined' || id === 'null') {
+      id = (req as any).workspaceId;
+    }
+    if (!id && userId) {
       const member = await prisma.workspaceMember.findFirst({
-        where: { userId: (req as any).user?.id }
+        where: { userId }
       });
       if (member) id = member.workspaceId;
     }
+
+    if (!id) return res.status(400).json({ message: 'Workspace ID required' });
+
+    const isMember = await prisma.workspaceMember.findFirst({
+      where: { workspaceId: id, userId }
+    });
+    if (!isMember) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
     const tags = await prisma.tag.findMany({
       where: { workspaceId: id },
       orderBy: { name: 'asc' }
@@ -501,12 +622,13 @@ export const getWorkspaceTags = async (req: Request, res: Response) => {
 export const addDocumentTag = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string; // documentId
-    const { tagName, color } = req.body;
-    
-    const doc = await prisma.document.findUnique({ where: { id }, include: { space: true } });
-    if (!doc) return res.status(404).json({ message: 'Document not found' });
+    const { ok, doc } = await verifyDocWorkspace(id, req);
+    if (!ok || !doc) return res.status(404).json({ message: 'Document not found' });
 
-    const workspaceId = doc.space.workspaceId;
+    const { tagName, color } = req.body;
+    const workspaceId = doc.space?.workspaceId;
+    if (!workspaceId) return res.status(400).json({ message: 'Workspace ID missing' });
+
     const normalizedName = tagName.toLowerCase().trim();
 
     let tag = await prisma.tag.findFirst({
@@ -541,6 +663,9 @@ export const addDocumentTag = async (req: Request, res: Response) => {
 export const removeDocumentTag = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
     const tagId = req.params.tagId as string;
     await prisma.documentTag.delete({
       where: { documentId_tagId: { documentId: id, tagId } }
@@ -554,6 +679,9 @@ export const removeDocumentTag = async (req: Request, res: Response) => {
 export const getDocumentLinks = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
     const outgoing = await prisma.entityLink.findMany({
       where: { sourceType: 'DOCUMENT', sourceId: id }
     });
@@ -569,8 +697,18 @@ export const getDocumentLinks = async (req: Request, res: Response) => {
 export const addDocumentLink = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
     const { targetType, targetId, linkType } = req.body;
     const userId = (req as any).user?.id || 'system';
+
+    if (targetType === 'DOCUMENT' && targetId) {
+      const targetCheck = await verifyDocWorkspace(targetId, req);
+      if (!targetCheck.ok) {
+        return res.status(400).json({ message: 'Target document must belong to the active workspace' });
+      }
+    }
 
     const existing = await prisma.entityLink.findFirst({
       where: {
@@ -602,8 +740,51 @@ export const addDocumentLink = async (req: Request, res: Response) => {
 export const removeLink = async (req: Request, res: Response) => {
   try {
     const linkId = req.params.linkId as string;
+    const link = await prisma.entityLink.findUnique({ where: { id: linkId } });
+    if (!link) return res.status(404).json({ message: 'Link not found' });
+
+    if (link.sourceType === 'DOCUMENT') {
+      const { ok } = await verifyDocWorkspace(link.sourceId, req);
+      if (!ok) return res.status(403).json({ message: 'Forbidden' });
+    } else if (link.targetType === 'DOCUMENT') {
+      const { ok } = await verifyDocWorkspace(link.targetId, req);
+      if (!ok) return res.status(403).json({ message: 'Forbidden' });
+    }
+
     await prisma.entityLink.delete({ where: { id: linkId } });
     res.status(200).json({ message: 'Removed' });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+export const createTaskFromDocument = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
+    const { title, priority, status, description } = req.body;
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.status(400).json({ message: 'Task title is required' });
+    }
+
+    const userId = (req as any).user?.id || 'system';
+    const workspaceId = (req as any).workspaceId || req.body.workspaceId;
+
+    const result = await DocumentService.createTaskFromDocument(
+      id,
+      workspaceId,
+      userId,
+      {
+        title: title.trim(),
+        priority,
+        status,
+        description,
+      }
+    );
+
+    res.status(201).json(result);
   } catch (error: any) {
     res.status(400).json({ message: error.message });
   }
@@ -612,29 +793,55 @@ export const removeLink = async (req: Request, res: Response) => {
 export const searchDocuments = async (req: Request, res: Response) => {
   try {
     let id = req.params.id as string; // workspaceId
+    const userId = (req as any).user?.id;
     if (!id || id === 'undefined' || id === 'null') {
+      id = (req as any).workspaceId;
+    }
+    if (!id && userId) {
       const member = await prisma.workspaceMember.findFirst({
-        where: { userId: (req as any).user?.id }
+        where: { userId }
       });
       if (member) id = member.workspaceId;
     }
 
-    const { q } = req.query;
+    if (!id) return res.status(400).json({ message: 'Workspace ID required' });
+
+    const isMember = await prisma.workspaceMember.findFirst({
+      where: { workspaceId: id, userId }
+    });
+    if (!isMember) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const { q, type, projectId, status } = req.query;
     if (!q) return res.status(200).json([]);
 
     const queryStr = String(q).trim();
 
+    const typeFilter = type && type !== 'ALL' 
+      ? Prisma.sql`AND d."documentType"::text = ${String(type)}` 
+      : Prisma.empty;
+    const projectFilter = projectId && projectId !== 'ALL' 
+      ? Prisma.sql`AND d."projectId" = ${String(projectId)}` 
+      : Prisma.empty;
+    const statusFilter = status && status !== 'ALL' 
+      ? Prisma.sql`AND ${String(status)} = ANY(d."statusBadges")` 
+      : Prisma.empty;
+
     // Use raw query with plainto_tsquery for syntax-safe ranked search against tsvector
     const results = await prisma.$queryRaw`
-      SELECT d.id, d.title, d.subtitle, d."documentType",
+      SELECT d.id, d.title, d.subtitle, d.icon, d."documentType", d."statusBadges", d."projectId", d."updatedAt",
              ts_headline('english', d."contentMarkdown", plainto_tsquery('english', ${queryStr}), 'MaxFragments=1, MaxWords=20') as snippet
       FROM "Document" d
       JOIN "Space" s ON d."spaceId" = s.id
       WHERE s."workspaceId" = ${id}
         AND d."deletedAt" IS NULL
         AND d."searchVector" @@ plainto_tsquery('english', ${queryStr})
+        ${typeFilter}
+        ${projectFilter}
+        ${statusFilter}
       ORDER BY ts_rank(d."searchVector", plainto_tsquery('english', ${queryStr})) DESC
-      LIMIT 20;
+      LIMIT 25;
     `;
 
     res.status(200).json(results);
@@ -643,9 +850,13 @@ export const searchDocuments = async (req: Request, res: Response) => {
   }
 };
 
+
 export const exportDocument = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
     const { format } = req.query; // 'md' or 'spec'
 
     const doc = await prisma.document.findUnique({
@@ -729,8 +940,8 @@ export const aiAsk = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const { question } = req.body;
-    const doc = await prisma.document.findUnique({ where: { id } });
-    if (!doc) return res.status(404).json({ message: 'Document not found' });
+    const { ok, doc } = await verifyDocWorkspace(id, req);
+    if (!ok || !doc) return res.status(404).json({ message: 'Document not found' });
 
     // Fetch 1-hop reference links
     const outgoing = await prisma.entityLink.findMany({ where: { sourceType: 'DOCUMENT', sourceId: id, linkType: 'REFERENCE' }});
@@ -826,8 +1037,8 @@ export const aiCompose = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const { instruction, mode, selection } = req.body;
-    const doc = await prisma.document.findUnique({ where: { id } });
-    if (!doc) return res.status(404).json({ message: 'Document not found' });
+    const { ok, doc } = await verifyDocWorkspace(id, req);
+    if (!ok || !doc) return res.status(404).json({ message: 'Document not found' });
 
     let systemPrompt = `You are a technical writer assisting with a document titled "${doc.title}". Provide content formatted in Markdown. Do not include markdown block backticks around your entire response.`;
     if (mode === 'write') systemPrompt += `\nTask: Continue or add new content based on this instruction: ${instruction}`;
@@ -1113,11 +1324,24 @@ export const importDocumentSpec = async (req: Request, res: Response) => {
 export const getWorkspaceGraph = async (req: Request, res: Response) => {
   try {
     let id = req.params.id as string; // workspaceId
+    const userId = (req as any).user?.id;
     if (!id || id === 'undefined' || id === 'null') {
+      id = (req as any).workspaceId;
+    }
+    if (!id && userId) {
       const member = await prisma.workspaceMember.findFirst({
-        where: { userId: (req as any).user?.id }
+        where: { userId }
       });
       if (member) id = member.workspaceId;
+    }
+
+    if (!id) return res.status(400).json({ message: 'Workspace ID required' });
+
+    const isMember = await prisma.workspaceMember.findFirst({
+      where: { workspaceId: id, userId }
+    });
+    if (!isMember) {
+      return res.status(403).json({ message: 'Forbidden' });
     }
 
     const rootId = (req.query.rootId as string) || undefined;

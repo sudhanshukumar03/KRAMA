@@ -1027,16 +1027,18 @@ export function HabitTracker() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => handleOpenCreateWithTime(activeTimeOfDay || "morning")}
-              className="px-4 py-2 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-medium flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4 stroke-[2]" />
-              <span>Create Habit</span>
-            </button>
-          </div>
+          {habits.length > 0 && (
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => handleOpenCreateWithTime(activeTimeOfDay || "morning")}
+                className="px-4 py-2 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-medium flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              >
+                <Plus className="w-4 h-4 stroke-[2]" />
+                <span>Create Habit</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Time of Day Filter Pills row */}

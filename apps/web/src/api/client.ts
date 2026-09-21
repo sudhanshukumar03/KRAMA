@@ -259,7 +259,18 @@ export const api = {
     getLinks: (id: string) => fetchApi<{ outgoing: any[]; incoming: any[] }>(`/documents/${id}/links`),
     addLink: (id: string, data: { targetType: string; targetId: string; linkType?: string }) => fetchApi<any>(`/documents/${id}/links`, { method: 'POST', body: JSON.stringify(data) }),
     removeLink: (linkId: string) => fetchApi<any>(`/links/${linkId}`, { method: 'DELETE' }),
-    search: (workspaceId: string, q: string) => fetchApi<any[]>(`/workspaces/${workspaceId}/search?q=${encodeURIComponent(q)}`),
+    createTask: (id: string, data: { title: string; priority?: string; status?: string; description?: string }) =>
+      fetchApi<{ task: any; link: any }>(`/documents/${id}/tasks`, { method: 'POST', body: JSON.stringify(data) }),
+    search: (workspaceId: string, q: string, filters?: { type?: string; projectId?: string; status?: string }) => {
+
+      const params = new URLSearchParams({ q });
+      if (filters?.type && filters.type !== 'ALL') params.append('type', filters.type);
+      if (filters?.projectId && filters.projectId !== 'ALL') params.append('projectId', filters.projectId);
+      if (filters?.status && filters.status !== 'ALL') params.append('status', filters.status);
+      return fetchApi<any[]>(`/workspaces/${workspaceId}/search?${params.toString()}`);
+    },
+
+
     export: (id: string, format: 'md' | 'spec', filename?: string) => downloadDocumentExport(id, format, filename),
     getGraph: (workspaceId: string) => fetchApi<{ nodes: any[]; links: any[] }>(`/workspaces/${workspaceId}/graph`),
     aiAsk: (id: string, question: string, onChunk: (text: string) => void, onDone: () => void, onError: (err: any) => void, signal?: AbortSignal) =>
