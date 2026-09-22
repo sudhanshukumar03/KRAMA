@@ -1,6 +1,6 @@
 import { prisma } from '../prisma';
 import { taskRepository } from '../repositories/task.repository';
-import { TaskStatus, TaskPriority } from '@prisma/client';
+import { TaskStatus } from '@prisma/client';
 import { runInTransaction } from '../prisma';
 
 export class TaskService {

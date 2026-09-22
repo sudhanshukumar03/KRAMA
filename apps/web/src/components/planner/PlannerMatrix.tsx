@@ -11,7 +11,7 @@ import { cn } from "../../lib/utils";
 import type { PlannerData } from "../../types/planner";
 
 
-export const BLOCK_ACCENTS: Record<string, string> = {
+const BLOCK_ACCENTS: Record<string, string> = {
   MEETING:  "border-l-purple-500",
   PERSONAL: "border-l-orange-500",
   STUDY:    "border-l-emerald-500",
@@ -21,7 +21,7 @@ export const BLOCK_ACCENTS: Record<string, string> = {
   OTHER:    "border-l-slate-500",
 };
 
-export const BLOCK_ICONS: Record<string, React.ElementType> = {
+const BLOCK_ICONS: Record<string, React.ElementType> = {
   MEETING:  Users,
   PERSONAL: User,
   STUDY:    BookOpen,
@@ -31,7 +31,7 @@ export const BLOCK_ICONS: Record<string, React.ElementType> = {
   OTHER:    Hash,
 };
 
-const ROUTINE_COLORS = ["text-orange-500", "text-emerald-500", "text-blue-500", "text-purple-500", "text-rose-500", "text-slate-500 dark:text-slate-400"];
+const ROUTINE_COLORS = ["text-cat-routines", "text-success-fg", "text-accent-fg", "text-cat-projects", "text-danger-fg", "text-secondary"];
 
 type MatrixCategory = "routines" | "tasks" | "timeBlocks";
 
@@ -556,8 +556,8 @@ export function PlannerMatrix({
                           className={cn(
                             "text-[9px] font-bold px-1.5 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1",
                             showBacklog 
-                              ? "bg-accent text-white" 
-                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
+                              ? "bg-accent text-on-accent" 
+                              : "bg-warning-bg text-warning-fg hover:bg-warning-subtle"
                           )}
                           title="Toggle Unscheduled Backlog drawer"
                         >

@@ -19,7 +19,7 @@ const TYPES: { value: TimeBlockType; label: string; icon: React.ReactNode; color
  { value: 'WORK', label: 'Work', icon: <Grid className="w-3.5 h-3.5" />, color: 'bg-surface-hover text-primary' },
  { value: 'PERSONAL', label: 'Personal', icon: <User className="w-3.5 h-3.5" />, color: 'bg-[var(--cat-routines-bg)] text-[var(--cat-routines)]' },
  { value: 'STUDY', label: 'Study', icon: <GraduationCap className="w-3.5 h-3.5" />, color: 'bg-success-tint text-success' },
- { value: 'HEALTH', label: 'Health', icon: <HeartPulse className="w-3.5 h-3.5" />, color: 'bg-rose-100 text-rose-700' },
+ { value: 'HEALTH', label: 'Health', icon: <HeartPulse className="w-3.5 h-3.5" />, color: 'bg-danger-bg text-danger-fg' },
  { value: 'ADMIN', label: 'Admin', icon: <Shield className="w-3.5 h-3.5" />, color: 'bg-warning-tint text-warning' },
 ];
 
@@ -119,11 +119,11 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  <div className="bg-surface border border-border rounded-2xl w-full max-w-md shadow-2xl animate-in slide-in-from-bottom-4 duration-200" onClick={e => e.stopPropagation()}>
  
  {/* Header */}
- <div className="flex items-center justify-between p-4 border-b border-border bg-slate-50/50 rounded-t-2xl">
+ <div className="flex items-center justify-between p-4 border-b border-border bg-surface-hover/50 rounded-t-2xl">
  <h2 className="text-sm font-bold text-primary">{editingBlock?.id ? 'Edit Time Block' : 'Add Time Block'}</h2>
  <div className="flex items-center gap-2">
  {editingBlock?.id && onDelete && (
- <button onClick={onDelete} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors" type="button">
+ <button onClick={onDelete} className="p-1.5 rounded-lg text-danger-fg hover:bg-danger-bg transition-colors" type="button">
  <Trash2 className="w-4 h-4" />
  </button>
  )}
@@ -135,7 +135,7 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
 
  <form onSubmit={handleSubmit} className="p-4 space-y-4">
  {error && (
- <div className="p-3 text-xs font-medium text-rose-600 bg-rose-50 rounded-lg border border-rose-100">
+ <div className="p-3 text-xs font-medium text-danger-fg bg-danger-bg rounded-lg border border-danger-border">
  {error}
  </div>
  )}

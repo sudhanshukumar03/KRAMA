@@ -108,8 +108,9 @@ export const updateDailyLog = async (req: Request, res: Response) => {
     const { id } = req.params as { id: string };
     const data = UpdateDailyLogSchema.parse(req.body);
 
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || data.workspaceId;
     const existing = await prisma.dailyLog.findUnique({ where: { id } });
-    if (!existing || existing.deletedAt || existing.workspaceId !== data.workspaceId) {
+    if (!existing || existing.deletedAt || (workspaceId && existing.workspaceId !== workspaceId)) {
       return res.status(404).json({ message: 'Daily Log not found' });
     }
 

@@ -226,14 +226,14 @@ export function Projects() {
       {/* Top Page Header with Logo and Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-2xs">
+          <div className="w-10 h-10 rounded-xl bg-accent-subtle border border-accent/20 text-accent-fg flex items-center justify-center shrink-0 shadow-2xs">
             <FolderKanban className="w-5 h-5 stroke-[1.75]" />
           </div>
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-xl font-bold text-primary tracking-tight">Project</h1>
               <span className="bg-surface-hover text-secondary border border-border px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-blue-500 stroke-[1.5]" /> {projects.length} Tracked
+                <Sparkles className="w-3.5 h-3.5 text-accent-fg stroke-[1.5]" /> {projects.length} Tracked
               </span>
             </div>
             <p className="text-xs text-secondary mt-0.5">
@@ -343,7 +343,7 @@ export function Projects() {
                     {project.name}
                   </h3>
                   {project.goalId && (
-                    <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+                    <span className="bg-success-bg text-success-fg border border-success-border px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
                       <Target className="w-3 h-3 stroke-[1.5]" /> OKR LINKED
                     </span>
                   )}

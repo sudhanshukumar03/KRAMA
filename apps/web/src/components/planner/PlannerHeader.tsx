@@ -45,7 +45,7 @@ export function PlannerHeader({
             onClick={() => onModeChange('plan')}
             className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
               mode === 'plan'
-                ? 'bg-accent text-white shadow-sm'
+                ? 'bg-accent text-on-accent shadow-sm'
                 : 'text-secondary hover:text-primary hover:bg-surface-hover'
             }`}
           >
@@ -56,7 +56,7 @@ export function PlannerHeader({
             onClick={() => onModeChange('day')}
             className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
               mode === 'day'
-                ? 'bg-accent text-white shadow-sm'
+                ? 'bg-accent text-on-accent shadow-sm'
                 : 'text-secondary hover:text-primary hover:bg-surface-hover'
             }`}
           >
@@ -67,7 +67,7 @@ export function PlannerHeader({
             onClick={() => onModeChange('calendar')}
             className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
               mode === 'calendar'
-                ? 'bg-accent text-white shadow-sm'
+                ? 'bg-accent text-on-accent shadow-sm'
                 : 'text-secondary hover:text-primary hover:bg-surface-hover'
             }`}
           >

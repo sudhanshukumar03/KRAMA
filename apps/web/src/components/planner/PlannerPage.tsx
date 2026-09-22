@@ -20,9 +20,10 @@ import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { IssueEditModal } from '../KanbanBoard';
-import { LocationSettingsModal, COUNTRIES, INDIAN_STATES } from './LocationSettingsModal';
+import { LocationSettingsModal } from './LocationSettingsModal';
 import { CapacitySettingsModal } from './CapacitySettingsModal';
+import { IssueEditModal } from '../KanbanBoard';
+import { COUNTRIES, INDIAN_STATES } from './locationConstants';
 
 export function PlannerPage() {
   const [searchParams, setSearchParams] = useSearchParams();

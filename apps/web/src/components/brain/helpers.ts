@@ -2,12 +2,12 @@ import type { DocumentWithRelations } from '../../types/schema';
 
 // Color definitions for tags
 export const TAG_COLORS: { name: string; bg: string; text: string; border: string }[] = [
-  { name: 'blue', bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/30' },
-  { name: 'emerald', bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/30' },
-  { name: 'purple', bg: 'bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-500/30' },
-  { name: 'amber', bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/30' },
-  { name: 'rose', bg: 'bg-rose-500/10', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-500/30' },
-  { name: 'cyan', bg: 'bg-cyan-500/10', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-500/30' },
+  { name: 'blue', bg: 'bg-accent-subtle', text: 'text-accent-fg', border: 'border-accent/30' },
+  { name: 'emerald', bg: 'bg-success-bg', text: 'text-success-fg', border: 'border-success-border' },
+  { name: 'purple', bg: 'bg-cat-timeblocks-bg', text: 'text-cat-timeblocks', border: 'border-cat-timeblocks/30' },
+  { name: 'amber', bg: 'bg-warning-bg', text: 'text-warning-fg', border: 'border-warning-border' },
+  { name: 'rose', bg: 'bg-danger-bg', text: 'text-danger-fg', border: 'border-danger-border' },
+  { name: 'cyan', bg: 'bg-cat-routines-bg', text: 'text-cat-routines', border: 'border-cat-routines/30' },
 ];
 
 export function getTagColor(colorName?: string | null) {

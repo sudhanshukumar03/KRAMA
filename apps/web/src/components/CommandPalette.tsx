@@ -23,17 +23,17 @@ function HighlightedSnippet({ text, query }: { text: string; query: string }) {
 }
 
 const typeIcons: Record<string, React.ReactNode> = {
- page: <FileText className="w-4 h-4 text-[#7C3AED]" />,
- issue: <ListChecks className="w-4 h-4 text-[#2563EB]" />,
- project: <FolderKanban className="w-4 h-4 text-[#2563EB]" />,
- goal: <Target className="w-4 h-4 text-[#0D9488]" />,
+  page: <FileText className="w-4 h-4 text-cat-routines" />,
+  issue: <ListChecks className="w-4 h-4 text-cat-tasks" />,
+  project: <FolderKanban className="w-4 h-4 text-cat-projects" />,
+  goal: <Target className="w-4 h-4 text-success-fg" />,
 };
 
 const typeColors: Record<string, string> = {
- page: 'text-[#7C3AED] bg-[#7C3AED]/10',
- issue: 'text-[#2563EB] bg-[#2563EB]/10',
- project: 'text-[#2563EB] bg-[#2563EB]/10',
- goal: 'text-[#0D9488] bg-[#0D9488]/10',
+  page: 'text-cat-routines bg-cat-routines-bg',
+  issue: 'text-cat-tasks bg-cat-tasks-bg',
+  project: 'text-cat-projects bg-cat-projects-bg',
+  goal: 'text-success-fg bg-success-bg',
 };
 
 const typeLabels: Record<string, string> = {
@@ -159,7 +159,7 @@ export function CommandPalette() {
  >
  <div className="flex items-center border-b border-border px-5 bg-surface-hover/50">
  {isSearching ? (
- <Loader2 className="w-5 h-5 text-[#2563EB] mr-3.5 shrink-0 stroke-[2] animate-spin" />
+ <Loader2 className="w-5 h-5 text-accent-fg mr-3.5 shrink-0 stroke-[2] animate-spin" />
  ) : (
  <Search className="w-5 h-5 text-muted mr-3.5 shrink-0 stroke-[2]" />
  )}
@@ -198,7 +198,7 @@ export function CommandPalette() {
  key={`${result.type}-${result.id}`}
  value={`${result.title} ${result.snippet}`}
  onSelect={() => runCommand(() => navigate(result.url))}
- className="flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100 group"
+ className="flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100 group"
  >
  <div className="flex items-start gap-2.5 min-w-0 flex-1">
  <span className="mt-0.5 shrink-0">{typeIcons[result.type]}</span>
@@ -230,20 +230,20 @@ export function CommandPalette() {
  <>
  {/* Quick Actions Group */}
  <Command.Group 
- heading={<div className="flex items-center gap-1.5 text-[#2563EB]"><Zap className="w-3.5 h-3.5 text-[#2563EB]" /><span>Instant Quick Actions</span></div>} 
+ heading={<div className="flex items-center gap-1.5 text-accent-fg"><Zap className="w-3.5 h-3.5 text-accent-fg" /><span>Instant Quick Actions</span></div>} 
  className="pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
  >
  <Command.Item 
  onSelect={() => runCommand(() => navigate('/app/board'))}
- className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-body font-medium text-primary aria-selected:bg-primary aria-selected:text-white transition-colors group mb-1"
+ className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-body font-medium text-primary aria-selected:bg-primary aria-selected:text-text-inverse transition-colors group mb-1"
  >
  <div className="flex items-center gap-3">
- <div className="w-7 h-7 rounded-lg bg-surface-hover border border-border group-aria-selected:bg-white/20 group-aria-selected:border-transparent text-primary group-aria-selected:text-white flex items-center justify-center">
+ <div className="w-7 h-7 rounded-lg bg-surface-hover border border-border group-aria-selected:bg-text-inverse/20 group-aria-selected:border-transparent text-primary group-aria-selected:text-text-inverse flex items-center justify-center">
  <Plus className="w-4 h-4 stroke-[2]" />
  </div>
  <div>
  <div className="font-semibold leading-tight">Create New Issue or Sub-task</div>
- <div className="text-badge text-secondary group-aria-selected:text-white/80">Open Kanban Board quick-add pipeline</div>
+ <div className="text-badge text-secondary group-aria-selected:text-text-inverse/80">Open Kanban Board quick-add pipeline</div>
  </div>
  </div>
  <span className="text-caption font-mono opacity-0 group-aria-selected:opacity-100 flex items-center gap-1">
@@ -253,15 +253,15 @@ export function CommandPalette() {
 
  <Command.Item 
  onSelect={() => runCommand(() => navigate('/app/planner'))}
- className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-body font-medium text-primary aria-selected:bg-primary aria-selected:text-white transition-colors group"
+ className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-body font-medium text-primary aria-selected:bg-primary aria-selected:text-text-inverse transition-colors group"
  >
  <div className="flex items-center gap-3">
- <div className="w-7 h-7 rounded-lg bg-surface-hover border border-border group-aria-selected:bg-white/20 group-aria-selected:border-transparent text-primary group-aria-selected:text-white flex items-center justify-center">
+ <div className="w-7 h-7 rounded-lg bg-surface-hover border border-border group-aria-selected:bg-text-inverse/20 group-aria-selected:border-transparent text-primary group-aria-selected:text-text-inverse flex items-center justify-center">
  <Calendar className="w-4 h-4 stroke-[2]" />
  </div>
  <div>
  <div className="font-semibold leading-tight">Time-Block Planner</div>
- <div className="text-badge text-secondary group-aria-selected:text-white/80">Schedule focus hours & meeting buffers</div>
+ <div className="text-badge text-secondary group-aria-selected:text-text-inverse/80">Schedule focus hours & meeting buffers</div>
  </div>
  </div>
  <span className="text-caption font-mono opacity-0 group-aria-selected:opacity-100 flex items-center gap-1">
@@ -272,60 +272,60 @@ export function CommandPalette() {
 
  {/* Navigation Group */}
  <Command.Group 
- heading={<div className="flex items-center gap-1.5 text-[#2563EB]"><Rocket className="w-3.5 h-3.5 text-[#2563EB]" /><span>Jump to Screen</span></div>} 
+ heading={<div className="flex items-center gap-1.5 text-accent-fg"><Rocket className="w-3.5 h-3.5 text-accent-fg" /><span>Jump to Screen</span></div>} 
  className="pt-2 pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
  >
  <Command.Item 
  onSelect={() => runCommand(() => navigate('/app/'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <Target className="w-4 h-4 text-secondary" /> Dashboard Scorecard
  </Command.Item>
  <Command.Item 
  onSelect={() => runCommand(() => navigate('/app/board'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <KanbanSquare className="w-4 h-4 text-secondary" /> Kanban Execution Board
  </Command.Item>
  <Command.Item 
  onSelect={() => runCommand(() => navigate('/app/sprint'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <Clock className="w-4 h-4 text-secondary" /> Active Sprint Burndown
  </Command.Item>
  <Command.Item 
  onSelect={() => runCommand(() => navigate('/app/planner'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <Calendar className="w-4 h-4 text-secondary" /> Time-Block Planner
  </Command.Item>
  <Command.Item 
  onSelect={() => runCommand(() => navigate('/focus'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <Timer className="w-4 h-4 text-secondary" /> Focus Mode & Soundscapes
  </Command.Item>
  <Command.Item 
  onSelect={() => runCommand(() => navigate('/app/goals'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <Target className="w-4 h-4 text-secondary" /> Strategic Goals
  </Command.Item>
  <Command.Item 
  onSelect={() => runCommand(() => navigate('/app/habits'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <TrendingUp className="w-4 h-4 text-secondary" /> Habit Tracker
  </Command.Item>
  <Command.Item 
  onSelect={() => runCommand(() => navigate('/app/projects'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <Layers className="w-4 h-4 text-secondary" /> Engineering Projects
  </Command.Item>
  <Command.Item 
  onSelect={() => runCommand(() => navigate('/app/brain'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <Brain className="w-4 h-4 text-secondary" /> Brain Knowledge Base
  </Command.Item>
@@ -333,14 +333,14 @@ export function CommandPalette() {
 
  {/* Brain Pages Group */}
  <Command.Group 
- heading={<div className="flex items-center gap-1.5 text-[#7C3AED]"><Brain className="w-3.5 h-3.5 text-[#7C3AED]" /><span>Knowledge Base Documents</span></div>} 
+ heading={<div className="flex items-center gap-1.5 text-cat-routines"><Brain className="w-3.5 h-3.5 text-cat-routines" /><span>Knowledge Base Documents</span></div>} 
  className="pt-2 pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
  >
  {pages.map((page) => (
  <Command.Item 
  key={page.id}
  onSelect={() => runCommand(() => navigate(`/app/brain?doc=${page.id}`))}
- className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <div className="flex items-center gap-2.5 truncate">
  {page.icon ? (
@@ -359,14 +359,14 @@ export function CommandPalette() {
 
  {/* Issues Group */}
  <Command.Group 
- heading={<div className="flex items-center gap-1.5 text-[#2563EB]"><ListChecks className="w-3.5 h-3.5 text-[#2563EB]" /><span>Active Issues & Tickets</span></div>} 
+ heading={<div className="flex items-center gap-1.5 text-cat-tasks"><ListChecks className="w-3.5 h-3.5 text-cat-tasks" /><span>Active Issues & Tickets</span></div>} 
  className="pt-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
  >
  {issues.map((issue) => (
  <Command.Item 
  key={issue.id}
  onSelect={() => runCommand(() => navigate(`/app/board`))}
- className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <div className="flex items-center gap-2.5 truncate">
  <span className="truncate">{issue.title}</span>
@@ -380,20 +380,20 @@ export function CommandPalette() {
 
  {/* Goals Group */}
  <Command.Group 
- heading={<div className="flex items-center gap-1.5 text-[#0D9488]"><Target className="w-3.5 h-3.5 text-[#0D9488]" /><span>Goals & Strategic OKRs</span></div>} 
+ heading={<div className="flex items-center gap-1.5 text-success-fg"><Target className="w-3.5 h-3.5 text-success-fg" /><span>Goals & Strategic OKRs</span></div>} 
  className="pt-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
  >
  {goals.map((goal) => (
  <Command.Item 
  key={goal.id}
  onSelect={() => runCommand(() => navigate(`/app/goals`))}
- className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#0D9488] transition-colors duration-100"
+ className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-success-fg transition-colors duration-100"
  >
  <div className="flex items-center gap-2.5 truncate">
- <Target className="w-4 h-4 text-[#0D9488] shrink-0" />
+ <Target className="w-4 h-4 text-success-fg shrink-0" />
  <span className="truncate">{goal.title}</span>
  </div>
- <span className="text-[10px] font-mono text-[#0D9488] bg-[#0D9488]/10 px-1.5 py-0.5 rounded font-medium">
+ <span className="text-[10px] font-mono text-success-fg bg-success-bg px-1.5 py-0.5 rounded font-medium">
  {goal.progress || 0}%
  </span>
  </Command.Item>
@@ -409,10 +409,10 @@ export function CommandPalette() {
  <Command.Item 
  key={proj.id}
  onSelect={() => runCommand(() => navigate(`/app/projects/${proj.id}`))}
- className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-[#2563EB] transition-colors duration-100"
+ className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <div className="flex items-center gap-2.5 truncate">
- <FolderKanban className="w-4 h-4 text-[#2563EB] shrink-0" />
+ <FolderKanban className="w-4 h-4 text-accent-fg shrink-0" />
  <span className="truncate">{proj.name}</span>
  </div>
  <span className="text-[10px] font-mono text-secondary bg-surface-hover px-1.5 py-0.5 rounded border border-border">

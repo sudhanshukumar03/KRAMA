@@ -1,5 +1,5 @@
 import { prisma } from '../prisma';
-import { Document, Prisma } from '@prisma/client';
+import { Prisma, DocumentType, TaskPriority, TaskStatus } from '@prisma/client';
 import { extractMarkdown, extractPlainText, calculateCounts } from '../utils/tiptap';
 
 export class DocumentService {
@@ -49,10 +49,10 @@ export class DocumentService {
     title: string;
     subtitle?: string;
     statusBadges?: string[];
-    contentJson?: any;
+    contentJson?: Prisma.InputJsonValue;
     contentMarkdown?: string;
     createdById: string;
-    documentType?: any;
+    documentType?: DocumentType;
   }) {
     if (data.parentId) {
       const depth = await this.getDepth(data.parentId);
@@ -61,7 +61,7 @@ export class DocumentService {
       }
     }
 
-    const contentJson = data.contentJson || { type: "doc", content: [{ type: "paragraph" }] };
+    const contentJson = (data.contentJson || { type: "doc", content: [{ type: "paragraph" }] }) as Prisma.InputJsonValue;
     const plainText = extractPlainText(contentJson);
     const contentMarkdown = data.contentMarkdown || extractMarkdown(contentJson);
     const { wordCount, charCount } = calculateCounts(plainText);
@@ -120,8 +120,8 @@ export class DocumentService {
     return max;
   }
 
-  static async deepDelete(id: string, deletedAt: Date = new Date(), externalTx?: any) {
-    const run = async (tx: any) => {
+  static async deepDelete(id: string, deletedAt: Date = new Date(), externalTx?: Prisma.TransactionClient) {
+    const run = async (tx: Prisma.TransactionClient) => {
       const doc = await tx.document.findUnique({ where: { id }});
       if (!doc || doc.deletedAt) return;
       
@@ -143,8 +143,8 @@ export class DocumentService {
     }
   }
 
-  static async deepRestore(id: string, externalTx?: any) {
-    const run = async (tx: any) => {
+  static async deepRestore(id: string, externalTx?: Prisma.TransactionClient) {
+    const run = async (tx: Prisma.TransactionClient) => {
       const doc = await tx.document.findUnique({ where: { id }});
       if (!doc || !doc.deletedAt) return;
       
@@ -159,7 +159,7 @@ export class DocumentService {
     }
   }
 
-  static async deepRestoreNode(id: string, deletedAt: Date, tx: any) {
+  static async deepRestoreNode(id: string, deletedAt: Date, tx: Prisma.TransactionClient) {
     await tx.document.update({
       where: { id },
       data: { deletedAt: null }
@@ -171,7 +171,7 @@ export class DocumentService {
     }
   }
 
-  static async duplicateSubtree(id: string, createdById: string, newParentId: string | null = null, externalTx?: any): Promise<string> {
+  static async duplicateSubtree(id: string, createdById: string, newParentId: string | null = null, externalTx?: Prisma.TransactionClient): Promise<string> {
     if (!externalTx) {
       const originalDoc = await prisma.document.findUnique({ where: { id }, select: { parentId: true } });
       if (!originalDoc) throw new Error("Document not found");
@@ -185,7 +185,7 @@ export class DocumentService {
       }
     }
 
-    const run = async (tx: any): Promise<string> => {
+    const run = async (tx: Prisma.TransactionClient): Promise<string> => {
       const original = await tx.document.findUnique({ 
         where: { id },
         include: { tags: true }
@@ -201,14 +201,14 @@ export class DocumentService {
           title: original.title + ' (Copy)',
           subtitle: original.subtitle,
           icon: original.icon,
-          contentJson: original.contentJson as any,
+          contentJson: (original.contentJson ?? {}) as Prisma.InputJsonValue,
           contentMarkdown: original.contentMarkdown,
           statusBadges: original.statusBadges,
           documentType: original.documentType,
           createdById,
           lastEditedById: createdById,
           tags: {
-            create: original.tags.map((t: any) => ({ tagId: t.tagId }))
+            create: original.tags.map((t) => ({ tagId: t.tagId }))
           }
         }
       });
@@ -219,7 +219,7 @@ export class DocumentService {
       });
       if (outgoingLinks.length > 0) {
         await tx.entityLink.createMany({
-          data: outgoingLinks.map((l: any) => ({
+          data: outgoingLinks.map((l) => ({
             sourceType: 'DOCUMENT',
             sourceId: duplicated.id,
             targetType: l.targetType,
@@ -252,8 +252,8 @@ export class DocumentService {
     userId: string,
     data: {
       title: string;
-      priority?: any;
-      status?: any;
+      priority?: TaskPriority;
+      status?: TaskStatus;
       description?: string;
     }
   ) {

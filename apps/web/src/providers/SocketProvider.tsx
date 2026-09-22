@@ -1,20 +1,9 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
-
-interface SocketContextType {
-  socket: Socket | null;
-  isConnected: boolean;
-}
-
-const SocketContext = createContext<SocketContextType>({
-  socket: null,
-  isConnected: false,
-});
-
-export const useSocket = () => useContext(SocketContext);
+import { SocketContext } from '../hooks/useSocket';
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -49,7 +38,22 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     socketInstance.on('task:updated', () => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    });
+
+    socketInstance.on('task:created', () => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+    });
+
+    socketInstance.on('task:deleted', () => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
     });
 
     socketInstance.on('focus:session:completed', () => {

@@ -82,8 +82,9 @@ Output exactly a JSON object matching this schema:
     const text = response.text || '{}';
     try {
       const parsed = JSON.parse(text);
-      return parsed; // NarrativeResponseSchema
-    } catch (e) {
+      const validated = NarrativeResponseSchema.safeParse(parsed);
+      return validated.success ? validated.data : parsed;
+    } catch {
       console.error('Failed to parse Narrative Assistant response:', text);
       return { summary: "Failed to parse AI response.", actions: [] };
     }

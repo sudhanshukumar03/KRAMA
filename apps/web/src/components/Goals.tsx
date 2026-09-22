@@ -86,9 +86,9 @@ function GoalCard({ goal, depth = 0, onAddChild, onEdit, projects = [] }: GoalCa
   return (
     <div className="flex flex-col mb-4 group/goal">
       <div 
-        className={cn("v4-card p-5 transition-all duration-200 hover:border-[#0D9488] relative overflow-hidden",
-          depth > 0 && "border-l-4 border-l-[#E5E8EC] dark:border-l-muted rounded-l-none bg-surface-hover/60",
-          depth === 0 && "border-l-2 border-l-[#0D9488]"
+        className={cn("v4-card p-5 transition-all duration-200 hover:border-accent relative overflow-hidden",
+          depth > 0 && "border-l-4 border-l-border-strong rounded-l-none bg-surface-hover/60",
+          depth === 0 && "border-l-2 border-l-accent"
         )}
       >
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
@@ -104,12 +104,12 @@ function GoalCard({ goal, depth = 0, onAddChild, onEdit, projects = [] }: GoalCa
                 </span>
                 {/* Feature #2: Status badge chips for non-active states */}
                 {((goal as any).metadata?.status === 'PAUSED' || (goal as any).status === 'PAUSED') && (
-                  <span className="text-[10px] font-mono font-bold uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-mono font-bold uppercase bg-warning-bg text-warning-fg border border-warning-border px-2 py-0.5 rounded">
                     Paused
                   </span>
                 )}
                 {((goal as any).metadata?.status === 'CANCELED' || (goal as any).status === 'CANCELED') && (
-                  <span className="text-[10px] font-mono font-bold uppercase bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-mono font-bold uppercase bg-danger-bg text-danger-fg border border-danger-border px-2 py-0.5 rounded">
                     Canceled
                   </span>
                 )}
@@ -205,7 +205,7 @@ function GoalCard({ goal, depth = 0, onAddChild, onEdit, projects = [] }: GoalCa
               <div className="flex items-center gap-3">
                 <span>Adjust completion percentage:</span>
                 {hasChildren && (
-                  <span className="text-[11px] text-teal-600 dark:text-teal-400 font-medium flex items-center gap-1.5">
+                  <span className="text-[11px] text-success-fg font-medium flex items-center gap-1.5">
                     <CheckCircle2 className="w-3 h-3" />
                     Auto-synced from KRs ({krAverage}%)
                   </span>
@@ -260,10 +260,10 @@ function GoalCard({ goal, depth = 0, onAddChild, onEdit, projects = [] }: GoalCa
             </div>
           </div>
         ) : (
-          <div className="h-2 w-full bg-[#E5E8EC] dark:bg-muted/20 rounded-full overflow-hidden mb-4">
+          <div className="h-2 w-full bg-surface-hover rounded-full overflow-hidden mb-4">
             <div 
               className={cn("h-full transition-all duration-500 ease-out",
-                goal.progress >= 100 ? "bg-emerald-500" : "bg-[#0D9488]"
+                goal.progress >= 100 ? "bg-success-fg" : "bg-accent"
               )} 
               style={{ width: `${goal.progress}%` }}
             />
@@ -335,14 +335,14 @@ function GoalCard({ goal, depth = 0, onAddChild, onEdit, projects = [] }: GoalCa
                     e.stopPropagation();
                     navigate(`/app/projects/${proj.id}`);
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-surface-hover hover:bg-blue-500/10 hover:border-blue-500/30 border border-border text-primary hover:text-blue-600 dark:hover:text-blue-400 text-caption font-sans font-medium transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer group"
+                  className="px-2.5 py-1 rounded-lg bg-surface-hover hover:bg-accent-subtle hover:border-accent/30 border border-border text-primary hover:text-accent-fg text-caption font-sans font-medium transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer group"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent" />
                   <span className="font-semibold">{proj.name}</span>
                   <span className="text-[10px] font-mono text-secondary">
                     {taskCount} {taskCount === 1 ? 'ticket' : 'tickets'}
                   </span>
-                  <ArrowRight className="w-3 h-3 text-muted group-hover:text-blue-500 group-hover:translate-x-0.5 transition-transform" />
+                  <ArrowRight className="w-3 h-3 text-muted group-hover:text-accent-fg group-hover:translate-x-0.5 transition-transform" />
                 </button>
               );
             })}
@@ -359,7 +359,7 @@ function GoalCard({ goal, depth = 0, onAddChild, onEdit, projects = [] }: GoalCa
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); navigate(`/app/habits?goalId=${goal.id}`); }}
-              className="px-2.5 py-1 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 text-orange-600 dark:text-orange-400 text-caption font-medium transition-all flex items-center gap-1.5"
+              className="px-2.5 py-1 rounded-lg bg-warning-bg hover:bg-warning-bg/80 border border-warning-border text-warning-fg text-caption font-medium transition-all flex items-center gap-1.5"
             >
               View Habits <ArrowRight className="w-3 h-3" />
             </button>
@@ -730,7 +730,7 @@ export function Goals() {
       {/* Top Page Header with Logo, Title, Tabs and Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 mb-6">
         <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 shadow-2xs">
+          <div className="w-10 h-10 rounded-xl bg-accent-subtle border border-accent/20 text-accent-fg flex items-center justify-center shrink-0 shadow-2xs">
             <Target className="w-5 h-5 stroke-[1.75]" />
           </div>
           <div>

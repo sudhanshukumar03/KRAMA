@@ -99,7 +99,7 @@ export function PageTreeNode({
       <div 
         className={cn("group relative flex items-center justify-between py-1.5 px-2.5 rounded-xl cursor-pointer text-caption transition-all duration-150 select-none my-0.5",
           isSelected 
-            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20 shadow-2xs" 
+            ? "bg-accent-subtle text-accent-fg font-semibold border border-accent/20 shadow-2xs" 
             : "text-secondary hover:text-primary hover:bg-surface-hover"
         )}
         style={{ paddingLeft: `${(level * 14) + 10}px` }}
@@ -111,7 +111,7 @@ export function PageTreeNode({
               onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
               className="w-4 h-4 flex items-center justify-center text-muted hover:text-primary transition-colors focus:outline-none shrink-0"
             >
-              <ChevronRight className={cn("w-3.5 h-3.5 transition-transform duration-150", expanded && "rotate-90 text-blue-600 dark:text-blue-400")} />
+              <ChevronRight className={cn("w-3.5 h-3.5 transition-transform duration-150", expanded && "rotate-90 text-accent-fg")} />
             </button>
           ) : (
             <div className="w-4 h-4 shrink-0 flex items-center justify-center">
@@ -120,7 +120,7 @@ export function PageTreeNode({
           )}
 
           <div className="w-4 h-4 flex items-center justify-center shrink-0 relative">
-            {React.createElement(resolveIcon(page.icon), { className: cn("w-3.5 h-3.5 shrink-0", isSelected ? "text-blue-600 dark:text-blue-400" : "text-muted group-hover:text-secondary") })}
+            {React.createElement(resolveIcon(page.icon), { className: cn("w-3.5 h-3.5 shrink-0", isSelected ? "text-accent-fg" : "text-muted group-hover:text-secondary") })}
             {page.isFavorite && (
               <span className="absolute -top-1 -right-1 text-amber-500">
                 <Star className="w-2.5 h-2.5 fill-amber-500" />

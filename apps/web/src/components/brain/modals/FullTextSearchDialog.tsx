@@ -3,12 +3,24 @@ import { Search, RefreshCw, X, FileText } from 'lucide-react';
 import { api } from '../../../api/client';
 import { cn } from '../../../lib/utils';
 
+export interface DocumentSearchResult {
+  id: string;
+  title: string;
+  subtitle?: string | null;
+  icon?: string | null;
+  documentType?: string;
+  statusBadges?: string[];
+  projectId?: string | null;
+  updatedAt?: string | Date;
+  snippet?: string;
+}
+
 export interface FullTextSearchDialogProps {
   workspaceId: string;
   isOpen: boolean;
   onClose: () => void;
   onSelectDoc: (id: string) => void;
-  projects?: any[];
+  projects?: { id: string; name: string }[];
 }
 
 export function FullTextSearchDialog({
@@ -22,7 +34,7 @@ export function FullTextSearchDialog({
   const [selectedType, setSelectedType] = useState('ALL');
   const [selectedProject, setSelectedProject] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<DocumentSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -68,7 +80,7 @@ export function FullTextSearchDialog({
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-start justify-center pt-24 px-4 animate-in fade-in duration-150">
       <div className="bg-surface border border-border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans">
         <div className="p-4 border-b border-border flex items-center gap-3 bg-surface">
-          <Search className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+          <Search className="w-5 h-5 text-accent-fg shrink-0" />
           <input
             autoFocus
             type="text"
@@ -137,7 +149,7 @@ export function FullTextSearchDialog({
                 setSelectedProject('ALL');
                 setSelectedStatus('ALL');
               }}
-              className="text-blue-600 dark:text-blue-400 hover:underline px-1 py-0.5 ml-auto text-[10px] cursor-pointer"
+              className="text-accent-fg hover:underline px-1 py-0.5 ml-auto text-[10px] cursor-pointer"
             >
               Reset Filters
             </button>
@@ -164,21 +176,21 @@ export function FullTextSearchDialog({
                 onSelectDoc(item.id);
                 onClose();
               }}
-              className="py-3 px-3 hover:bg-blue-500/5 rounded-xl cursor-pointer transition-colors group"
+              className="py-3 px-3 hover:bg-surface-hover rounded-xl cursor-pointer transition-colors group"
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="font-semibold text-primary group-hover:text-blue-600 dark:group-hover:text-blue-400 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="font-semibold text-primary group-hover:text-accent-fg flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-accent-fg" />
                   {item.title}
                 </span>
                 <div className="flex items-center gap-1.5">
                   {item.statusBadges?.[0] && (
                     <span className={cn(
                       "text-[9px] font-mono uppercase px-1.5 py-0.2 rounded font-bold border",
-                      item.statusBadges[0] === 'DRAFT' && "bg-amber-500/10 text-amber-600 border-amber-500/30",
-                      item.statusBadges[0] === 'IN_REVIEW' && "bg-blue-500/10 text-blue-600 border-blue-500/30",
-                      item.statusBadges[0] === 'ACCEPTED' && "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
-                      item.statusBadges[0] === 'DEPRECATED' && "bg-rose-500/10 text-rose-600 border-rose-500/30"
+                      item.statusBadges[0] === 'DRAFT' && "bg-warning-bg text-warning-fg border-warning-border",
+                      item.statusBadges[0] === 'IN_REVIEW' && "bg-accent-subtle text-accent-fg border-accent/30",
+                      item.statusBadges[0] === 'ACCEPTED' && "bg-success-bg text-success-fg border-success-border",
+                      item.statusBadges[0] === 'DEPRECATED' && "bg-danger-bg text-danger-fg border-danger-border"
                     )}>
                       {item.statusBadges[0]}
                     </span>

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import {
@@ -45,44 +46,44 @@ const STATUS_COLUMNS = [
     title: "Backlog",
     subtitle: "Ideas and upcoming work",
     icon: Inbox,
-    iconColor: "text-blue-500",
-    bgLight: "bg-[#F0F6FF]/70 border-[#D0E2FF]/80 dark:bg-[#0B1528]/40 dark:border-[#1E3A8A]/40",
-    topBorder: "border-t-[3px] border-t-blue-500",
-    badgeBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20",
-    addText: "text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/30",
+    iconColor: "text-accent-fg",
+    bgLight: "bg-surface border-border/80",
+    topBorder: "border-t-[3px] border-t-accent",
+    badgeBg: "bg-accent-subtle text-accent-fg border border-accent/20",
+    addText: "text-accent-fg hover:bg-accent-subtle hover:border-accent/30",
   },
   {
     id: "IN_PROGRESS" as TaskStatus,
     title: "In Progress",
     subtitle: "Actively being worked on",
     icon: CircleDashed,
-    iconColor: "text-amber-500",
-    bgLight: "bg-[#FFF9EB]/70 border-[#FDE68A]/80 dark:bg-[#201806]/40 dark:border-[#78350F]/40",
-    topBorder: "border-t-[3px] border-t-amber-500",
-    badgeBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20",
-    addText: "text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30",
+    iconColor: "text-warning-fg",
+    bgLight: "bg-surface border-border/80",
+    topBorder: "border-t-[3px] border-t-warning-border",
+    badgeBg: "bg-warning-bg text-warning-fg border border-warning-border",
+    addText: "text-warning-fg hover:bg-warning-bg hover:border-warning-border",
   },
   {
     id: "REVIEW" as TaskStatus,
     title: "Review",
     subtitle: "In review or awaiting feedback",
     icon: CheckCircle,
-    iconColor: "text-purple-500",
-    bgLight: "bg-[#FAF5FF]/70 border-[#E9D5FF]/80 dark:bg-[#1C0F2D]/40 dark:border-[#581C87]/40",
-    topBorder: "border-t-[3px] border-t-purple-500",
-    badgeBg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20",
-    addText: "text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 hover:border-purple-500/30",
+    iconColor: "text-cat-timeblocks",
+    bgLight: "bg-surface border-border/80",
+    topBorder: "border-t-[3px] border-t-cat-timeblocks",
+    badgeBg: "bg-cat-timeblocks-bg text-cat-timeblocks border border-cat-timeblocks/20",
+    addText: "text-cat-timeblocks hover:bg-cat-timeblocks-bg hover:border-cat-timeblocks/30",
   },
   {
     id: "DONE" as TaskStatus,
     title: "Done",
     subtitle: "Completed and shipped",
     icon: CheckCircle2,
-    iconColor: "text-emerald-500",
-    bgLight: "bg-[#F0FDF4]/70 border-[#BBF7D0]/80 dark:bg-[#061F12]/40 dark:border-[#065F46]/40",
-    topBorder: "border-t-[3px] border-t-emerald-500",
-    badgeBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20",
-    addText: "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30",
+    iconColor: "text-success-fg",
+    bgLight: "bg-surface border-border/80",
+    topBorder: "border-t-[3px] border-t-success-border",
+    badgeBg: "bg-success-bg text-success-fg border border-success-border",
+    addText: "text-success-fg hover:bg-success-bg hover:border-success-border",
   },
 ];
 
@@ -92,26 +93,26 @@ function getPriorityBadge(priority: string) {
   switch (priority) {
     case "URGENT":
       return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/40">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-danger-bg text-danger-fg border border-danger-border">
           Urgent
         </span>
       );
     case "HIGH":
       return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400 border border-red-200/80 dark:border-red-900/40">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-danger-bg text-danger-fg border border-danger-border">
           HIGH
         </span>
       );
     case "MEDIUM":
       return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/80 dark:border-amber-900/40">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-warning-bg text-warning-fg border border-warning-border">
           MEDIUM
         </span>
       );
     case "LOW":
     default:
       return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-900/40">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-success-bg text-success-fg border border-success-border">
           LOW
         </span>
       );
@@ -285,7 +286,7 @@ function IssueCard({
           {issue.blockedBy && (
             <span
               title={`Blocked by: ${issue.blockedBy.title}`}
-              className="px-2 py-0.5 rounded bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+              className="px-2 py-0.5 rounded bg-danger-bg text-danger-fg border border-danger-border font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
             >
               <AlertCircle className="w-3 h-3 shrink-0 stroke-[1.5]" />
               Blocked: {issue.blockedBy.title}
@@ -294,7 +295,7 @@ function IssueCard({
           {issue.blocking && issue.blocking.length > 0 && (
             <span
               title={`Blocking: ${issue.blocking.map((b: any) => b.title).join(', ')}`}
-              className="px-2 py-0.5 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+              className="px-2 py-0.5 rounded bg-info-bg text-info-fg border border-info-border font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
             >
               <AlertCircle className="w-3 h-3 shrink-0 stroke-[1.5]" />
               Blocking: {issue.blocking.length} {issue.blocking.length === 1 ? 'task' : 'tasks'}
@@ -316,7 +317,7 @@ function IssueCard({
               <span className="truncate">{issue.project.name}</span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-warning-fg bg-warning-bg px-1.5 py-0.5 rounded border border-warning-border">
               <Zap className="w-2.5 h-2.5 shrink-0" />
               <span>Operations</span>
             </span>
@@ -376,7 +377,7 @@ function Column({
     >
       {/* Column Header */}
       <div className={cn(
-        "px-4 py-3.5 flex flex-col gap-1 bg-surface/80 dark:bg-surface/50 border-b border-border/70 shrink-0",
+        "px-4 py-3.5 flex flex-col gap-1 bg-surface/80 border-b border-border/70 shrink-0",
         col.topBorder
       )}>
         <div className="flex items-center justify-between">
@@ -933,7 +934,21 @@ export function IssueEditModal({
   );
 }
 
-export function KanbanBoard() {
+export interface KanbanBoardProps {
+  initialProjectId?: string;
+  lockedProjectId?: string;
+  hideHeader?: boolean;
+}
+
+export function KanbanBoard({
+  initialProjectId,
+  lockedProjectId,
+  hideHeader = false,
+}: KanbanBoardProps = {}) {
+  const [searchParams] = useSearchParams();
+  const urlProject = searchParams.get('project') || searchParams.get('projectId');
+  const effectiveInitialProject = lockedProjectId || initialProjectId || urlProject || 'all';
+
   const queryClient = useQueryClient();
   const { data: issues = [], isLoading: isLoadingIssues, isError } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
@@ -943,11 +958,18 @@ export function KanbanBoard() {
   const [activeView, setActiveView] = useState<'board' | 'list' | 'calendar'>('board');
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<'all' | "URGENT" | "HIGH" | "MEDIUM" | "LOW">('all');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
-  const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(effectiveInitialProject);
   const [selectedSprintId, setSelectedSprintId] = useState<string>('all');
   const [groupBy, setGroupBy] = useState<'status' | 'priority' | 'project'>('status');
   const [sortBy, setSortBy] = useState<'priority' | 'date' | 'title'>('priority');
+
+  useEffect(() => {
+    if (lockedProjectId) {
+      setSelectedProjectId(lockedProjectId);
+    } else if (urlProject) {
+      setSelectedProjectId(urlProject);
+    }
+  }, [lockedProjectId, urlProject]);
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createStatus, setCreateStatus] = useState<TaskStatus>("BACKLOG");
@@ -964,7 +986,7 @@ export function KanbanBoard() {
         priority: data.priority as any,
         estimateMinutes: data.estimateMinutes,
         assignee: 'me',
-        projectId: data.projectId || null,
+        projectId: data.projectId || (selectedProjectId !== 'all' ? selectedProjectId : null),
         sprintId: data.sprintId ?? (selectedSprintId !== 'all' ? selectedSprintId : null),
         labels: [],
         blockedById: data.blockedById
@@ -1054,15 +1076,6 @@ export function KanbanBoard() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Extract unique assignees for filter
-  const uniqueAssignees = useMemo(() => {
-    const names = new Set<string>();
-    issues.forEach(i => {
-      if (i.assignee?.name) names.add(i.assignee.name);
-    });
-    return Array.from(names);
-  }, [issues]);
-
   const filteredIssues = useMemo(() => {
     return issues.filter(issue => {
       if (issue.parentTaskId) return false;
@@ -1074,10 +1087,9 @@ export function KanbanBoard() {
         (issue.description && issue.description.toLowerCase().includes(q));
       const matchesPriority = priorityFilter === 'all' || issue.priority === priorityFilter;
       const matchesProject = selectedProjectId === 'all' || (selectedProjectId === 'operations' ? !issue.projectId : issue.projectId === selectedProjectId);
-      const matchesAssignee = selectedAssignee === 'all' || issue.assignee?.name === selectedAssignee;
       const matchesSprint = selectedSprintId === 'all' || issue.sprintId === selectedSprintId;
 
-      return matchesSearch && matchesPriority && matchesProject && matchesAssignee && matchesSprint;
+      return matchesSearch && matchesPriority && matchesProject && matchesSprint;
     }).sort((a, b) => {
       if (sortBy === 'title') return a.title.localeCompare(b.title);
       if (sortBy === 'date') {
@@ -1092,7 +1104,7 @@ export function KanbanBoard() {
       if (weightA !== weightB) return weightB - weightA;
       return a.position - b.position;
     });
-  }, [issues, searchQuery, priorityFilter, selectedProjectId, selectedAssignee, selectedSprintId, sortBy]);
+  }, [issues, searchQuery, priorityFilter, selectedProjectId, selectedSprintId, sortBy]);
 
   const collisionDetectionStrategy: CollisionDetection = useCallback((args) => {
     const pointerCollisions = pointerWithin(args);
@@ -1228,75 +1240,77 @@ export function KanbanBoard() {
   return (
     <div className="h-full flex flex-col min-w-0 w-full bg-canvas select-none overflow-hidden animate-in fade-in duration-150">
       {/* Page Header */}
-      <div className="px-6 pt-4 pb-2.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-2xs">
-            <KanbanSquare className="w-5 h-5 stroke-[1.75]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-primary tracking-tight">Execution Board</h1>
-            <p className="text-xs text-secondary mt-0.5">
-              Drag and drop directives across sprint stages. Bounded mission execution canvas.
-            </p>
-          </div>
-        </div>
-
-        {/* Right side: View Switcher + New Directive button */}
-        <div className="flex items-center gap-3 self-stretch md:self-auto justify-between md:justify-end">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-muted">View:</span>
-            <div className="flex items-center bg-surface-hover/80 p-0.5 rounded-lg border border-border/80 text-xs shadow-2xs">
-              <button
-                onClick={() => setActiveView('board')}
-                className={cn(
-                  "px-2.5 py-1 rounded-md flex items-center gap-1.5 font-medium transition-all cursor-pointer",
-                  activeView === 'board'
-                    ? "bg-surface text-primary shadow-2xs font-semibold"
-                    : "text-secondary hover:text-primary"
-                )}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" /> Board
-              </button>
-              <button
-                onClick={() => setActiveView('list')}
-                className={cn(
-                  "px-2.5 py-1 rounded-md flex items-center gap-1.5 font-medium transition-all cursor-pointer",
-                  activeView === 'list'
-                    ? "bg-surface text-primary shadow-2xs font-semibold"
-                    : "text-secondary hover:text-primary"
-                )}
-              >
-                <List className="w-3.5 h-3.5" /> List
-              </button>
-              <button
-                onClick={() => setActiveView('calendar')}
-                className={cn(
-                  "px-2.5 py-1 rounded-md flex items-center gap-1.5 font-medium transition-all cursor-pointer",
-                  activeView === 'calendar'
-                    ? "bg-surface text-primary shadow-2xs font-semibold"
-                    : "text-secondary hover:text-primary"
-                )}
-              >
-                <Calendar className="w-3.5 h-3.5" /> Calendar
-              </button>
+      {!hideHeader && (
+        <div className="px-6 pt-4 pb-2.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shrink-0">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-accent-subtle border border-accent/20 text-accent-fg flex items-center justify-center shrink-0 shadow-2xs">
+              <KanbanSquare className="w-5 h-5 stroke-[1.75]" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-primary tracking-tight">Execution Board</h1>
+              <p className="text-xs text-secondary mt-0.5">
+                Drag and drop directives across sprint stages. Bounded mission execution canvas.
+              </p>
             </div>
           </div>
 
-          <button
-            onClick={() => handleCreateIssue("BACKLOG")}
-            className="bg-[#2563EB] hover:bg-blue-600 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 shadow-sm hover:shadow cursor-pointer"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            New Directive
-          </button>
+          {/* Right side: View Switcher + New Directive button */}
+          <div className="flex items-center gap-3 self-stretch md:self-auto justify-between md:justify-end">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-medium text-muted">View:</span>
+              <div className="flex items-center bg-surface-hover/80 p-0.5 rounded-lg border border-border/80 text-xs shadow-2xs">
+                <button
+                  onClick={() => setActiveView('board')}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md flex items-center gap-1.5 font-medium transition-all cursor-pointer",
+                    activeView === 'board'
+                      ? "bg-surface text-primary shadow-2xs font-semibold"
+                      : "text-secondary hover:text-primary"
+                  )}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" /> Board
+                </button>
+                <button
+                  onClick={() => setActiveView('list')}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md flex items-center gap-1.5 font-medium transition-all cursor-pointer",
+                    activeView === 'list'
+                      ? "bg-surface text-primary shadow-2xs font-semibold"
+                      : "text-secondary hover:text-primary"
+                  )}
+                >
+                  <List className="w-3.5 h-3.5" /> List
+                </button>
+                <button
+                  onClick={() => setActiveView('calendar')}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md flex items-center gap-1.5 font-medium transition-all cursor-pointer",
+                    activeView === 'calendar'
+                      ? "bg-surface text-primary shadow-2xs font-semibold"
+                      : "text-secondary hover:text-primary"
+                  )}
+                >
+                  <Calendar className="w-3.5 h-3.5" /> Calendar
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleCreateIssue("BACKLOG")}
+              className="bg-accent hover:opacity-90 text-on-accent px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 shadow-sm hover:shadow cursor-pointer"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              New Directive
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 3. Filter Bar */}
-      <div className="px-6 pb-3 pt-1 flex flex-wrap items-center justify-between gap-3 shrink-0">
+      <div className={cn("px-6 pb-3 flex flex-wrap items-center justify-between gap-3 shrink-0", hideHeader ? "pt-3" : "pt-1")}>
         <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
           {/* Search Input */}
-          <div className="relative min-w-[220px] max-w-sm flex-1">
+          <div className="relative min-w-[200px] max-w-sm flex-1">
             <Search className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -1317,35 +1331,23 @@ export function KanbanBoard() {
           </div>
 
           {/* All Projects Dropdown */}
-          <div className="relative">
-            <select
-              value={selectedProjectId}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
-            >
-              <option value="all">All Projects</option>
-              <option value="operations">⚡ General Operations</option>
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>📁 {p.name}</option>
-              ))}
-            </select>
-            <ChevronDown className="w-3 h-3 text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+          {!lockedProjectId && (
+            <div className="relative">
+              <select
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
+              >
+                <option value="all">All Projects</option>
+                <option value="operations">⚡ General Operations</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>📁 {p.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-3 h-3 text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          )}
 
-          {/* All Assignees Dropdown */}
-          <div className="relative">
-            <select
-              value={selectedAssignee}
-              onChange={(e) => setSelectedAssignee(e.target.value)}
-              className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
-            >
-              <option value="all">All Assignees</option>
-              {uniqueAssignees.map(a => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
-            <ChevronDown className="w-3 h-3 text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
 
           {/* All Priorities Dropdown */}
           <div className="relative">
@@ -1379,7 +1381,7 @@ export function KanbanBoard() {
           </div>
         </div>
 
-        {/* Right Group By & Sort Dropdowns */}
+        {/* Right Group By, Sort Dropdowns & View Switcher */}
         <div className="flex items-center gap-2">
           {/* Group By Status */}
           <div className="relative">
@@ -1408,6 +1410,58 @@ export function KanbanBoard() {
             </select>
             <ChevronDown className="w-3 h-3 text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
+
+          {/* Embedded View Switcher and Action Button when header is hidden */}
+          {hideHeader && (
+            <>
+              <div className="flex items-center bg-surface-hover/80 p-0.5 rounded-lg border border-border/80 text-xs shadow-2xs ml-1">
+                <button
+                  onClick={() => setActiveView('board')}
+                  className={cn(
+                    "px-2 py-1 rounded-md flex items-center gap-1 font-medium transition-all cursor-pointer",
+                    activeView === 'board'
+                      ? "bg-surface text-primary shadow-2xs font-semibold"
+                      : "text-secondary hover:text-primary"
+                  )}
+                  title="Board View"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setActiveView('list')}
+                  className={cn(
+                    "px-2 py-1 rounded-md flex items-center gap-1 font-medium transition-all cursor-pointer",
+                    activeView === 'list'
+                      ? "bg-surface text-primary shadow-2xs font-semibold"
+                      : "text-secondary hover:text-primary"
+                  )}
+                  title="List View"
+                >
+                  <List className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setActiveView('calendar')}
+                  className={cn(
+                    "px-2 py-1 rounded-md flex items-center gap-1 font-medium transition-all cursor-pointer",
+                    activeView === 'calendar'
+                      ? "bg-surface text-primary shadow-2xs font-semibold"
+                      : "text-secondary hover:text-primary"
+                  )}
+                  title="Calendar View"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <button
+                onClick={() => handleCreateIssue("BACKLOG")}
+                className="bg-accent hover:opacity-90 text-on-accent px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 shadow-sm hover:shadow cursor-pointer ml-1"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                New Directive
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1511,6 +1565,7 @@ export function KanbanBoard() {
         open={createModalOpen}
         initialStatus={createStatus}
         initialSprintId={selectedSprintId !== 'all' ? selectedSprintId : null}
+        defaultProjectId={selectedProjectId !== 'all' ? selectedProjectId : undefined}
         allIssues={issues}
         projects={projects}
         sprints={sprints}

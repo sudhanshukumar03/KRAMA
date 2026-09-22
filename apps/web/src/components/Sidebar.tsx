@@ -14,6 +14,7 @@ import { useTheme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { KramaLogo } from './ui/KramaLogo';
+import { NotificationCenter } from './NotificationCenter';
 
 interface NavItem {
   name: string;
@@ -218,6 +219,7 @@ export function Sidebar({
             <PanelLeftClose className="w-4 h-4" />
           </button>
         )}
+        <NotificationCenter />
         <div className="relative" ref={settingsRef}>
         <button
           onClick={() => setSettingsOpen((prev) => !prev)}

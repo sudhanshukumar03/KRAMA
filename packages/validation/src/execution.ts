@@ -23,9 +23,9 @@ export const UpdateProjectSchema = CreateProjectSchema.partial().extend({
 export const CreateTaskSchema = WorkspaceScoped.extend({
   title: z.string().min(1).max(255),
   description: z.string().optional(),
-  projectId: z.string().uuid().optional(),
-  sprintId: z.string().uuid().optional(),
-  assigneeId: z.string().uuid().optional(),
+  projectId: z.string().uuid().nullable().optional(),
+  sprintId: z.string().uuid().nullable().optional(),
+  assigneeId: z.string().uuid().nullable().optional(),
   status: z.enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'CANCELED']).default('TODO'),
   priority: z.enum(['NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
   blockedById: z.string().uuid().nullable().optional(),

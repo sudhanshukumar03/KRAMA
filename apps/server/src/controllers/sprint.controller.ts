@@ -96,6 +96,7 @@ export const updateSprint = async (req: Request, res: Response) => {
       where: { id },
       data: {
         ...updateData,
+        ...(metadata && { metadata }),
         ...(startDate && { startDate: new Date(startDate) }),
         ...(endDate && { endDate: new Date(endDate) }),
         version: { increment: 1 },

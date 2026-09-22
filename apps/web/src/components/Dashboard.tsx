@@ -112,7 +112,7 @@ export function Dashboard() {
               </h2>
               <button 
                 onClick={() => navigate('/app/planner')} 
-                className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                className="text-xs font-medium text-accent-fg hover:text-accent bg-accent-subtle hover:bg-accent/20 px-3 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <span>Open Planner</span>
                 <ArrowRight className="w-3 h-3" />
@@ -147,7 +147,7 @@ export function Dashboard() {
                     <span className="font-mono">{progressPercent}%</span>
                   </div>
                   <div className="h-2 bg-surface-hover rounded-full overflow-hidden border border-border/50">
-                    <div className="h-full bg-blue-600 transition-all duration-500 rounded-full" style={{ width: `${progressPercent}%` }} />
+                    <div className="h-full bg-accent transition-all duration-500 rounded-full" style={{ width: `${progressPercent}%` }} />
                   </div>
                 </div>
               </div>
@@ -171,7 +171,7 @@ export function Dashboard() {
                 </h2>
                 <button
                   onClick={() => navigate('/app/projects')}
-                  className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center gap-1 cursor-pointer transition-colors"
+                  className="text-xs font-medium text-accent-fg hover:text-accent flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <span>View all</span>
                   <ArrowRight className="w-3 h-3" />
@@ -186,7 +186,7 @@ export function Dashboard() {
                       onClick={() => navigate(`/app/projects/${p.id}`)}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-primary truncate max-w-[180px] group-hover:text-blue-600 transition-colors">
+                        <span className="text-xs font-medium text-primary truncate max-w-[180px] group-hover:text-accent transition-colors">
                           {p.name}
                         </span>
                         <span className="text-[9px] uppercase tracking-wider font-mono text-secondary px-1.5 py-0.5 bg-surface-hover rounded border border-border">
@@ -195,7 +195,7 @@ export function Dashboard() {
                       </div>
                       <div className="w-full">
                         <div className="h-1.5 bg-surface-hover rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-600 transition-all duration-500 rounded-full" style={{ width: `${p.progress || 0}%` }} />
+                          <div className="h-full bg-accent transition-all duration-500 rounded-full" style={{ width: `${p.progress || 0}%` }} />
                         </div>
                       </div>
                     </div>
@@ -208,7 +208,7 @@ export function Dashboard() {
                   <p className="text-xs text-secondary mt-0.5 mb-3">Create a project to organize your work.</p>
                   <button
                     onClick={() => navigate('/app/projects')}
-                    className="px-3.5 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-200/50 dark:border-blue-800/40 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-lg bg-accent-subtle hover:bg-accent/20 text-accent-fg border border-accent/20 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <span>+</span>
                     <span>New Project</span>
@@ -226,7 +226,7 @@ export function Dashboard() {
                 </h2>
                 <button
                   onClick={() => navigate('/app/habits')}
-                  className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center gap-1 cursor-pointer transition-colors"
+                  className="text-xs font-medium text-accent-fg hover:text-accent flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <span>View all</span>
                   <ArrowRight className="w-3 h-3" />
@@ -272,7 +272,7 @@ export function Dashboard() {
                   <p className="text-xs text-secondary mt-0.5 mb-3">Start building better habits.</p>
                   <button
                     onClick={() => navigate('/app/habits')}
-                    className="px-3.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/40 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-lg bg-success-bg hover:bg-success-bg/80 text-success-fg border border-success-border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <span>+</span>
                     <span>Add Habit</span>
@@ -291,7 +291,7 @@ export function Dashboard() {
               </h2>
               <button
                 onClick={() => navigate('/app/board')}
-                className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center gap-1 cursor-pointer transition-colors"
+                className="text-xs font-medium text-accent-fg hover:text-accent flex items-center gap-1 cursor-pointer transition-colors"
               >
                 <span>View all</span>
                 <ArrowRight className="w-3 h-3" />
@@ -325,10 +325,10 @@ export function Dashboard() {
             </h2>
             <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
               {[
-                { id: 'note', icon: FileText, label: 'Note', bg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400', border: 'hover:border-blue-400/40' },
-                { id: 'task', icon: CheckSquare, label: 'Task', bg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400', border: 'hover:border-blue-400/40' },
-                { id: 'idea', icon: Lightbulb, label: 'Idea', bg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400', border: 'hover:border-amber-400/40' },
-                { id: 'link', icon: Link2, label: 'Link', bg: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400', border: 'hover:border-indigo-400/40' }
+                { id: 'note', icon: FileText, label: 'Note', bg: 'bg-accent-subtle text-accent-fg', border: 'hover:border-accent/40' },
+                { id: 'task', icon: CheckSquare, label: 'Task', bg: 'bg-cat-tasks-bg text-cat-tasks', border: 'hover:border-cat-tasks/40' },
+                { id: 'idea', icon: Lightbulb, label: 'Idea', bg: 'bg-warning-bg text-warning-fg', border: 'hover:border-warning-border' },
+                { id: 'link', icon: Link2, label: 'Link', bg: 'bg-cat-timeblocks-bg text-cat-timeblocks', border: 'hover:border-cat-timeblocks/40' }
               ].map(item => (
                 <button
                   key={item.id}
@@ -365,7 +365,7 @@ export function Dashboard() {
                 <p className="text-xs text-secondary mt-0.5 mb-4 text-center">Enjoy a clear day or capture new tasks.</p>
                 <button
                   onClick={() => handleQuickCapture('task')}
-                  className="w-full sm:w-auto px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs shadow-xs transition-colors cursor-pointer"
+                  className="w-full sm:w-auto px-6 py-2 rounded-xl bg-accent hover:bg-accent-hover text-on-accent font-medium text-xs shadow-xs transition-colors cursor-pointer"
                 >
                   Create Task
                 </button>
@@ -378,7 +378,7 @@ export function Dashboard() {
                     className={`p-2.5 border rounded-xl flex items-start gap-2.5 transition-colors ${
                       task.status === 'DONE' 
                         ? 'bg-surface-hover/50 border-transparent' 
-                        : 'bg-surface border-border hover:border-blue-400/30'
+                        : 'bg-surface border-border hover:border-accent/30'
                     }`}
                   >
                     <button 
@@ -386,8 +386,8 @@ export function Dashboard() {
                       disabled={toggleTaskMutation.isPending}
                       className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
                         task.status === 'DONE' 
-                          ? 'bg-blue-600 border-blue-600 text-white' 
-                          : 'border-secondary/60 hover:border-blue-600'
+                          ? 'bg-accent border-accent text-on-accent' 
+                          : 'border-secondary/60 hover:border-accent'
                       }`}
                     >
                       {task.status === 'DONE' && <CheckSquare className="w-3 h-3" />}

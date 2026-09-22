@@ -21,7 +21,6 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 
-import { prisma } from './prisma';
 import { socketService } from './services/socket.service';
 import { redisService } from './services/redis.service';
 import { ensureLocalUser } from './utils/bootstrap';
@@ -82,7 +81,7 @@ app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
 
 // Health Check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
@@ -111,12 +110,12 @@ app.use('/api/v1/spaces', spaceRoutes);
 app.use('/api/v1', documentRoutes);
 app.use('/api/v1/upload', uploadRoutes);
 
-app.use('/api/v1', (req, res) => {
+app.use('/api/v1', (_req, res) => {
   res.status(404).json({ message: 'Not found' });
 });
 
 // Global Error Handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('[Global Error Handler]:', err);
   const status = err.status || err.statusCode || 500;
   res.status(status).json({

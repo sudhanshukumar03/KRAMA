@@ -24,21 +24,23 @@ import {
   Layers,
   Edit3,
   CalendarCheck,
-  XCircle
+  XCircle,
+  FileText
 } from "lucide-react";
 import { api } from "../../api/client";
 import { cn } from "../../lib/utils";
 import { toast } from "sonner";
 import type { TimeBlockType } from "../../types/planner";
+import { DailyLogSection } from "./DailyLogSection";
 
 const TYPE_CONFIG: Record<TimeBlockType, { label: string; icon: React.ReactNode; color: string; border: string; bg: string }> = {
-  MEETING: { label: 'Meeting', icon: <Briefcase className="w-3.5 h-3.5" />, color: 'text-purple-600 dark:text-purple-400', border: 'border-l-purple-500', bg: 'bg-purple-500/10' },
-  WORK: { label: 'Work', icon: <Grid className="w-3.5 h-3.5" />, color: 'text-blue-600 dark:text-blue-400', border: 'border-l-blue-500', bg: 'bg-blue-500/10' },
-  PERSONAL: { label: 'Personal', icon: <User className="w-3.5 h-3.5" />, color: 'text-amber-600 dark:text-amber-400', border: 'border-l-amber-500', bg: 'bg-amber-500/10' },
-  STUDY: { label: 'Study', icon: <GraduationCap className="w-3.5 h-3.5" />, color: 'text-emerald-600 dark:text-emerald-400', border: 'border-l-emerald-500', bg: 'bg-emerald-500/10' },
-  HEALTH: { label: 'Health', icon: <HeartPulse className="w-3.5 h-3.5" />, color: 'text-rose-600 dark:text-rose-400', border: 'border-l-rose-500', bg: 'bg-rose-500/10' },
-  ADMIN: { label: 'Admin', icon: <Shield className="w-3.5 h-3.5" />, color: 'text-gray-600 dark:text-gray-400', border: 'border-l-gray-500', bg: 'bg-gray-500/10' },
-  OTHER: { label: 'Other', icon: <Clock className="w-3.5 h-3.5" />, color: 'text-slate-600 dark:text-slate-400', border: 'border-l-slate-500', bg: 'bg-slate-500/10' },
+  MEETING: { label: 'Meeting', icon: <Briefcase className="w-3.5 h-3.5" />, color: 'text-cat-timeblocks', border: 'border-l-cat-timeblocks', bg: 'bg-cat-timeblocks-bg' },
+  WORK: { label: 'Work', icon: <Grid className="w-3.5 h-3.5" />, color: 'text-cat-tasks', border: 'border-l-cat-tasks', bg: 'bg-cat-tasks-bg' },
+  PERSONAL: { label: 'Personal', icon: <User className="w-3.5 h-3.5" />, color: 'text-cat-projects', border: 'border-l-cat-projects', bg: 'bg-cat-projects-bg' },
+  STUDY: { label: 'Study', icon: <GraduationCap className="w-3.5 h-3.5" />, color: 'text-success-fg', border: 'border-l-success-fg', bg: 'bg-success-bg' },
+  HEALTH: { label: 'Health', icon: <HeartPulse className="w-3.5 h-3.5" />, color: 'text-danger-fg', border: 'border-l-danger-fg', bg: 'bg-danger-bg' },
+  ADMIN: { label: 'Admin', icon: <Shield className="w-3.5 h-3.5" />, color: 'text-secondary', border: 'border-l-border-strong', bg: 'bg-surface-2' },
+  OTHER: { label: 'Other', icon: <Clock className="w-3.5 h-3.5" />, color: 'text-muted', border: 'border-l-border-default', bg: 'bg-surface-2' },
 };
 
 interface Props {
@@ -70,7 +72,7 @@ export function TodayView({
 }: Props) {
   const queryClient = useQueryClient();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [activeTaskTab, setActiveTaskTab] = useState<'today' | 'backlog'>('today');
+  const [activeTaskTab, setActiveTaskTab] = useState<'today' | 'backlog' | 'log'>('today');
   const [backlogSearch, setBacklogSearch] = useState('');
   const [inlineTaskTitle, setInlineTaskTitle] = useState('');
 
@@ -425,7 +427,7 @@ export function TodayView({
                 {format(day, 'EEEE, MMMM d, yyyy')}
               </h2>
               {isViewingToday && (
-                <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-bold font-mono uppercase tracking-wider border border-blue-500/20">
+                <span className="px-2 py-0.5 rounded-full bg-accent-subtle text-accent-fg text-[10px] font-bold font-mono uppercase tracking-wider border border-accent/20">
                   Today
                 </span>
               )}
@@ -477,23 +479,23 @@ export function TodayView({
 
       {/* OVERDUE / CARRIED-OVER TASKS ALERT (if any) */}
       {carriedOverTasks.length > 0 && (
-        <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-3.5 md:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+        <div className="bg-warning-bg border border-warning-border rounded-2xl p-3.5 md:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-warning-subtle text-warning-fg flex items-center justify-center shrink-0">
               <AlertTriangle className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+              <span className="text-xs font-bold text-warning-fg">
                 {carriedOverTasks.length} overdue task{carriedOverTasks.length > 1 ? 's' : ''} carried over from previous days
               </span>
-              <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
+              <p className="text-[11px] text-secondary mt-0.5">
                 Keep your plan current by rescheduling incomplete tasks into today's agenda.
               </p>
             </div>
           </div>
           <button
             onClick={handleRescheduleAllOverdue}
-            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold transition-colors shrink-0 shadow-2xs cursor-pointer"
+            className="px-3 py-1.5 bg-warning-fg hover:opacity-90 text-surface rounded-xl text-xs font-semibold transition-colors shrink-0 shadow-2xs cursor-pointer"
           >
             Reschedule All to Today
           </button>
@@ -621,8 +623,8 @@ export function TodayView({
                             </span>
 
                             {isCurrent && (
-                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold uppercase tracking-wider border border-emerald-500/20">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success-bg text-success-fg text-[9px] font-bold uppercase tracking-wider border border-success-border">
+                                <span className="w-1.5 h-1.5 rounded-full bg-success-fg animate-ping" />
                                 Active Now • {minutesRemaining}m remaining
                               </span>
                             )}
@@ -775,13 +777,27 @@ export function TodayView({
                   )}
                 >
                   <Layers className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>Workspace Backlog</span>
+                  <span>Backlog</span>
                   <span className={cn(
                     "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
                     activeTaskTab === 'backlog' ? "bg-indigo-500/10 text-indigo-500 font-bold" : "bg-surface text-muted"
                   )}>
                     {backlogTasks.length}
                   </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTaskTab('log')}
+                  className={cn(
+                    "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
+                    activeTaskTab === 'log'
+                      ? "bg-surface text-primary shadow-xs border border-border/80"
+                      : "text-secondary hover:text-primary"
+                  )}
+                >
+                  <FileText className="w-3.5 h-3.5 text-cat-routines" />
+                  <span>Daily Log</span>
                 </button>
               </div>
             </div>
@@ -877,7 +893,7 @@ export function TodayView({
                                 {task.priority && task.priority !== 'MEDIUM' && (
                                   <span className={cn(
                                     "text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded",
-                                    task.priority === 'URGENT' ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                                    task.priority === 'URGENT' ? "bg-danger-bg text-danger-fg" : "bg-warning-bg text-warning-fg"
                                   )}>
                                     {task.priority}
                                   </span>
@@ -980,7 +996,7 @@ export function TodayView({
                             {task.priority && task.priority !== 'MEDIUM' && (
                               <span className={cn(
                                 "text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded",
-                                task.priority === 'URGENT' ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                                task.priority === 'URGENT' ? "bg-danger-bg text-danger-fg" : "bg-warning-bg text-warning-fg"
                               )}>
                                 {task.priority}
                               </span>
@@ -1016,6 +1032,11 @@ export function TodayView({
                   </div>
                 )}
               </div>
+            )}
+
+            {/* TAB 3: DAILY LOG & DEBRIEF */}
+            {activeTaskTab === 'log' && (
+              <DailyLogSection day={day} />
             )}
 
           </div>

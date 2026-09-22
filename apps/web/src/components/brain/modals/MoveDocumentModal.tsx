@@ -60,7 +60,7 @@ export function MoveDocumentModal({
       <div className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans">
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
           <div className="flex items-center gap-2">
-            <FolderInput className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <FolderInput className="w-4 h-4 text-accent-fg" />
             <span className="font-bold text-primary text-body">Move Document</span>
           </div>
           <button onClick={onClose} className="p-1 text-muted hover:text-primary">
@@ -78,7 +78,7 @@ export function MoveDocumentModal({
             <select
               value={targetParentId}
               onChange={(e) => setTargetParentId(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-blue-500 font-mono text-caption"
+              className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent font-mono text-caption"
             >
               <option value="ROOT">📁 Root (Top-Level Document)</option>
               {candidateParents.map(p => {

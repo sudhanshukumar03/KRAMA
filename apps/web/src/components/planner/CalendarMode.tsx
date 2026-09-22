@@ -202,8 +202,8 @@ export function CalendarMode({
                       className={cn(
                         "text-[9px] font-bold px-1.5 py-0.5 rounded leading-tight truncate border",
                         h.isPublicHoliday 
-                          ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20" 
-                          : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          ? "bg-danger-bg text-danger-fg border-danger-border" 
+                          : "bg-success-bg text-success-fg border-success-border"
                       )}
                       title={h.name}
                     >
@@ -357,7 +357,7 @@ export function CalendarMode({
                     key={h.id || h.name} 
                     className="flex gap-2.5 items-center p-2 rounded-xl border border-border bg-surface-hover/30"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex flex-col items-center justify-center shrink-0 text-rose-600 dark:text-rose-400">
+                    <div className="w-8 h-8 rounded-lg bg-danger-bg border border-danger-border flex flex-col items-center justify-center shrink-0 text-danger-fg">
                       <span className="text-[8px] font-bold uppercase leading-none">{format(hDate, "MMM")}</span>
                       <span className="text-xs font-bold leading-none mt-0.5">{format(hDate, "d")}</span>
                     </div>

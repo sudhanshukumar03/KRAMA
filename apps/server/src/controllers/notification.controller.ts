@@ -51,3 +51,31 @@ export const markAsRead = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+export const markAllAsRead = async (req: Request, res: Response) => {
+  try {
+    const workspaceId = req.headers['x-workspace-id'] as string | undefined;
+    if (!workspaceId) {
+      return res.status(400).json({ message: 'Workspace ID is required' });
+    }
+    const userId = (req as any).user?.id as string;
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    await prisma.notification.updateMany({
+      where: {
+        workspaceId,
+        userId,
+        read: false,
+      },
+      data: { read: true },
+    });
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Error marking all notifications as read:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+

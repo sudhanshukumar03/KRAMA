@@ -107,7 +107,7 @@ export function CreateDocumentModal({
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-accent-subtle border border-accent/20 text-accent-fg flex items-center justify-center shrink-0">
               <BookOpen className="w-4 h-4 stroke-[1.75]" />
             </div>
             <div>
@@ -134,7 +134,7 @@ export function CreateDocumentModal({
         <form onSubmit={handleCreate} className="p-5 space-y-4">
           <div>
             <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
-              Document Name <span className="text-blue-600 dark:text-blue-400">*</span>
+              Document Name <span className="text-accent-fg">*</span>
             </label>
             <input
               ref={inputRef}
@@ -142,7 +142,7 @@ export function CreateDocumentModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. System Architecture Spec, API Contract..."
-              className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-sans text-body transition-all"
+              className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 font-sans text-body transition-all"
               autoFocus
             />
           </div>
@@ -159,7 +159,7 @@ export function CreateDocumentModal({
                 className={cn(
                   "py-1.5 px-2 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer text-center border truncate",
                   selectedTemplateId === 'blank'
-                    ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                    ? "bg-accent text-on-accent border-accent shadow-xs"
                     : "bg-surface hover:bg-surface-hover text-secondary border-border"
                 )}
                 title="Blank document without starter sections"
@@ -180,7 +180,7 @@ export function CreateDocumentModal({
                   className={cn(
                     "py-1.5 px-2 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer text-center border truncate",
                     selectedTemplateId === tmpl.id
-                      ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                      ? "bg-accent text-on-accent border-accent shadow-xs"
                       : "bg-surface hover:bg-surface-hover text-secondary border-border"
                   )}
                   title={tmpl.description}
@@ -212,7 +212,7 @@ export function CreateDocumentModal({
                   className={cn(
                     "py-1.5 px-2 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer text-center border",
                     documentType === t.id
-                      ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                      ? "bg-accent text-on-accent border-accent shadow-xs"
                       : "bg-surface hover:bg-surface-hover text-secondary border-border"
                   )}
                 >
@@ -231,7 +231,7 @@ export function CreateDocumentModal({
               <select
                 value={selectedProjectId}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
-                className="w-full p-2 rounded-xl border border-border bg-surface text-primary outline-none focus:border-blue-500 font-sans text-caption"
+                className="w-full p-2 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent font-sans text-caption"
               >
                 <option value="">No Project</option>
                 {projects.map((p) => (
@@ -260,8 +260,8 @@ export function CreateDocumentModal({
                 className={cn(
                   "px-4 py-2 rounded-xl text-caption font-bold flex items-center gap-1.5 transition-all shadow-xs",
                   title.trim() && !isSubmitting
-                    ? "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
-                    : "bg-blue-600/40 text-white/60 cursor-not-allowed"
+                    ? "bg-accent hover:opacity-90 text-on-accent cursor-pointer"
+                    : "bg-accent/40 text-on-accent/60 cursor-not-allowed"
                 )}
               >
                 <Plus className="w-3.5 h-3.5 stroke-[2]" />

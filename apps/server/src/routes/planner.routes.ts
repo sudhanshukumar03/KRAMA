@@ -22,11 +22,6 @@ function startOfDay(date: Date) {
   return result;
 }
 
-function endOfDay(date: Date) {
-  const result = new Date(date);
-  result.setHours(23, 59, 59, 999);
-  return result;
-}
 
 function createDateTime(date: Date, time: string) {
   const parts = time.split(':').map(Number);

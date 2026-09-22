@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { History, X } from 'lucide-react';
 import { api } from '../../../api/client';
+import type { DocumentVersion } from '../../../types/schema';
 import { BaseButton } from '../../ui/BaseButton';
 import { toast } from 'sonner';
 
@@ -9,7 +10,7 @@ export interface VersionHistoryModalProps {
   documentId: string;
   isOpen: boolean;
   onClose: () => void;
-  onRestoreSuccess: (restoredContentJson?: any) => void;
+  onRestoreSuccess: (restoredContentJson?: Record<string, unknown> | null) => void;
 }
 
 export function VersionHistoryModal({
@@ -60,7 +61,7 @@ export function VersionHistoryModal({
       <div className="bg-surface border border-border w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans">
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
           <div className="flex items-center gap-2">
-            <History className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <History className="w-5 h-5 text-accent-fg" />
             <span className="font-bold text-primary text-body">Version Snapshots</span>
           </div>
           <div className="flex items-center gap-2">
@@ -81,10 +82,10 @@ export function VersionHistoryModal({
             </div>
           )}
 
-          {versions.map((v: any) => (
+          {versions.map((v: DocumentVersion) => (
             <div
               key={v.id}
-              className="p-3 rounded-xl border border-border/70 hover:border-blue-500/30 bg-surface-hover/50 flex items-center justify-between gap-3 transition-colors"
+              className="p-3 rounded-xl border border-border/70 hover:border-accent/30 bg-surface-hover/50 flex items-center justify-between gap-3 transition-colors"
             >
               <div>
                 <span className="font-bold font-mono text-primary text-caption block">
@@ -97,7 +98,7 @@ export function VersionHistoryModal({
               <BaseButton
                 disabled={restoringId === v.id}
                 onClick={() => handleRestore(v.id)}
-                className="text-caption py-1 px-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+                className="text-caption py-1 px-2.5 bg-accent-subtle hover:bg-accent/20 text-accent-fg border border-accent/20"
               >
                 {restoringId === v.id ? 'Restoring...' : 'Restore'}
               </BaseButton>

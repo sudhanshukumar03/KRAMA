@@ -17,6 +17,7 @@ import { PlannerPage } from './planner/PlannerPage';
 import { HabitTracker } from './HabitTracker';
 
 import { AIAssistant } from './AIAssistant';
+import { NotificationCenter } from './NotificationCenter';
 import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun, PanelLeftOpen } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 
@@ -187,8 +188,11 @@ export function AppShell() {
             {location.pathname.replace('/app', '').replace('/', '') || 'Dashboard'}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-badge font-mono text-muted">
-          <span>Toggle:</span> <kbd className="bg-surface px-1 py-0.5 rounded border border-border text-[10px]">Ctrl+\</kbd>
+        <div className="flex items-center gap-3">
+          <NotificationCenter />
+          <div className="flex items-center gap-2 text-badge font-mono text-muted">
+            <span>Toggle:</span> <kbd className="bg-surface px-1 py-0.5 rounded border border-border text-[10px]">Ctrl+\</kbd>
+          </div>
         </div>
       </div>
     )}
@@ -200,7 +204,7 @@ export function AppShell() {
  className="absolute top-20 right-4 z-50 px-3 py-1.5 rounded-full bg-surface/90 backdrop-blur-md border border-border text-caption font-mono text-secondary hover:text-primary hover:border-primary transition-all shadow-lg flex items-center gap-2 group cursor-pointer animate-in fade-in zoom-in-95 duration-200"
  title="Exit Focus Mode (Press ESC)"
  >
- <span className="w-2 h-2 rounded-full bg-[#2563EB] animate-pulse" />
+ <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
  <span>Focus Mode Active</span>
  <kbd className="bg-surface-hover px-1.5 py-0.5 rounded border border-border text-[9px] group-hover:text-primary">ESC</kbd>
  </button>
@@ -208,14 +212,14 @@ export function AppShell() {
 
  {/* Offline Mode Warning Banner */}
  {isOffline && (
- <div className="w-full bg-[#FEF2F2] border-b border-[#FECACA] px-4 py-2 flex items-center justify-between text-caption text-[#991B1B] z-50 shrink-0 animate-in fade-in slide-in-from-top duration-200">
+ <div className="w-full bg-danger-bg border-b border-danger-border px-4 py-2 flex items-center justify-between text-caption text-danger-fg z-50 shrink-0 animate-in fade-in slide-in-from-top duration-200">
  <div className="flex items-center gap-2 font-medium">
- <WifiOff className="w-4 h-4 text-[#DC2626] animate-pulse shrink-0" />
+ <WifiOff className="w-4 h-4 text-danger-fg animate-pulse shrink-0" />
  <span>API Unreachable — Offline Mode. Changes may not be saved to server. Reconnecting...</span>
  </div>
  <button
  onClick={() => window.location.reload()}
- className="px-2.5 py-1 bg-surface hover:bg-[#FEE2E2] text-[#DC2626] rounded border border-[#FECACA] font-medium transition-colors shrink-0"
+ className="px-2.5 py-1 bg-surface hover:bg-danger-bg text-danger-fg rounded border border-danger-border font-medium transition-colors shrink-0"
  >
  Retry Now
  </button>
@@ -235,6 +239,7 @@ export function AppShell() {
  <span className="font-mono font-bold text-body text-primary tracking-tight">KRAMA OS</span>
  </div>
  <div className="flex items-center gap-2">
+ <NotificationCenter />
  <button
  onClick={toggleTheme}
  className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover transition-colors border border-border"
@@ -242,8 +247,8 @@ export function AppShell() {
  >
  {resolvedTheme === 'dark' ? <Sun className="w-4 h-4 text-warning" /> : <Moon className="w-4 h-4 text-secondary" />}
  </button>
- <div className="text-[10px] font-mono text-[#0D9488] bg-[#F0FDF4] px-2 py-0.5 rounded border border-[#BBF7D0] flex items-center gap-1">
- <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" /> Online
+ <div className="text-[10px] font-mono text-success-fg bg-success-bg px-2 py-0.5 rounded border border-success-border flex items-center gap-1">
+ <span className="w-1.5 h-1.5 rounded-full bg-success-fg" /> Online
  </div>
  </div>
  </div>
@@ -278,7 +283,7 @@ export function AppShell() {
  {/* NEW: Visual Two-Key Chord HUD Indicator */}
  {activePrefix && (
  <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-primary text-white px-4 py-3 rounded-xl shadow-2xl border border-white/10 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-150 font-mono text-caption whitespace-nowrap">
- <div className="w-6 h-6 rounded-lg bg-[#2563EB] text-white flex items-center justify-center font-bold shadow-sm">
+ <div className="w-6 h-6 rounded-lg bg-accent text-on-accent flex items-center justify-center font-bold shadow-sm">
  <Terminal className="w-3.5 h-3.5" />
  </div>
  <div className="flex items-center gap-2">
@@ -307,7 +312,7 @@ export function AppShell() {
  >
  <div className="flex items-center justify-between border-b border-border pb-3">
  <div className="flex items-center gap-2">
- <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center font-mono font-bold text-body">?</div>
+ <div className="w-8 h-8 rounded-lg bg-accent-subtle text-accent-fg flex items-center justify-center font-mono font-bold text-body">?</div>
  <div>
  <h3 className="text-card text-primary mb-2 ">Keyboard Shortcuts</h3>
  <p className="text-caption text-secondary">Two-key chord navigation & commands</p>

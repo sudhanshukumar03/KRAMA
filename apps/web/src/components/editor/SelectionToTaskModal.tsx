@@ -81,7 +81,7 @@ export function SelectionToTaskModal({
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-success-bg border border-success-border text-success-fg flex items-center justify-center shrink-0">
               <CheckSquare className="w-4 h-4 stroke-[1.75]" />
             </div>
             <div>

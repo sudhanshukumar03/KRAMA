@@ -63,7 +63,7 @@ export function DocumentOutlinePanel({ editor, isOpen, onClose }: DocumentOutlin
     >
       <div className="flex items-center justify-between pb-3 border-b border-border/80 text-secondary">
         <div className="flex items-center gap-2 text-caption font-mono font-bold uppercase tracking-wider text-primary">
-          <ListTree className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+          <ListTree className="w-3.5 h-3.5 text-accent-fg" />
           <span>Table of Contents</span>
         </div>
         <button
@@ -93,7 +93,7 @@ export function DocumentOutlinePanel({ editor, isOpen, onClose }: DocumentOutlin
                 h.level === 3 && "pl-8 text-muted hover:text-primary hover:bg-surface-hover text-[11px]"
               )}
             >
-              <span className="group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+              <span className="group-hover:text-accent transition-colors">
                 {h.text}
               </span>
             </button>

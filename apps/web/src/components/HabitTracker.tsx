@@ -56,8 +56,8 @@ function RadialProgress({ pct = 0, size = 76, strokeWidth = 6 }: { pct: number; 
 
 function PlantIllustration() {
   return (
-    <div className="w-20 h-20 rounded-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/80 flex items-center justify-center mb-4 shadow-2xs">
-      <svg width="44" height="44" viewBox="0 0 64 64" fill="none" className="text-zinc-800 dark:text-zinc-100" xmlns="http://www.w3.org/2000/svg">
+    <div className="w-20 h-20 rounded-full bg-surface-hover border border-border flex items-center justify-center mb-4 shadow-2xs">
+      <svg width="44" height="44" viewBox="0 0 64 64" fill="none" className="text-primary" xmlns="http://www.w3.org/2000/svg">
         {/* Pot */}
         <path d="M22 40H42L39.5 54H24.5L22 40Z" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
         <line x1="20" y1="40" x2="44" y2="40" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
@@ -226,9 +226,9 @@ function HabitCardMenu({
                 setOpen(false);
                 onDelete();
               }}
-              className="w-full px-3 py-2 text-left text-red-600 dark:text-red-400 hover:bg-red-500/10 flex items-center gap-2.5 transition-colors cursor-pointer"
+              className="w-full px-3 py-2 text-left text-danger-fg hover:bg-danger-bg flex items-center gap-2.5 transition-colors cursor-pointer"
             >
-              <Trash2 className="w-3.5 h-3.5 text-red-500" />
+              <Trash2 className="w-3.5 h-3.5 text-danger-fg" />
               <span>Delete Habit</span>
             </button>
           </div>
@@ -1016,7 +1016,7 @@ export function HabitTracker() {
         {/* Top Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0 shadow-2xs">
+            <div className="w-10 h-10 rounded-xl bg-accent-subtle border border-accent/20 text-accent-fg flex items-center justify-center shrink-0 shadow-2xs">
               <TrendingUp className="w-5 h-5 stroke-[2]" />
             </div>
             <div>
@@ -1032,7 +1032,7 @@ export function HabitTracker() {
               <button
                 type="button"
                 onClick={() => handleOpenCreateWithTime(activeTimeOfDay || "morning")}
-                className="px-4 py-2 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-medium flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-accent hover:bg-accent-hover text-on-accent text-xs font-medium flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
               >
                 <Plus className="w-4 h-4 stroke-[2]" />
                 <span>Create Habit</span>
@@ -1049,7 +1049,7 @@ export function HabitTracker() {
             className={cn(
               "px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer shadow-2xs flex items-center gap-1.5",
               activeTimeOfDay === null
-                ? "bg-[#18181B] text-white dark:bg-white dark:text-zinc-900 font-semibold shadow-xs"
+                ? "bg-primary text-text-inverse font-semibold shadow-xs"
                 : "bg-surface text-secondary border border-border hover:border-primary hover:text-primary"
             )}
           >
@@ -1067,7 +1067,7 @@ export function HabitTracker() {
                 className={cn(
                   "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-2xs flex items-center gap-1.5",
                   isSelected
-                    ? "bg-[#18181B] text-white border-[#18181B] dark:bg-white dark:text-zinc-900 dark:border-white font-semibold shadow-xs"
+                    ? "bg-primary text-text-inverse border-primary font-semibold shadow-xs"
                     : "bg-surface text-secondary border-border hover:border-primary hover:text-primary"
                 )}
               >
@@ -1076,7 +1076,7 @@ export function HabitTracker() {
                 <span className={cn(
                   "text-[10px] font-mono px-1.5 py-0.2 rounded-full",
                   isSelected
-                    ? "bg-white/20 text-white dark:bg-zinc-800 dark:text-zinc-100"
+                    ? "bg-surface/30 text-text-inverse"
                     : "bg-surface-hover text-muted"
                 )}>
                   {tf.count}
@@ -1172,8 +1172,8 @@ export function HabitTracker() {
                               <Pin className="w-3.5 h-3.5 fill-current" />
                             </span>
                           )}
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400 font-mono text-badge font-bold tracking-tight">
-                            <Flame className="w-3.5 h-3.5 text-orange-500 stroke-[2]" />{" "}
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-warning-bg border border-warning-border text-warning-fg font-mono text-badge font-bold tracking-tight">
+                            <Flame className="w-3.5 h-3.5 text-warning-fg stroke-[2]" />{" "}
                             {habit.streak}d
                           </span>
                           <HabitCardMenu
@@ -1234,8 +1234,8 @@ export function HabitTracker() {
         {/* Rail Header */}
         <div className="flex items-center justify-between pb-1">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-orange-500" />
-            <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider font-mono">
+            <Calendar className="w-4 h-4 text-warning-fg" />
+            <span className="text-xs font-bold text-warning-fg uppercase tracking-wider font-mono">
               TODAY'S TRACKER
             </span>
           </div>

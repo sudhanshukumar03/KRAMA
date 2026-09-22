@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Search, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
@@ -44,6 +44,14 @@ export function KnowledgeGraphCanvas({
   const isSimulatingRef = useRef(false);
   const animIdRef = useRef<number | null>(null);
   const nodesRef = useRef<any[]>([]);
+  const tickRef = useRef<() => void>(() => {});
+
+  const wakeSimulation = useCallback(() => {
+    if (!isSimulatingRef.current) {
+      isSimulatingRef.current = true;
+      animIdRef.current = requestAnimationFrame(() => tickRef.current());
+    }
+  }, []);
 
   // Initialize node layout
   useEffect(() => {
@@ -62,7 +70,7 @@ export function KnowledgeGraphCanvas({
       };
     });
     wakeSimulation();
-  }, [graphData]);
+  }, [graphData, wakeSimulation]);
 
   const tick = () => {
     const canvas = canvasRef.current;
@@ -218,19 +226,13 @@ export function KnowledgeGraphCanvas({
 
     // Alpha decay: continue loop only while energy exists or while dragging
     if (totalKineticEnergy > 0.05 || isDraggingRef.current) {
-      animIdRef.current = requestAnimationFrame(tick);
+      animIdRef.current = requestAnimationFrame(() => tickRef.current());
     } else {
       isSimulatingRef.current = false;
       animIdRef.current = null;
     }
   };
-
-  const wakeSimulation = () => {
-    if (!isSimulatingRef.current) {
-      isSimulatingRef.current = true;
-      animIdRef.current = requestAnimationFrame(tick);
-    }
-  };
+  tickRef.current = tick;
 
   // Start simulation loop on graph data
   useEffect(() => {
@@ -242,7 +244,7 @@ export function KnowledgeGraphCanvas({
       }
       isSimulatingRef.current = false;
     };
-  }, [graphData]);
+  }, [graphData, wakeSimulation]);
 
   // Handle Resize
   useEffect(() => {
@@ -257,7 +259,7 @@ export function KnowledgeGraphCanvas({
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [wakeSimulation]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     isDraggingRef.current = true;

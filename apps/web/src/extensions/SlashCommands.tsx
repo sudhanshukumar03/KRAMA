@@ -11,10 +11,10 @@ import {
 } from 'lucide-react';
 import { SlashCommandMenu, type SlashCommandMenuRef, type SlashCommandItem } from '../components/editor/SlashCommandMenu';
 
-export const SlashCommandsPluginKey = new PluginKey('slashCommands');
+const SlashCommandsPluginKey = new PluginKey('slashCommands');
 export type { SlashCommandItem };
 
-export const SLASH_COMMANDS: SlashCommandItem[] = [
+const SLASH_COMMANDS: SlashCommandItem[] = [
   {
     id: 'h1',
     title: 'Heading 1',

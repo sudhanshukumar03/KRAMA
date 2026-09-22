@@ -15,8 +15,8 @@ export function LandingPage() {
  <KramaLogo size="md" withText textClassName="font-bold tracking-tight text-primary text-body leading-none" />
  
  <div className="flex items-center gap-4">
- <span className="hidden sm:flex items-center gap-1.5 text-badge text-goals bg-[#0D9488]/10 px-2.5 py-1 rounded-md border border-[#0D9488]/20">
- <span className="w-1.5 h-1.5 rounded-full bg-goals animate-pulse" /> Local Workspace Synced
+ <span className="hidden sm:flex items-center gap-1.5 text-badge text-success-fg bg-success-bg px-2.5 py-1 rounded-md border border-success-border">
+ <span className="w-1.5 h-1.5 rounded-full bg-success-fg animate-pulse" /> Local Workspace Synced
  </span>
  <BaseButton onClick={() => navigate('/app')} size="md" className="shadow-2xs group">
  Open App <ArrowRight className="w-4 h-4 ml-1.5 group-hover:translate-x-0.5 transition-transform duration-150" />
@@ -33,7 +33,7 @@ export function LandingPage() {
  {/* Left Column: Bold Headline, Muted Subhead, Single Primary CTA */}
  <div className="lg:col-span-6 text-left space-y-6">
  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface border border-border text-caption text-secondary shadow-2xs">
- <Sparkles className="w-3.5 h-3.5 text-brain" />
+ <Sparkles className="w-3.5 h-3.5 text-cat-routines" />
  <span>Unified Engineering Workspace & Knowledge Tree</span>
  </div>
 
@@ -61,14 +61,14 @@ export function LandingPage() {
  <span className="w-2.5 h-2.5 rounded-full bg-primary" />
  krama-os://workspace/active
  </span>
- <span className="text-badge text-accent bg-accent-tint px-2 py-0.5 rounded border border-accent/20">Live Sync</span>
+ <span className="text-badge text-accent bg-accent-subtle px-2 py-0.5 rounded border border-accent/20">Live Sync</span>
  </div>
 
  {/* Card 1: Brain Page Document Card */}
- <div className="bg-canvas border border-border rounded-lg p-4 shadow-2xs hover:border-[#7C3AED] transition-colors duration-150 space-y-3">
+ <div className="bg-canvas border border-border rounded-lg p-4 shadow-2xs hover:border-cat-routines transition-colors duration-150 space-y-3">
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-2.5">
- <div className="w-8 h-8 rounded-md bg-[#7C3AED]/10 flex items-center justify-center text-[#7C3AED] shrink-0">
+ <div className="w-8 h-8 rounded-md bg-cat-routines-bg flex items-center justify-center text-cat-routines shrink-0">
  <FileText className="w-4 h-4 stroke-[1.75]" />
  </div>
  <div>
@@ -76,7 +76,7 @@ export function LandingPage() {
  <div className="text-caption text-secondary">Knowledge Base • Architecture Decisions</div>
  </div>
  </div>
- <span className="text-badge text-[#7C3AED] bg-[#7C3AED]/10 px-2 py-0.5 rounded">Brain</span>
+ <span className="text-badge text-cat-routines bg-cat-routines-bg px-2 py-0.5 rounded">Brain</span>
  </div>
  <p className="text-caption text-secondary line-clamp-2 pl-10.5">
  We evaluated SQLite vs. PostgreSQL for local persistence. Selected SQLite with write-ahead logging (WAL) for sub-millisecond local queries and zero-latency offline execution.
@@ -88,10 +88,10 @@ export function LandingPage() {
  </div>
 
  {/* Card 2: Kanban Execution Issue Card */}
- <div className="bg-canvas border border-border rounded-lg p-4 shadow-2xs hover:border-[#2563EB] transition-colors duration-150 space-y-3">
+ <div className="bg-canvas border border-border rounded-lg p-4 shadow-2xs hover:border-accent transition-colors duration-150 space-y-3">
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-2.5">
- <div className="w-8 h-8 rounded-md bg-[#2563EB]/10 flex items-center justify-center text-[#2563EB] shrink-0">
+ <div className="w-8 h-8 rounded-md bg-accent-subtle flex items-center justify-center text-accent-fg shrink-0">
  <FolderKanban className="w-4 h-4 stroke-[1.75]" />
  </div>
  <div>
@@ -99,20 +99,20 @@ export function LandingPage() {
  <div className="text-caption text-secondary">Sprint 14 • Execution Board</div>
  </div>
  </div>
- <span className="text-badge text-[#DC2626] bg-[#DC2626]/10 px-2 py-0.5 rounded border border-[#DC2626]/20">Urgent</span>
+ <span className="text-badge text-danger-fg bg-danger-bg px-2 py-0.5 rounded border border-danger-border">Urgent</span>
  </div>
  <div className="pl-10.5 space-y-2">
  <div className="flex justify-between text-caption font-mono text-secondary">
- <span className="flex items-center gap-1.5"><CheckSquare className="w-3.5 h-3.5 text-[#2563EB]" /> Sub-task Progress</span>
+ <span className="flex items-center gap-1.5"><CheckSquare className="w-3.5 h-3.5 text-accent-fg" /> Sub-task Progress</span>
  <span className="font-bold text-primary">3 / 4 Done</span>
  </div>
  <div className="h-1.5 w-full bg-surface rounded-full overflow-hidden border border-border">
- <div className="h-full bg-[#2563EB] w-3/4 progress-fill" />
+ <div className="h-full bg-accent w-3/4 progress-fill" />
  </div>
  </div>
  <div className="flex items-center justify-between pl-10.5 pt-2 border-t border-border/60 text-caption font-mono text-muted">
- <span className="flex items-center gap-1 text-[#0D9488]"><CheckCircle2 className="w-3.5 h-3.5" /> Blocked by: KRM-098</span>
- <span className="text-badge text-[#2563EB] bg-accent-tint px-1.5 py-0.5 rounded">In Progress</span>
+ <span className="flex items-center gap-1 text-success-fg"><CheckCircle2 className="w-3.5 h-3.5" /> Blocked by: KRM-098</span>
+ <span className="text-badge text-accent-fg bg-accent-subtle px-1.5 py-0.5 rounded">In Progress</span>
  </div>
  </div>
 
@@ -136,10 +136,10 @@ export function LandingPage() {
 
  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
  
- {/* Column 1: Brain (#7C3AED) */}
- <div className="bg-canvas border border-border p-6 rounded-lg shadow-sm hover:border-[#7C3AED] hover:shadow-md transition-all duration-150 flex flex-col justify-between">
+ {/* Column 1: Brain */}
+ <div className="bg-canvas border border-border p-6 rounded-lg shadow-sm hover:border-cat-routines hover:shadow-md transition-all duration-150 flex flex-col justify-between">
  <div>
- <div className="w-9 h-9 rounded-md bg-[#7C3AED]/10 text-[#7C3AED] flex items-center justify-center mb-5 shadow-2xs">
+ <div className="w-9 h-9 rounded-md bg-cat-routines/10 text-cat-routines flex items-center justify-center mb-5 shadow-2xs">
  <Brain className="w-4 h-4 stroke-[1.75]" />
  </div>
  <h3 className="text-card text-primary mb-2 ">Strategic Brain</h3>
@@ -147,15 +147,15 @@ export function LandingPage() {
  Structured document trees with live word counters and reading time metrics. Never lose architectural context in flat note lists.
  </p>
  </div>
- <div className="pt-4 mt-6 border-t border-border/60 text-badge text-[#7C3AED] flex items-center gap-1 cursor-pointer" onClick={() => navigate('/app/brain')}>
+ <div className="pt-4 mt-6 border-t border-border/60 text-badge text-cat-routines flex items-center gap-1 cursor-pointer font-medium" onClick={() => navigate('/app/brain')}>
  <span>Explore Knowledge Tree</span> &rarr;
  </div>
  </div>
 
- {/* Column 2: Execution (#2563EB) */}
- <div className="bg-canvas border border-border p-6 rounded-lg shadow-sm hover:border-[#2563EB] hover:shadow-md transition-all duration-150 flex flex-col justify-between">
+ {/* Column 2: Execution */}
+ <div className="bg-canvas border border-border p-6 rounded-lg shadow-sm hover:border-accent hover:shadow-md transition-all duration-150 flex flex-col justify-between">
  <div>
- <div className="w-9 h-9 rounded-md bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center mb-5 shadow-2xs">
+ <div className="w-9 h-9 rounded-md bg-accent/10 text-accent flex items-center justify-center mb-5 shadow-2xs">
  <FolderKanban className="w-4 h-4 stroke-[1.75]" />
  </div>
  <h3 className="text-card text-primary mb-2 ">Execution Board</h3>
@@ -163,15 +163,15 @@ export function LandingPage() {
  High-velocity Kanban execution boards built for solo builders. Includes sub-task progress bars, velocity pacing, and urgency tags.
  </p>
  </div>
- <div className="pt-4 mt-6 border-t border-border/60 text-badge text-[#2563EB] flex items-center gap-1 cursor-pointer" onClick={() => navigate('/app/board')}>
+ <div className="pt-4 mt-6 border-t border-border/60 text-badge text-accent flex items-center gap-1 cursor-pointer font-medium" onClick={() => navigate('/app/board')}>
  <span>View Kanban Board</span> &rarr;
  </div>
  </div>
 
- {/* Column 3: Goals (#0D9488) */}
- <div className="bg-canvas border border-border p-6 rounded-lg shadow-sm hover:border-[#0D9488] hover:shadow-md transition-all duration-150 flex flex-col justify-between">
+ {/* Column 3: Goals */}
+ <div className="bg-canvas border border-border p-6 rounded-lg shadow-sm hover:border-success-fg hover:shadow-md transition-all duration-150 flex flex-col justify-between">
  <div>
- <div className="w-9 h-9 rounded-md bg-[#0D9488]/10 text-[#0D9488] flex items-center justify-center mb-5 shadow-2xs">
+ <div className="w-9 h-9 rounded-md bg-success-bg text-success-fg flex items-center justify-center mb-5 shadow-2xs">
  <Target className="w-4 h-4 stroke-[1.75]" />
  </div>
  <h3 className="text-card text-primary mb-2 ">OKR Pacing Engine</h3>
@@ -179,7 +179,7 @@ export function LandingPage() {
  Automatic required vs. actual pacing calculations. Know exactly what completion percentage you must hit daily to launch on schedule.
  </p>
  </div>
- <div className="pt-4 mt-6 border-t border-border/60 text-badge text-[#0D9488] flex items-center gap-1 cursor-pointer" onClick={() => navigate('/app/goals')}>
+ <div className="pt-4 mt-6 border-t border-border/60 text-badge text-success-fg flex items-center gap-1 cursor-pointer font-medium" onClick={() => navigate('/app/goals')}>
  <span>Check Quarterly OKRs</span> &rarr;
  </div>
  </div>

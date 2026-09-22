@@ -467,16 +467,16 @@ export function SprintView() {
                       </button>
                       <button
                         onClick={handleCompleteSprint}
-                        className="w-full px-3.5 py-2 text-left text-emerald-600 dark:text-emerald-400 hover:bg-surface-hover flex items-center gap-2 transition-colors cursor-pointer"
+                        className="w-full px-3.5 py-2 text-left text-success-fg hover:bg-surface-hover flex items-center gap-2 transition-colors cursor-pointer"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Complete Sprint
+                        <CheckCircle2 className="w-3.5 h-3.5 text-success-fg" /> Complete Sprint
                       </button>
                       <div className="border-t border-border/60 my-1" />
                       <button
                         onClick={handleDeleteSprint}
-                        className="w-full px-3.5 py-2 text-left text-red-600 dark:text-red-400 hover:bg-surface-hover flex items-center gap-2 transition-colors cursor-pointer"
+                        className="w-full px-3.5 py-2 text-left text-danger-fg hover:bg-surface-hover flex items-center gap-2 transition-colors cursor-pointer"
                       >
-                        <Trash2 className="w-3.5 h-3.5 text-red-500" /> Archive Sprint
+                        <Trash2 className="w-3.5 h-3.5 text-danger-fg" /> Archive Sprint
                       </button>
                     </>
                   )}
@@ -505,7 +505,7 @@ export function SprintView() {
               <span className={cn(
                 "px-2 py-0.5 rounded font-mono text-[10px] font-bold uppercase tracking-wider border shadow-2xs",
                 activeSprint?.status === 'active'
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25"
+                  ? "bg-success-bg text-success-fg border-success-border"
                   : "bg-surface-hover text-secondary border-border/80"
               )}>
                 {activeSprint?.status === 'active' ? 'ACTIVE SPRINT' : (activeSprint?.status ? activeSprint.status.toUpperCase() : 'PLANNING')}
@@ -542,7 +542,7 @@ export function SprintView() {
             <div className="mt-4 pt-4 border-t border-border/60 grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-2.5 rounded-xl bg-canvas/60 border border-border/60 flex flex-col">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-secondary font-semibold flex items-center gap-1.5">
-                  <Target className="w-3 h-3 text-blue-500" /> Ideal Left
+                  <Target className="w-3 h-3 text-accent-fg" /> Ideal Left
                 </span>
                 <span className="text-base font-bold font-mono text-primary mt-1">
                   {sprintReport.idealRemaining ?? sprintReport.metrics?.idealRemaining ?? 0} <span className="text-xs font-normal text-secondary">tasks</span>
@@ -550,7 +550,7 @@ export function SprintView() {
               </div>
               <div className="p-2.5 rounded-xl bg-canvas/60 border border-border/60 flex flex-col">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-secondary font-semibold flex items-center gap-1.5">
-                  <Activity className="w-3 h-3 text-amber-500" /> Actual Left
+                  <Activity className="w-3 h-3 text-warning-fg" /> Actual Left
                 </span>
                 <span className="text-base font-bold font-mono text-primary mt-1">
                   {sprintReport.actualRemaining ?? sprintReport.metrics?.actualRemaining ?? 0} <span className="text-xs font-normal text-secondary">tasks</span>
@@ -558,7 +558,7 @@ export function SprintView() {
               </div>
               <div className="p-2.5 rounded-xl bg-canvas/60 border border-border/60 flex flex-col">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-secondary font-semibold flex items-center gap-1.5">
-                  <TrendingUp className="w-3 h-3 text-emerald-500" /> Velocity
+                  <TrendingUp className="w-3 h-3 text-success-fg" /> Velocity
                 </span>
                 <span className="text-base font-bold font-mono text-primary mt-1">
                   {sprintReport.pace ?? sprintReport.metrics?.pace ?? 0} <span className="text-xs font-normal text-secondary">tasks/day</span>
@@ -572,8 +572,8 @@ export function SprintView() {
                   <span className={cn(
                     "px-2 py-0.5 rounded text-[11px] font-mono font-bold uppercase tracking-wider border",
                     (sprintReport.burndown?.behindOrAhead === 'behind' || (sprintReport.actualRemaining > sprintReport.idealRemaining))
-                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25"
-                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25"
+                      ? "bg-warning-bg text-warning-fg border-warning-border"
+                      : "bg-success-bg text-success-fg border-success-border"
                   )}>
                     {(sprintReport.burndown?.behindOrAhead === 'behind' || (sprintReport.actualRemaining > sprintReport.idealRemaining)) ? 'Behind Ideal' : 'On Track'}
                   </span>
@@ -670,16 +670,16 @@ export function SprintView() {
             /* Three Sprint Work Columns */
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
               {/* Column 1: CURRENT FOCUS */}
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.03] dark:bg-amber-500/[0.02] p-4 flex flex-col gap-3 shadow-2xs">
+              <div className="rounded-2xl border border-warning-border bg-warning-bg/20 p-4 flex flex-col gap-3 shadow-2xs">
                 <div className="flex items-center justify-between pb-1 border-b border-border/60">
                   <div className="flex items-center gap-2">
-                    <CircleDashed className="w-4 h-4 text-amber-500 stroke-[2.5] animate-spin-slow" />
+                    <CircleDashed className="w-4 h-4 text-warning-fg stroke-[2.5] animate-spin-slow" />
                     <div>
                       <h3 className="font-bold text-xs text-primary">Current Focus</h3>
                       <p className="text-[10px] text-secondary">Actively being worked on</p>
                     </div>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                  <span className="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-warning-bg text-warning-fg">
                     {currentFocusDirectives.length}
                   </span>
                 </div>
@@ -705,16 +705,16 @@ export function SprintView() {
               </div>
 
               {/* Column 2: UP NEXT */}
-              <div className="rounded-2xl border border-purple-500/30 bg-purple-500/[0.03] dark:bg-purple-500/[0.02] p-4 flex flex-col gap-3 shadow-2xs">
+              <div className="rounded-2xl border border-cat-timeblocks/30 bg-cat-timeblocks-bg/20 p-4 flex flex-col gap-3 shadow-2xs">
                 <div className="flex items-center justify-between pb-1 border-b border-border/60">
                   <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-purple-500 stroke-[2]" />
+                    <Clock className="w-4 h-4 text-cat-timeblocks stroke-[2]" />
                     <div>
                       <h3 className="font-bold text-xs text-primary">Up Next</h3>
                       <p className="text-[10px] text-secondary">In backlog for this sprint</p>
                     </div>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-purple-500/15 text-purple-600 dark:text-purple-400">
+                  <span className="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-cat-timeblocks-bg text-cat-timeblocks">
                     {upNextDirectives.length}
                   </span>
                 </div>
@@ -740,16 +740,16 @@ export function SprintView() {
               </div>
 
               {/* Column 3: COMPLETED */}
-              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.03] dark:bg-emerald-500/[0.02] p-4 flex flex-col gap-3 shadow-2xs">
+              <div className="rounded-2xl border border-success-border bg-success-bg/20 p-4 flex flex-col gap-3 shadow-2xs">
                 <div className="flex items-center justify-between pb-1 border-b border-border/60">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 stroke-[2]" />
+                    <CheckCircle2 className="w-4 h-4 text-success-fg stroke-[2]" />
                     <div>
                       <h3 className="font-bold text-xs text-primary">Completed</h3>
                       <p className="text-[10px] text-secondary">Finished in this sprint</p>
                     </div>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                  <span className="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-success-bg text-success-fg">
                     {completedDirectives.length}
                   </span>
                 </div>
@@ -782,7 +782,7 @@ export function SprintView() {
                               handleToggleComplete(issue);
                             }}
                             title="Click to reopen (move back to Current Focus)"
-                            className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-amber-500/15 hover:border-amber-500/30 hover:text-amber-500 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                            className="w-5 h-5 rounded-full bg-success-bg border border-success-border text-success-fg hover:bg-warning-bg hover:border-warning-border hover:text-warning-fg flex items-center justify-center shrink-0 transition-colors cursor-pointer"
                           >
                             <Check className="w-3 h-3 stroke-[3]" />
                           </button>
@@ -1055,7 +1055,7 @@ function SprintTaskCard({
                 onToggleComplete();
               }}
               title="Mark as Done"
-              className="w-4 h-4 rounded-full border-2 border-border/80 hover:border-emerald-500 hover:bg-emerald-500/15 text-transparent hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center justify-center transition-all cursor-pointer shrink-0"
+              className="w-4 h-4 rounded-full border-2 border-border/80 hover:border-success-border hover:bg-success-bg text-transparent hover:text-success-fg flex items-center justify-center transition-all cursor-pointer shrink-0"
             >
               <Check className="w-2.5 h-2.5 stroke-[3]" />
             </button>
@@ -1088,9 +1088,9 @@ function SprintTaskCard({
                       setMenuOpen(false);
                       onToggleComplete();
                     }}
-                    className="w-full px-3 py-1.5 text-left text-emerald-600 dark:text-emerald-400 hover:bg-surface-hover flex items-center gap-2 cursor-pointer font-medium"
+                    className="w-full px-3 py-1.5 text-left text-success-fg hover:bg-surface-hover flex items-center gap-2 cursor-pointer font-medium"
                   >
-                    <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Mark as Done
+                    <CheckCircle2 className="w-3 h-3 text-success-fg" /> Mark as Done
                   </button>
                 )}
                 <button
@@ -1119,9 +1119,9 @@ function SprintTaskCard({
                     setMenuOpen(false);
                     onDelete();
                   }}
-                  className="w-full px-3 py-1.5 text-left text-red-600 dark:text-red-400 hover:bg-surface-hover flex items-center gap-2 cursor-pointer"
+                  className="w-full px-3 py-1.5 text-left text-danger-fg hover:bg-surface-hover flex items-center gap-2 cursor-pointer"
                 >
-                  <Trash2 className="w-3 h-3 text-red-500" /> Delete
+                  <Trash2 className="w-3 h-3 text-danger-fg" /> Delete
                 </button>
               </div>
             )}
@@ -1188,26 +1188,26 @@ function getPriorityBadge(priority: TaskPriority) {
   switch (priority) {
     case 'URGENT':
       return (
-        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-danger-bg text-danger-fg border border-danger-border">
           URGENT
         </span>
       );
     case 'HIGH':
       return (
-        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-danger-bg text-danger-fg border border-danger-border">
           HIGH
         </span>
       );
     case 'MEDIUM':
       return (
-        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-warning-bg text-warning-fg border border-warning-border">
           MEDIUM
         </span>
       );
     case 'LOW':
     default:
       return (
-        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-success-bg text-success-fg border border-success-border">
           LOW
         </span>
       );

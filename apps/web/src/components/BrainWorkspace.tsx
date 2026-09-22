@@ -131,7 +131,7 @@ export function BrainWorkspace() {
 
       <PageHeader
         icon={Brain}
-        iconColorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+        iconColorClass="bg-accent-subtle text-accent-fg border border-accent/20"
         title="Brain Workspace"
         description="Engineering specs, RFCs, and notes."
         className="mb-0 rounded-none border-x-0 border-t-0 border-b bg-surface shadow-none px-6 py-3.5"
@@ -144,7 +144,7 @@ export function BrainWorkspace() {
             onClick={handleImportSpecClick}
             className="text-caption py-1.5 px-3 flex items-center gap-1.5 font-mono font-bold"
           >
-            <Upload className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <Upload className="w-3.5 h-3.5 text-accent-fg" />
             <span className="hidden sm:inline">Import Spec</span>
           </BaseButton>
 
@@ -152,7 +152,7 @@ export function BrainWorkspace() {
             onClick={() => setIsSearchOpen(true)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary text-caption font-mono transition-all cursor-pointer"
           >
-            <Search className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <Search className="w-3.5 h-3.5 text-accent-fg" />
             <span className="hidden sm:inline">Search Specs...</span>
           </button>
 
@@ -161,7 +161,7 @@ export function BrainWorkspace() {
               onClick={() => setViewMode('editor')}
               className={cn("px-3 py-1 rounded-lg text-caption font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer",
                 viewMode === 'editor' 
-                  ? "bg-surface text-blue-600 dark:text-blue-400 shadow-2xs border border-border/80" 
+                  ? "bg-surface text-accent-fg shadow-2xs border border-border/80" 
                   : "text-secondary hover:text-primary"
               )}
             >
@@ -172,7 +172,7 @@ export function BrainWorkspace() {
               onClick={() => setViewMode('graph')}
               className={cn("px-3 py-1 rounded-lg text-caption font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer",
                 viewMode === 'graph' 
-                  ? "bg-surface text-blue-600 dark:text-blue-400 shadow-2xs border border-border/80" 
+                  ? "bg-surface text-accent-fg shadow-2xs border border-border/80" 
                   : "text-secondary hover:text-primary"
               )}
             >
@@ -199,11 +199,11 @@ export function BrainWorkspace() {
             <div className="w-72 md:w-80 border-r border-border bg-surface-hover/30 flex flex-col h-full shrink-0 select-none">
               <div className="px-4 py-3 border-b border-border flex justify-between items-center bg-surface">
                 <span className="text-caption font-mono font-bold text-secondary uppercase tracking-wider flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 stroke-[1.75]" /> Documents
+                  <BookOpen className="w-3.5 h-3.5 text-accent-fg stroke-[1.75]" /> Documents
                 </span>
                 <button 
                   onClick={() => setCreateDocTarget({})}
-                  className="text-secondary hover:text-blue-600 hover:bg-blue-500/10 border border-transparent hover:border-blue-500/20 transition-all rounded-lg p-1 cursor-pointer"
+                  className="text-secondary hover:text-accent-fg hover:bg-accent-subtle border border-transparent hover:border-accent/20 transition-all rounded-lg p-1 cursor-pointer"
                   title="Add Document"
                 >
                   <Plus className="w-4 h-4 stroke-[1.5]" />
@@ -216,7 +216,7 @@ export function BrainWorkspace() {
                   className={cn(
                     "flex-1 flex items-center justify-center gap-1.5 py-1 px-2 rounded-md font-bold transition-all cursor-pointer",
                     sidebarTab === 'tree'
-                      ? "bg-surface text-blue-600 dark:text-blue-400 shadow-2xs border border-border/80"
+                      ? "bg-surface text-accent-fg shadow-2xs border border-border/80"
                       : "text-secondary hover:text-primary hover:bg-surface-hover/50"
                   )}
                   title="Hierarchical Document Tree"
@@ -230,7 +230,7 @@ export function BrainWorkspace() {
                   className={cn(
                     "flex-1 flex items-center justify-center gap-1.5 py-1 px-2 rounded-md font-bold transition-all cursor-pointer",
                     sidebarTab === 'favorites'
-                      ? "bg-surface text-blue-600 dark:text-blue-400 shadow-2xs border border-border/80"
+                      ? "bg-surface text-accent-fg shadow-2xs border border-border/80"
                       : "text-secondary hover:text-primary hover:bg-surface-hover/50"
                   )}
                   title="Starred Favorites"
@@ -249,7 +249,7 @@ export function BrainWorkspace() {
                   className={cn(
                     "flex-1 flex items-center justify-center gap-1.5 py-1 px-2 rounded-md font-bold transition-all cursor-pointer",
                     sidebarTab === 'recent'
-                      ? "bg-surface text-blue-600 dark:text-blue-400 shadow-2xs border border-border/80"
+                      ? "bg-surface text-accent-fg shadow-2xs border border-border/80"
                       : "text-secondary hover:text-primary hover:bg-surface-hover/50"
                   )}
                   title="Recently Modified Documents"
@@ -292,7 +292,7 @@ export function BrainWorkspace() {
                           className={cn(
                             "flex items-center justify-between px-2.5 py-1.5 rounded-lg text-body font-sans cursor-pointer transition-colors group",
                             isSelected
-                              ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
+                              ? "bg-accent-subtle text-accent-fg font-medium"
                               : "text-secondary hover:text-primary hover:bg-surface-hover/70"
                           )}
                         >
@@ -304,10 +304,10 @@ export function BrainWorkspace() {
                             {p.statusBadges?.[0] && (
                               <span className={cn(
                                 "text-[9px] font-mono uppercase px-1 rounded font-bold border",
-                                p.statusBadges[0] === 'DRAFT' && "bg-amber-500/10 text-amber-600 border-amber-500/30",
-                                p.statusBadges[0] === 'IN_REVIEW' && "bg-blue-500/10 text-blue-600 border-blue-500/30",
-                                p.statusBadges[0] === 'ACCEPTED' && "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
-                                p.statusBadges[0] === 'DEPRECATED' && "bg-rose-500/10 text-rose-600 border-rose-500/30"
+                                p.statusBadges[0] === 'DRAFT' && "bg-warning-bg text-warning-fg border-warning-border",
+                                p.statusBadges[0] === 'IN_REVIEW' && "bg-accent-subtle text-accent-fg border-accent/30",
+                                p.statusBadges[0] === 'ACCEPTED' && "bg-success-bg text-success-fg border-success-border",
+                                p.statusBadges[0] === 'DEPRECATED' && "bg-danger-bg text-danger-fg border-danger-border"
                               )}>
                                 {p.statusBadges[0]}
                               </span>
@@ -336,7 +336,7 @@ export function BrainWorkspace() {
                           className={cn(
                             "flex items-center justify-between px-2.5 py-1.5 rounded-lg text-body font-sans cursor-pointer transition-colors group",
                             isSelected
-                              ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium"
+                              ? "bg-accent-subtle text-accent-fg font-medium"
                               : "text-secondary hover:text-primary hover:bg-surface-hover/70"
                           )}
                         >

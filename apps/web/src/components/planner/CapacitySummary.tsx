@@ -7,48 +7,48 @@ interface Props {
 }
 
 export function CapacitySummary({ capacity, onEdit }: Props) {
- const cards = [
- {
- label: 'Weekly Capacity',
- icon: CalendarDays,
- color: '#3b82f6',
- value: capacity.weeklyCapacityMinutes,
- percent: null,
- barColor: 'bg-accent',
- },
- {
- label: 'Planned',
- icon: Clock,
- color: '#3b82f6',
- value: capacity.occupiedMinutes,
- percent: capacity.weeklyCapacityMinutes > 0 ? Math.round((capacity.occupiedMinutes / capacity.weeklyCapacityMinutes) * 100) : 0,
- barColor: 'bg-accent',
- },
- {
- label: 'Sync / Meetings',
- icon: Users,
- color: '#a855f7',
- value: capacity.meetingMinutes,
- percent: capacity.weeklyCapacityMinutes > 0 ? Math.round((capacity.meetingMinutes / capacity.weeklyCapacityMinutes) * 100) : 0,
- barColor: 'bg-[var(--cat-routines-bg)]',
- },
- {
- label: 'Other',
- icon: Clock,
- color: '#f97316',
- value: capacity.otherMinutes,
- percent: capacity.weeklyCapacityMinutes > 0 ? Math.round((capacity.otherMinutes / capacity.weeklyCapacityMinutes) * 100) : 0,
- barColor: 'bg-warning-tint',
- },
- {
- label: 'Free Time',
- icon: Coffee,
- color: '#10b981',
- value: capacity.freeMinutes,
- percent: capacity.weeklyCapacityMinutes > 0 ? Math.round((capacity.freeMinutes / capacity.weeklyCapacityMinutes) * 100) : 0,
- barColor: 'bg-success-tint',
- },
- ];
+  const cards = [
+    {
+      label: 'Weekly Capacity',
+      icon: CalendarDays,
+      colorClass: 'text-accent-fg',
+      value: capacity.weeklyCapacityMinutes,
+      percent: null,
+      barColor: 'bg-accent',
+    },
+    {
+      label: 'Planned',
+      icon: Clock,
+      colorClass: 'text-accent-fg',
+      value: capacity.occupiedMinutes,
+      percent: capacity.weeklyCapacityMinutes > 0 ? Math.round((capacity.occupiedMinutes / capacity.weeklyCapacityMinutes) * 100) : 0,
+      barColor: 'bg-accent',
+    },
+    {
+      label: 'Sync / Meetings',
+      icon: Users,
+      colorClass: 'text-cat-routines',
+      value: capacity.meetingMinutes,
+      percent: capacity.weeklyCapacityMinutes > 0 ? Math.round((capacity.meetingMinutes / capacity.weeklyCapacityMinutes) * 100) : 0,
+      barColor: 'bg-cat-routines-bg',
+    },
+    {
+      label: 'Other',
+      icon: Clock,
+      colorClass: 'text-warning-fg',
+      value: capacity.otherMinutes,
+      percent: capacity.weeklyCapacityMinutes > 0 ? Math.round((capacity.otherMinutes / capacity.weeklyCapacityMinutes) * 100) : 0,
+      barColor: 'bg-warning-bg',
+    },
+    {
+      label: 'Free Time',
+      icon: Coffee,
+      colorClass: 'text-success-fg',
+      value: capacity.freeMinutes,
+      percent: capacity.weeklyCapacityMinutes > 0 ? Math.round((capacity.freeMinutes / capacity.weeklyCapacityMinutes) * 100) : 0,
+      barColor: 'bg-success-bg',
+    },
+  ];
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
@@ -59,7 +59,7 @@ export function CapacitySummary({ capacity, onEdit }: Props) {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 min-w-0">
-              <card.icon size={12} style={{ color: card.color }} className="shrink-0" />
+              <card.icon size={12} className={`shrink-0 ${card.colorClass}`} />
               <span className="text-[10px] font-bold text-secondary truncate">{card.label}</span>
             </div>
             {card.label === 'Weekly Capacity' && onEdit && (
@@ -98,7 +98,7 @@ export function CapacitySummary({ capacity, onEdit }: Props) {
         </div>
         <div className="w-full bg-surface-hover rounded-full h-1 overflow-hidden">
           <div
-            className="h-full rounded-full bg-emerald-500"
+            className="h-full rounded-full bg-success-fg"
             style={{ width: `${Math.min(100, capacity.completionPercent || 0)}%` }}
           />
         </div>

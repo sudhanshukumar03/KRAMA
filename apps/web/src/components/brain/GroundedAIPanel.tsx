@@ -100,7 +100,7 @@ export function GroundedAIPanel({
       {/* Panel Header */}
       <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          <Sparkles className="w-4 h-4 text-accent-fg" />
           <span className="font-bold text-primary text-body">Grounded AI Assist</span>
         </div>
         <button onClick={onClose} className="p-1 rounded-lg text-muted hover:text-primary hover:bg-surface-hover">
@@ -114,7 +114,7 @@ export function GroundedAIPanel({
           onClick={() => setTab('ask')}
           className={cn("flex-1 py-2.5 text-center transition-all border-b-2",
             tab === 'ask'
-              ? "border-blue-600 text-blue-600 dark:text-blue-400 bg-surface"
+              ? "border-accent text-accent-fg bg-surface"
               : "border-transparent text-secondary hover:text-primary"
           )}
         >
@@ -124,7 +124,7 @@ export function GroundedAIPanel({
           onClick={() => setTab('compose')}
           className={cn("flex-1 py-2.5 text-center transition-all border-b-2",
             tab === 'compose'
-              ? "border-blue-600 text-blue-600 dark:text-blue-400 bg-surface"
+              ? "border-accent text-accent-fg bg-surface"
               : "border-transparent text-secondary hover:text-primary"
           )}
         >
@@ -135,8 +135,8 @@ export function GroundedAIPanel({
       {/* Tab 1: Ask Notes */}
       {tab === 'ask' && (
         <div className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4">
-          <div className="p-2.5 rounded-xl bg-blue-500/5 border border-blue-500/20 text-caption font-mono text-secondary flex items-start gap-2">
-            <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+          <div className="p-2.5 rounded-xl bg-accent-subtle border border-accent/20 text-caption font-mono text-secondary flex items-start gap-2">
+            <Info className="w-4 h-4 text-accent-fg shrink-0 mt-0.5" />
             <span>Grounded in <strong className="text-primary font-sans">{documentTitle}</strong> and its 1-hop reference documents.</span>
           </div>
 
@@ -147,7 +147,7 @@ export function GroundedAIPanel({
               onChange={(e) => setQuestion(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAsk()}
               placeholder="Ask anything about this spec..."
-              className="flex-1 p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-blue-500 font-sans text-caption"
+              className="flex-1 p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent font-sans text-caption"
             />
             <BaseButton disabled={isAsking || !question.trim()} onClick={handleAsk} className="px-3 py-1.5">
               {isAsking ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -175,7 +175,7 @@ export function GroundedAIPanel({
                   onClick={() => setComposeMode(m)}
                   className={cn("py-1.5 px-2 rounded-lg text-caption font-mono font-bold capitalize transition-all border",
                     composeMode === m
-                      ? "bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400"
+                      ? "bg-accent-subtle border-accent/30 text-accent-fg"
                       : "border-border text-secondary hover:bg-surface-hover"
                   )}
                 >
@@ -199,7 +199,7 @@ export function GroundedAIPanel({
               value={composeInstruction}
               onChange={(e) => setComposeInstruction(e.target.value)}
               placeholder={composeMode === 'write' ? 'e.g. Outline deployment architecture checklist...' : 'e.g. Make it more concise and formal...'}
-              className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-blue-500 font-sans text-caption resize-none"
+              className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent font-sans text-caption resize-none"
             />
           </div>
 
@@ -215,7 +215,7 @@ export function GroundedAIPanel({
               <div className="flex gap-2">
                 <BaseButton
                   onClick={() => handleInsertIntoEditor(composeOutput)}
-                  className="flex-1 text-caption py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+                  className="flex-1 text-caption py-1.5 bg-accent-subtle hover:bg-accent/20 text-accent-fg border border-accent/20"
                 >
                   Insert at Cursor
                 </BaseButton>

@@ -324,7 +324,13 @@ export const api = {
     uncomplete: (id: string, date?: string, dateIso?: string) => fetchApi<Habit>(`/habits/${id}/log?date=${date || ''}&dateIso=${dateIso || ''}`, { method: 'DELETE' }),
   },
   dailyLogs: {
-    list: () => fetchApi<DailyLog[]>('/daily-logs'),
+    list: (params?: { date?: string; range?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.date) q.append('date', params.date);
+      if (params?.range) q.append('range', String(params.range));
+      const qs = q.toString();
+      return fetchApi<DailyLog[]>(`/daily-logs${qs ? `?${qs}` : ''}`);
+    },
     create: (data: Record<string, any>) => fetchApi<DailyLog>('/daily-logs', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<DailyLog>(`/daily-logs/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<void>(`/daily-logs/${id}`, { method: 'DELETE' }),
@@ -346,7 +352,8 @@ export const api = {
   },
   notifications: {
     list: () => fetchApi<any[]>('/notifications', { method: 'GET' }),
-    markAsRead: (id: string) => fetchApi<any>(`/notifications/${id}/read`, { method: 'PATCH' })
+    markAsRead: (id: string) => fetchApi<any>(`/notifications/${id}/read`, { method: 'PATCH' }),
+    markAllAsRead: () => fetchApi<any>('/notifications/read-all', { method: 'PATCH' })
   },
 
   dashboard: {

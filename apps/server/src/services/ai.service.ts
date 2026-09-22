@@ -1,7 +1,5 @@
 
 import Groq from 'groq-sdk';
-import { redisService } from './redis.service';
-import crypto from 'crypto';
 import { prisma } from '../prisma';
 import { logger } from '../utils/logger';
 

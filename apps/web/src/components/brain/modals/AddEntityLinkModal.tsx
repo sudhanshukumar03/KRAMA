@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link2, X } from 'lucide-react';
 import { api } from '../../../api/client';
-import type { DocumentWithRelations } from '../../../types/schema';
+import type { DocumentWithRelations, Issue } from '../../../types/schema';
 import { BaseButton } from '../../ui/BaseButton';
 import { cn } from '../../../lib/utils';
 import { toast } from 'sonner';
@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 export interface AddEntityLinkModalProps {
   documentId: string;
   pages: DocumentWithRelations[];
-  projects: any[];
+  projects: { id: string; name: string }[];
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -75,7 +75,7 @@ export function AddEntityLinkModal({
       <div className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans">
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
           <div className="flex items-center gap-2">
-            <Link2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <Link2 className="w-4 h-4 text-accent-fg" />
             <span className="font-bold text-primary text-body">Link Document</span>
           </div>
           <button onClick={onClose} className="p-1 text-muted hover:text-primary">
@@ -92,7 +92,7 @@ export function AddEntityLinkModal({
                 onClick={() => setTargetType('DOCUMENT')}
                 className={cn("py-2 px-2.5 rounded-xl border text-center font-bold transition-all text-[12px]",
                   targetType === 'DOCUMENT'
-                    ? "bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400"
+                    ? "bg-accent-subtle border-accent/30 text-accent-fg"
                     : "border-border hover:bg-surface-hover text-secondary"
                 )}
               >
@@ -103,7 +103,7 @@ export function AddEntityLinkModal({
                 onClick={() => setTargetType('PROJECT')}
                 className={cn("py-2 px-2.5 rounded-xl border text-center font-bold transition-all text-[12px]",
                   targetType === 'PROJECT'
-                    ? "bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400"
+                    ? "bg-cat-projects-bg border-cat-projects/30 text-cat-projects"
                     : "border-border hover:bg-surface-hover text-secondary"
                 )}
               >
@@ -114,7 +114,7 @@ export function AddEntityLinkModal({
                 onClick={() => setTargetType('TASK')}
                 className={cn("py-2 px-2.5 rounded-xl border text-center font-bold transition-all text-[12px]",
                   targetType === 'TASK'
-                    ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                    ? "bg-cat-tasks-bg border-cat-tasks/30 text-cat-tasks"
                     : "border-border hover:bg-surface-hover text-secondary"
                 )}
               >
@@ -128,7 +128,7 @@ export function AddEntityLinkModal({
             <select
               value={linkType}
               onChange={(e) => setLinkType(e.target.value as any)}
-              className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-blue-500 font-mono text-caption"
+              className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent font-mono text-caption"
             >
               <option value="REFERENCE">REFERENCE (Grounded 1-hop AI context)</option>
               <option value="RELATED">RELATED (Topological relationship)</option>
@@ -140,7 +140,7 @@ export function AddEntityLinkModal({
             <select
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-blue-500 font-mono text-caption"
+              className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent font-mono text-caption"
             >
               {targetType === 'DOCUMENT' && availableDocs.map(d => (
                 <option key={d.id} value={d.id}>{d.title}</option>
@@ -148,7 +148,7 @@ export function AddEntityLinkModal({
               {targetType === 'PROJECT' && projects.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
-              {targetType === 'TASK' && tasks.map((t: any) => (
+              {targetType === 'TASK' && tasks.map((t: Issue) => (
                 <option key={t.id} value={t.id}>{t.title} ({t.status || 'TODO'})</option>
               ))}
             </select>

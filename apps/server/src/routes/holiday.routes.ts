@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import type { Request, Response } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { z } from 'zod';
 import { HolidaySyncService } from '../services/holidays/HolidaySyncService';

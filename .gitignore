@@ -132,6 +132,7 @@ dist
 playwright-report/
 test-results/
 blob-report/
+e2e/*.png
 
 # OS generated files
 .DS_Store

@@ -23,12 +23,11 @@ export function KramaLogo({ size = 'sm', className, withText = false, textClassN
       {/* Precision Geometric Monogram */}
       <div className={cn(
         "relative flex items-center justify-center shrink-0 overflow-hidden",
-        "bg-gradient-to-b from-neutral-900 via-neutral-950 to-black dark:from-neutral-100 dark:via-neutral-200 dark:to-white",
-        "border border-white/20 dark:border-black/10 shadow-sm",
+        "bg-primary border border-border-subtle shadow-xs",
         currentSize.box
       )}>
         {/* Subtle interior glow */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-teal-500/20 via-transparent to-indigo-500/20 opacity-80" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-accent/20 via-transparent to-cat-routines/20 opacity-80" />
         
         <svg
           width={currentSize.svg}
@@ -36,7 +35,7 @@ export function KramaLogo({ size = 'sm', className, withText = false, textClassN
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="relative z-10 text-white dark:text-neutral-950 transition-transform duration-200"
+          className="relative z-10 text-text-inverse transition-transform duration-200"
         >
           {/* Vertical Structural Pillar */}
           <rect x="3.5" y="3.5" width="4" height="17" rx="1.5" fill="currentColor" />
