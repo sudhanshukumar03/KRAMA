@@ -425,7 +425,7 @@ export function PlannerMatrix({
 
   const unscheduledTasks = useMemo(() => {
     return (data.tasks || []).filter(
-      (t: any) => !t.scheduledDate && !t.dueDate && t.status !== 'DONE' && t.status !== 'CANCELLED'
+      (t: any) => !t.scheduledDate && !t.dueDate && t.status !== 'DONE' && t.status !== 'CANCELED'
     );
   }, [data.tasks]);
 

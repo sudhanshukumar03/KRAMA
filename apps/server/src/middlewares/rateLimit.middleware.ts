@@ -9,8 +9,8 @@ const getStore = (prefix: string) => {
   }
   return new RedisStore({
     sendCommand: (...args: string[]) => {
-      if (redisService.isConnected && redisService.client.isOpen) {
-        return (redisService.client as any).sendCommand(args);
+      if (redisService.isConnected && redisService.client.status === 'ready') {
+        return (redisService.client as any).call(...args);
       }
       return Promise.reject(new Error('Redis is not connected'));
     },

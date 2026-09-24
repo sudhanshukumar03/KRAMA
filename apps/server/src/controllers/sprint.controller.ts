@@ -122,15 +122,59 @@ export const deleteSprint = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Sprint not found' });
     }
 
-    await prisma.sprint.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        updatedBy: req.user!.id,
-      },
-    });
+    await prisma.$transaction([
+      prisma.sprint.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          updatedBy: req.user!.id,
+        },
+      }),
+      prisma.task.updateMany({
+        where: { sprintId: id },
+        data: { sprintId: null },
+      }),
+    ]);
 
     return res.status(200).json({ message: 'Sprint deleted' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const completeSprint = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+
+    const existing = await prisma.sprint.findUnique({ where: { id } });
+    if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
+      return res.status(404).json({ message: 'Sprint not found' });
+    }
+
+    const [updatedSprint, releasedTasks] = await prisma.$transaction([
+      prisma.sprint.update({
+        where: { id },
+        data: {
+          status: 'completed',
+          version: { increment: 1 },
+          updatedBy: req.user!.id,
+        },
+      }),
+      prisma.task.updateMany({
+        where: {
+          sprintId: id,
+          status: { notIn: ['DONE', 'CANCELED'] },
+        },
+        data: { sprintId: null },
+      }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      sprint: updatedSprint,
+      releasedCount: releasedTasks.count,
+    });
   } catch (error) {
     return res.status(500).json({ message: 'Internal server error' });
   }
@@ -160,6 +204,7 @@ export const getSprintTasks = async (req: Request, res: Response) => {
 export const getSprintReport = async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
+    const workspaceId = (req as any).workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
 
     const sprint = await prisma.sprint.findUnique({
       where: { id },
@@ -171,7 +216,7 @@ export const getSprintReport = async (req: Request, res: Response) => {
       }
     });
 
-    if (!sprint || sprint.deletedAt) {
+    if (!sprint || sprint.deletedAt || (workspaceId && sprint.workspaceId !== workspaceId)) {
       return res.status(404).json({ message: 'Sprint not found' });
     }
 

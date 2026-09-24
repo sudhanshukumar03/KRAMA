@@ -33,7 +33,6 @@ import documentRoutes from './routes/document.routes';
 import uploadRoutes from './routes/upload.routes';
 import projectRoutes from './routes/project.routes';
 import taskRoutes from './routes/task.routes';
-import pageRoutes from './routes/page.routes';
 import goalRoutes from './routes/goal.routes';
 import habitRoutes from './routes/habit.routes';
 import sprintRoutes from './routes/sprint.routes';
@@ -90,7 +89,6 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/workspaces', workspaceRoutes);
 app.use('/api/v1/projects', projectRoutes);
 app.use('/api/v1/tasks', taskRoutes);
-app.use('/api/v1/pages', pageRoutes);
 
 app.use('/api/v1/goals', goalRoutes);
 app.use('/api/v1/habits', habitRoutes);

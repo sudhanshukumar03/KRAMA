@@ -8,13 +8,15 @@ import {
   Calendar, KanbanSquare, Clock, BarChart2,
   Search, LogOut, Moon, Sun, Download, X, 
   Settings, User, Briefcase,
-  PanelLeftClose, Timer, ExternalLink
+  PanelLeftClose, Timer, ExternalLink,
+  TrendingUp
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { KramaLogo } from './ui/KramaLogo';
 import { NotificationCenter } from './NotificationCenter';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 interface NavItem {
   name: string;
@@ -28,6 +30,7 @@ interface NavItem {
 // 5 Rule-of-5-7 Groups per KRAMA UI Design Direction
 const overviewItems: NavItem[] = [
   { name: 'Dashboard', path: '/app/', icon: Home, shortcut: 'G D', badgeKey: null },
+  { name: 'Analytics', path: '/app/analytics', icon: TrendingUp, shortcut: 'G A', badgeKey: null },
 ];
 
 const planAndExecuteItems: NavItem[] = [
@@ -87,9 +90,9 @@ export function Sidebar({
   const { data: documents = [] } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
 
   const activeSprint = sprints.find(s => s.status === 'active') || sprints[0];
-  const openIssuesCount = issues.filter(i => i.status !== "DONE" && i.status !== "REVIEW").length;
+  const openIssuesCount = issues.filter(i => i.status !== "DONE" && i.status !== "REVIEW" && i.status !== "CANCELED").length;
   const sprintIssuesCount = activeSprint
-    ? issues.filter(i => i.sprintId === activeSprint.id && i.status !== 'DONE').length
+    ? issues.filter(i => i.sprintId === activeSprint.id && i.status !== 'DONE' && i.status !== 'CANCELED').length
     : 0;
   const activeProjectsCount = projects.filter(p => p.status === 'active').length;
 
@@ -320,7 +323,12 @@ export function Sidebar({
       </div>
   </div>
 
- {/* Search / Command Palette Trigger */}
+  {/* Workspace Switcher */}
+  <div className="px-3 py-2 border-b border-border bg-surface/50">
+    <WorkspaceSwitcher />
+  </div>
+
+  {/* Search / Command Palette Trigger */}
  <div className="p-3 border-b border-border bg-surface">
  <button 
  onClick={() => {

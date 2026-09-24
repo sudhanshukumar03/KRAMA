@@ -10,38 +10,76 @@ export const getDashboardData = async (req: Request, res: Response) => {
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     // Fetch aggregates in parallel
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
     const [
       workspace,
       projects,
-      tasks,
+      projectCount,
+      tasksCount,
+      todayTasks,
       habits,
-      pages,
+      habitCount,
+      noteCount,
       dailyLogs,
+      dailyLogCount,
       focusSessions,
+      focusSessionsCount,
+      focusSessionsCompletedCount,
+      todayFocusSessions,
       activityLogs,
-      goals
+      goalsCount
     ] = await Promise.all([
       prisma.workspace.findUnique({ where: { id: workspaceId } }),
-      prisma.project.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { updatedAt: 'desc' } }),
-      prisma.task.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { updatedAt: 'desc' } }),
-      prisma.habit.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { updatedAt: 'desc' }, include: { completions: true } }),
-      prisma.document.findMany({ where: { space: { workspaceId }, deletedAt: null }, orderBy: { updatedAt: 'desc' } }),
+      prisma.project.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { updatedAt: 'desc' }, take: 10 }),
+      prisma.project.count({ where: { workspaceId, deletedAt: null } }),
+      prisma.task.count({ where: { workspaceId, deletedAt: null } }),
+      prisma.task.findMany({ 
+        where: { workspaceId, deletedAt: null, dueDate: { gte: startOfToday, lte: endOfToday } },
+        orderBy: { updatedAt: 'desc' },
+        take: 50
+      }),
+      prisma.habit.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { updatedAt: 'desc' }, include: { completions: true }, take: 20 }),
+      prisma.habit.count({ where: { workspaceId, deletedAt: null } }),
+      prisma.document.count({ where: { space: { workspaceId }, deletedAt: null } }),
       prisma.dailyLog.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { date: 'desc' }, take: 14 }),
-
-      prisma.focusSession.findMany({ where: { workspaceId }, orderBy: { createdAt: 'desc' } }),
+      prisma.dailyLog.count({ where: { workspaceId, deletedAt: null } }),
+      prisma.focusSession.findMany({ where: { workspaceId, userId: req.user!.id }, orderBy: { createdAt: 'desc' }, take: 20 }),
+      prisma.focusSession.count({ where: { workspaceId, userId: req.user!.id } }),
+      prisma.focusSession.count({ where: { workspaceId, userId: req.user!.id, completed: true } }),
+      prisma.focusSession.findMany({ where: { workspaceId, userId: req.user!.id, startTime: { gte: startOfToday, lte: endOfToday } }, take: 20 }),
       prisma.activityLog.findMany({ where: { workspaceId }, orderBy: { createdAt: 'desc' }, take: 20 }),
-      prisma.goal.findMany({ where: { workspaceId, deletedAt: null } })
+      prisma.goal.count({ where: { workspaceId, deletedAt: null } })
     ]);
+
+    // Project progress calculation (fetch stats for the 10 projects we loaded)
+    const projectIds = projects.map(p => p.id);
+    const projectTasksCount = await prisma.task.groupBy({
+      by: ['projectId', 'status'],
+      where: { projectId: { in: projectIds }, deletedAt: null },
+      _count: true
+    });
+
+    const projectsWithProgress = projects.map(p => {
+      const pTasks = projectTasksCount.filter(pt => pt.projectId === p.id);
+      const total = pTasks.reduce((sum, pt) => sum + pt._count, 0);
+      const completed = pTasks.find(pt => pt.status === 'DONE')?._count || 0;
+      const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+      return { ...p, progress };
+    });
 
     // Onboarding Calculation
     const hasWorkspace = !!workspace;
-    const hasProject = projects.length > 0;
-    const hasTask = tasks.length > 0;
-    const hasHabit = habits.length > 0;
-    const hasNote = pages.length > 0;
-    const hasGoal = goals.length > 0;
-    const hasFocusSession = focusSessions.length > 0;
-    const hasCompletedPomodoro = focusSessions.some(fs => fs.completed);
+    const hasProject = projectCount > 0;
+    const hasTask = tasksCount > 0;
+    const hasHabit = habitCount > 0;
+    const hasNote = noteCount > 0;
+    const hasGoal = goalsCount > 0;
+    const hasFocusSession = focusSessionsCount > 0;
+    const hasCompletedPomodoro = focusSessionsCompletedCount > 0;
 
     const onboardingSteps = [
       { id: 'workspace', title: 'Create Workspace', completed: hasWorkspace },
@@ -66,7 +104,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
     const greeting = `${greetingWord}, ${firstName}. Let's make today meaningful.`;
 
     // AI Insights Threshold
-    const canUnlockAi = tasks.length >= 15 && focusSessions.length >= 8 && dailyLogs.length >= 5;
+    const canUnlockAi = tasksCount >= 15 && focusSessionsCount >= 8 && dailyLogCount >= 5;
 
     res.status(200).json({
       greeting,
@@ -77,22 +115,17 @@ export const getDashboardData = async (req: Request, res: Response) => {
       },
       workspace,
       stats: {
-        totalProjects: projects.length,
-        totalTasks: tasks.length,
-        totalHabits: habits.length,
-        totalNotes: pages.length
+        totalProjects: projectCount,
+        totalTasks: tasksCount,
+        totalHabits: habitCount,
+        totalNotes: noteCount
       },
       today: {
-        tasks: tasks.filter(t => t.dueDate && new Date(t.dueDate).toDateString() === new Date().toDateString()),
-        focusSessions: focusSessions.filter(fs => new Date(fs.startTime).toDateString() === new Date().toDateString())
+        tasks: todayTasks,
+        focusSessions: todayFocusSessions
       },
       habits, // optionally return subset or all
-      projects: projects.map(p => {
-        const projectTasks = tasks.filter(t => t.projectId === p.id);
-        const completed = projectTasks.filter(t => t.status === 'DONE').length;
-        const progress = projectTasks.length > 0 ? Math.round((completed / projectTasks.length) * 100) : 0;
-        return { ...p, progress };
-      }),
+      projects: projectsWithProgress,
       focus: {
         sessions: focusSessions,
       },

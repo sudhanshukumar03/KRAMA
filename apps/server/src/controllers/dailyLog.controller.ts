@@ -17,15 +17,13 @@ export const listDailyLogs = async (req: Request, res: Response) => {
     };
 
     if (date) {
-      // Find for specific date boundary
-      const startOfDay = new Date(date as string);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(startOfDay);
-      endOfDay.setDate(endOfDay.getDate() + 1);
+      // Find for specific date boundary (UTC)
+      const startOfDay = new Date(`${date as string}T00:00:00.000Z`);
+      const endOfDay = new Date(`${date as string}T23:59:59.999Z`);
 
       where.date = {
         gte: startOfDay,
-        lt: endOfDay,
+        lte: endOfDay,
       };
     } else if (range) {
       const days = parseInt(range as string, 10);
@@ -68,37 +66,39 @@ export const getDailyLog = async (req: Request, res: Response) => {
 
 export const createDailyLog = async (req: Request, res: Response) => {
   try {
-    const data = CreateDailyLogSchema.parse(req.body);
+    const workspaceId =
+      (req.headers['x-workspace-id'] as string) ||
+      (req.query.workspaceId as string) ||
+      req.body.workspaceId;
+    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
+    const data = CreateDailyLogSchema.parse({ ...req.body, workspaceId });
     const logDate = new Date(data.date);
-    logDate.setHours(0, 0, 0, 0);
+    logDate.setUTCHours(12, 0, 0, 0); // canonical UTC noon prevents timezone-boundary shifts
 
-    // Check if log already exists for this date and user
     const existing = await prisma.dailyLog.findFirst({
-      where: {
-        workspaceId: data.workspaceId,
-        userId: req.user!.id,
-        date: logDate,
-        deletedAt: null,
-      },
+      where: { workspaceId, userId: req.user!.id, date: logDate },
     });
 
     if (existing) {
-      return res.status(409).json({ message: 'Log already exists for this date. Use PATCH to update.' });
+      if (!existing.deletedAt) {
+        return res.status(409).json({ message: 'Log already exists for this date. Use PATCH to update.' });
+      }
+      const resurrected = await prisma.dailyLog.update({
+        where: { id: existing.id },
+        data: { ...data, deletedAt: null, updatedBy: req.user!.id },
+      });
+      return res.status(200).json(resurrected);
     }
 
     const log = await prisma.dailyLog.create({
-      data: {
-        ...data,
-        date: logDate,
-        userId: req.user!.id,
-        createdBy: req.user!.id,
-      },
+      data: { ...data, date: logDate, userId: req.user!.id, createdBy: req.user!.id },
     });
-
     return res.status(201).json(log);
   } catch (error: any) {
-    if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+    }
     return res.status(500).json({ message: 'Internal server error' });
   }
 };

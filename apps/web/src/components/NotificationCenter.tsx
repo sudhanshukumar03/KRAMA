@@ -29,7 +29,7 @@ export function NotificationCenter({ className }: { className?: string }) {
   const { data: notifications = [], isLoading } = useQuery<NotificationItem[]>({
     queryKey: ['notifications'],
     queryFn: api.notifications.list,
-    refetchInterval: 30000,
+    refetchInterval: 180000, // 3-minute fallback cadence; primary delivery is real-time via SocketProvider
   });
 
   const unreadCount = notifications.filter((n) => !n.read).length;

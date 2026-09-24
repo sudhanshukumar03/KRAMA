@@ -70,7 +70,7 @@ export class TaskService {
         updatedBy: userId,
       }, tx);
 
-      publishAfterCommit('TASK_CREATED', { taskId: task.id, workspaceId: task.workspaceId });
+      publishAfterCommit('TASK_CREATED', { taskId: task.id, workspaceId: task.workspaceId, userId, task });
       return task;
     });
   }
@@ -104,7 +104,7 @@ export class TaskService {
         updatedBy: userId,
       }, tx);
 
-      publishAfterCommit('TASK_UPDATED', { taskId: task.id, workspaceId: task.workspaceId });
+      publishAfterCommit('TASK_UPDATED', { taskId: task.id, workspaceId: task.workspaceId, userId, task });
       
       if (existing.status !== 'DONE' && updateData.status === 'DONE') {
         publishAfterCommit('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId, userId });
@@ -125,13 +125,13 @@ export class TaskService {
         updatedBy: userId,
       }, tx);
 
-      publishAfterCommit('TASK_DELETED', { taskId: task.id, workspaceId: task.workspaceId });
+      publishAfterCommit('TASK_DELETED', { taskId: task.id, workspaceId: task.workspaceId, userId, task });
       return task;
     });
   }
 
   async reorderTask(id: string, workspaceId: string, data: any, userId: string) {
-    return runInTransaction(async (tx) => {
+    return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await taskRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
         throw new Error('Task not found');
@@ -147,6 +147,7 @@ export class TaskService {
         updatedBy: userId,
       }, tx);
 
+      publishAfterCommit('TASK_UPDATED', { taskId: task.id, workspaceId: task.workspaceId, userId, task });
       return task;
     });
   }
@@ -166,6 +167,7 @@ export class TaskService {
         updatedBy: userId,
       }, tx);
 
+      publishAfterCommit('TASK_UPDATED', { taskId: task.id, workspaceId: task.workspaceId, userId, task });
       if (isNewlyCompleted) {
         publishAfterCommit('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId, userId });
       }
@@ -184,7 +186,8 @@ export class TaskService {
         updatedBy: userId
       }, tx);
 
-      publishAfterCommit('TASK_RESTORED', { taskId: task.id, workspaceId: task.workspaceId });
+      publishAfterCommit('TASK_CREATED', { taskId: task.id, workspaceId: task.workspaceId, userId, task });
+      publishAfterCommit('TASK_RESTORED', { taskId: task.id, workspaceId: task.workspaceId, userId });
       return task;
     });
   }

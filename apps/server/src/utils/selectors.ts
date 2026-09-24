@@ -8,7 +8,10 @@ export const userAuthSelect = {
   memberships: {
     select: {
       workspaceId: true,
-      role: true
-    }
-  }
+      role: true,
+      workspace: {
+        select: { id: true, name: true, productivityScore: true },
+      },
+    },
+  },
 } satisfies Prisma.UserSelect;

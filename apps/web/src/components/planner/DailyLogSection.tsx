@@ -6,8 +6,23 @@ import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 import {
   Smile, Zap, Trophy, AlertCircle, FileText, Check,
-  Save, Loader2, Sparkles
+  Save, Loader2, Sparkles, X, CheckCheck, Bot
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+
+interface AiSuggestionAction {
+  id?: string;
+  entityType: 'task' | 'habit' | 'goal';
+  action: 'complete' | 'create' | 'update_progress';
+  title: string;
+  metadata?: Record<string, any>;
+  confidence?: number;
+}
+
+interface AiDebriefResult {
+  summary: string;
+  actions: AiSuggestionAction[];
+}
 
 interface Props {
   day: Date;
@@ -28,6 +43,7 @@ const ENERGY_OPTIONS = [
 ];
 
 export function DailyLogSection({ day }: Props) {
+  const { workspaceId } = useAuth();
   const queryClient = useQueryClient();
   const dateStr = format(day, 'yyyy-MM-dd');
   const dayIso = startOfDay(day).toISOString();
@@ -47,6 +63,91 @@ export function DailyLogSection({ day }: Props) {
   const [blockersText, setBlockersText] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [deepWorkMinutes, setDeepWorkMinutes] = useState<number>(0);
+
+  // AI Debrief suggestions state
+  const [isDebriefing, setIsDebriefing] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<AiDebriefResult | null>(null);
+  const [processingIndex, setProcessingIndex] = useState<number | null>(null);
+
+  const handleAiDebrief = async () => {
+    const textPieces = [
+      winsText.trim() ? `Wins:\n${winsText.trim()}` : '',
+      blockersText.trim() ? `Blockers:\n${blockersText.trim()}` : '',
+      notes.trim() ? `Notes:\n${notes.trim()}` : '',
+    ].filter(Boolean).join('\n\n');
+
+    if (!textPieces) {
+      toast.error('Please enter wins, blockers, or notes before running AI Debrief.');
+      return;
+    }
+
+    setIsDebriefing(true);
+    try {
+      const result = await api.ai.narrative({
+        narrative: textPieces,
+        notes: textPieces,
+        date: dayIso,
+      });
+      setAiSuggestions(result);
+      toast.success('AI Debrief Complete', {
+        description: result.summary || 'Review suggested actions below.',
+      });
+    } catch (err: any) {
+      toast.error('AI Debrief failed', {
+        description: err?.message || 'Please try again later.',
+      });
+    } finally {
+      setIsDebriefing(false);
+    }
+  };
+
+  const handleAcceptSuggestion = async (action: AiSuggestionAction, index: number) => {
+    setProcessingIndex(index);
+    try {
+      if (action.entityType === 'task') {
+        if (action.action === 'complete' && action.id) {
+          await api.tasks.complete(action.id);
+          toast.success(`Completed task "${action.title}"`);
+        } else if (action.action === 'create') {
+          await api.tasks.create({ title: action.title, status: 'TODO', priority: 'MEDIUM' });
+          toast.success(`Created task "${action.title}"`);
+        }
+      } else if (action.entityType === 'habit') {
+        if (action.action === 'complete' && action.id) {
+          await api.habits.complete(action.id, dateStr, dayIso);
+          toast.success(`Logged habit "${action.title}"`);
+        }
+      } else if (action.entityType === 'goal') {
+        if (action.id && action.action === 'update_progress' && action.metadata?.progress !== undefined) {
+          await api.goals.update(action.id, { progress: Number(action.metadata.progress) });
+          toast.success(`Updated goal "${action.title}"`);
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+
+      // Remove accepted action from suggestion list
+      setAiSuggestions(prev => prev ? {
+        ...prev,
+        actions: prev.actions.filter((_, i) => i !== index),
+      } : null);
+    } catch (err: any) {
+      toast.error(`Action failed: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setProcessingIndex(null);
+    }
+  };
+
+  const handleDismissSuggestion = (index: number) => {
+    setAiSuggestions(prev => prev ? {
+      ...prev,
+      actions: prev.actions.filter((_, i) => i !== index),
+    } : null);
+  };
 
   // Sync state when log loads
   useEffect(() => {
@@ -81,6 +182,7 @@ export function DailyLogSection({ day }: Props) {
         blockers,
         notes: notes || undefined,
         deepWorkMinutes: Number(deepWorkMinutes) || 0,
+        ...(workspaceId ? { workspaceId } : {}),
       };
 
       if (existingLog) {
@@ -236,8 +338,100 @@ export function DailyLogSection({ day }: Props) {
         />
       </div>
 
-      {/* Save Action */}
-      <div className="flex items-center justify-end gap-2 pt-1">
+      {/* AI Debrief Suggestions Panel */}
+      {aiSuggestions && (
+        <div className="p-3.5 bg-accent-subtle/40 border border-accent/30 rounded-xl space-y-2.5 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-accent-fg font-semibold text-xs">
+              <Bot className="w-4 h-4 text-accent" />
+              <span>AI Suggested Updates</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAiSuggestions(null)}
+              className="text-muted hover:text-primary transition-colors p-1 rounded-md"
+              title="Close debrief panel"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {aiSuggestions.summary && (
+            <p className="text-xs text-secondary leading-relaxed bg-surface/70 p-2.5 rounded-lg border border-border">
+              {aiSuggestions.summary}
+            </p>
+          )}
+
+          {aiSuggestions.actions && aiSuggestions.actions.length > 0 ? (
+            <div className="space-y-1.5 pt-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted font-semibold">
+                Proposed actions ({aiSuggestions.actions.length})
+              </span>
+              {aiSuggestions.actions.map((act, idx) => (
+                <div
+                  key={`${act.entityType}-${act.id || idx}`}
+                  className="flex items-center justify-between gap-2 p-2 bg-surface rounded-lg border border-border text-xs"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={cn(
+                      "px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase shrink-0",
+                      act.entityType === 'task' ? "bg-accent-subtle text-accent-fg" :
+                      act.entityType === 'habit' ? "bg-success-bg text-success-fg" : "bg-warning-bg text-warning-fg"
+                    )}>
+                      {act.entityType}: {act.action}
+                    </span>
+                    <span className="truncate text-primary font-medium">{act.title}</span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleAcceptSuggestion(act, idx)}
+                      disabled={processingIndex === idx}
+                      className="px-2 py-1 rounded bg-success-bg hover:bg-success-bg/80 text-success-fg font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                      title="Accept suggestion"
+                    >
+                      {processingIndex === idx ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <CheckCheck className="w-3 h-3" />
+                      )}
+                      <span>Accept</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDismissSuggestion(idx)}
+                      disabled={processingIndex === idx}
+                      className="p-1 rounded text-muted hover:text-danger-fg transition-colors cursor-pointer disabled:opacity-50"
+                      title="Dismiss suggestion"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] text-muted italic">No pending actions detected from today's debrief notes.</p>
+          )}
+        </div>
+      )}
+
+      {/* Actions Row */}
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <button
+          type="button"
+          onClick={handleAiDebrief}
+          disabled={isDebriefing}
+          className="px-3.5 py-2 rounded-xl bg-accent-subtle hover:bg-accent-subtle/80 text-accent-fg border border-accent/20 text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+        >
+          {isDebriefing ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />
+          ) : (
+            <Sparkles className="w-3.5 h-3.5 text-accent" />
+          )}
+          <span>{isDebriefing ? 'Analyzing Notes...' : 'AI Debrief'}</span>
+        </button>
+
         <button
           type="button"
           onClick={() => saveMutation.mutate()}

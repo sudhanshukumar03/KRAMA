@@ -1,4 +1,4 @@
-import { aiService } from './ai.service';
+import { aiService, GEMINI_MODEL } from './ai.service';
 import { prisma } from '../prisma';
 import { z } from 'zod';
 
@@ -70,7 +70,7 @@ Output exactly a JSON object matching this schema:
     // 3. Call Gemini API via aiService gateway for telemetry
     const response = await aiService.generateContentWithGemini({
       prompt,
-      model: 'gemini-3.7-flash',
+      model: GEMINI_MODEL,
       config: {
         responseMimeType: 'application/json',
         temperature: 0.2

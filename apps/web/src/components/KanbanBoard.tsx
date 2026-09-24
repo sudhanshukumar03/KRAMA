@@ -33,13 +33,13 @@ import {
   CircleDashed, CheckCircle, CheckCircle2, ListChecks, 
   Search, Plus, AlertCircle, X, KanbanSquare, Clock, 
   Folder, CheckSquare, MoreVertical, ChevronDown, 
-  LayoutGrid, List, Calendar, Inbox, Trash2, Edit2, Zap
+  LayoutGrid, List, Calendar, Inbox, Trash2, Edit2, Zap, Archive
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
 
-// Four core status columns as specified in reference design
+// Six status columns aligned with TaskStatus schema
 const STATUS_COLUMNS = [
   {
     id: "BACKLOG" as TaskStatus,
@@ -51,6 +51,17 @@ const STATUS_COLUMNS = [
     topBorder: "border-t-[3px] border-t-accent",
     badgeBg: "bg-accent-subtle text-accent-fg border border-accent/20",
     addText: "text-accent-fg hover:bg-accent-subtle hover:border-accent/30",
+  },
+  {
+    id: "TODO" as TaskStatus,
+    title: "To Do",
+    subtitle: "Ready for execution",
+    icon: ListChecks,
+    iconColor: "text-info-fg",
+    bgLight: "bg-surface border-border/80",
+    topBorder: "border-t-[3px] border-t-info-border",
+    badgeBg: "bg-info-bg text-info-fg border border-info-border",
+    addText: "text-info-fg hover:bg-info-bg hover:border-info-border",
   },
   {
     id: "IN_PROGRESS" as TaskStatus,
@@ -87,7 +98,19 @@ const STATUS_COLUMNS = [
   },
 ];
 
-const STATUS_IDS = ["BACKLOG", "IN_PROGRESS", "REVIEW", "DONE"];
+const CANCELED_COLUMN = {
+  id: "CANCELED" as TaskStatus,
+  title: "Canceled",
+  subtitle: "Archived & abandoned directives",
+  icon: Archive,
+  iconColor: "text-muted",
+  bgLight: "bg-surface/50 border-border/60",
+  topBorder: "border-t-[3px] border-t-muted/40",
+  badgeBg: "bg-surface-hover text-muted border border-border",
+  addText: "text-muted hover:bg-surface-hover",
+};
+
+const STATUS_IDS = ["BACKLOG", "TODO", "IN_PROGRESS", "REVIEW", "DONE", "CANCELED"];
 
 function getPriorityBadge(priority: string) {
   switch (priority) {
@@ -350,7 +373,17 @@ function Column({
   onCreate,
   onClick,
 }: {
-  col: (typeof STATUS_COLUMNS)[number];
+  col: {
+    id: TaskStatus;
+    title: string;
+    subtitle?: string;
+    icon: any;
+    iconColor: string;
+    bgLight: string;
+    topBorder: string;
+    badgeBg: string;
+    addText: string;
+  };
   issues: IssueWithRelations[];
   onDelete?: (issue: IssueWithRelations) => void;
   onCreate?: (status: TaskStatus) => void;
@@ -791,7 +824,7 @@ export function IssueEditModal({
                 onChange={e => setStatus(e.target.value as TaskStatus)}
                 className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
               >
-                {STATUS_COLUMNS.map(s => (
+                {[...STATUS_COLUMNS, CANCELED_COLUMN].map(s => (
                   <option key={s.id} value={s.id}>{s.title}</option>
                 ))}
               </select>
@@ -962,6 +995,10 @@ export function KanbanBoard({
   const [selectedSprintId, setSelectedSprintId] = useState<string>('all');
   const [groupBy, setGroupBy] = useState<'status' | 'priority' | 'project'>('status');
   const [sortBy, setSortBy] = useState<'priority' | 'date' | 'title'>('priority');
+  const [showCanceledArchive, setShowCanceledArchive] = useState(false);
+
+  const canceledCount = useMemo(() => issues.filter(i => i.status === "CANCELED").length, [issues]);
+  const visibleColumns = useMemo(() => showCanceledArchive ? [...STATUS_COLUMNS, CANCELED_COLUMN] : STATUS_COLUMNS, [showCanceledArchive]);
 
   useEffect(() => {
     if (lockedProjectId) {
@@ -993,6 +1030,7 @@ export function KanbanBoard({
       }),
     onSuccess: (newIssue) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
       setCreateModalOpen(false);
       toast.success(`Created "${newIssue?.title || 'Directive'}"`, {
@@ -1009,6 +1047,7 @@ export function KanbanBoard({
       api.tasks.update(id, data),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
       setEditModalOpen(false);
       setEditingIssue(null);
@@ -1153,14 +1192,14 @@ export function KanbanBoard({
     if (STATUS_IDS.includes(overId)) {
       newStatus = overId as TaskStatus;
     } else if (overIssueData) {
-      newStatus = (overIssueData.status === "TODO" ? "BACKLOG" : overIssueData.status) as TaskStatus;
+      newStatus = overIssueData.status as TaskStatus;
     }
 
     let newPosition = activeIssueData.position;
 
     if (activeId !== overId) {
       const statusIssues = issues
-        .filter(i => !i.parentTaskId && (newStatus === "BACKLOG" ? (i.status === "BACKLOG" || i.status === "TODO") : i.status === newStatus))
+        .filter(i => !i.parentTaskId && i.status === newStatus)
         .sort((a, b) => a.position - b.position);
 
       if (STATUS_IDS.includes(overId)) {
@@ -1208,19 +1247,18 @@ export function KanbanBoard({
       updateIssueMutation.mutate({ id: activeId, data: { status: newStatus, position: newPosition } }, {
         onError: () => {
           queryClient.invalidateQueries({ queryKey: ['issues'] });
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
           toast.error('Failed to move directive');
         },
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ['issues'] });
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
         }
       });
     }
   };
 
   const getColumnIssues = (colId: TaskStatus) => {
-    if (colId === "BACKLOG") {
-      return filteredIssues.filter(i => i.status === "BACKLOG" || i.status === "TODO");
-    }
     return filteredIssues.filter(i => i.status === colId);
   };
 
@@ -1411,6 +1449,22 @@ export function KanbanBoard({
             <ChevronDown className="w-3 h-3 text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
+          {/* Toggle Canceled Archive */}
+          <button
+            type="button"
+            onClick={() => setShowCanceledArchive(prev => !prev)}
+            className={cn(
+              "px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs",
+              showCanceledArchive
+                ? "bg-accent-subtle text-accent-fg border-accent/30 font-semibold"
+                : "bg-surface border border-border/80 text-secondary hover:text-primary"
+            )}
+            title="Toggle Canceled Directives Archive"
+          >
+            <Archive className="w-3.5 h-3.5" />
+            <span>Archive{canceledCount > 0 ? ` (${canceledCount})` : ''}</span>
+          </button>
+
           {/* Embedded View Switcher and Action Button when header is hidden */}
           {hideHeader && (
             <>
@@ -1468,24 +1522,25 @@ export function KanbanBoard({
       {/* 4. Board Viewport - Fluid Notion-style responsive columns */}
       <div className="flex-1 min-w-0 w-full overflow-x-auto overflow-y-hidden px-4 md:px-6 pb-6 pt-1 select-none custom-scrollbar">
         {activeView === 'board' ? (
-          <div className="h-full min-w-full w-max md:w-full grid grid-cols-[repeat(4,minmax(270px,1fr))] gap-4">
+          <div className="h-full min-w-full w-max flex gap-4">
             <DndContext
               sensors={sensors}
               collisionDetection={collisionDetectionStrategy}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >
-              {STATUS_COLUMNS.map((col) => {
+              {visibleColumns.map((col) => {
                 const columnIssues = getColumnIssues(col.id);
                 return (
-                  <Column
-                    key={col.id}
-                    col={col}
-                    issues={columnIssues}
-                    onDelete={handleDeleteIssue}
-                    onCreate={handleCreateIssue}
-                    onClick={handleEditIssue}
-                  />
+                  <div key={col.id} className="w-[280px] lg:w-[310px] shrink-0 h-full flex flex-col">
+                    <Column
+                      col={col}
+                      issues={columnIssues}
+                      onDelete={handleDeleteIssue}
+                      onCreate={handleCreateIssue}
+                      onClick={handleEditIssue}
+                    />
+                  </div>
                 );
               })}
 

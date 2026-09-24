@@ -1,7 +1,7 @@
 import type { HolidayType } from '@prisma/client';
 
 export class HolidayNormalizer {
-  public static mapToCalendarificRegion(countryCode: string, regionCode?: string | null): string | undefined {
+  public static mapRegion(countryCode: string, regionCode?: string | null): string | undefined {
     if (!regionCode) return undefined;
     return `${countryCode.toLowerCase()}-${regionCode.toLowerCase()}`;
   }

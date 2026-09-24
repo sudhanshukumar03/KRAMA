@@ -57,7 +57,7 @@ export async function buildFocusSchedule(
       select: { weeklyCapacityMinutes: true, metadata: true }
     }),
     prisma.timeBlock.findMany({
-      where: { userId, date: { gte: startOfDay, lte: endOfDay } },
+      where: { userId, workspaceId, date: { gte: startOfDay, lte: endOfDay } },
       orderBy: { startTime: 'asc' }
     }),
     prisma.task.findMany({

@@ -10,14 +10,12 @@ import type {
   Habit as PrismaHabit,
   HabitCompletion,
   Space,
-  Page,
   Document,
   DocumentType,
   DocumentVersion,
   Tag,
   DocumentTag,
   EntityLink,
-  Decision,
   DailyLog,
   SprintReport,
   WorkspaceAnalytics,
@@ -49,9 +47,7 @@ export type {
   GoalProgressSnapshot,
   HabitCompletion,
   Space,
-  Page,
   Document,
-  Decision,
   DailyLog,
   SprintReport,
   WorkspaceAnalytics,
@@ -85,7 +81,6 @@ export type GoalWithRelations = Goal & {
 export type ProjectWithRelations = Project & {
   targetDate?: string | Date | null;
   tasks?: Issue[];
-  pages?: Page[];
   documents?: Document[];
   sprints?: Sprint[];
   roadmapItems?: RoadmapItem[];
@@ -95,19 +90,8 @@ export type ProjectWithRelations = Project & {
     tasks?: number;
     sprints?: number;
     roadmapItems?: number;
-    pages?: number;
     documents?: number;
   };
-};
-
-export type PageWithRelations = Page & {
-  childPages?: Page[];
-  linkedProject?: (Project & {
-    tasks?: Issue[];
-    goal?: Goal | null;
-    sprints?: Sprint[];
-  }) | null;
-  space?: Space | null;
 };
 
 export type DocumentWithRelations = Document & {
@@ -137,21 +121,14 @@ export type IssueWithRelations = Issue & {
 };
 
 export type SpaceWithRelations = Space & {
-  pages?: Page[];
   projects?: Project[];
-};
-
-export type DecisionWithRelations = Decision & {
-  linkedProject?: {
-    id: string;
-    name: string;
-  } | null;
+  documents?: Document[];
 };
 
 export interface SearchResult {
   id: string;
   title: string;
-  type: 'page' | 'issue' | 'project' | 'goal' | 'decision';
+  type: 'document' | 'page' | 'issue' | 'project' | 'goal' | 'decision';
   snippet: string;
   url: string;
   badge?: string;

@@ -4,7 +4,7 @@ import { prisma } from '../prisma';
 import { goalService } from '../services/goal.service';
 import { habitService } from '../services/habit.service';
 import { taskService } from '../services/task.service';
-import { UpdatePageSchema, UpdateDailyLogSchema } from '@krama/validation';
+import { UpdateDailyLogSchema } from '@krama/validation';
 
 describe('P0 Concurrency & Version Increment Suite', () => {
   let workspace: any;
@@ -191,67 +191,6 @@ describe('P0 Concurrency & Version Increment Suite', () => {
 
       // Cleanup
       await prisma.task.delete({ where: { id: created.id } });
-    });
-  });
-
-  describe('Page Model Concurrency (Brain)', () => {
-    it('succeeds without version and increments version from 1 to 2; rejects stale version', async () => {
-      const created = await prisma.page.create({
-        data: {
-          title: 'Test Brain Page',
-          workspaceId: workspace.id,
-          version: 1,
-          createdBy: user.id,
-        },
-      });
-      assert.strictEqual(created.version, 1);
-
-      // Helper reproducing page update controller logic
-      async function updatePage(id: string, body: any) {
-        const data = UpdatePageSchema.parse({ ...body, workspaceId: workspace.id });
-        const existing = await prisma.page.findUnique({ where: { id } });
-        if (!existing || existing.deletedAt || existing.workspaceId !== data.workspaceId) {
-          throw new Error('Page not found');
-        }
-        if (data.version !== undefined && existing.version !== data.version) {
-          throw new Error('Conflict: version mismatch');
-        }
-        const { version, workspaceId: _, ...updateData } = data;
-        return prisma.page.update({
-          where: { id },
-          data: {
-            ...updateData,
-            version: { increment: 1 },
-            updatedBy: user.id,
-          },
-        });
-      }
-
-      // 1. Update without version
-      const updatedNoVersion = await updatePage(created.id, {
-        title: 'Updated Brain Title',
-        blocks: [{ type: 'paragraph', content: 'Brain notes' }],
-      });
-      assert.strictEqual(updatedNoVersion.version, 2, 'Page version must increment from 1 to 2 on write');
-      assert.strictEqual(updatedNoVersion.title, 'Updated Brain Title');
-
-      // 2. Stale update with version 1
-      await assert.rejects(
-        async () => {
-          await updatePage(created.id, { title: 'Stale Edit', version: 1 });
-        },
-        (err: Error) => {
-          assert(err.message.includes('Conflict'), `Expected Conflict error, got: ${err.message}`);
-          return true;
-        }
-      );
-
-      // 3. Update with matching version 2
-      const updatedMatching = await updatePage(created.id, { title: 'Matching Brain Edit', version: 2 });
-      assert.strictEqual(updatedMatching.version, 3, 'Page version must increment from 2 to 3');
-
-      // Cleanup
-      await prisma.page.delete({ where: { id: created.id } });
     });
   });
 

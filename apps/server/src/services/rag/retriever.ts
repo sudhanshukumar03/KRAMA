@@ -23,6 +23,8 @@ export async function vectorSearch(
     LEFT JOIN "Document" d ON d.id = kc."documentId"
     LEFT JOIN "Page" p ON p.id = kc."pageId"
     WHERE kc."workspaceId" = ${workspaceId}
+      AND (d."deletedAt" IS NULL OR d.id IS NULL)
+      AND (p."deletedAt" IS NULL OR p.id IS NULL)
     ORDER BY kc.embedding <=> ${vectorString}::vector
     LIMIT ${limit}
   `;
@@ -51,6 +53,8 @@ export async function keywordSearch(
     LEFT JOIN "Page" p ON p.id = kc."pageId"
     WHERE
       kc."workspaceId" = ${workspaceId}
+      AND (d."deletedAt" IS NULL OR d.id IS NULL)
+      AND (p."deletedAt" IS NULL OR p.id IS NULL)
       AND to_tsvector('english', kc.content)
           @@ plainto_tsquery('english', ${query})
     ORDER BY similarity DESC

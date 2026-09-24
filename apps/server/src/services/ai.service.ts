@@ -88,13 +88,15 @@ class ProviderFactory {
   }
 }
 
+export const GEMINI_MODEL = 'gemini-2.5-flash';
+
 const COST_MAP: Record<string, { prompt: number, completion: number }> = {
   'llama-3.1-8b-instant': { prompt: 0.05 / 1_000_000, completion: 0.08 / 1_000_000 },
   'llama-3.1-70b-versatile': { prompt: 0.59 / 1_000_000, completion: 0.79 / 1_000_000 },
-  'gemini-1.5-flash-latest': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
-  'gemini-3.6-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
-  'gemini-3.7-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
+  'gemini-2.5-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
+  'gemini-2.0-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
 };
+
 
 export class AiService {
   private calculateCost(model: string, promptTokens: number, completionTokens: number): number {
@@ -181,7 +183,7 @@ export class AiService {
     userId: string;
   }): Promise<string> {
     const startTime = Date.now();
-    const model = params.model || 'gemini-3.6-flash';
+    const model = params.model || GEMINI_MODEL;
     const client = getGeminiClient();
 
     const interaction = await client.interactions.create({
@@ -223,7 +225,7 @@ export class AiService {
     userId: string;
   }): Promise<{ text: string }> {
     const startTime = Date.now();
-    const model = params.model || 'gemini-3.7-flash';
+    const model = params.model || GEMINI_MODEL;
     const client = getGeminiClient();
 
     const response = await client.models.generateContent({

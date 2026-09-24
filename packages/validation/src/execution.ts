@@ -76,24 +76,9 @@ export const CreateHabitSchema = WorkspaceScoped.extend({
   timeOfDay: z.enum(["morning", "afternoon", "evening", "anytime"]).optional(),
   pinnedToPlanner: z.boolean().optional(),
   metadata: z.any().optional(),
-  skillIds: z.array(z.string()).optional(),
 });
 
 export const UpdateHabitSchema = CreateHabitSchema.partial().extend({
-  version: z.number().int().min(1).optional(),
-});
-
-export const CreatePageSchema = WorkspaceScoped.extend({
-  title: z.string().min(1).max(255),
-  icon: z.string().nullable().optional(),
-  spaceId: z.string().uuid().nullable().optional(),
-  parentPageId: z.string().uuid().nullable().optional(),
-  linkedProjectId: z.string().uuid().nullable().optional(),
-  blocks: z.any().optional(), // Draft.js / Editor.js JSON
-  metadata: z.any().optional(),
-});
-
-export const UpdatePageSchema = CreatePageSchema.partial().extend({
   version: z.number().int().min(1).optional(),
 });
 

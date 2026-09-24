@@ -72,7 +72,7 @@ export function Dashboard() {
   const progressPercent = totalToday === 0 ? 0 : Math.round((completedToday / totalToday) * 100);
 
   return (
-    <div className="h-full w-full max-w-[1360px] mx-auto px-6 sm:px-8 lg:px-12 pt-6 pb-6 flex flex-col justify-between overflow-hidden animate-in fade-in duration-200">
+    <div className="h-full w-full max-w-[1360px] mx-auto px-6 sm:px-8 lg:px-12 pt-6 pb-6 flex flex-col justify-between overflow-y-auto min-h-0 animate-in fade-in duration-200">
       
       {/* Top Utility Row */}
       <div className="flex items-center justify-between shrink-0 mb-2">

@@ -4,6 +4,7 @@ import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-
 import { cn } from '../lib/utils';
 
 import { Sidebar } from './Sidebar';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import { KanbanBoard } from './KanbanBoard';
 import { BrainWorkspace } from './BrainWorkspace';
 import { Dashboard } from './Dashboard';
@@ -15,6 +16,7 @@ import { SprintView } from './SprintView';
 import { ProjectDetail } from './ProjectDetail';
 import { PlannerPage } from './planner/PlannerPage';
 import { HabitTracker } from './HabitTracker';
+import { AnalyticsPage } from './AnalyticsPage';
 
 import { AIAssistant } from './AIAssistant';
 import { NotificationCenter } from './NotificationCenter';
@@ -24,7 +26,7 @@ import { useTheme } from '../lib/theme';
 export function AppShell() {
  const navigate = useNavigate();
  const location = useLocation();
- const isFlushRoute = location.pathname === '/app' || location.pathname === '/app/' || location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/sprint') || location.pathname.startsWith('/app/operations') || location.pathname.startsWith('/app/planner') || location.pathname.startsWith('/app/timeline') || location.pathname.startsWith('/app/goals') || location.pathname.startsWith('/app/habits') || location.pathname.startsWith('/app/projects') || location.pathname.startsWith('/app/brain');
+ const isFlushRoute = location.pathname === '/app' || location.pathname === '/app/' || location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/sprint') || location.pathname.startsWith('/app/operations') || location.pathname.startsWith('/app/planner') || location.pathname.startsWith('/app/timeline') || location.pathname.startsWith('/app/goals') || location.pathname.startsWith('/app/habits') || location.pathname.startsWith('/app/projects') || location.pathname.startsWith('/app/brain') || location.pathname.startsWith('/app/analytics');
  const { toggleTheme, resolvedTheme } = useTheme();
  const [activePrefix, setActivePrefix] = useState<'g' | 'e' | 't' | 's' | null>(null);
  const [showCheatsheet, setShowCheatsheet] = useState(false);
@@ -184,6 +186,8 @@ export function AppShell() {
             <span className="text-[11px] font-medium text-secondary group-hover:text-primary">Sidebar</span>
           </button>
           <span className="text-muted text-xs">/</span>
+          <WorkspaceSwitcher compact />
+          <span className="text-muted text-xs">/</span>
           <span className="text-caption font-mono font-medium text-secondary capitalize">
             {location.pathname.replace('/app', '').replace('/', '') || 'Dashboard'}
           </span>
@@ -239,6 +243,7 @@ export function AppShell() {
  <span className="font-mono font-bold text-body text-primary tracking-tight">KRAMA OS</span>
  </div>
  <div className="flex items-center gap-2">
+ <WorkspaceSwitcher compact />
  <NotificationCenter />
  <button
  onClick={toggleTheme}
@@ -272,7 +277,7 @@ export function AppShell() {
  <Route path="/planner/*" element={<PlannerPage />} />
  <Route path="/timeline/*" element={<Navigate to="/app/planner?mode=day" replace />} />
  <Route path="/habits/*" element={<HabitTracker />} />
- <Route path="/analytics/*" element={<Navigate to="/app/" replace />} />
+ <Route path="/analytics/*" element={<AnalyticsPage />} />
  <Route path="/decisions" element={<Navigate to="/app/brain" replace />} />
  <Route path="/graph" element={<Navigate to="/app/brain" replace />} />
  </Routes></GlobalErrorBoundary>

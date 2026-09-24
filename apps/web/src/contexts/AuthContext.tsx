@@ -5,7 +5,15 @@ interface User {
   id: string;
   email: string;
   name: string;
-  memberships: { workspaceId: string; role: string }[];
+  memberships: {
+    workspaceId: string;
+    role: string;
+    workspace?: {
+      id: string;
+      name: string;
+      productivityScore?: number;
+    };
+  }[];
   metadata?: {
     timerPreferences?: {
       sprint?: number;
@@ -63,6 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Logout error', err);
     } finally {
+      api.setAccessToken(null);
+      api.setWorkspaceId(null);
+      localStorage.removeItem('krama_active_workspace');
+      localStorage.removeItem('krama_user');
       setAuthState({ status: 'anon' });
     }
   }, [authState]);
@@ -70,6 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Listen for the global logout event dispatched by centralized 401 handler
   useEffect(() => {
     const onGlobalLogout = () => {
+      api.setAccessToken(null);
+      api.setWorkspaceId(null);
+      localStorage.removeItem('krama_active_workspace');
+      localStorage.removeItem('krama_user');
       setAuthState({ status: 'anon' });
     };
     window.addEventListener('krama:logout', onGlobalLogout);
@@ -95,11 +111,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           api.setAccessToken(data.accessToken);
           const meData = await api.auth.me();
           if (mounted && meData.user) {
-            let wid = meData.user.memberships?.[0]?.workspaceId || null;
-            if (!wid) {
-              const savedWid = localStorage.getItem('krama_active_workspace');
-              wid = savedWid || null;
-            }
+            const savedWid = localStorage.getItem('krama_active_workspace');
+            const memberships = meData.user.memberships || [];
+            const hasSavedMembership = memberships.some((m: any) => m.workspaceId === savedWid);
+            const wid = (hasSavedMembership ? savedWid : null) || memberships[0]?.workspaceId || null;
+
             api.setWorkspaceId(wid); // Synchronously set to avoid race condition with React Query mounts
             if (wid) localStorage.setItem('krama_active_workspace', wid);
             
@@ -126,7 +142,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = (token: string, userData: User) => {
-    const wid = userData.memberships?.[0]?.workspaceId || null;
+    const savedWid = localStorage.getItem('krama_active_workspace');
+    const memberships = userData.memberships || [];
+    const hasSavedMembership = memberships.some((m: any) => m.workspaceId === savedWid);
+    const wid = (hasSavedMembership ? savedWid : null) || memberships[0]?.workspaceId || null;
+
     api.setAccessToken(token);
     api.setWorkspaceId(wid);
     if (wid) localStorage.setItem('krama_active_workspace', wid);

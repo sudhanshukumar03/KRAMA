@@ -154,7 +154,6 @@ model Workspace {
   goals           Goal[]
   habits          Habit[]
   spaces          Space[]
-  pages           Page[]
   tasks           Task[]
   sprints         Sprint[]
   dailyLogs       DailyLog[]
@@ -165,8 +164,8 @@ model Workspace {
   activityLogs    ActivityLog[]
   labels          Label[]
   focusSessions   FocusSession[]
-  decisions       Decision[]
   tags            Tag[]
+  timeBlocks      TimeBlock[]
 }
 
 model WorkspaceMember {
@@ -210,7 +209,7 @@ model Project {
   position  Float     @default(0)
 
   tasks         Task[]
-  pages         Page[]         @relation("ProjectPages")
+  documents     Document[]
   sprints       Sprint[]
   focusSessions FocusSession[]
   timeBlocks    TimeBlock[]
@@ -389,39 +388,10 @@ model Space {
   deletedAt DateTime?
   order     Int       @default(0)
 
-  pages     Page[]
   projects  Project[]
   goals     Goal[]
   folders   Folder[]
   documents Document[]
-}
-
-model Page {
-  id       String  @id @default(uuid())
-  title    String
-  icon     String?
-  blocks   Json? // Editor JSON
-  metadata Json?
-
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  spaceId     String?
-  space       Space?    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
-
-  parentPageId    String?
-  parentPage      Page?    @relation("PageHierarchy", fields: [parentPageId], references: [id])
-  childPages      Page[]   @relation("PageHierarchy")
-  linkedProjectId String?
-  linkedProject   Project? @relation("ProjectPages", fields: [linkedProjectId], references: [id])
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  createdBy String?
-  updatedBy String?
-  version   Int       @default(1)
-
-  knowledgeChunks KnowledgeChunk[]
 }
 
 model Folder {
@@ -459,6 +429,7 @@ model Document {
   parent          Document?    @relation("DocumentHierarchy", fields: [parentId], references: [id])
   children        Document[]   @relation("DocumentHierarchy")
   projectId       String?
+  project         Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   title           String
   subtitle        String?
@@ -543,20 +514,6 @@ model EntityLink {
 
   @@unique([sourceType, sourceId, targetType, targetId, linkType])
   @@index([targetType, targetId])
-}
-
-model Decision {
-  id        String  @id @default(uuid())
-  title     String
-  rationale String?
-  outcomes  String?
-  options   Json?
-  metadata  Json?
-
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
 }
 
 // -----------------------------------------------------------------------------
@@ -728,7 +685,6 @@ model KnowledgeChunk {
   id String @id @default(cuid())
 
   workspaceId String
-  pageId      String?
   documentId  String?
 
   content    String
@@ -741,11 +697,9 @@ model KnowledgeChunk {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  page     Page?     @relation(fields: [pageId], references: [id], onDelete: Cascade)
   document Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
-  @@index([pageId])
   @@index([documentId])
 }
 
@@ -756,6 +710,7 @@ model KnowledgeChunk {
 model TimeBlock {
   id         String        @id @default(uuid())
   userId     String
+  workspaceId String?
   title      String
   date       DateTime
   startTime  DateTime
@@ -768,11 +723,13 @@ model TimeBlock {
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task    Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task      Task?      @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@index([userId, date])
+  @@index([workspaceId])
 }
 
 model Milestone {

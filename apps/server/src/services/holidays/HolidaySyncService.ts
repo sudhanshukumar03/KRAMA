@@ -1,13 +1,13 @@
 import type { Holiday } from '@prisma/client';
 import type { HolidayProvider, HolidayProviderInput } from "./HolidayProvider";
-import { CalendarificHolidayProvider } from './CalendarificHolidayProvider';
+import { NagerDateHolidayProvider } from './NagerDateHolidayProvider';
 import { prisma } from '../../prisma';
 
 export class HolidaySyncService {
   private provider: HolidayProvider;
 
-  constructor() {
-    this.provider = new CalendarificHolidayProvider();
+  constructor(provider?: HolidayProvider) {
+    this.provider = provider || new NagerDateHolidayProvider();
   }
 
   async ensureHolidays(input: HolidayProviderInput): Promise<Holiday[]> {

@@ -129,7 +129,7 @@ export class AuthService {
   async revokeAllSessions(userId: string): Promise<void> {
     const sessions = await sessionRepository.findActiveByUserId(userId);
 
-    if (redisService.isConnected && redisService.client.isOpen) {
+    if (redisService.isConnected) {
       try {
         const pipeline = redisService.client.multi();
         for (const s of sessions) {
@@ -167,7 +167,7 @@ export class AuthService {
   private async _executeRefresh(refreshToken: string, ip?: string, userAgent?: string) {
     const hash = this.hashRefreshToken(refreshToken);
     
-    if (redisService.isConnected && redisService.client.isOpen) {
+    if (redisService.isConnected) {
       const graceData = await redisService.get(`grace:${hash}`);
       if (graceData) {
         try {
@@ -190,7 +190,7 @@ export class AuthService {
     } else {
       // We lost the race to delete in Redis, or Redis didn't have it.
       // Another node might be creating the grace token right now. Wait briefly.
-      if (redisService.isConnected && redisService.client.isOpen) {
+      if (redisService.isConnected) {
         for (let i = 0; i < 3; i++) {
           await new Promise(resolve => setTimeout(resolve, 400));
           const retryGrace = await redisService.get(`grace:${hash}`);
@@ -234,7 +234,7 @@ export class AuthService {
     // Create new
     const newPair = await this.createSession(sessionData.userId, ip, userAgent, sessionData.familyId);
     
-    if (redisService.isConnected && redisService.client.isOpen) {
+    if (redisService.isConnected) {
       await redisService.set(`grace:${hash}`, JSON.stringify(newPair), 10);
     }
     
@@ -243,7 +243,7 @@ export class AuthService {
 
   async revokeFamily(familyId: string): Promise<void> {
     const sessions = await sessionRepository.findActiveByFamilyId(familyId);
-    if (redisService.isConnected && redisService.client.isOpen) {
+    if (redisService.isConnected) {
       try {
         const pipeline = redisService.client.multi();
         for (const s of sessions) {

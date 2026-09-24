@@ -1,11 +1,13 @@
-import { fetchHolidays } from '../services/holidays.service';
+import { HolidaySyncService } from '../services/holidays/HolidaySyncService';
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../prisma';
 import { calculateCapacity } from '../services/capacity.service';
+import { habitService } from '../services/habit.service';
 import { requireAuth } from '../middlewares/auth.middleware';
 
 const router: Router = Router();
+const holidaySync = new HolidaySyncService();
 router.use(requireAuth);
 
 function getUserId(req: Request): string {
@@ -37,7 +39,14 @@ router.get('/week', async (req: Request, res: Response) => {
     let workspaceId = getWorkspaceId(req);
 
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-    if (!workspaceId) {
+    if (workspaceId) {
+      const member = await prisma.workspaceMember.findUnique({
+        where: { userId_workspaceId: { userId, workspaceId } },
+      });
+      if (!member) {
+        return res.status(403).json({ message: 'Forbidden: Not a member of this workspace' });
+      }
+    } else {
       const member = await prisma.workspaceMember.findFirst({
         where: { userId },
         select: { workspaceId: true },
@@ -92,7 +101,7 @@ router.get('/week', async (req: Request, res: Response) => {
         orderBy: { dueDate: 'asc' },
       }),
       prisma.timeBlock.findMany({
-        where: { userId, date: { gte: weekStart, lte: weekEnd } },
+        where: { userId, workspaceId, date: { gte: weekStart, lte: weekEnd } },
         orderBy: { startTime: 'asc' },
       }),
       prisma.project.findMany({
@@ -102,7 +111,7 @@ router.get('/week', async (req: Request, res: Response) => {
       prisma.milestone.findMany({
         where: { userId, date: { gte: weekStart, lte: weekEnd } },
       }),
-      fetchHolidays(user.countryCode || 'IN', weekStart.getFullYear()),
+      holidaySync.ensureHolidays({ countryCode: user.countryCode || 'IN', regionCode: user.regionCode || null, year: weekStart.getFullYear() }),
     ]);
 
     const workDayMinutes = Math.round((user.weeklyCapacityMinutes ?? 2400) / 5);
@@ -150,7 +159,11 @@ router.get('/week', async (req: Request, res: Response) => {
 
     const days = [];
     let currentDay = new Date(weekStart);
-    for (let i = 0; i < 7; i++) {
+    const startDateOnly = new Date(`${startParam}T00:00:00.000Z`);
+    const endDateOnly = new Date(`${endParam}T00:00:00.000Z`);
+    const dayCount = Math.max(1, Math.round((endDateOnly.getTime() - startDateOnly.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+    for (let i = 0; i < Math.min(dayCount, 31); i++) {
       const dayOfWeek = currentDay.getUTCDay(); // 0 = Sun, 1 = Mon, etc.
       const dateStr = currentDay.toISOString().split('T')[0] as string;
 
@@ -213,8 +226,18 @@ router.get('/week', async (req: Request, res: Response) => {
       currentDay.setUTCDate(currentDay.getUTCDate() + 1);
     }
 
+    const unscheduledTasks = tasks.filter((t: any) => !t.scheduledDate && !t.dueDate && t.status !== 'DONE' && t.status !== 'CANCELED').map((t: any) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      completed: t.status === 'DONE',
+      scheduledDate: null,
+      dueDate: null,
+      estimateMinutes: t.estimateMinutes,
+    }));
+
     const allOccurrences = days.flatMap(d => d.occurrences);
-    const allMappedTasks = days.flatMap(d => d.tasks);
+    const allMappedTasks = [...days.flatMap(d => d.tasks), ...unscheduledTasks];
     
     return res.json({
       weekStart: weekStart.toISOString(),
@@ -228,6 +251,8 @@ router.get('/week', async (req: Request, res: Response) => {
       days,
       capacity,
       tasks: allMappedTasks,
+      backlog: unscheduledTasks,
+      workDayMinutes,
       timeBlocks: allTimeBlocks,
       milestones,
       occurrences: allOccurrences,
@@ -256,6 +281,19 @@ router.post('/time-blocks', async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    let workspaceId = getWorkspaceId(req);
+    if (workspaceId) {
+      const member = await prisma.workspaceMember.findUnique({
+        where: { userId_workspaceId: { userId, workspaceId } },
+      });
+      if (!member) return res.status(403).json({ message: 'Forbidden: Not a member of this workspace' });
+    } else {
+      const member = await prisma.workspaceMember.findFirst({
+        where: { userId },
+        select: { workspaceId: true },
+      });
+      if (member) workspaceId = member.workspaceId;
+    }
 
     const body = timeBlockSchema.parse(req.body);
     const startTime = createDateTime(body.date, body.startTime);
@@ -269,6 +307,7 @@ router.post('/time-blocks', async (req: Request, res: Response) => {
     const overlapping = await prisma.timeBlock.findFirst({
       where: {
         userId,
+        ...(workspaceId ? { workspaceId } : {}),
         date: body.date,
         OR: [
           { startTime: { lt: endTime }, endTime: { gt: startTime } },
@@ -282,6 +321,7 @@ router.post('/time-blocks', async (req: Request, res: Response) => {
     const timeBlock = await prisma.timeBlock.create({
       data: {
         userId,
+        workspaceId,
         title: body.title,
         date: body.date,
         startTime,
@@ -305,9 +345,10 @@ router.patch('/time-blocks/:id', async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const workspaceId = getWorkspaceId(req);
 
     const existing = await prisma.timeBlock.findFirst({
-      where: { id: req.params.id as string, userId },
+      where: { id: req.params.id as string, userId, ...(workspaceId ? { workspaceId } : {}) },
     });
 
     if (!existing) {
@@ -333,6 +374,7 @@ router.patch('/time-blocks/:id', async (req: Request, res: Response) => {
     const overlapping = await prisma.timeBlock.findFirst({
       where: {
         userId,
+        ...(existing.workspaceId ? { workspaceId: existing.workspaceId } : {}),
         date,
         id: { not: existing.id },
         OR: [
@@ -370,9 +412,10 @@ router.delete('/time-blocks/:id', async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const workspaceId = getWorkspaceId(req);
 
     const block = await prisma.timeBlock.findFirst({
-      where: { id: req.params.id as string, userId },
+      where: { id: req.params.id as string, userId, ...(workspaceId ? { workspaceId } : {}) },
     });
 
     if (!block) {
@@ -391,6 +434,7 @@ router.patch('/routine-occurrences', async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    let workspaceId = getWorkspaceId(req);
 
     const body = z.object({
       id: z.string(),
@@ -403,45 +447,32 @@ router.patch('/routine-occurrences', async (req: Request, res: Response) => {
     const dateStr = body.date.split('T')[0];
     const targetDate = new Date(`${dateStr}T12:00:00.000Z`);
 
-    if (body.completed) {
+    if (!workspaceId) {
       const habit = await prisma.habit.findUnique({ where: { id: body.habitId } });
-      const dayOfWeek = targetDate.getUTCDay();
-      const scheduled = habit?.scheduledDays && habit.scheduledDays.length > 0
-        ? habit.scheduledDays
-        : [0, 1, 2, 3, 4, 5, 6];
-      const offSchedule = !scheduled.includes(dayOfWeek);
+      if (habit) workspaceId = habit.workspaceId;
+    }
+    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
-      await prisma.habitCompletion.upsert({
-        where: {
-          habitId_userId_date: {
-            habitId: body.habitId,
-            userId,
-            date: targetDate,
-          }
-        },
-        update: {},
-        create: {
-          userId,
-          habitId: body.habitId,
-          date: targetDate,
-          completedAt: new Date(),
-          offSchedule,
-        }
+    if (body.completed) {
+      await habitService.logHabitCompletion({
+        id: body.habitId,
+        userId,
+        workspaceId,
+        dateIso: targetDate.toISOString(),
       });
     } else {
-      await prisma.habitCompletion.deleteMany({
-        where: {
-          userId,
-          habitId: body.habitId,
-          date: targetDate,
-        }
+      await habitService.unlogHabitCompletion({
+        id: body.habitId,
+        userId,
+        workspaceId,
+        dateIso: targetDate.toISOString(),
       });
     }
 
     return res.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Routine update:', error);
-    return res.status(400).json({ message: 'Unable to update routine' });
+    return res.status(400).json({ message: error?.message || 'Unable to update routine' });
   }
 });
 
@@ -482,6 +513,11 @@ router.patch('/milestones/:id', async (req: Request, res: Response) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
+    const existing = await prisma.milestone.findFirst({
+      where: { id: req.params.id as string, userId },
+    });
+    if (!existing) return res.status(404).json({ message: 'Milestone not found' });
+
     const schema = z.object({
       title: z.string().min(1).optional(),
       date: z.coerce.date().optional(),
@@ -496,7 +532,7 @@ router.patch('/milestones/:id', async (req: Request, res: Response) => {
     }
 
     const milestone = await prisma.milestone.update({
-      where: { id: req.params.id as string, userId },
+      where: { id: existing.id },
       data: dataToUpdate,
     });
 
@@ -512,8 +548,13 @@ router.delete('/milestones/:id', async (req: Request, res: Response) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    await prisma.milestone.delete({
+    const existing = await prisma.milestone.findFirst({
       where: { id: req.params.id as string, userId },
+    });
+    if (!existing) return res.status(404).json({ message: 'Milestone not found' });
+
+    await prisma.milestone.delete({
+      where: { id: existing.id },
     });
 
     return res.json({ success: true });

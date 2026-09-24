@@ -1,6 +1,6 @@
 import type { Router } from 'express';
 import express from 'express';
-import { listSprints, getSprint, createSprint, updateSprint, deleteSprint, getSprintTasks, getSprintReport } from '../controllers/sprint.controller';
+import { listSprints, getSprint, createSprint, updateSprint, deleteSprint, completeSprint, getSprintTasks, getSprintReport } from '../controllers/sprint.controller';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 
 const router: Router = express.Router();
@@ -20,8 +20,10 @@ router.get('/', requireWorkspaceRole('VIEWER'), listSprints);
 router.get('/:id', requireWorkspaceRole('VIEWER'), getSprint);
 router.post('/', requireWorkspaceRole('MEMBER'), createSprint);
 router.patch('/:id', requireWorkspaceRole('MEMBER'), updateSprint);
+router.post('/:id/complete', requireWorkspaceRole('MEMBER'), completeSprint);
 router.delete('/:id', requireWorkspaceRole('ADMIN'), deleteSprint);
 router.get('/:id/tasks', requireWorkspaceRole('VIEWER'), getSprintTasks);
 router.get('/:id/reports', requireWorkspaceRole('VIEWER'), getSprintReport);
+router.get('/:id/report', requireWorkspaceRole('VIEWER'), getSprintReport);
 
 export default router;

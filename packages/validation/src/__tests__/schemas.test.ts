@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {
   UpdateGoalSchema,
   UpdateHabitSchema,
-  UpdatePageSchema,
   UpdateDailyLogSchema,
   UpdateTaskSchema,
   UpdateProjectSchema,
@@ -38,15 +37,6 @@ describe('Validation Schema Concurrency Rules (P0)', () => {
     });
     assert.strictEqual(parsed.version, undefined);
     assert.strictEqual(parsed.name, 'Morning Deep Work');
-  });
-
-  it('UpdatePageSchema: allows omitting version', () => {
-    const parsed = UpdatePageSchema.parse({
-      workspaceId: dummyWorkspace,
-      title: 'Updated Engineering Doc',
-    });
-    assert.strictEqual(parsed.version, undefined);
-    assert.strictEqual(parsed.title, 'Updated Engineering Doc');
   });
 
   it('UpdateDailyLogSchema: allows omitting version', () => {

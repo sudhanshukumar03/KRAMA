@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { prisma } from '../prisma';
 import { vectorSearch } from './rag/retriever';
 import { getEmbedding } from '../lib/embedding';
-import { aiService } from './ai.service';
+import { aiService, GEMINI_MODEL } from './ai.service';
 
 export const ResponseTypeSchema = z.enum([
   "direct",
@@ -71,7 +71,7 @@ User: ${message}
 Return ONLY the category word.`;
     const outputText = await aiService.interactWithGemini({
       input: prompt,
-      model: 'gemini-3.6-flash',
+      model: GEMINI_MODEL,
       workspaceId,
       userId,
     });
@@ -158,7 +158,7 @@ Return ONLY valid JSON matching this schema:
   private async generateKramaResponse(prompt: string, workspaceId: string, userId: string): Promise<AIResponse> {
     const raw = await aiService.interactWithGemini({
       input: prompt,
-      model: "gemini-3.6-flash",
+      model: GEMINI_MODEL,
       workspaceId,
       userId,
     });

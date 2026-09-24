@@ -1,0 +1,2406 @@
+<USER_REQUEST>
+# KRAMA OS — Remediation Architecture Set
+
+**Audience:** An autonomous coding agent (e.g. Gemini Pro 3.1 High) executing fixes directly against the live monorepo.
+**Stack:** `apps/web` (React 19, Tailwind v4, Vite 8) · `apps/server` (Express 5, Prisma 7, PostgreSQL 15 + pgvector, Redis, BullMQ 6) · `packages/validation` · `packages/types`.
+**Source of truth:** Two forensic audits of the live codebase + one Focus Mode design doc, all file paths/line numbers verified against running code as of 2026-09-19.
+
+This is not advice. Every instruction below is written to be applied literally, in the order given, with no invented scope. If a step says "do not," it is a hard boundary, not a suggestion.
+
+---
+
+## 1. How to use this doc set
+
+Twelve files, each scoped to one subsystem. Each file is self-contained: scope, priority map, hard rules, numbered issues (symptom → root cause → exact file/line → exact fix → verification), a cleanup list, and a completion checklist. Execute one file at a time, top to bottom, run its checklist, then move to the next file in the **Global Execution Order** below. Do not jump ahead to a later file's issue because it looks related — cross-references are called out explicitly where they exist.
+
+| # | File | Subsystem |
+|---|---|---|
+| 01 | `01-AUTH-AND-WORKSPACE.md` | Multi-tenancy, session, workspace switching |
+| 02 | `02-SECURITY-AND-IDOR.md` | Cross-tenant leaks, IDOR, DoS |
+| 03 | `03-AI-AND-RAG.md` | Gemini/Groq integration, embeddings, RAG retrieval |
+| 04 | `04-KANBAN-AND-SPRINTS.md` | Execution board, sprint lifecycle |
+| 05 | `05-BRAIN-KNOWLEDGE-BASE.md` | Documents, Spaces, full-text search |
+| 06 | `06-PLANNER-AND-CALENDAR.md` | Daily logs, week view, milestones |
+| 07 | `07-HABITS-AND-GOALS.md` | Habit completions, OKR rollups |
+| 08 | `08-REALTIME-EVENTS.md` | Socket.io event bus, notifications |
+| 09 | `09-DASHBOARD-AND-ANALYTICS.md` | Dashboard queries, analytics page |
+| 10 | `10-DEAD-CODE-REMOVAL.md` | Everything to delete, and why |
+| 11 | `11-FOCUS-MODE-FEATURE.md` | New feature: full-screen focus timer |
+| 12 | `12-DATABASE-SCHEMA-MIGRATIONS.md` | Every Prisma schema change, consolidated |
+
+---
+
+## 2. Global Execution Order
+
+Fix order matters because later fixes assume earlier ones exist (e.g. the security layer in file 02 must land before Focus Mode's new endpoints in file 11, since those endpoints must be built with tenant-scoping already treated as the norm, not an afterthought).
+
+1. **`12-DATABASE-SCHEMA-MIGRATIONS.md`** — run this first. It adds `TimeBlock.workspaceId`, fixes the `Project`↔`Document` relation, drops the obsolete `Page` and `Decision` models, and sets up the `searchVector` trigger. Every other file assumes this migration has already run.
+2. **`01-AUTH-AND-WORKSPACE.md`** — P0. Nothing else matters if users can't reliably stay in the right workspace.
+3. **`02-SECURITY-AND-IDOR.md`** — P1. Close the cross-tenant leaks before adding any new surface area.
+4. **`03-AI-AND-RAG.md`** — P0/P2. The AI outage (invalid model names) is a one-line-per-file fix with outsized production impact; do it early.
+5. **`05-BRAIN-KNOWLEDGE-BASE.md`** — P0/P1. Silent data loss (QuickCapture) and hard-cascade deletion are active data-integrity risks.
+6. **`06-PLANNER-AND-CALENDAR.md`** — P0/P2.
+7. **`04-KANBAN-AND-SPRINTS.md`** — P1/P2.
+8. **`07-HABITS-AND-GOALS.md`** — P2.
+9. **`08-REALTIME-EVENTS.md`** — P1. Do this before Focus Mode (file 11), since Focus Mode's cross-tab sync depends on the same `socketService.emitToUser` pattern being proven to work.
+10. **`09-DASHBOARD-AND-ANALYTICS.md`** — P2.
+11. **`10-DEAD-CODE-REMOVAL.md`** — do this after all functional fixes, never before (some "dead" code is dead only once its replacement lands).
+12. **`11-FOCUS-MODE-FEATURE.md`** — new feature, additive, do last.
+
+---
+
+## 3. Global Hard Rules (apply to every file)
+
+These override anything that looks locally convenient in any individual file.
+
+1. **Never trust a client-supplied `workspaceId` without a membership check.** Every route that reads `x-workspace-id` from headers must verify `req.user.id` is a member of that workspace before using it in a query. This is the single most repeated defect across the codebase — treat it as a pattern to search for, not just a list of five call sites.
+2. **Preserve the soft-delete contract.** This codebase uses `deletedAt: Date | null` as its recovery mechanism everywhere. Any fix that calls `.delete(...)` where the model has a `deletedAt` column is wrong unless the audit explicitly says "hard delete is intentional here." When in doubt, soft-delete.
+3. **Scope every query by `workspaceId` and, where the data is personal, by `userId` too.** Multi-tenant leaks in this codebase come from omitting one of these two filters, not from a missing auth check.
+4. **Do not introduce new dependencies to fix a bug that has a same-library fix available.** E.g. do not add a new Redis client, a new HTTP client, a new validation library — the existing `ioredis`, `fetchApi`, and `zod` usage already cover every fix in this set.
+5. **Do not rewrite a whole file when a targeted patch fixes the issue.** Every fix below is scoped to specific lines. Minimal diffs only — this codebase is being stabilized, not rearchitected.
+6. **Do not "helpfully" also fix an issue that isn't listed.** If you notice something else wrong while in a file, log it as a comment (`// TODO(audit): <description>`) and move on. Scope creep during a remediation pass is how regressions get introduced.
+7. **Every fix that touches a controller or route must be verified against the exact reproduction steps given in that issue's "Verify" block before being considered done.** "It compiles" is not verification.
+8. **Money-shaped and privacy-shaped fields never get logged.** None of these fixes require it, but if a fix path touches logging, do not add `console.log` of full request bodies, tokens, or user records.
+
+---
+
+## 4. Cross-Cutting Themes (read once, recognize everywhere)
+
+- **The `x-workspace-id` header is trusted blindly in ~6 separate routes.** Files 01, 02, and 04 each fix one or more instances of this same defect. It is the same bug, six times.
+- **`CANCELED` (one L) is the schema enum; `CANCELLED` (two Ls) appears in frontend string comparisons and silently fails.** Fixed once in file 04, but grep the whole `apps/web` tree for `'CANCELLED'` before declaring this done — the audits found it in two places (`TodayView.tsx`, `SprintView.tsx` logic) and it may exist elsewhere.
+- **Prisma's `update`/`delete` `where` clause must reference a field that is actually unique** (`@id` or `@@unique`). The `Milestone` bug in file 06 is one instance of this; if you encounter Prisma runtime validation errors elsewhere during testing, this is the first thing to check.
+- **`socketService.emitToUser()` exists and works — it is simply never called.** Files 08 and 11 both rely on this. Do not build a parallel notification mechanism; wire into this one.
+- **Soft-deleted rows keep participating in unique constraints, RAG search, and joins because filters forget `deletedAt: null`.** This exact class of bug appears in file 05 (RAG retriever), file 06 (daily log P2002), and file 03 (RAG again). Treat "does this query filter deletedAt?" as a standing checklist item on every query you touch.
+
+---
+
+## 5. Definition of Done (for the whole remediation pass)
+
+- Every issue in files 01–09 has its "Verify" step passing.
+- Every item in `10-DEAD-CODE-REMOVAL.md` is either deleted or explicitly deferred with a written reason.
+- `11-FOCUS-MODE-FEATURE.md` is implemented and its own verification plan (TypeScript build, Playwright spec, manual browser checklist) passes.
+- `npx tsc -b` passes with zero errors across `apps/web` and `apps/server`.
+- No file was rewritten wholesale where a patch would do (Global Hard Rule 5).
+- No new "orphaned" endpoint was created — every new backend route has at least one real frontend caller by the time this pass is complete (this was the root failure mode behind the AI subsystem's dead endpoints; do not repeat it).
+
+add it based on the features optimization this index.md
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T16:42:33+05:30.
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Gemini 3.8 Flash (High). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>
+---MSG---
+<USER_REQUEST>
+# 01 — Authentication & Multi-Tenant Workspace Architecture
+
+**Priority:** P0 (2.1 blocks core multi-workspace usage) · P2 (UI gap)
+**Depends on:** `12-DATABASE-SCHEMA-MIGRATIONS.md` §12.2 (expanded `userAuthSelect`)
+**Touches:** `apps/web/src/contexts/AuthContext.tsx`, `apps/server/src/utils/selectors.ts`, `apps/web/src/components/Sidebar.tsx`, `apps/web/src/components/AppShell.tsx`
+
+---
+
+## 1. Scope
+
+Fix the bootstrap logic that silently discards the user's saved workspace choice on every reload, add the missing workspace-switcher UI, and clean up token/identity leakage on logout. This is a client-state bug, not a backend data bug — the backend already supports multi-workspace membership correctly.
+
+## 2. Hard Rules for This Section
+
+- Do not change the JWT payload shape (`{ sub, sessionId, email, name }`). Every downstream `req.user!.id` read depends on `sub` staying the userId.
+- Do not remove `krama_refresh` httpOnly cookie handling or move the refresh token into localStorage/JS-accessible storage. It is httpOnly by design.
+- `switchWorkspace(id)` must remain the single source of truth for changing active workspace — do not create a second code path that sets `krama_active_workspace` directly from a component.
+
+---
+
+## 3. AUTH-01 — Multi-Workspace Reload Trap (Ref: Audit §2.1)
+
+**Symptom:** User switches workspace, page reloads, user is silently returned to their first workspace every time.
+
+**Root cause:** `AuthContext.tsx` bootstrap runs:
+```ts
+let wid = meData.user.memberships?.[0]?.workspaceId || null;
+if (!wid) {
+  const savedWid = localStorage.getItem('krama_active_workspace');
+  wid = savedWid || null;
+}
+```
+`memberships[0]` is truthy for any valid user, so the `if (!wid)` branch that reads the saved workspace **never executes**. Compounding this: `switchWorkspace` is never called anywhere in `apps/web` — there is no UI that invokes it (see AUTH-02).
+
+**File:** `apps/web/src/contexts/AuthContext.tsx`, lines 98–105 (bootstrap) and 142–149 (logout).
+
+**Fix — replace the bootstrap workspace-resolution block:**
+```tsx
+const savedWid = localStorage.getItem('krama_active_workspace');
+const memberships = meData.user.memberships || [];
+const hasSavedMembership = memberships.some((m: any) => m.workspaceId === savedWid);
+const wid = (hasSavedMembership ? savedWid : null) || memberships[0]?.workspaceId || null;
+
+api.setWorkspaceId(wid);
+if (wid) localStorage.setItem('krama_active_workspace', wid);
+```
+The saved ID now wins whenever it still corresponds to a real membership; it only falls back to the first membership if the saved one is stale (e.g. the user was removed from that workspace).
+
+**Fix — logout cleanup**, same file, `logout()` / `onGlobalLogout()`:
+```tsx
+const handleLogout = useCallback(async () => {
+  try {
+    if (authState.status === 'authed') {
+      await api.auth.logout();
+    }
+  } catch (err) {
+    console.error('Logout error', err);
+  } finally {
+    api.setAccessToken(null);
+    api.setWorkspaceId(null);
+    localStorage.removeItem('krama_active_workspace');
+    localStorage.removeItem('krama_user');
+    setAuthState({ status: 'anon' });
+  }
+}, [authState]);
+```
+This closes the "tokens leak in memory on logout" and "unread `krama_user` in localStorage" findings from the audit's health matrix in one pass — both were caused by logout not clearing state it had accumulated.
+
+**Verify:**
+1. Log in with a user that belongs to 2+ workspaces.
+2. Switch to the second workspace (once AUTH-02 below adds the UI to do this).
+3. Reload the page (`F5`). Confirm the active workspace is still the second one, not the first membership.
+4. Log out. Confirm `localStorage` contains no `krama_active_workspace` or `krama_user` keys and `api.currentAccessToken` is `null`.
+
+---
+
+## 4. AUTH-02 — Missing Workspace Switcher UI (Ref: Audit §9.1)
+
+**Symptom:** There is no way to switch workspaces in the product at all — `switchWorkspace(id)` exists in `AuthContext.tsx` but is dead code because nothing calls it.
+
+**Files:** `apps/web/src/components/Sidebar.tsx`, `apps/web/src/components/AppShell.tsx`.
+
+**Fix:** Add a workspace-switcher dropdown to the Sidebar header. It must:
+- Read `user.memberships` (now including `workspace.name` — see AUTH-03) to render the list.
+- Highlight the currently active `workspaceId`.
+- Call `switchWorkspace(id)` on selection — do not reimplement the reload/localStorage logic locally; the whole point of AUTH-01's fix is that this is centralized.
+- Be reachable from both `Sidebar.tsx` and, if the sidebar can be collapsed, from `AppShell.tsx`'s header, so it's never unreachable.
+
+**Verify:** With 2+ workspace memberships, the dropdown is visible, shows both workspace names (not just the active one), and clicking the inactive one calls `switchWorkspace` and results in AUTH-01's reload landing on the newly selected workspace.
+
+---
+
+## 5. AUTH-03 — Backend Selector Doesn't Return Workspace Names (Ref: Audit §2.1 pt. 4)
+
+**Symptom:** Even once the switcher UI exists, it has nothing to render — the `/auth/me` response only contains `workspaceId` and `role` per membership, never the workspace's display name.
+
+**File:** `apps/server/src/utils/selectors.ts`, lines 8–13 (`userAuthSelect`).
+
+**Fix:** Expand the membership selection to include the related workspace's display fields:
+```ts
+export const userAuthSelect = {
+  // ...existing fields...
+  memberships: {
+    select: {
+      workspaceId: true,
+      role: true,
+      workspace: {
+        select: { id: true, name: true, productivityScore: true },
+      },
+    },
+  },
+};
+```
+This is the schema-level companion to `12-DATABASE-SCHEMA-MIGRATIONS.md` — no migration needed here, this is a Prisma `select` shape change only, not a schema change.
+
+**Verify:** `GET /auth/me` response for a multi-workspace user includes `memberships[].workspace.name` for every membership, not just the active one.
+
+---
+
+## 6. Cleanup
+
+None specific to this file — the dead-`switchWorkspace` finding is resolved by AUTH-02 wiring it up, not by removing it.
+
+## 7. Section Completion Checklist
+
+- [ ] Reload no longer discards a valid saved workspace selection (AUTH-01).
+- [ ] Logout clears `krama_active_workspace`, `krama_user`, in-memory access token, and in-memory workspace ID (AUTH-01).
+- [ ] A visible, working workspace switcher exists in the Sidebar (AUTH-02).
+- [ ] `/auth/me` returns workspace names for every membership (AUTH-03).
+- [ ] Manually confirmed: switching workspaces, reloading, and logging back in all land the user in the expected workspace.
+
+this too
+
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T20:36:47+05:30.
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from Gemini 3.8 Flash (High) to Gemini 3.8 Flash (Medium). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>
+---MSG---
+<USER_REQUEST>
+# 02 — Security, IDOR & Multi-Tenant Data Leak Architecture
+
+**Priority:** P1 (all five issues are exploitable by any authenticated user, not just an attacker with special access)
+**Depends on:** `12-DATABASE-SCHEMA-MIGRATIONS.md` §12.1 (`TimeBlock.workspaceId`)
+**Touches:** `apps/server/src/routes/search.routes.ts`, `sprint.controller.ts`, `workspace.routes.ts`, `space.controller.ts`, `upload.routes.ts`, `middlewares/auth.middleware.ts`
+
+---
+
+## 1. Scope
+
+Close every cross-tenant read/write path found in the audit. The common defect shape: a route trusts `req.headers['x-workspace-id']` or a URL param as the tenant boundary without verifying the authenticated user actually belongs to that tenant. Fix each instance, then verify the underlying `requireWorkspaceRole` middleware is applied everywhere it should be.
+
+## 2. Hard Rules for This Section
+
+- **Every fix in this file is additive (adding a check), never a removal of an existing check.** If you find yourself deleting an auth check to make a test pass, stop — the test is wrong, not the check.
+- Use the existing `requireAuth` and `requireWorkspaceRole(role)` middlewares from `middlewares/auth.middleware.ts`. Do not write ad hoc `if (member.role !== 'OWNER')` checks inline when a middleware call does the same thing — consistency here is what makes future audits tractable.
+- `requireWorkspaceRole('MEMBER')` means "any role, but must be a member of this workspace" — use it for read paths. `requireWorkspaceRole('OWNER')` is for destructive workspace-level mutations only.
+
+---
+
+## 3. SEC-01 — Global Search Cross-Tenant Data Leak (Ref: Audit §3.1)
+
+**Vulnerability:** `GET /api/v1/search` reads `x-workspace-id` from the header and queries directly — it never checks `req.user.id` is a member of that workspace. Any authenticated user can pass any workspace UUID and read another organization's documents, tasks, projects, and goals.
+
+**File:** `apps/server/src/routes/search.routes.ts`, lines 7–20.
+
+**Fix:**
+```ts
+import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
+
+const router: Router = Router();
+router.use(requireAuth);
+router.use(requireWorkspaceRole('MEMBER'));
+```
+
+**Verify:** As User A (member of Workspace 1 only), call `GET /api/v1/search?q=test` with `x-workspace-id` set to Workspace 2's UUID. Expect `403`, not search results.
+
+---
+
+## 4. SEC-02 — Cross-Tenant Sprint Report IDOR (Ref: Audit §3.2)
+
+**Vulnerability:** `getSprintReport` does `prisma.sprint.findUnique({ where: { id } })` and returns it without checking `sprint.workspaceId` matches the caller's workspace. Anyone who knows or guesses a sprint UUID reads another tenant's burndown, estimates, and velocity.
+
+**File:** `apps/server/src/controllers/sprint.controller.ts`, lines 160–176.
+
+**Fix:**
+```ts
+const sprint = await prisma.sprint.findUnique({ where: { id } });
+if (!sprint || sprint.deletedAt || sprint.workspaceId !== workspaceId) {
+  return res.status(404).json({ message: 'Sprint not found' });
+}
+```
+Return `404`, not `403` — do not confirm the sprint's existence to a caller outside its tenant.
+
+**Verify:** As a user outside the sprint's workspace, `GET /sprints/:id/report` returns `404` for a real, existing sprint ID belonging to another tenant.
+
+---
+
+## 5. SEC-03 — Workspace & Space Mutation IDOR (Ref: Audit §3.3)
+
+**Vulnerability:**
+- `PATCH /api/v1/workspaces/:id` and `DELETE /api/v1/workspaces/:id` don't require the `OWNER` role — any member can rename or delete the workspace.
+- `PUT /api/v1/spaces/:id` and `DELETE /api/v1/spaces/:id` don't filter by `workspaceId` — a space ID from one tenant can be mutated by a member of a different tenant.
+
+**Files:** `apps/server/src/routes/workspace.routes.ts` (lines 20–22), `apps/server/src/controllers/space.controller.ts` (lines 45, 58).
+
+**Fix — workspace routes:**
+```ts
+router.patch('/:id', requireAuth, requireWorkspaceRole('OWNER'), updateWorkspace);
+router.delete('/:id', requireAuth, requireWorkspaceRole('OWNER'), deleteWorkspace);
+```
+
+**Before writing the fix below, verify where the tenant ID actually comes from.** None of the source audit material confirms that `req.workspaceId` is a property any existing middleware attaches to the request. The only pattern proven elsewhere in this codebase (see `06-PLANNER-AND-CALENDAR.md` PLAN-01) is reading `x-workspace-id` directly from headers. Check `apps/server/src/middlewares/auth.middleware.ts`:
+- **If `requireAuth` or `requireWorkspaceRole` already decorates `req.workspaceId`** (a common pattern, since `requireWorkspaceRole(role)` must itself resolve a workspace ID to check the caller's role in it) — confirm it does so only *after* validating the caller is actually a member, and use it as-is.
+- **If no such decoration exists**, do not read `req.headers['x-workspace-id']` and trust it blindly — that is the exact defect this issue exists to close. Instead, resolve and validate it explicitly:
+```ts
+const requestedWorkspaceId = req.headers['x-workspace-id'] as string;
+const membership = await prisma.workspaceMember.findFirst({
+  where: { userId: req.user!.id, workspaceId: requestedWorkspaceId },
+});
+if (!membership) return res.status(403).json({ message: 'Not a member of this workspace' });
+const workspaceId = membership.workspaceId;
+```
+Confirm the actual membership model/table name against the real schema (`WorkspaceMember`, `Membership`, or whatever it's actually called) before using this snippet verbatim.
+
+**Fix — space controller**, both the update and delete handlers, using whichever `workspaceId` resolution above is correct for this codebase:
+```ts
+const space = await prisma.space.findFirst({
+  where: { id: req.params.id, workspaceId },
+});
+if (!space) return res.status(404).json({ message: 'Space not found' });
+// proceed with update/delete using space.id, not req.params.id directly
+```
+This also lays the groundwork for `05-BRAIN-KNOWLEDGE-BASE.md`'s cascade-deletion fix and `11-FOCUS-MODE-FEATURE.md`'s new endpoints, both of which reuse whichever `workspaceId`-resolution pattern is confirmed correct here — do this one first, and resolve the verification question once, here, rather than re-guessing it in each downstream file.
+
+**Verify:** A `MEMBER`-role user gets `403` on `PATCH /workspaces/:id`. A user from Workspace A gets `404` (not a successful mutation) when calling `PUT /spaces/:id` with a Workspace B space ID.
+
+---
+
+## 6. SEC-04 — Cross-Workspace Calendar Leak (Ref: Audit §3.4)
+
+**Vulnerability:** `TimeBlock` has `userId` but no `workspaceId`. A user in both a Work and a Personal workspace sees Work timeblocks and project references bleed into their Personal planner view, because nothing scopes the query by workspace at all — only by user.
+
+**Schema fix:** See `12-DATABASE-SCHEMA-MIGRATIONS.md` §12.1 — this file only covers the **application-layer** half.
+
+**Files:** every route in `apps/server/src/routes/planner.routes.ts` that queries or writes `TimeBlock`.
+
+**Fix:** Once the migration adds `TimeBlock.workspaceId`, every `prisma.timeBlock.findMany` / `.create` / `.update` in `planner.routes.ts` must filter/set `workspaceId` in addition to the existing `userId` filter:
+```ts
+prisma.timeBlock.findMany({
+  where: { userId, workspaceId, date: { gte: startOfDay, lte: endOfDay } },
+  orderBy: { startTime: 'asc' },
+});
+```
+Grep `planner.routes.ts` for every `prisma.timeBlock.` call and apply the same pattern — this is not a single call site, it is every TimeBlock query in that file.
+
+**Verify:** A user with TimeBlocks in both a Work and a Personal workspace sees only the active workspace's blocks in `/app/planner` week view, regardless of which workspace they switch to.
+
+---
+
+## 7. SEC-05 — Unbounded Memory Uploads (DoS) (Ref: Audit §3.5)
+
+**Vulnerability:** `multer({ storage: multer.memoryStorage() })` has no `limits.fileSize`. Any authenticated user can upload an arbitrarily large stream and OOM-crash the Node process.
+
+**File:** `apps/server/src/routes/upload.routes.ts`, line 8.
+
+**Fix:**
+```ts
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
+```
+Also add a `multer` error handler (or confirm one exists) that returns `413 Payload Too Large` on `LIMIT_FILE_SIZE`, rather than letting it bubble to a generic 500.
+
+**Verify:** An upload request with a >10MB body returns `413`, and the server process memory does not spike proportionally to attempted upload size.
+
+---
+
+## 8. Cleanup
+
+None — this file only adds checks.
+
+## 9. Section Completion Checklist
+
+- [ ] `search.routes.ts` requires workspace membership (SEC-01).
+- [ ] `getSprintReport` returns 404 across tenants (SEC-02).
+- [ ] Workspace mutations require `OWNER`; space mutations are workspace-scoped (SEC-03).
+- [ ] Every `TimeBlock` query in `planner.routes.ts` filters by `workspaceId`, post-migration (SEC-04).
+- [ ] Uploads are capped at 10MB with a proper 413 response (SEC-05).
+- [ ] Manually attempted at least one cross-tenant request per issue above and confirmed it is rejected.
+
+add this to .md files 
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T20:51:45+05:30.
+</ADDITIONAL_METADATA>
+---MSG---
+<USER_REQUEST>
+# 03 — AI Subsystem & RAG Architecture
+
+**Priority:** P0 (3.1 is a total production outage) · P1 (3.3 leaks soft-deleted content) · P2 (3.4/3.5 wire up dead endpoints)
+**Touches:** `apps/server/src/services/krama-ai.service.ts`, `narrative.service.ts`, `ai.service.ts`, `apps/server/src/lib/embedding.ts`, `embedding.worker.ts`, `apps/server/src/services/rag/retriever.ts`, `apps/web/src/components/ProjectDetail.tsx`, `apps/web/src/components/planner/DailyLogSection.tsx`
+
+---
+
+## 1. Scope
+
+Restore the AI chat assistant and daily narrative debrief (both are currently 100% broken in production), fix the embedding pipeline crash, stop leaking trashed documents into RAG context, and connect two already-built backend AI features to real UI instead of leaving them orphaned.
+
+## 2. Hard Rules for This Section
+
+- Do not swap AI providers. Groq and Gemini are both already integrated and working when given correct model strings — this is a configuration bug, not an architecture problem.
+- Do not add a new "AI diagnostic" backend — `ProjectDetail.tsx`'s fake diagnostic must be wired to the **existing** `POST /api/v1/ai/complete` (or the project diagnostic service the audit references), not a new endpoint.
+- Any new UI caller you add for an orphaned endpoint (AI-05) must be a real, reachable button — not a hidden dev-only affordance. An "orphaned endpoint" fixed by adding an unreachable caller is not fixed.
+
+---
+
+## 3. AI-01 — Invalid Gemini Model Names (Ref: Audit §2.2)
+
+**Symptom:** AI chat and daily narrative debrief fail 100% of the time with HTTP 404 (`models/gemini-3.6-flash is not found for API version v1beta`).
+
+**Root cause:** The server hardcodes model strings that were never real Google Gemini model identifiers: `gemini-3.6-flash` and `gemini-3.7-flash`.
+
+**Files:**
+- `apps/server/src/services/krama-ai.service.ts`, lines 74, 161
+- `apps/server/src/services/narrative.service.ts`, line 73
+- `apps/server/src/services/ai.service.ts`, lines 91–97 (`COST_MAP`)
+
+**Fix:**
+```ts
+export const GEMINI_MODEL = 'gemini-2.5-flash';
+```
+Apply this model string at `krama-ai.service.ts:74,161` and `narrative.service.ts:73`. Update the cost table:
+```ts
+const COST_MAP: Record<string, { prompt: number; completion: number }> = {
+  'llama-3.1-8b-instant': { prompt: 0.05 / 1_000_000, completion: 0.08 / 1_000_000 },
+  'llama-3.1-70b-versatile': { prompt: 0.59 / 1_000_000, completion: 0.79 / 1_000_000 },
+  'gemini-2.5-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
+  'gemini-2.0-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
+};
+```
+Before deploying, verify the exact current valid model identifiers against Google's live model list — do not assume `gemini-2.5-flash` is still current at execution time; confirm it, since Google revises model names.
+
+**Verify:** A chat message to the KRAMA AI assistant returns a real completion, not a 404. The daily narrative debrief endpoint returns structured output for a real daily log.
+
+---
+
+## 4. AI-02 — Vector Database Crash on Empty Embeddings (Ref: Audit §2.6)
+
+**Symptom:** The background embedding worker fails permanently on chunk indexing; Postgres throws `ERROR: invalid input syntax for type vector` on `"[]"::vector`.
+
+**Root cause:** `@google/genai`'s single-embed response shape is `result.embedding?.values`, but the code reads `result.embeddings?.[0]?.values ?? []`, which resolves to `[]` for a single embed call — and `"[]"` is not a valid pgvector literal.
+
+**File:** `apps/server/src/lib/embedding.ts`, line 9; consumer at `embedding.worker.ts`, lines 61–68.
+
+**Fix:**
+```ts
+export async function getEmbedding(text: string): Promise<number[]> {
+  const client = getGeminiClient();
+  const result = await client.models.embedContent({
+    model: 'text-embedding-004',
+    contents: text,
+  });
+  const values = (result as any).embedding?.values || (result as any).embeddings?.[0]?.values;
+  if (!values || !Array.isArray(values) || values.length === 0) {
+    throw new Error('Gemini API returned empty embedding vector');
+  }
+  return values;
+}
+```
+Throwing here (instead of returning `[]`) means the BullMQ job fails and retries/logs through the existing worker error path — do not swallow the error, and do not construct a zero-vector as a fallback (a zero-vector would silently corrupt similarity search results, which is worse than a visible failure).
+
+**Verify:** Index a document whose content produces a valid single embed — chunk indexing succeeds. Simulate an empty-embedding response (e.g. mock the client) and confirm the worker logs a retryable failure instead of writing `"[]"::vector` to Postgres.
+
+---
+
+## 5. AI-03 — RAG Leaks Soft-Deleted Documents (Ref: Audit §4.3)
+
+**Symptom:** Documents moved to Trash are still returned as AI chat context.
+
+**File:** `apps/server/src/services/rag/retriever.ts`, `vectorSearch` (lines 9–29) and `keywordSearch` (lines 36–58).
+
+**Fix:** Both functions join `KnowledgeChunk` against `Document`/`Page` without filtering `deletedAt`. Add to both queries:
+```sql
+AND (d."deletedAt" IS NULL OR d.id IS NULL)
+```
+The `OR d.id IS NULL` clause matters if the join can legitimately be null for chunks not tied to a document — confirm this against the actual join shape before applying; if every `KnowledgeChunk` always has a non-null `Document`, simplify to `AND d."deletedAt" IS NULL`.
+
+**Verify:** Trash a document that was previously embedded, then ask the AI assistant a question whose answer depends on that document's content. Confirm it is no longer surfaced.
+
+---
+
+## 6. AI-04 — Simulated AI Strategic Diagnostic (Ref: Audit §5.1)
+
+**Symptom:** `handleRunDiagnostic` in `ProjectDetail.tsx` is a `setTimeout(..., 600)` with a hardcoded success toast — it never calls any AI endpoint.
+
+**File:** `apps/web/src/components/ProjectDetail.tsx`, lines 513–525.
+
+**Fix:** Replace the `setTimeout` mock with a real call:
+```tsx
+const handleRunDiagnostic = async () => {
+  setIsAnalyzing(true);
+  try {
+    const result = await api.ai.complete({
+      context: { projectId: project.id },
+      prompt: 'strategic_diagnostic', // or the actual project diagnostic service call
+    });
+    toast.success('AI Strategic Diagnostic Complete', { description: result.summary });
+  } catch (err) {
+    toast.error('Diagnostic failed', { description: 'Please try again.' });
+  } finally {
+    setIsAnalyzing(false);
+  }
+};
+```
+Confirm the exact shape of `api.ai.complete` (or the dedicated project diagnostic service, if one exists server-side) before wiring — match its real request/response contract rather than inventing one.
+
+**Verify:** Clicking "Run Diagnostic" produces a network request to a real AI endpoint and displays a response derived from actual project data, not a fixed string.
+
+---
+
+## 7. AI-05 — Orphaned AI Backend Services (Ref: Audit §5.2)
+
+**Symptom:** Three working backend AI features have zero UI callers:
+1. `POST /api/v1/ai/narrative` — analyzes daily debrief notes, returns structured `task`/`habit`/`goal` completions.
+2. `POST /api/v1/ai/analyze-telemetry` — daily telemetry analyzer.
+3. `GET /api/v1/ai/dashboard-insight` — precomputed workspace insight.
+
+**Fix (minimum required scope — item 1 only is mandatory for this pass; items 2–3 are optional/backlog):**
+
+Add an "AI Debrief" button in `apps/web/src/components/planner/DailyLogSection.tsx` that calls `api.ai.narrative` with the day's wins/blockers text and renders suggested task/habit checkoffs the user can accept or dismiss individually — do not auto-apply AI suggestions without user confirmation.
+
+```tsx
+const handleAiDebrief = async () => {
+  const suggestions = await api.ai.narrative({ notes: debriefText, date: todayIso });
+  setAiSuggestions(suggestions); // render as a confirm/dismiss list, do not auto-commit
+};
+```
+
+For `analyze-telemetry` and `dashboard-insight`: either wire them to a real caller in this pass, or explicitly mark them "deferred" in your completion notes — do not leave them silently unaddressed. If deferred, they are not dead code (see `10-DEAD-CODE-REMOVAL.md`) — they remain a known gap, not a candidate for deletion.
+
+**Verify:** The Planner's Daily Log section has a working "AI Debrief" affordance that round-trips through `POST /api/v1/ai/narrative` and lets the user accept individual suggestions.
+
+---
+
+## 8. Cleanup
+
+`@xenova/transformers` (hundreds of MB, never imported) — see `10-DEAD-CODE-REMOVAL.md` §10.4. Do not remove it from within this file's scope; it's tracked centrally so it isn't removed twice or removed before something still depends on it.
+
+## 9. Section Completion Checklist
+
+- [ ] AI chat and daily narrative debrief return real completions, not 404s (AI-01).
+- [ ] Embedding worker throws and retries on empty vectors instead of writing invalid SQL (AI-02).
+- [ ] Trashed documents no longer appear in RAG-sourced AI answers (AI-03).
+- [ ] Project diagnostic button calls a real AI endpoint (AI-04).
+- [ ] `api.ai.narrative` has at least one real, reachable UI caller (AI-05).
+add it .md files 
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T20:52:00+05:30.
+</ADDITIONAL_METADATA>
+---MSG---
+<USER_REQUEST>
+# 04 — Execution Board (Kanban) & Sprint Lifecycle Architecture
+
+**Priority:** P1 (cache split breaks the core capture→board flow) · P2 (status corruption, sprint math)
+**Depends on:** `02-SECURITY-AND-IDOR.md` (SEC-02, sprint report IDOR — same subsystem, already closed by the time you reach this file)
+**Touches:** `apps/web/src/components/KanbanBoard.tsx`, `SprintView.tsx`, `Sidebar.tsx`, `apps/web/src/components/ui/QuickCaptureModal.tsx`, `apps/web/src/components/editor/SelectionToTaskModal.tsx`, `apps/server/src/controllers/sprint.controller.ts`, `apps/web/src/components/planner/TodayView.tsx`
+
+---
+
+## 1. Scope
+
+Fix the React Query cache-key mismatch that makes new tasks invisible until reload, restore the two missing Kanban statuses (`TODO`, `CANCELED`), correct the `CANCELED`/`CANCELLED` spelling bug, fix sprint deletion orphaning tasks, and fix three compounding bugs in the sprint board (vanishing canceled tasks, progress percentage that can't reach 100%, and canceled tasks resurrecting into the backlog on sprint completion).
+
+## 2. Hard Rules for This Section
+
+- The `TaskStatus` enum (`BACKLOG, TODO, IN_PROGRESS, REVIEW, DONE, CANCELED`) is the schema's source of truth — fix the frontend to match it, never the other way around.
+- Do not change drag-and-drop mechanics, position calculation, or subtask list behavior — the audit explicitly notes these work well. Scope every fix here to status handling and cache invalidation.
+- `CANCELED` is one L. This is the actual Prisma enum value. Every frontend string comparison must match it exactly.
+
+---
+
+## 3. KAN-01 — React Query Cache Key Split (Ref: Audit §4.4)
+
+**Symptom:** Tasks captured via Quick Capture or the "selection → task" editor modal don't appear on the Kanban board or increment sidebar badges until a manual reload.
+
+**Root cause:** Readers (`KanbanBoard.tsx:953`, `SprintView.tsx:29`, `Sidebar.tsx:82`) query under key `['issues']`. Writers (`QuickCaptureModal.tsx:50`, `SelectionToTaskModal.tsx:59`, plus the SocketProvider once file 08 wires it up) invalidate key `['tasks']`. They're the same data under two different cache keys.
+
+**Fix:** Standardize on invalidating **both** keys at every task mutation site:
+```ts
+queryClient.invalidateQueries({ queryKey: ['issues'] });
+queryClient.invalidateQueries({ queryKey: ['tasks'] });
+```
+Apply this at every mutation call site listed above. Longer-term the correct fix is to unify the two query keys into one (`['tasks']` everywhere), but that requires touching every reader too — for this pass, dual-invalidation is the minimum fix; note the unification as a follow-up, don't attempt it mid-pass unless you're also updating every reader in the same commit.
+
+**Verify:** Quick Capture a task while the Kanban board is open in another tab/view. Confirm it appears without a manual reload, and the sidebar's task-count badge updates.
+
+---
+
+## 4. KAN-02 — Kanban Status Corruption & Dropped Columns (Ref: Audit §6.1)
+
+**Symptom:** Three compounding bugs:
+1. `STATUS_IDS` only renders 4 of the schema's 6 statuses (`BACKLOG, IN_PROGRESS, REVIEW, DONE`) — `TODO` and `CANCELED` have no column.
+2. `TODO` tasks (the default for quick capture and new tasks) are visually merged into the `BACKLOG` column.
+3. Dragging any task and dropping it onto a `TODO` card executes `newStatus = (overIssueData.status === "TODO" ? "BACKLOG" : overIssueData.status)` — this **silently rewrites the dragged task's status to `BACKLOG`**, destroying its `TODO` state.
+4. `CANCELED` tasks are permanently hidden with no way to view or restore them.
+
+**File:** `apps/web/src/components/KanbanBoard.tsx`, lines 43–90 (`STATUS_IDS`), 1155–1157 and 1220–1225 (drop handler).
+
+**Fix:**
+- Add a `TODO` column to `STATUS_IDS` (either alongside `BACKLOG` or as a togglable filter — pick one, don't build both).
+- Add a filterable `CANCELED` archive column, collapsed/hidden by default but reachable via a toggle, not deleted from the render tree.
+- Remove the `TODO → BACKLOG` rewrite in the drop handler entirely:
+```ts
+// Before:
+newStatus = (overIssueData.status === "TODO" ? "BACKLOG" : overIssueData.status) as TaskStatus;
+// After:
+newStatus = overIssueData.status as TaskStatus;
+```
+
+**Verify:** Create a task (defaults to `TODO`). Confirm it renders in its own column, not merged into Backlog. Drag a `DONE` task onto a `TODO` card — confirm the dragged task's new status is whatever column it was dropped into, and the `TODO` card's own status is untouched. Cancel a task and confirm it's visible in the archive column, not gone.
+
+---
+
+## 5. KAN-03 — `CANCELLED` vs `CANCELED` Spelling Bug (Ref: Audit §6.2, and Master Remediation Action Plan Step 13)
+
+**Symptom:** Canceled tasks are never treated as completed in the Planner's Today view; they linger in the active checklist forever.
+
+**File:** `apps/web/src/components/planner/TodayView.tsx`, line 174.
+
+**Fix:**
+```tsx
+// Before:
+const isCompleted = t.status === 'DONE' || t.status === 'CANCELLED';
+// After:
+const isCompleted = t.status === 'DONE' || t.status === 'CANCELED';
+```
+
+**Do not stop at this one line.** Per `00-INDEX.md` §4, grep the entire `apps/web` tree for the string `'CANCELLED'` (two Ls) before closing this issue — `SprintView.tsx` (KAN-05 below) has the same defect pattern, and there may be others not caught by either audit pass.
+
+**Verify:** `grep -rn "CANCELLED" apps/web/src` returns zero matches (the only valid spelling in this codebase is `CANCELED`). A canceled task shows as completed/struck-through in Today view.
+
+---
+
+## 6. KAN-04 — Orphaned Tasks on Sprint Deletion (Ref: Audit §7.2)
+
+**Symptom:** Deleting (soft-deleting) a sprint leaves `task.sprintId` pointing at the now-deleted sprint. Backlog filters and burndown charts become corrupted by tasks silently attached to nothing.
+
+**File:** `apps/server/src/controllers/sprint.controller.ts`, lines 125–132.
+
+**Fix:**
+```ts
+await prisma.$transaction([
+  prisma.sprint.update({
+    where: { id },
+    data: { deletedAt: new Date(), updatedBy: req.user!.id },
+  }),
+  prisma.task.updateMany({
+    where: { sprintId: id },
+    data: { sprintId: null },
+  }),
+]);
+```
+Use a transaction, not two sequential calls — if the second call fails, you don't want a soft-deleted sprint with tasks still silently attached.
+
+**Verify:** Delete a sprint with 3 tasks attached. Confirm all 3 tasks now have `sprintId: null` and appear correctly in backlog filters.
+
+---
+
+## 7. KAN-05 — Sprint Board: Vanishing Canceled Tasks, Progress Cap, Backlog Resurrection (Ref: Audit §6.8)
+
+**Symptom:** Three bugs in one component:
+1. `currentFocusDirectives` (IN_PROGRESS/REVIEW), `upNextDirectives` (TODO/BACKLOG), and `completedDirectives` (DONE) between them cover only 5 of 6 statuses — `CANCELED` tasks match none of the three columns and disappear from the board entirely.
+2. `totalCount` includes canceled tasks but `doneCount` doesn't, so progress is mathematically capped below 100% whenever any task is canceled (1 canceled out of 5 total caps progress at 80% forever).
+3. On sprint completion, `incompleteTasks = sprintDirectives.filter(i => i.status !== 'DONE')` includes canceled tasks, so ending a sprint strips `sprintId` from canceled tasks too — resurrecting dead tasks into the active backlog.
+
+**File:** `apps/web/src/components/SprintView.tsx`, lines 211–222 and 361–379.
+
+**Fix:**
+```tsx
+const currentFocusDirectives = useMemo(
+  () => sprintDirectives.filter(i => i.status === 'IN_PROGRESS' || i.status === 'REVIEW'),
+  [sprintDirectives]
+);
+const upNextDirectives = useMemo(
+  () => sprintDirectives.filter(i => i.status === 'BACKLOG' || i.status === 'TODO'),
+  [sprintDirectives]
+);
+const completedDirectives = useMemo(
+  () => sprintDirectives.filter(i => i.status === 'DONE'),
+  [sprintDirectives]
+);
+const canceledDirectives = useMemo(
+  () => sprintDirectives.filter(i => i.status === 'CANCELED'),
+  [sprintDirectives]
+);
+
+const totalCount = sprintDirectives.length;
+const doneCount = completedDirectives.length;
+const canceledCount = canceledDirectives.length;
+const activeSprintTarget = totalCount - canceledCount;
+const progressPct = activeSprintTarget > 0 ? Math.round((doneCount / activeSprintTarget) * 100) : 0;
+
+const handleCompleteSprint = async () => {
+  if (!activeSprint) return;
+  const incompleteTasks = sprintDirectives.filter(
+    i => i.status !== 'DONE' && i.status !== 'CANCELED'
+  );
+  // ...rest of completion logic unchanged, using incompleteTasks
+};
+```
+Render `canceledDirectives` as its own sub-list or toggle inside (or adjacent to) the Completed column — do not let it render nowhere, and do not merge it silently into `completedDirectives` (a canceled task is not a done task; conflating them would break the progress math you just fixed).
+
+**Verify:** A 5-task sprint with 1 canceled and 4 done shows 100% progress, not 80%. The canceled task is visible somewhere on the board. Completing the sprint does not clear `sprintId` on the canceled task (it stays attached to the sprint's history; only genuinely incomplete tasks get released).
+
+---
+
+## 8. Cleanup
+
+- **"Sprint completion fires 50 individual HTTP PATCHes"** (noted in the audit's health matrix, not detailed further): replace per-task PATCH calls during sprint completion with a single batch endpoint, `POST /sprints/:id/complete`, that performs the re-assignment server-side in one transaction. This is listed as "Missing/Needed" in the original audit table — implement it as part of KAN-05's completion-flow fix rather than as a separate pass, since you're already touching `handleCompleteSprint`.
+- "Redundant validation rules for deleted skills" (health matrix, Kanban row) — confirm what this refers to in the actual validation package before removing; if it's genuinely unreferenced Zod schema for a deleted `Skill` concept, remove it in `10-DEAD-CODE-REMOVAL.md`, not here.
+
+## 9. Section Completion Checklist
+
+- [ ] Quick Capture and selection-to-task both invalidate `['issues']` and `['tasks']` (KAN-01).
+- [ ] `TODO` has its own column; `CANCELED` has a reachable archive view; the drag-drop status rewrite bug is gone (KAN-02).
+- [ ] Zero occurrences of `'CANCELLED'` (two Ls) remain in `apps/web/src` (KAN-03).
+- [ ] Sprint deletion nulls `sprintId` on all attached tasks via transaction (KAN-04).
+- [ ] Sprint board shows canceled tasks somewhere, progress can reach 100% with cancellations present, and completing a sprint does not resurrect canceled tasks to backlog (KAN-05).
+- [ ] Sprint completion uses a single batch endpoint, not N sequential PATCHes.
+
+add this to .md files 
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T20:52:12+05:30.
+</ADDITIONAL_METADATA>
+---MSG---
+<USER_REQUEST>
+# 04 — Execution Board (Kanban) & Sprint Lifecycle Architecture
+
+**Priority:** P1 (cache split breaks the core capture→board flow) · P2 (status corruption, sprint math)
+**Depends on:** `02-SECURITY-AND-IDOR.md` (SEC-02, sprint report IDOR — same subsystem, already closed by the time you reach this file)
+**Touches:** `apps/web/src/components/KanbanBoard.tsx`, `SprintView.tsx`, `Sidebar.tsx`, `apps/web/src/components/ui/QuickCaptureModal.tsx`, `apps/web/src/components/editor/SelectionToTaskModal.tsx`, `apps/server/src/controllers/sprint.controller.ts`, `apps/web/src/components/planner/TodayView.tsx`
+
+---
+
+## 1. Scope
+
+Fix the React Query cache-key mismatch that makes new tasks invisible until reload, restore the two missing Kanban statuses (`TODO`, `CANCELED`), correct the `CANCELED`/`CANCELLED` spelling bug, fix sprint deletion orphaning tasks, and fix three compounding bugs in the sprint board (vanishing canceled tasks, progress percentage that can't reach 100%, and canceled tasks resurrecting into the backlog on sprint completion).
+
+## 2. Hard Rules for This Section
+
+- The `TaskStatus` enum (`BACKLOG, TODO, IN_PROGRESS, REVIEW, DONE, CANCELED`) is the schema's source of truth — fix the frontend to match it, never the other way around.
+- Do not change drag-and-drop mechanics, position calculation, or subtask list behavior — the audit explicitly notes these work well. Scope every fix here to status handling and cache invalidation.
+- `CANCELED` is one L. This is the actual Prisma enum value. Every frontend string comparison must match it exactly.
+
+---
+
+## 3. KAN-01 — React Query Cache Key Split (Ref: Audit §4.4)
+
+**Symptom:** Tasks captured via Quick Capture or the "selection → task" editor modal don't appear on the Kanban board or increment sidebar badges until a manual reload.
+
+**Root cause:** Readers (`KanbanBoard.tsx:953`, `SprintView.tsx:29`, `Sidebar.tsx:82`) query under key `['issues']`. Writers (`QuickCaptureModal.tsx:50`, `SelectionToTaskModal.tsx:59`, plus the SocketProvider once file 08 wires it up) invalidate key `['tasks']`. They're the same data under two different cache keys.
+
+**Fix:** Standardize on invalidating **both** keys at every task mutation site:
+```ts
+queryClient.invalidateQueries({ queryKey: ['issues'] });
+queryClient.invalidateQueries({ queryKey: ['tasks'] });
+```
+Apply this at every mutation call site listed above. Longer-term the correct fix is to unify the two query keys into one (`['tasks']` everywhere), but that requires touching every reader too — for this pass, dual-invalidation is the minimum fix; note the unification as a follow-up, don't attempt it mid-pass unless you're also updating every reader in the same commit.
+
+**Verify:** Quick Capture a task while the Kanban board is open in another tab/view. Confirm it appears without a manual reload, and the sidebar's task-count badge updates.
+
+---
+
+## 4. KAN-02 — Kanban Status Corruption & Dropped Columns (Ref: Audit §6.1)
+
+**Symptom:** Three compounding bugs:
+1. `STATUS_IDS` only renders 4 of the schema's 6 statuses (`BACKLOG, IN_PROGRESS, REVIEW, DONE`) — `TODO` and `CANCELED` have no column.
+2. `TODO` tasks (the default for quick capture and new tasks) are visually merged into the `BACKLOG` column.
+3. Dragging any task and dropping it onto a `TODO` card executes `newStatus = (overIssueData.status === "TODO" ? "BACKLOG" : overIssueData.status)` — this **silently rewrites the dragged task's status to `BACKLOG`**, destroying its `TODO` state.
+4. `CANCELED` tasks are permanently hidden with no way to view or restore them.
+
+**File:** `apps/web/src/components/KanbanBoard.tsx`, lines 43–90 (`STATUS_IDS`), 1155–1157 and 1220–1225 (drop handler).
+
+**Fix:**
+- Add a `TODO` column to `STATUS_IDS` (either alongside `BACKLOG` or as a togglable filter — pick one, don't build both).
+- Add a filterable `CANCELED` archive column, collapsed/hidden by default but reachable via a toggle, not deleted from the render tree.
+- Remove the `TODO → BACKLOG` rewrite in the drop handler entirely:
+```ts
+// Before:
+newStatus = (overIssueData.status === "TODO" ? "BACKLOG" : overIssueData.status) as TaskStatus;
+// After:
+newStatus = overIssueData.status as TaskStatus;
+```
+
+**Verify:** Create a task (defaults to `TODO`). Confirm it renders in its own column, not merged into Backlog. Drag a `DONE` task onto a `TODO` card — confirm the dragged task's new status is whatever column it was dropped into, and the `TODO` card's own status is untouched. Cancel a task and confirm it's visible in the archive column, not gone.
+
+---
+
+## 5. KAN-03 — `CANCELLED` vs `CANCELED` Spelling Bug (Ref: Audit §6.2, and Master Remediation Action Plan Step 13)
+
+**Symptom:** Canceled tasks are never treated as completed in the Planner's Today view; they linger in the active checklist forever.
+
+**File:** `apps/web/src/components/planner/TodayView.tsx`, line 174.
+
+**Fix:**
+```tsx
+// Before:
+const isCompleted = t.status === 'DONE' || t.status === 'CANCELLED';
+// After:
+const isCompleted = t.status === 'DONE' || t.status === 'CANCELED';
+```
+
+**Do not stop at this one line.** Per `00-INDEX.md` §4, grep the entire `apps/web` tree for the string `'CANCELLED'` (two Ls) before closing this issue — `SprintView.tsx` (KAN-05 below) has the same defect pattern, and there may be others not caught by either audit pass.
+
+**Verify:** `grep -rn "CANCELLED" apps/web/src` returns zero matches (the only valid spelling in this codebase is `CANCELED`). A canceled task shows as completed/struck-through in Today view.
+
+---
+
+## 6. KAN-04 — Orphaned Tasks on Sprint Deletion (Ref: Audit §7.2)
+
+**Symptom:** Deleting (soft-deleting) a sprint leaves `task.sprintId` pointing at the now-deleted sprint. Backlog filters and burndown charts become corrupted by tasks silently attached to nothing.
+
+**File:** `apps/server/src/controllers/sprint.controller.ts`, lines 125–132.
+
+**Fix:**
+```ts
+await prisma.$transaction([
+  prisma.sprint.update({
+    where: { id },
+    data: { deletedAt: new Date(), updatedBy: req.user!.id },
+  }),
+  prisma.task.updateMany({
+    where: { sprintId: id },
+    data: { sprintId: null },
+  }),
+]);
+```
+Use a transaction, not two sequential calls — if the second call fails, you don't want a soft-deleted sprint with tasks still silently attached.
+
+**Verify:** Delete a sprint with 3 tasks attached. Confirm all 3 tasks now have `sprintId: null` and appear correctly in backlog filters.
+
+---
+
+## 7. KAN-05 — Sprint Board: Vanishing Canceled Tasks, Progress Cap, Backlog Resurrection (Ref: Audit §6.8)
+
+**Symptom:** Three bugs in one component:
+1. `currentFocusDirectives` (IN_PROGRESS/REVIEW), `upNextDirectives` (TODO/BACKLOG), and `completedDirectives` (DONE) between them cover only 5 of 6 statuses — `CANCELED` tasks match none of the three columns and disappear from the board entirely.
+2. `totalCount` includes canceled tasks but `doneCount` doesn't, so progress is mathematically capped below 100% whenever any task is canceled (1 canceled out of 5 total caps progress at 80% forever).
+3. On sprint completion, `incompleteTasks = sprintDirectives.filter(i => i.status !== 'DONE')` includes canceled tasks, so ending a sprint strips `sprintId` from canceled tasks too — resurrecting dead tasks into the active backlog.
+
+**File:** `apps/web/src/components/SprintView.tsx`, lines 211–222 and 361–379.
+
+**Fix:**
+```tsx
+const currentFocusDirectives = useMemo(
+  () => sprintDirectives.filter(i => i.status === 'IN_PROGRESS' || i.status === 'REVIEW'),
+  [sprintDirectives]
+);
+const upNextDirectives = useMemo(
+  () => sprintDirectives.filter(i => i.status === 'BACKLOG' || i.status === 'TODO'),
+  [sprintDirectives]
+);
+const completedDirectives = useMemo(
+  () => sprintDirectives.filter(i => i.status === 'DONE'),
+  [sprintDirectives]
+);
+const canceledDirectives = useMemo(
+  () => sprintDirectives.filter(i => i.status === 'CANCELED'),
+  [sprintDirectives]
+);
+
+const totalCount = sprintDirectives.length;
+const doneCount = completedDirectives.length;
+const canceledCount = canceledDirectives.length;
+const activeSprintTarget = totalCount - canceledCount;
+const progressPct = activeSprintTarget > 0 ? Math.round((doneCount / activeSprintTarget) * 100) : 0;
+
+const handleCompleteSprint = async () => {
+  if (!activeSprint) return;
+  const incompleteTasks = sprintDirectives.filter(
+    i => i.status !== 'DONE' && i.status !== 'CANCELED'
+  );
+  // ...rest of completion logic unchanged, using incompleteTasks
+};
+```
+Render `canceledDirectives` as its own sub-list or toggle inside (or adjacent to) the Completed column — do not let it render nowhere, and do not merge it silently into `completedDirectives` (a canceled task is not a done task; conflating them would break the progress math you just fixed).
+
+**Verify:** A 5-task sprint with 1 canceled and 4 done shows 100% progress, not 80%. The canceled task is visible somewhere on the board. Completing the sprint does not clear `sprintId` on the canceled task (it stays attached to the sprint's history; only genuinely incomplete tasks get released).
+
+---
+
+## 8. Cleanup
+
+- **"Sprint completion fires 50 individual HTTP PATCHes"** (noted in the audit's health matrix, not detailed further): replace per-task PATCH calls during sprint completion with a single batch endpoint, `POST /sprints/:id/complete`, that performs the re-assignment server-side in one transaction. This is listed as "Missing/Needed" in the original audit table — implement it as part of KAN-05's completion-flow fix rather than as a separate pass, since you're already touching `handleCompleteSprint`.
+- "Redundant validation rules for deleted skills" (health matrix, Kanban row) — confirm what this refers to in the actual validation package before removing; if it's genuinely unreferenced Zod schema for a deleted `Skill` concept, remove it in `10-DEAD-CODE-REMOVAL.md`, not here.
+
+## 9. Section Completion Checklist
+
+- [ ] Quick Capture and selection-to-task both invalidate `['issues']` and `['tasks']` (KAN-01).
+- [ ] `TODO` has its own column; `CANCELED` has a reachable archive view; the drag-drop status rewrite bug is gone (KAN-02).
+- [ ] Zero occurrences of `'CANCELLED'` (two Ls) remain in `apps/web/src` (KAN-03).
+- [ ] Sprint deletion nulls `sprintId` on all attached tasks via transaction (KAN-04).
+- [ ] Sprint board shows canceled tasks somewhere, progress can reach 100% with cancellations present, and completing a sprint does not resurrect canceled tasks to backlog (KAN-05).
+- [ ] Sprint completion uses a single batch endpoint, not N sequential PATCHes.
+add this to .md files 
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T20:52:25+05:30.
+</ADDITIONAL_METADATA>
+---MSG---
+<USER_REQUEST>
+# 06 — Planner & Calendar Architecture
+
+**Priority:** P0 (daily log creation crash blocks a core daily workflow) · P2 (milestone crash, routine/streak disconnect, wasteful queries)
+**Depends on:** `12-DATABASE-SCHEMA-MIGRATIONS.md` §12.1 (`TimeBlock.workspaceId`), `02-SECURITY-AND-IDOR.md` §SEC-04
+**Touches:** `apps/server/src/controllers/dailyLog.controller.ts`, `apps/web/src/components/planner/DailyLogSection.tsx`, `apps/server/src/routes/planner.routes.ts`, `apps/web/src/components/planner/TodayView.tsx`
+
+---
+
+## 1. Scope
+
+Fix the two crashes that block daily log creation entirely (missing `workspaceId`, and a P2002 unique-constraint violation on soft-deleted logs), fix the Prisma runtime validation error on milestone update/delete, reconnect planner routine checkoffs to the real habit-streak service, and stop the week view from always computing 7 days of data regardless of the requested range.
+
+## 2. Hard Rules for This Section
+
+- `DailyLog` has `@@unique([userId, workspaceId, date])` — any fix here must respect that constraint, not work around it by weakening the schema. The correct pattern is always "check for a soft-deleted row first, resurrect it if found," never "delete the unique constraint."
+- Routine checkoffs in the Planner must delegate to `habitService`, not duplicate its streak logic locally. If you find yourself writing streak-increment math inside `planner.routes.ts`, stop — call the service instead.
+
+---
+
+## 3. PLAN-01 — Daily Log Creation Crash: Missing `workspaceId` (Ref: Audit §2.4)
+
+**Symptom:** Any attempt to record a daily log from `/app/planner` crashes with `400 Validation failed: workspaceId Required`.
+
+**Root cause:** `CreateDailyLogSchema` requires `workspaceId`. The frontend mutation payload in `DailyLogSection.tsx` omits it, and the controller does `CreateDailyLogSchema.parse(req.body)` directly, without injecting it from the `x-workspace-id` header.
+
+**File:** `apps/server/src/controllers/dailyLog.controller.ts`, line 71 onward.
+
+**Fix — this also resolves PLAN-02 (P2002) in the same handler, since both live in `createDailyLog`:**
+```ts
+export const createDailyLog = async (req: Request, res: Response) => {
+  try {
+    const workspaceId =
+      (req.headers['x-workspace-id'] as string) ||
+      (req.query.workspaceId as string) ||
+      req.body.workspaceId;
+    if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+
+    const data = CreateDailyLogSchema.parse({ ...req.body, workspaceId });
+    const logDate = new Date(data.date);
+    logDate.setUTCHours(12, 0, 0, 0); // canonical UTC noon prevents timezone-boundary shifts
+
+    const existing = await prisma.dailyLog.findFirst({
+      where: { workspaceId, userId: req.user!.id, date: logDate },
+    });
+
+    if (existing) {
+      if (!existing.deletedAt) {
+        return res.status(409).json({ message: 'Log already exists for this date. Use PATCH to update.' });
+      }
+      const resurrected = await prisma.dailyLog.update({
+        where: { id: existing.id },
+        data: { ...data, deletedAt: null, updatedBy: req.user!.id },
+      });
+      return res.status(200).json(resurrected);
+    }
+
+    const log = await prisma.dailyLog.create({
+      data: { ...data, date: logDate, userId: req.user!.id, createdBy: req.user!.id },
+    });
+    return res.status(201).json(log);
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+    }
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+```
+Note the `findFirst` here deliberately does **not** filter `deletedAt: null` — that's the fix for PLAN-02 below; it needs to see soft-deleted rows to resurrect them.
+
+**Verify:** From `/app/planner`, create a daily log for today. Confirm `201` and no `400`.
+
+---
+
+## 4. PLAN-02 — Soft-Deleted Daily Log Unique Constraint Crash (P2002) (Ref: Audit §2.5)
+
+**Symptom:** If a daily log for a given date was previously soft-deleted, attempting to create a new one for that same date throws a hard Postgres `P2002` unique constraint violation and permanently locks the user out of logging that date.
+
+**Root cause:** The pre-fix lookup filtered `deletedAt: null`, found nothing, and attempted `prisma.dailyLog.create(...)` — colliding with the still-present soft-deleted row on the `@@unique([userId, workspaceId, date])` constraint.
+
+**Fix:** Already included in PLAN-01's code block above — the `existing` lookup omits the `deletedAt` filter, and the resurrection branch (`deletedAt: null` on update) handles this case instead of attempting a doomed `create`.
+
+**Verify:** Create a daily log for a date, delete it (soft-delete), then create a new daily log for that exact same date. Confirm `200` (resurrected), not a `500`/P2002 crash.
+
+---
+
+## 5. PLAN-03 — Milestone Update/Delete Prisma Validation Error (Ref: Audit §6.3)
+
+**Symptom:** Updating or deleting any milestone throws a Prisma Client runtime validation error.
+
+**Root cause:**
+```ts
+await prisma.milestone.update({ where: { id: req.params.id, userId }, ... });
+```
+Prisma's `where` on `update`/`delete` must reference a field that is actually `@id` or part of an `@@unique`. `Milestone` only has `@id` on `id` — there is no compound unique on `(id, userId)`, so passing both fields in `where` is invalid at the Prisma Client level, not just a logic bug.
+
+**File:** `apps/server/src/routes/planner.routes.ts`, lines 498 and 515.
+
+**Fix — resolve ownership first with `findFirst`, then mutate by the bare `id`:**
+```ts
+router.patch('/milestones/:id', async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const existing = await prisma.milestone.findFirst({ where: { id: req.params.id as string, userId } });
+    if (!existing) return res.status(404).json({ message: 'Milestone not found' });
+
+    const schema = z.object({
+      title: z.string().min(1).optional(),
+      date: z.coerce.date().optional(),
+      projectId: z.string().min(1).optional(),
+      completed: z.boolean().optional(),
+    });
+    const body = schema.parse(req.body);
+    const dataToUpdate: any = { ...body };
+    if (body.date) dataToUpdate.date = startOfDay(body.date);
+
+    const milestone = await prisma.milestone.update({ where: { id: existing.id }, data: dataToUpdate });
+    return res.json(milestone);
+  } catch (error) {
+    return res.status(400).json({ message: 'Unable to update milestone' });
+  }
+});
+
+router.delete('/milestones/:id', async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const existing = await prisma.milestone.findFirst({ where: { id: req.params.id as string, userId } });
+    if (!existing) return res.status(404).json({ message: 'Milestone not found' });
+
+    await prisma.milestone.delete({ where: { id: existing.id } });
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(400).json({ message: 'Unable to delete milestone' });
+  }
+});
+```
+This is an application-layer fix — **no schema migration is required** for this issue (do not add `@@unique([id, userId])` to `Milestone`; `findFirst` + ownership check is the correct and sufficient pattern, and adding a redundant compound unique on a field that's already `@id` would be schema noise). See `12-DATABASE-SCHEMA-MIGRATIONS.md` §12.5 for the explicit "not required" note.
+
+**Verify:** Update a milestone's title. Confirm `200`, not a Prisma validation exception. Delete a milestone belonging to a different user (as an attacker) — confirm `404`, not a validation crash and not a successful delete.
+
+---
+
+## 6. PLAN-04 — Planner Routine Checkoffs Freeze Habit Streaks (Ref: Audit §6.4)
+
+**Symptom:** Checking off a routine from `/app/planner` never increments `Habit.streak` and never emits `HABIT_LOGGED` — the streak stays frozen at 0 forever when logged this way, even though the same habit logged from `/app/habits` works correctly.
+
+**Root cause:** The planner route creates a `HabitCompletion` directly via `prisma.habitCompletion.upsert(...)`, bypassing `habit.service.ts` entirely instead of delegating to it.
+
+**File:** `apps/server/src/routes/planner.routes.ts`, lines 406–440.
+
+**Fix:**
+```ts
+if (body.completed) {
+  await habitService.logHabitCompletion({
+    id: body.habitId,
+    userId,
+    workspaceId,
+    dateIso: targetDate.toISOString(),
+  });
+} else {
+  await habitService.unlogHabitCompletion({
+    id: body.habitId,
+    userId,
+    workspaceId,
+    dateIso: targetDate.toISOString(),
+  });
+}
+```
+Remove the local `prisma.habitCompletion.upsert(...)` call entirely — do not keep both paths active, or you'll get double-counted completions.
+
+**Verify:** Check off a routine from the Planner's daily view. Confirm `Habit.streak` increments identically to checking it off from `/app/habits`, and that unchecking it from the Planner correctly decrements/unlogs via the same service path.
+
+---
+
+## 7. PLAN-05 — Hardcoded 7-Day Loop & Discarded Unscheduled Tasks (Ref: Audit §6.6, and Master Remediation Action Plan Step 13)
+
+**Symptom:**
+1. The week-view endpoint always loops 7 days server-side regardless of the actual requested range — a single-day request (`TodayView.tsx` calling `getWeek(today, today)`) still triggers generation of 7 days of structures, wasting compute and bandwidth on every planner navigation.
+2. The same endpoint queries every unscheduled task in the workspace into memory (`scheduledDate: null, status: { not: 'DONE' } }`) and then discards all of them via `if (!d) return false` — fetched, then thrown away.
+
+**File:** `apps/server/src/routes/planner.routes.ts`, line 89 (unscheduled task query), lines 151–185 (day loop).
+
+**Fix:**
+```ts
+const days = [];
+let currentDay = new Date(weekStart);
+const dayCount = Math.max(1, Math.round((weekEnd.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+for (let i = 0; i < Math.min(dayCount, 31); i++) {
+  const dayOfWeek = currentDay.getUTCDay();
+  const dateStr = currentDay.toISOString().split('T')[0] as string;
+  // ...existing per-day assembly logic, unchanged...
+  currentDay.setUTCDate(currentDay.getUTCDate() + 1);
+}
+```
+The `Math.min(dayCount, 31)` cap prevents a maliciously or accidentally huge date range from generating unbounded output — pick a sane ceiling; 31 (a month) is a reasonable default, confirm against actual product requirements if a different cap makes more sense.
+
+For the discarded-tasks query: either drop the `scheduledDate: null` fetch entirely if the response never needs it, or — if the UI is supposed to surface unscheduled tasks as a backlog panel — return them explicitly under a dedicated `backlog` key in the response instead of fetching and silently filtering them out:
+```ts
+return res.json({ days, backlog: unscheduledTasks, workDayMinutes });
+```
+Confirm with the actual UI whether unscheduled tasks are meant to be shown anywhere in the Planner before choosing which branch to take — do not guess; check `TodayView.tsx` and any sidebar/backlog component for whether they already expect this data and are simply not receiving it.
+
+**Verify:** Request a single-day range from `TodayView.tsx` and confirm the response contains 1 day, not 7. Confirm the unscheduled-tasks query result is either removed or actually surfaced in the response — not silently fetched and discarded.
+
+---
+
+## 8. Cleanup
+
+Dual holiday sync services (`HolidaySyncService.ts` vs `holidays.service.ts`) — tracked in `10-DEAD-CODE-REMOVAL.md` §10.2. `planner.routes.ts` currently uses the paid/API-key-requiring `holidays.service.ts`; the consolidation (switch `planner.routes.ts` to `HolidaySyncService`, delete the other) belongs in the dead-code pass, not here, since it's a swap-and-delete rather than a bug fix.
+
+## 9. Section Completion Checklist
+
+- [ ] Daily log creation no longer 400s on missing `workspaceId` (PLAN-01).
+- [ ] Creating a daily log for a date with a soft-deleted prior log resurrects it instead of crashing with P2002 (PLAN-02).
+- [ ] Milestone update/delete no longer throw Prisma validation errors, and enforce per-user ownership via `findFirst` (PLAN-03).
+- [ ] Routine checkoffs from the Planner increment real habit streaks via `habitService`, not a local upsert (PLAN-04).
+- [ ] Week view returns exactly the requested day range, not always 7; unscheduled tasks are either removed from the query or genuinely surfaced (PLAN-05).
+
+add this to .md files 
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T20:52:48+05:30.
+</ADDITIONAL_METADATA>
+---MSG---
+<USER_REQUEST>
+# 07 — Habits, Routines & Strategic Goals (OKR) Architecture
+
+**Priority:** P2 (all three issues are correctness bugs, not outages — but each silently corrupts user-facing state over time)
+**Cross-reference:** `06-PLANNER-AND-CALENDAR.md` PLAN-04 (planner routine checkoffs must route through the same `habitService` this file governs)
+**Touches:** `apps/server/src/services/habit.service.ts`, `apps/web/src/components/Goals.tsx`, `apps/server/src/services/goal.service.ts`
+
+---
+
+## 1. Scope
+
+Stop off-schedule habit completions from crashing, stop goal creation from silently discarding a chosen `PAUSED`/`CANCELED` status, restore optimistic-locking on goal edits, and make Key Result deletion correctly recompute the parent Objective's progress instead of leaving it frozen at a stale value.
+
+## 2. Hard Rules for This Section
+
+- `HabitCompletion.offSchedule` is a real, intentional schema field — the fix is to *use* it, not to remove the concept of off-schedule completions.
+- Goal `version` is an optimistic-concurrency field. Any goal update mutation must pass it through; do not "fix" a concurrency conflict by dropping the version check — that reintroduces silent overwrites, which is the exact bug being fixed.
+
+---
+
+## 3. HAB-01 — Off-Schedule Habit Completion Crash (Ref: Audit §6.5)
+
+**Symptom:** Completing a habit on a day it isn't scheduled for crashes with an error, even though the schema was explicitly designed to support this (`HabitCompletion.offSchedule Boolean @default(false)`).
+
+**Root cause:**
+```ts
+if (offSchedule) throw new Error('Habit not scheduled for today');
+```
+The service throws on the exact condition its own schema field exists to represent.
+
+**File:** `apps/server/src/services/habit.service.ts`, lines 116–120.
+
+**Fix:**
+```ts
+const offSchedule = !scheduled.includes(targetDate.getUTCDay());
+// Do NOT throw here — offSchedule is a valid, intentional state.
+const completionsToday = await habitRepository.getCompletionCountToday(id, targetDate, tx);
+// ...proceed to create the HabitCompletion with { offSchedule } set explicitly on the record...
+```
+Confirm the completion-creation call downstream actually persists `offSchedule: true` onto the new row — the fix isn't complete if the flag is computed but never written.
+
+**Verify:** Complete a habit on a day outside its configured schedule. Confirm `200`, and the resulting `HabitCompletion` row has `offSchedule: true`. Confirm the habit's streak/stats logic (wherever it reads `offSchedule`) treats it sensibly — check whether off-schedule completions should count toward streaks per existing product logic before assuming they should or shouldn't; this fix removes the crash, it does not redefine streak semantics.
+
+---
+
+## 4. GOAL-01 — Silent Status Drop on Goal Creation (Ref: Audit §6.7)
+
+**Symptom:** `GoalFormModal` includes a status selector (`ACTIVE`, `PAUSED`, `CANCELED`), but any goal created with `PAUSED` or `CANCELED` selected is silently saved as `ACTIVE` — the field is chosen in the UI and then dropped before the request is sent.
+
+**Root cause:** `createGoalMutation.mutationFn` omits `status` from the `api.goals.create(...)` payload entirely.
+
+**File:** `apps/web/src/components/Goals.tsx`, lines 623–631.
+
+**Fix:**
+```tsx
+const createGoalMutation = useMutation({
+  mutationFn: (data: {
+    title: string; type: string; progress?: number; status?: string;
+    targetDate: string; icon?: string; parentGoalId?: string | null;
+  }) =>
+    api.goals.create({
+      title: data.title,
+      type: data.type,
+      status: data.status || 'ACTIVE',
+      progress: data.progress ?? 0,
+      icon: data.icon,
+      parentGoalId: data.parentGoalId || null,
+      targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : null,
+    }),
+  // ...rest unchanged...
+});
+```
+
+**Verify:** Create a new goal with status explicitly set to `PAUSED` in the form. Confirm the created record's status is `PAUSED`, not `ACTIVE`.
+
+---
+
+## 5. GOAL-02 — Optimistic Lock Bypass on Goal Edit (Ref: Audit §6.7)
+
+**Symptom:** `updateGoalDetailsMutation` doesn't pass `version`, bypassing Prisma's optimistic-locking concurrency check — two users (or two tabs) editing the same goal simultaneously silently overwrite each other instead of one edit being rejected with a conflict.
+
+**File:** `apps/web/src/components/Goals.tsx`, lines 676–686.
+
+**Fix:**
+```tsx
+const handleModalSubmit = (data: any) => {
+  if (editingGoal) {
+    updateGoalDetailsMutation.mutate({
+      id: editingGoal.id,
+      data: {
+        title: data.title,
+        type: data.type,
+        icon: data.icon,
+        progress: data.progress,
+        status: data.status,
+        version: editingGoal.version,
+        targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : null,
+      },
+    });
+  } else {
+    createGoalMutation.mutate(data);
+  }
+};
+```
+Confirm the backend goal-update handler actually enforces `version` in its `where` clause (Prisma optimistic concurrency pattern: `update({ where: { id, version: incomingVersion }, data: { ...changes, version: { increment: 1 } } })`) — if the backend doesn't already check it, passing `version` from the frontend alone doesn't restore the protection; verify both sides.
+
+**Verify:** Open the same goal in two tabs. Edit and save in tab 1. Edit (with stale `version`) and save in tab 2. Confirm tab 2's save is rejected with a conflict, not silently applied over tab 1's change.
+
+---
+
+## 6. GOAL-03 — Missing Goal Progress Rollup on Key Result Deletion (Ref: Audit §7.4)
+
+**Symptom:** When a Key Result under an Objective is soft-deleted, the parent Objective's progress percentage stays frozen at its stale pre-deletion average — it's never recomputed to reflect the remaining Key Results.
+
+**File:** `apps/server/src/services/goal.service.ts`, lines 162–195 (`deleteGoal`).
+
+**Fix:** Trigger the existing recursive rollup recalculation (the audit's health matrix confirms "recursive percentage progress rollups" already work correctly elsewhere — reuse that function, don't write a new one) from within `deleteGoal`, and from `restoreGoal` too (restoring a soft-deleted Key Result should equally recompute its parent).
+
+**Before writing the fix below, confirm how `goal.service.ts` actually signals "not found" today.** Every controller-level fix elsewhere in this doc set uses a direct `res.status(404).json(...)` response, but `deleteGoal`/`restoreGoal` are service-layer functions (no `req`/`res` here) — check whether this codebase already has a shared error class (something like a `NotFoundError`) that its callers catch and convert to HTTP responses, or whether the existing `deleteGoal` simply returns `null`/`undefined` on a miss. Match whatever pattern is already used elsewhere in `goal.service.ts` — do not introduce a new error-handling convention for just this function.
+```ts
+export async function deleteGoal(id: string, userId: string) {
+  const goal = await prisma.goal.findFirst({ where: { id, userId } });
+  if (!goal) return null; // or throw the codebase's existing not-found error type — match its existing convention, don't invent one
+
+  await prisma.goal.update({ where: { id }, data: { deletedAt: new Date() } });
+
+  if (goal.parentGoalId) {
+    await recalculateGoalProgress(goal.parentGoalId); // the existing recursive rollup fn
+  }
+  return goal;
+}
+
+export async function restoreGoal(id: string, userId: string) {
+  const goal = await prisma.goal.findFirst({ where: { id, userId } });
+  if (!goal) return null; // same convention as deleteGoal above
+
+  await prisma.goal.update({ where: { id }, data: { deletedAt: null } });
+
+  if (goal.parentGoalId) {
+    await recalculateGoalProgress(goal.parentGoalId);
+  }
+  return goal;
+}
+```
+Locate the actual existing rollup function name in `goal.service.ts` before wiring this in — `recalculateGoalProgress` above is illustrative; use whatever the real function is called (the audit confirms one already exists and works for other paths).
+
+**Verify:** An Objective with 4 Key Results at varying completion shows some progress X%. Delete one Key Result. Confirm the Objective's progress immediately recomputes based on the remaining 3, not frozen at the old value. Restore the deleted Key Result and confirm progress recomputes again to include it.
+
+---
+
+## 7. Cleanup
+
+"Decision model and unused DB table" (noted in the audit's health matrix under Strategic Goals & OKRs → Dead Bloat) — tracked in `10-DEAD-CODE-REMOVAL.md` §10.5. Confirm zero references before removing; not in scope for this file.
+
+## 8. Section Completion Checklist
+
+- [ ] Off-schedule habit completions succeed and persist `offSchedule: true` (HAB-01).
+- [ ] Goal creation preserves a chosen `PAUSED`/`CANCELED` status instead of forcing `ACTIVE` (GOAL-01).
+- [ ] Goal edits enforce `version`-based optimistic locking on both frontend and backend (GOAL-02).
+- [ ] Deleting or restoring a Key Result recomputes its parent Objective's progress immediately (GOAL-03).
+
+add this .md files
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T20:53:20+05:30.
+</ADDITIONAL_METADATA>
+---MSG---
+<USER_REQUEST>
+# 08 — Real-Time Event Bus Architecture
+
+**Priority:** P1 (the entire multi-tab/multi-user real-time layer is currently dead)
+**Depends on:** nothing structural — `socketService.emitToUser()` already exists and works.
+**Read before Focus Mode:** `11-FOCUS-MODE-FEATURE.md` §11 depends on this pattern being proven functional; do this file first.
+**Touches:** `apps/server/src/events/subscribers.ts`, `apps/server/src/workers/notifications.worker.ts`, `apps/web/src/providers/SocketProvider.tsx`
+
+---
+
+## 1. Scope
+
+Wire the already-built domain event bus to the already-built `socketService.emitToUser()`, so that task creation/update/deletion and notifications actually reach connected clients in real time. Currently, `focus:session:completed` is the *only* socket event ever emitted server-side — everything `SocketProvider.tsx` listens for (`task:created`, `task:updated`, `task:deleted`, `notification`) has no emitter.
+
+## 2. Hard Rules for This Section
+
+- Do not build a second real-time mechanism (SSE, polling-with-shorter-interval, etc.) as a workaround. `socketService.emitToUser()` and the Redis pub/sub adapter behind it already work — this is purely a "call the function that already exists" fix.
+- Every domain event subscriber added here must guard on `payload.userId` being present before emitting — do not emit to an undefined user ID.
+- `NotificationCenter`'s 30-second poll should be **removed or significantly lengthened as a fallback only** once real-time delivery is confirmed working — do not leave both a tight poll and real-time delivery running simultaneously as the permanent state; that defeats the purpose of this fix and doubles server load.
+
+---
+
+## 3. RT-01 — Dead Real-Time Socket.io Event Bus (Ref: Audit §4.1)
+
+**Symptom:** `task:created`, `task:updated`, `task:deleted`, and `notification` are listened for client-side but never emitted server-side anywhere except the single unrelated `focus:session:completed` event. Multi-tab Kanban sync and instant notifications are completely non-functional; the client silently falls back to whatever manual-reload or polling behavior exists.
+
+**Files:** `apps/server/src/events/subscribers.ts` (task events), `apps/server/src/workers/notifications.worker.ts` (notification events).
+
+**Fix — `subscribers.ts`:**
+```ts
+import { domainEventBus } from './eventBus';
+import { socketService } from '../services/socket.service';
+
+domainEventBus.onEvent('TASK_CREATED', (payload: any) => {
+  if (payload.userId) socketService.emitToUser(payload.userId, 'task:created', payload);
+});
+
+domainEventBus.onEvent('TASK_UPDATED', (payload: any) => {
+  if (payload.userId) socketService.emitToUser(payload.userId, 'task:updated', payload);
+});
+
+domainEventBus.onEvent('TASK_DELETED', (payload: any) => {
+  if (payload.userId) socketService.emitToUser(payload.userId, 'task:deleted', payload);
+});
+```
+
+Before wiring this, confirm `domainEventBus.onEvent('TASK_CREATED', ...)` etc. are actually the correct event names the domain layer emits when tasks are created/updated/deleted — grep for where tasks are mutated (task controller/service) and confirm each mutation path actually publishes these events to `domainEventBus` in the first place. If a mutation path doesn't publish the event yet, that mutation path needs the `domainEventBus.emit('TASK_UPDATED', { userId, ...task })` call added at its own call site — this file's fix only wires the *subscriber* side; if the *publisher* side is also missing for a given mutation, fix that at the mutation's own controller, not here.
+
+**Fix — `notifications.worker.ts`:** wherever a `Notification` row is created for a user, add:
+```ts
+socketService.emitToUser(notification.userId, 'notification', notification);
+```
+immediately after the row is persisted.
+
+**Verify:**
+1. Open the Kanban board in two browser tabs, same user, same workspace.
+2. Create or update a task in tab 1.
+3. Confirm tab 2 reflects the change without a manual reload, within roughly a second.
+4. Trigger a notification-generating action (whatever the product's existing notification triggers are). Confirm it appears in `NotificationCenter` in real time, not on the next 30-second poll cycle.
+
+---
+
+## 4. RT-02 — `NotificationCenter` 30-Second Poll Should Become a Fallback, Not the Primary Path
+
+**Symptom (consequence of RT-01 being dead):** `NotificationCenter` polls every 30 seconds because real-time delivery never worked. Once RT-01 is fixed, this poll is redundant load.
+
+**Fix:** Keep a poll as a resilience fallback (sockets do disconnect), but lengthen the interval substantially (e.g. every 2–5 minutes) once real-time delivery is confirmed working, and/or trigger an immediate refetch on socket reconnect rather than relying on the interval alone.
+
+**Verify:** With sockets connected, notifications arrive in real time (per RT-01's verification). Disconnect the socket (e.g. via devtools network throttling) and confirm the fallback poll still eventually surfaces a new notification, so users on a flaky connection aren't left with nothing.
+
+---
+
+## 5. Cleanup
+
+None — this file is purely additive (wiring existing pieces together).
+
+## 6. Section Completion Checklist
+
+- [ ] `TASK_CREATED`/`TASK_UPDATED`/`TASK_DELETED` domain events reach connected clients via `socketService.emitToUser` (RT-01).
+- [ ] Confirmed the publisher side (domain event emission at the actual task mutation call sites) exists for all three event types — not just the subscriber wiring (RT-01).
+- [ ] Notification creation emits a real-time `notification` socket event (RT-01).
+- [ ] `NotificationCenter`'s poll interval is lengthened to a fallback cadence, not left at 30s as the primary delivery mechanism (RT-02).
+- [ ] Multi-tab sync manually verified for both task changes and notifications.
+
+add this  .md files
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T20:53:37+05:30.
+</ADDITIONAL_METADATA>
+---MSG---
+<USER_REQUEST>
+# 09 — Dashboard & Analytics Architecture
+
+**Priority:** P2 (OOM risk + cross-user data leak are the serious parts; the rest is UX)
+**Touches:** `apps/server/src/controllers/dashboard.controller.ts`, `apps/web/src/components/Dashboard.tsx`, `apps/web/src/components/AppShell.tsx`
+
+---
+
+## 1. Scope
+
+Stop the dashboard endpoint from loading entire document bodies into memory just to count them, stop it from leaking other workspace members' focus sessions onto a user's own dashboard, fix the viewport clipping bug that hides bottom cards on laptop screens, and mount a real analytics page where the route currently dead-redirects.
+
+## 2. Hard Rules for This Section
+
+- Use `prisma.<model>.count(...)` for any query whose only purpose is a count — never `findMany` followed by `.length`. This is the exact defect being fixed; don't reintroduce it elsewhere in the same file while you're in there.
+- Every dashboard query that returns per-user data (focus sessions, personal stats) must filter by `userId`, not just `workspaceId` — the leak in this file is a missing `userId` filter, not a missing `workspaceId` one (that part was already correct).
+
+---
+
+## 3. DASH-01 — Dashboard OOM Hazard & Cross-User Focus Session Leak (Ref: Audit §7.1)
+
+**Symptom:** Two separate defects in the same controller:
+1. `prisma.document.findMany({ where: { space: { workspaceId }, deletedAt: null } })` has no `select`, so it loads every document's full TipTap JSON and markdown body into Node memory — purely to compute `pages.length` for a dashboard stat card. On a workspace with many/large documents, this is an OOM risk.
+2. `prisma.focusSession.findMany({ where: { workspaceId } })` does not filter by `userId` — every workspace member's focus sessions (including duration, task, timing) are returned and rendered on every other member's dashboard.
+
+**File:** `apps/server/src/controllers/dashboard.controller.ts`, lines 28 and 31.
+
+**Fix:**
+```ts
+const [
+  workspace, projects, tasks, habits, noteCount, dailyLogs, focusSessions, activityLogs, goals,
+] = await Promise.all([
+  prisma.workspace.findUnique({ where: { id: workspaceId } }),
+  prisma.project.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { updatedAt: 'desc' } }),
+  prisma.task.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { updatedAt: 'desc' } }),
+  prisma.habit.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { updatedAt: 'desc' }, include: { completions: true } }),
+  // Count instead of loading full document bodies into memory:
+  prisma.document.count({ where: { space: { workspaceId }, deletedAt: null } }),
+  prisma.dailyLog.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { date: 'desc' }, take: 14 }),
+  // Scope to the requesting user — do not leak other members' sessions:
+  prisma.focusSession.findMany({ where: { workspaceId, userId: req.user!.id }, orderBy: { createdAt: 'desc' } }),
+  prisma.activityLog.findMany({ where: { workspaceId }, orderBy: { createdAt: 'desc' }, take: 20 }),
+  prisma.goal.findMany({ where: { workspaceId, deletedAt: null } }),
+]);
+```
+Note `activityLog` here is intentionally workspace-scoped rather than user-scoped — confirm against product intent whether the activity feed is meant to show the whole team's activity (likely, for a team dashboard) or only the current user's; the audit doesn't flag `activityLog` as a leak, only `focusSession`, so leave it workspace-scoped unless told otherwise.
+
+**Verify:** Load the dashboard for a workspace with large documents — confirm memory usage doesn't spike proportional to document body size (the count query should be near-constant time/memory regardless of document size). As User A, confirm the dashboard's focus session card shows only User A's sessions, not User B's, even though both are in the same workspace.
+
+---
+
+## 4. DASH-02 — Dashboard Viewport Overflow Lock (Ref: Audit §7.1 pt. 3, §9.3)
+
+**Symptom:** `overflow-hidden` on the dashboard's root container clips the lower half of the page ("Due Today", "Activity Feed", "Goal Progress") on 1080p and smaller laptop screens, with no way to scroll to see it.
+
+**File:** `apps/web/src/components/Dashboard.tsx`, line 75.
+
+**Fix:**
+```tsx
+<div className="h-full w-full max-w-[1360px] mx-auto px-6 sm:px-8 lg:px-12 pt-6 pb-6 flex flex-col justify-between overflow-y-auto min-h-0 animate-in fade-in duration-200">
+```
+The key change is `overflow-hidden` → `overflow-y-auto` plus `min-h-0` (required for the scroll to actually take effect inside a flex child — without `min-h-0` a flex item won't shrink below its content size, and the `overflow-y-auto` will have nothing to scroll).
+
+**Verify:** On a 1366×768 or smaller viewport, confirm every dashboard card is reachable by scrolling, with no clipped content.
+
+---
+
+## 5. DASH-03 — Dead Analytics Route (Ref: Audit §9.2)
+
+**Symptom:** `/app/analytics` is a dead redirect (`<Route path="/analytics/*" element={<Navigate to="/app/" replace />} />`) even though the analytics **backend** already works — a worker computes velocity, deep work, streaks, and OKR pace, and `analyticsService.getFocusHistory()` (used by Focus Mode, see `11-FOCUS-MODE-FEATURE.md`) proves the data layer is sound. There is simply no UI page consuming it.
+
+**File:** `apps/web/src/components/AppShell.tsx`, line 275.
+
+**Fix:** Mount a real `AnalyticsPage` component in place of the redirect:
+```tsx
+<Route path="/analytics/*" element={<AnalyticsPage />} />
+```
+`AnalyticsPage` (new component) should render, at minimum: a velocity chart, a deep-work-over-time chart, streak visualizations, and OKR pace — sourced from the existing analytics worker's output, not recomputed client-side. Confirm the exact existing analytics API surface (`analyticsService`'s exported query functions / the routes that expose them to the frontend) before building the page, since the worker's computed data needs a real endpoint to read from — if no such endpoint exists yet, that is the actual blocking gap, not the frontend route itself, and must be added first.
+
+**Verify:** Navigating to `/app/analytics` renders real charts built from actual workspace data, not a redirect back to the dashboard.
+
+---
+
+## 6. Cleanup
+
+None specific to this file.
+
+## 7. Section Completion Checklist
+
+- [ ] Dashboard document count uses `prisma.document.count`, not a full `findMany` (DASH-01).
+- [ ] Dashboard focus sessions are scoped to the requesting user, not the whole workspace (DASH-01).
+- [ ] Dashboard is scrollable on smaller viewports; no clipped cards (DASH-02).
+- [ ] `/app/analytics` renders a real page with real data, not a redirect (DASH-03).
+
+add this .md files
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T20:53:51+05:30.
+</ADDITIONAL_METADATA>
+---MSG---
+<USER_REQUEST>
+# 10 — Dead Code & Architecture Bloat Removal
+
+**Priority:** Housekeeping — execute **last among files 01–09**, after every functional fix in those files has landed and been verified. (This file does not need to wait for `11-FOCUS-MODE-FEATURE.md` — none of the items below depend on it. The one item that does relate to Focus Mode, `FocusTimerWidget.tsx`, is explicitly excluded from this file's scope in §9 below and is deleted by file 11 itself as part of its own cutover.)
+**Touches:** multiple files/packages, listed per item.
+
+---
+
+## 1. Scope
+
+Every item below was confirmed unreferenced (or duplicated) at the time of the audit. Before deleting **any** item, re-confirm it is still unreferenced *after* all other fixes in this doc set have been applied — a fix elsewhere may have added a new reference to something that was previously dead. This file is deliberately sequenced last for that reason.
+
+## 2. Hard Rules for This Section
+
+- **Grep before you delete. Every time.** `grep -rn "<symbol or import path>" apps/ packages/` for each item below, with zero results as the bar for safe removal. A reference in a test file still counts as a reference — update or remove the test in the same commit, don't leave it importing a deleted module.
+- Removing a dependency from `package.json` requires confirming it's not a transitive requirement of something else you're keeping (check `pnpm why <package>` or equivalent before removing).
+- Do not delete anything not explicitly listed in this file. If you find something else that looks dead while doing this pass, log it as a `// TODO(audit): investigate for removal` comment, per `00-INDEX.md` Global Hard Rule 6 — do not remove it in the same pass without it having gone through its own review.
+
+---
+
+## 3. DEAD-01 — Obsolete `model Page` Subsystem (Ref: Audit §8.1)
+
+**Status:** The entire web app operates on `model Document`. `api.pages` is imported nowhere in `apps/web`.
+
+**Remove:**
+- `apps/server/src/controllers/page.controller.ts`
+- `apps/server/src/routes/page.routes.ts`
+- `model Page` in `schema.prisma` (see `12-DATABASE-SCHEMA-MIGRATIONS.md` §12.3 for the migration)
+- `CreatePageSchema` in `packages/validation`
+- `CreatePageDto` in `packages/types`
+- The route mount for `page.routes.ts` in the main Express app router
+
+**Pre-removal check:** `grep -rn "page.routes\|page.controller\|CreatePageSchema\|CreatePageDto\|prisma.page\." apps/ packages/` — confirm zero results outside the files being deleted themselves.
+
+**Do not confuse with:** the `Document` model's `Page[]` relation naming collision (Audit §7.3, `Project.pages`) — that's a *relation field name* that happens to be called `pages` on `Project`, pointing at the wrong/dead model; it's fixed by the schema migration in `12-DATABASE-SCHEMA-MIGRATIONS.md` §12.4, not by this deletion, though both involve the word "Page." Confirm you're removing the actual `model Page` table/controller here, and separately confirm `Project.pages` gets its relation corrected to point at `Document` per that migration file — they are two different fixes that happen to share vocabulary.
+
+---
+
+## 4. DEAD-02 — Competing Dual Holiday Sync Services (Ref: Audit §8.2)
+
+**Status:** `holiday.routes.ts` uses `HolidaySyncService.ts` (Nager.Date, free, no key required). `planner.routes.ts` separately uses `holidays.service.ts` (Calendarific, requires a paid API key) for the same conceptual feature.
+
+**Action:**
+1. In `apps/server/src/routes/planner.routes.ts`, replace every call into `holidays.service.ts` with the equivalent call into `HolidaySyncService.ts`.
+2. Confirm `HolidaySyncService`'s output shape matches what `planner.routes.ts` expects (holiday name, date, region) — adapt the call site if the shapes differ, don't assume they're identical just because both represent "holidays."
+3. Delete `apps/server/src/services/holidays.service.ts`.
+4. Remove the `CALENDARIFIC_API_KEY` (or equivalent) environment variable requirement from `.env.example` and deployment config, since it's no longer needed by anything.
+
+**Pre-removal check:** `grep -rn "holidays.service\|Calendarific" apps/server/src` — confirm zero results after step 3.
+
+**Verify:** Planner's holiday display still shows correct holidays for the user's region, now sourced from `HolidaySyncService`, with no Calendarific API key configured anywhere.
+
+---
+
+## 5. DEAD-03 — Dual Redis Client Dependencies (Ref: Audit §8.3)
+
+**Status:** The server installs both `redis` (node-redis v6) and `ioredis` (v5), doubling socket pools for no functional reason. `BullMQ` requires `ioredis`.
+
+**Action:**
+1. `grep -rn "from 'redis'\|require('redis')" apps/server/src` — find every usage of the `redis` package specifically (not `ioredis`).
+2. Port each usage to the existing `ioredis`-based `redis.service.ts` wrapper (the audit confirms this wrapper already exists and is "ready to use" per the Focus Mode doc's asset inventory — reuse it, don't write new `ioredis` calls inline).
+3. Remove `redis` from `apps/server/package.json`.
+
+**Pre-removal check:** `pnpm why redis` (post-code-changes) shows no remaining direct usage; confirm `ioredis` remains and is the sole Redis client.
+
+**Verify:** Server starts cleanly, Redis-dependent features (caching, BullMQ queues, pub/sub for sockets) all still function, connection count to Redis is lower than before (one pool, not two).
+
+---
+
+## 6. DEAD-04 — Heavy Unused AI Dependency: `@xenova/transformers` (Ref: Audit §8.4)
+
+**Status:** Hundreds of MB, installed, never imported anywhere.
+
+**Pre-removal check:** `grep -rn "@xenova/transformers" apps/server/src` — confirm zero import statements (the audit already confirms this, but re-verify at execution time in case something changed during the AI-subsystem fixes in file 03).
+
+**Action:**
+```
+pnpm --filter server remove @xenova/transformers
+```
+
+**Verify:** `pnpm install` completes cleanly, server builds and starts, and no runtime error references a missing `@xenova/transformers` import (confirming it truly wasn't used).
+
+---
+
+## 7. DEAD-05 — `Decision` Model and Unused DB Table (Ref: Audit health matrix, Strategic Goals & OKRs row)
+
+**Status:** Flagged as dead bloat in the original audit's system health matrix but not detailed in a numbered section — investigate before removing.
+
+**Pre-removal check:**
+1. `grep -rn "Decision\b" apps/server/src apps/web/src packages/` — review every hit manually; `Decision` is a common enough word that this will have false positives (e.g. unrelated comments or variable names). Confirm specifically for references to `prisma.decision`, `model Decision`, or a `Decision` type/DTO.
+2. If any live reference exists, **do not remove** — downgrade this to a "confirmed still referenced, deferred" note and move on. Removing a model with a live reference will break a build or silently drop functionality that wasn't otherwise flagged as broken.
+
+**Action (only if step 1 confirms zero live references):** Remove `model Decision` from `schema.prisma` (see `12-DATABASE-SCHEMA-MIGRATIONS.md` §12.3) and any associated controller/route/validation schema found during the grep.
+
+---
+
+## 8. DEAD-06 — Redundant Validation Rules for Deleted Skills (Ref: Audit health matrix, Kanban row)
+
+**Status:** Flagged as bloat but not detailed. Investigate the actual contents of `packages/validation` for any schema referencing a "Skill" concept that no longer exists in the product.
+
+**Pre-removal check:** Same protocol as DEAD-05 — grep first, confirm zero live references, only then remove. If the "Skill" concept turns out to still be live (e.g. tied to a feature not covered by either audit), leave it and note it as out of scope.
+
+---
+
+## 9. Deferred / Explicitly Not Removed
+
+These were mentioned in the audits as gaps but are **not** dead code — they're either intentionally kept (with a fix applied elsewhere in this doc set) or are a "missing feature," not a "remove this" item. Listed here so this file is a complete answer to "what should I remove," including the negative cases:
+
+- **`POST /api/v1/ai/analyze-telemetry`, `GET /api/v1/ai/dashboard-insight`** (Ref: `03-AI-AND-RAG.md` AI-05) — orphaned but working; the correct fix is wiring a UI caller, not deletion, unless explicitly deferred as backlog in that file's execution.
+- **`FocusTimerWidget.tsx`** — this one genuinely *is* deleted, but as part of `11-FOCUS-MODE-FEATURE.md`'s own file list (it's replaced by the new full-screen `/focus` route), not as a standalone dead-code item here. Do not delete it in this pass; let file 11 handle it as part of its own cutover, since deleting it early would break the old focus-timer UX before its replacement exists.
+
+## 10. Section Completion Checklist
+
+- [ ] `model Page` and all associated controller/route/validation/DTO code removed, with zero remaining references (DEAD-01).
+- [ ] Holiday sync consolidated onto `HolidaySyncService`; `holidays.service.ts` and its API key requirement removed (DEAD-02).
+- [ ] Server uses only `ioredis`; the `redis` package is removed from `package.json` (DEAD-03).
+- [ ] `@xenova/transformers` removed (DEAD-04).
+- [ ] `Decision` model either removed (if confirmed dead) or explicitly left with a documented reason (DEAD-05).
+- [ ] "Deleted skills" validation rules either removed (if confirmed dead) or explicitly left with a documented reason (DEAD-06).
+- [ ] `FocusTimerWidget.tsx` was **not** touched by this file — confirmed it's handled by file 11 instead.
+
+add this .md files
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T20:54:12+05:30.
+</ADDITIONAL_METADATA>
+---MSG---
+<USER_REQUEST>
+# 11 — Focus Mode: Full-Screen Timer Feature Architecture
+
+**Priority:** New feature (additive) — build last, after files 01–10.
+**Depends on:** `08-REALTIME-EVENTS.md` (proves `socketService.emitToUser` pattern works before this file adds a second consumer of it), `01-AUTH-AND-WORKSPACE.md` (auth bootstrap must be reliable before a second tab depends on it).
+**Status of underlying data:** No DB migration required — every field this feature reads already exists (`FocusSession`, `Task.estimateMinutes`, `TimeBlock`, `User.weeklyCapacityMinutes`). See §10 (Data Sources).
+
+---
+
+## 1. Feature Summary
+
+A full-screen `/focus` tab, opened via `Ctrl+Shift+Q` from anywhere in the app, running one of two modes:
+- **Manual Mode** — user picks a duration and runs a plain pomodoro/break timer.
+- **Planner Mode** — the backend computes an optimized pomodoro sequence from today's `TimeBlock`s and `Task.estimateMinutes`, capped by `User.weeklyCapacityMinutes / 5` minus meeting time.
+
+Two build phases in this file: **Phase A** (§§2–9) is the base feature. **Phase B** (§10) is a borderless/native-feeling refactor that must land on top of Phase A, not replace it mid-build — finish Phase A, verify it, then apply Phase B.
+
+---
+
+## 2. Hard Rules for This Feature
+
+1. **Do not read `localStorage.getItem('krama_token')` anywhere in new code.** This key is never written anywhere in the codebase — `SocketProvider.tsx` reads it and always gets `null`, a pre-existing latent bug unrelated to this feature. FocusPage's own socket connection must use the **in-memory** `accessToken` from `useAuth()`, obtained via `AuthContext.bootstrap()`'s `POST /auth/refresh` call against the httpOnly `krama_refresh` cookie. Do not replicate the broken pattern in new code, even though it exists elsewhere.
+2. **Reuse existing backend services — do not rebuild them.** `calculateCapacity()`, `analyticsService.getFocusHistory()`, `socketService.emitToUser()`, `redisService.get/set()`, `aiService`, the R2 upload pipeline, and `api.auth.updatePreferences()` all already exist and are confirmed working. This feature is new orchestration on top of them, not a parallel implementation.
+3. **`api.focusSessions` already exists** in `apps/web/src/api/client.ts` at line 349 with a `complete()` method. Add `getSchedule()` and `getWallpaper()` to that same object — do not create a second namespace.
+4. **`User.metadata.timerPreferences`** already exists and is typed in `AuthContext.tsx:10` as `{ sprint, deep, quick }`. Extend it with the new fields (`focusDuration`, `shortBreak`, `longBreak`, `longBreakAfter`) — do not create a new, separate preferences structure.
+5. **JWT payload uses `payload.sub` for user ID**, exposed to handlers as `req.user!.id` via `requireAuth`. Use it exactly as `completeFocusSession` already does — no new auth-parsing logic.
+6. **No DB migration for this feature.** If you find yourself wanting to add a column to support Focus Mode, stop — re-read §10 (Data Sources); the data you need already exists somewhere in the current schema.
+
+---
+
+## 3. Architecture Overview
+
+```
+Ctrl+Shift+Q (anywhere in the app, via AppShell's existing keydown handler)
+        │
+        ▼
+window.open('/focus', '_blank')
+        │
+        ▼
+FocusPage.tsx — new route, INSIDE <AuthGuard> in App.tsx (same guard as /app/*)
+  ├── useAuth() — AuthProvider already wraps the whole app (main.tsx), no new provider needed
+  ├── own Socket.IO connection (SocketProvider only wraps /app/*, this is a separate tab)
+  ├── GET /focus-sessions/schedule → today's plan
+  ├── state machine: IDLE → RUNNING → PAUSED → COMPLETED
+  ├── POST /focus-sessions on each completed slot (existing endpoint, unchanged)
+  └── 5 swappable timer layouts + wallpaper system
+```
+
+---
+
+## 4. Backend: `focusTimer.service.ts` (New)
+
+**File:** `apps/server/src/services/focusTimer.service.ts`
+
+Implements `buildFocusSchedule(userId, workspaceId, prefs)`. Full algorithm:
+
+```typescript
+interface TimerPreferences {
+  focusDuration: number;   // default 25
+  shortBreak: number;      // default 5
+  longBreak: number;       // default 15
+  longBreakAfter: number;  // default 4
+}
+
+interface SessionSlot {
+  index: number;
+  type: 'pomodoro' | 'short_break' | 'long_break';
+  durationMin: number;
+  taskId: string | null;
+  taskTitle: string | null;
+  projectId: string | null;
+  projectName: string | null;
+  label: string;
+  timeBlockId: string | null;
+  scheduledStart?: string;
+}
+
+async function buildFocusSchedule(userId: string, workspaceId: string, prefs: TimerPreferences) {
+  // STEP 1 — load today's data in parallel
+  const today = new Date();
+  const startOfDay = new Date(today); startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(today);   endOfDay.setHours(23, 59, 59, 999);
+
+  const [user, timeBlocks, tasks, completedSessions] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { weeklyCapacityMinutes: true } }),
+    prisma.timeBlock.findMany({
+      where: { userId, workspaceId, date: { gte: startOfDay, lte: endOfDay } }, // workspaceId per 02-SECURITY-AND-IDOR.md SEC-04
+      orderBy: { startTime: 'asc' },
+    }),
+    prisma.task.findMany({
+      where: {
+        workspaceId, deletedAt: null, status: { not: 'DONE' },
+        OR: [
+          { scheduledDate: { gte: startOfDay, lte: endOfDay } },
+          { dueDate: { gte: startOfDay, lte: endOfDay } },
+        ],
+      },
+      orderBy: [{ priority: 'desc' }, { dueDate: 'asc' }],
+    }),
+    prisma.focusSession.findMany({
+      where: { userId, workspaceId, startTime: { gte: startOfDay }, completed: true },
+    }),
+  ]);
+
+  // STEP 2 — daily cap, net of meetings (calculateCapacity already merges intervals)
+  const dailyCapMinutes = Math.round((user?.weeklyCapacityMinutes ?? 2400) / 5);
+  const capacity = calculateCapacity(user?.weeklyCapacityMinutes ?? 2400, timeBlocks);
+  const effectiveDailyCapMinutes = Math.max(0, dailyCapMinutes - capacity.meetingMinutes);
+  const alreadyLoggedMinutes = completedSessions.reduce((sum, s) => sum + Math.round(s.duration / 60), 0);
+  const remainingMinutes = Math.max(0, effectiveDailyCapMinutes - alreadyLoggedMinutes);
+
+  // STEP 3 — work slots from TimeBlocks (STUDY, WORK, OTHER types contribute; MEETING/PERSONAL already deducted above)
+  const focusBlockTypes = ['STUDY', 'WORK', 'OTHER'];
+  const workBlocks = timeBlocks.filter(b => focusBlockTypes.includes(b.type));
+  const taskMap = new Map(tasks.map(t => [t.id, t]));
+
+  const workSlots = workBlocks.map(block => {
+    const blockDuration = Math.round((block.endTime.getTime() - block.startTime.getTime()) / 60000);
+    const linkedTask = block.taskId ? taskMap.get(block.taskId) : null;
+    return {
+      blockId: block.id, durationMin: blockDuration,
+      taskId: linkedTask?.id ?? null, taskTitle: linkedTask?.title ?? block.title,
+      projectId: block.projectId ?? linkedTask?.projectId ?? null,
+      scheduledStart: block.startTime.toISOString(),
+    };
+  });
+
+  // Fallback: no TimeBlocks scheduled today → synthesize slots from top 5 tasks by estimateMinutes
+  if (workSlots.length === 0 && tasks.length > 0) {
+    for (const task of tasks.slice(0, 5)) {
+      workSlots.push({
+        blockId: `synthetic-${task.id}`, durationMin: task.estimateMinutes ?? prefs.focusDuration,
+        taskId: task.id, taskTitle: task.title, projectId: task.projectId ?? null,
+        scheduledStart: new Date().toISOString(),
+      });
+    }
+  }
+
+  if (workSlots.length === 0) {
+    return { mode: 'empty', plan: [], totalFocusMinutes: 0, dailyCapMinutes, alreadyLoggedMinutes, remainingMinutes, taskBreakdown: [] };
+  }
+
+  // STEP 4 — expand into pomodoro + break cycles
+  const plan: SessionSlot[] = [];
+  let globalIndex = 0, globalPomodoroCount = 0, totalFocusMinutes = 0;
+  const taskBreakdown: { taskId: string; title: string; pomodoroCount: number }[] = [];
+
+  for (const slot of workSlots) {
+    const effectiveDuration = slot.taskId && taskMap.get(slot.taskId)?.estimateMinutes
+      ? taskMap.get(slot.taskId)!.estimateMinutes! : slot.durationMin;
+    const pomodoroCount = Math.max(1, Math.ceil(effectiveDuration / prefs.focusDuration));
+
+    if (slot.taskId) taskBreakdown.push({ taskId: slot.taskId, title: slot.taskTitle ?? '', pomodoroCount });
+
+    for (let p = 0; p < pomodoroCount; p++) {
+      plan.push({
+        index: globalIndex++, type: 'pomodoro', durationMin: prefs.focusDuration,
+        taskId: slot.taskId, taskTitle: slot.taskTitle, projectId: slot.projectId, projectName: null,
+        label: slot.taskTitle ?? 'Focus',
+        timeBlockId: slot.blockId.startsWith('synthetic') ? null : slot.blockId,
+        scheduledStart: slot.scheduledStart,
+      });
+      totalFocusMinutes += prefs.focusDuration;
+      globalPomodoroCount++;
+
+      const isLastPomodoro = p === pomodoroCount - 1 && slot === workSlots[workSlots.length - 1];
+      if (!isLastPomodoro) {
+        const isLongBreak = globalPomodoroCount % prefs.longBreakAfter === 0;
+        plan.push({
+          index: globalIndex++, type: isLongBreak ? 'long_break' : 'short_break',
+          durationMin: isLongBreak ? prefs.longBreak : prefs.shortBreak,
+          taskId: null, taskTitle: null, projectId: null, projectName: null,
+          label: isLongBreak ? 'Long Break' : 'Short Break', timeBlockId: null,
+        });
+      }
+    }
+  }
+
+  // STEP 5 — enforce daily cap, trim tail
+  let plannedSoFar = 0;
+  const cappedPlan: SessionSlot[] = [];
+  for (const slot of plan) {
+    if (slot.type === 'pomodoro') {
+      if (plannedSoFar + slot.durationMin > remainingMinutes) break;
+      plannedSoFar += slot.durationMin;
+    }
+    cappedPlan.push(slot);
+  }
+  cappedPlan.forEach((s, i) => { s.index = i; });
+
+  return { mode: 'planner', plan: cappedPlan, totalFocusMinutes: plannedSoFar, dailyCapMinutes, alreadyLoggedMinutes, remainingMinutes, taskBreakdown };
+}
+```
+
+**Cache strategy:** wrap the return value with `redisService.set('focus:schedule:${userId}', JSON.stringify(result), 300)` (5-minute TTL). Invalidate this key inside `completeFocusSession` right after a session is saved, so the next schedule fetch reflects updated `remainingMinutes`.
+
+---
+
+## 5. Backend: New Endpoints
+
+**File:** `apps/server/src/routes/focusSession.routes.ts`
+
+```typescript
+router.use(requireAuth);                          // all routes need auth
+
+router.get('/wallpaper', getWallpaper);            // user-level only, no workspace role needed
+
+router.use(requireWorkspaceRole('MEMBER'));         // everything below needs workspace membership
+router.get('/schedule', getSchedule);
+router.post('/', completeFocusSession);             // existing, unchanged
+```
+**Order matters** — `/wallpaper` must be declared before `router.use(requireWorkspaceRole('MEMBER'))`, or it will incorrectly require a workspace role it doesn't need.
+
+**`GET /api/v1/focus-sessions/schedule`** — calls `buildFocusSchedule`, returns:
+```
+{ mode: 'planner' | 'empty', plan: SessionSlot[], totalFocusMinutes, dailyCapMinutes, alreadyLoggedMinutes, remainingMinutes, taskBreakdown, generatedAt }
+```
+
+**`GET /api/v1/focus-sessions/wallpaper?category=nature|minimal|space|abstract|dark|city`** — proxies Unsplash (hides the API key server-side):
+```
+{ url, thumb, credit, creditUrl }              // if UNSPLASH_ACCESS_KEY is set
+{ error: 'UNSPLASH_NOT_CONFIGURED' }           // if not — frontend must fall back to bundled gradients, not show a broken state
+```
+
+**Existing `POST /api/v1/focus-sessions`** (`completeFocusSession`) — unchanged in contract, but add one line after the session is persisted:
+```ts
+socketService.emitToUser(userId, 'focus:session:completed', {
+  sessionId: session.id, duration: session.duration, type: session.type,
+  taskId: session.taskId, dailyDeepWorkMinutes: dailyLog.deepWorkMinutes,
+});
+```
+This event already exists and already fires — confirm it's still there after your changes, don't remove it while editing this handler for the cache-invalidation addition from §11.4.
+
+---
+
+## 6. Backend: `focusSession.controller.ts` Additions
+
+```ts
+export const getSchedule = async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  // Use whichever workspaceId resolution 02-SECURITY-AND-IDOR.md §5 (SEC-03) confirmed
+  // is correct for this codebase — do not assume req.workspaceId exists without
+  // having verified it there first; this route sits behind requireWorkspaceRole('MEMBER')
+  // (see §5 below), so the resolution must be consistent with what that middleware provides.
+  const workspaceId = req.workspaceId!;
+  const cached = await redisService.get(`focus:schedule:${userId}`);
+  if (cached) return res.json(JSON.parse(cached));
+
+  const prefs = resolveTimerPreferences(req); // NEW small helper you write here: reads
+                                               // User.metadata.timerPreferences (existing
+                                               // field, per Hard Rule 4 in §2) and applies
+                                               // the defaults from §11.4's TimerPreferences
+                                               // interface for any fields not yet set
+  const result = await buildFocusSchedule(userId, workspaceId, prefs);
+  await redisService.set(`focus:schedule:${userId}`, JSON.stringify(result), 300);
+  return res.json({ ...result, generatedAt: new Date().toISOString() });
+};
+
+export const getWallpaper = async (req: Request, res: Response) => {
+  const key = process.env.UNSPLASH_ACCESS_KEY;
+  if (!key) return res.json({ error: 'UNSPLASH_NOT_CONFIGURED' });
+  const category = (req.query.category as string) || 'nature';
+  // proxy to Unsplash using `key`; return { url, thumb, credit, creditUrl }
+};
+```
+
+---
+
+## 7. Frontend: Routing & Auth
+
+**File:** `apps/web/src/App.tsx`
+```tsx
+<Route element={<AuthGuard />}>
+  <Route path="/app/*" element={<AppShell />} />
+  <Route path="/focus" element={<FocusPage />} />
+</Route>
+```
+`FocusPage` does not need to handle auth manually — `AuthProvider` already wraps the entire app in `main.tsx`, and `AuthGuard` (the same one protecting `/app/*`) redirects to `/login` if unauthenticated. On tab open, `AuthContext.bootstrap()` fires automatically: `POST /auth/refresh` via the httpOnly `krama_refresh` cookie → sets an in-memory `accessToken`. `FocusPage` just calls `useAuth()` and waits for `status !== 'loading'`.
+
+**File:** `apps/web/src/components/AppShell.tsx`
+- Remove `<FocusTimerWidget />` (line ~154) and its import.
+- Add the `Ctrl+Shift+Q` handler **immediately after** the existing `Ctrl+\` block in the keydown `useEffect`, and **before** the "ignore if typing inside input" guard (lines ~83–87), because that guard returns early on any `ctrlKey` press — placing the new handler after it means it will never fire:
+```tsx
+if (e.ctrlKey && e.shiftKey && e.key === 'Q') {
+  e.preventDefault();
+  window.open('/focus', '_blank');
+  return;
+}
+```
+- Add a "Focus Timer" row to the existing keyboard-shortcuts cheatsheet modal, alongside the existing Command Palette row.
+
+**File to delete (only after this feature is fully cut over — see `10-DEAD-CODE-REMOVAL.md` §9):**
+`apps/web/src/components/FocusTimerWidget.tsx`
+
+---
+
+## 8. Frontend: `FocusPage.tsx` and Socket Connection
+
+```tsx
+const { accessToken, status } = useAuth();
+
+useEffect(() => {
+  if (status !== 'authed' || !accessToken) return;
+
+  const sock = io('/', { auth: { token: accessToken }, reconnection: true });
+  sock.on('notification', (data) => toast(data.title, { description: data.message }));
+  sock.on('focus:session:completed', () => {
+    // optional: local UI feedback; the /app/* tab's own SocketProvider handles its own query invalidation independently
+  });
+
+  return () => { sock.disconnect(); };
+}, [status, accessToken]);
+```
+This is a **separate** socket connection from the one `SocketProvider.tsx` manages for `/app/*` — `/focus` is a different browser tab with its own memory space, so `currentAccessToken` in `api/client.ts` starts `null` there regardless of the main tab's state.
+
+**File:** `apps/web/src/providers/SocketProvider.tsx` — add the cross-tab sync handler (this is the `/app/*` tab receiving the event emitted in §11.5, not the `/focus` tab's own socket):
+```ts
+socketInstance.on('focus:session:completed', () => {
+  queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+  queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
+});
+```
+Do not add a new socket connection inside `Dashboard.tsx` for this — `SocketProvider` already owns the single socket instance for the whole `/app/*` tree; add the handler there.
+
+**State machine:** `IDLE → RUNNING → PAUSED → COMPLETED`, with a `currentSlotIndex` in Planner mode that auto-advances through `plan[]` on each completion, honoring `autoStartBreaks`/`autoStartPomodoros` settings, and reaching an `ALL_DONE` summary state once `plan[]` is exhausted.
+
+---
+
+## 9. Frontend: `api/client.ts` Addition
+
+`api.focusSessions` already exists at line 349 with `complete()`. Add to the **same object**:
+```ts
+focusSessions: {
+  complete: (data: Record<string, any>) => /* EXISTING — do not touch */,
+  getSchedule: () => fetchApi<any>('/focus-sessions/schedule'),
+  getWallpaper: (category: string) => fetchApi<any>(`/focus-sessions/wallpaper?category=${category}`),
+}
+```
+`fetchApi` already auto-attaches `Authorization` and `x-workspace-id` headers — no manual header handling needed.
+
+---
+
+## 10. Data Sources (confirms Hard Rule 6 in §2: no migration needed)
+
+| Data | Source (already exists) |
+|---|---|
+| Today's tasks | `Task.scheduledDate` / `Task.dueDate` |
+| Task estimate | `Task.estimateMinutes` |
+| Scheduled blocks | `TimeBlock` (`userId`, `date`, `startTime`, `endTime`, `taskId`) |
+| Daily cap | `User.weeklyCapacityMinutes / 5` |
+| Sessions logged today | `FocusSession` (`userId`, `startTime`, `completed`) |
+| DailyLog update | `completeFocusSession()` already handles this |
+
+---
+
+## 11. Phase B — Borderless / Krama-Native Refactor
+
+Apply only after Phase A (§§2–9) is built and verified end to end. This phase strips browser-native chrome in favor of an immersive, distraction-free viewport.
+
+### 10.1 What's being replaced
+
+| Browser-native behavior (remove) | Krama-native replacement |
+|---|---|
+| `Notification.requestPermission()` prompt | Zero permission prompts — use Sonner `toast.success()` + audio chimes only |
+| Native OS fullscreen (browser hijacks `Esc`) | `fixed inset-0 w-screen h-screen overflow-hidden` immersive viewport; `Esc` stays inside the app, toggling a settings overlay |
+| `window.close()` restrictions | Navigate back to `/app/` gracefully (or close if opened as a popup) |
+| AudioContext autoplay warnings | Pre-warm the audio synthesizer on first user interaction (`Enter` or click) |
+| Native form/input prompts | Krama-styled modals, synced via `api.auth.updatePreferences` |
+
+### 10.2 `FocusPage.tsx` changes
+
+- Remove any `Notification.requestPermission()` / `new Notification()` calls.
+- Add `controlsVisible` state, default `false`. `Esc` toggles it (if a modal is open, `Esc` closes the modal first, not the overlay — layer the escape behavior, don't let both fire on one keypress).
+- `Enter` toggles start/pause in countdown modes (Pomodoro, Short Break, Long Break, Custom); no-ops in Normal Clock mode.
+- Root container: `fixed inset-0 w-screen h-screen select-none overflow-hidden bg-black text-white`, with timer digits in stable fixed flex geometry so starting/pausing/mode-switching never shifts layout.
+- "Exit Focus Session" navigates to `/app/` — verify this is a real in-app navigation (`navigate('/app/')` via router), not a raw `window.close()` that browsers may block.
+
+### 10.3 Timer layout changes (all 5 layouts)
+
+Files: `TimerLayoutCentered.tsx`, `TimerLayoutZen.tsx`, `TimerLayoutCard.tsx`, `TimerLayoutOverlay.tsx`, `TimerLayoutSidebar.tsx`.
+
+- Timer digits render directly over the wallpaper with a legibility drop-shadow (`drop-shadow-[0_15px_35px_rgba(0,0,0,0.85)]`) — no background card/border/container around the digits themselves.
+- Remove standalone play/stop buttons as primary UI — digits become the click/`Enter` target for start/pause. A small, unobtrusive state indicator (glowing dot or font-mono tag) replaces button clutter.
+- The header HUD (three-dot menu, mode switcher, settings) renders only when `controlsVisible` is `true`, fading in without shifting the timer's fixed position.
+
+### 10.4 Unified menu
+
+**File:** `TimerMoreMenu.tsx` — one menu covering: Timer Modes (Focus/Short Break/Long Break/Custom/Normal Clock), Wallpaper & Layout Picker, Timer Configuration, Sound Chime toggle, Exit Focus Session.
+
+### 10.5 Verification Plan (Phase B)
+
+- `npx tsc -b` — zero errors.
+- `npx playwright test e2e/focus-mode.spec.ts` — passing.
+- Manual: no browser notification-permission popup appears on `/focus` load.
+- Manual: only wallpaper + timer digits visible by default; `Esc` fades in the HUD without layout shift; pressing `Enter` starts/pauses with **zero resize or layout jump**.
+- Manual: Normal Clock mode ignores `Enter` and keeps running in real time.
+- Manual: Exit flow lands cleanly on `/app/` with no 404 or console error.
+
+---
+
+## 12. Section Completion Checklist
+
+- [ ] `focusTimer.service.ts` built and matches the algorithm in §11.4 exactly, including the daily-cap trim and synthetic-slot fallback.
+- [ ] `GET /focus-sessions/schedule` and `GET /focus-sessions/wallpaper` exist, correctly ordered relative to `requireWorkspaceRole` middleware.
+- [ ] `TimeBlock` queries in the new service filter by `workspaceId` (per `02-SECURITY-AND-IDOR.md` SEC-04), not just `userId`.
+- [ ] `/focus` route is inside `<AuthGuard>`; no manual auth logic duplicated in `FocusPage`.
+- [ ] `FocusPage`'s socket connection uses `useAuth().accessToken`, never `localStorage.getItem('krama_token')`.
+- [ ] `Ctrl+Shift+Q` opens `/focus`; placed before the input-guard early-return in `AppShell.tsx`'s keydown handler.
+- [ ] `api.focusSessions` extended in place (`getSchedule`, `getWallpaper` added to the existing object).
+- [ ] `focus:session:completed` socket event both emitted server-side (§11.5) and consumed in `SocketProvider.tsx` for `/app/*` cross-tab sync (§11.8).
+- [ ] All 5 timer layouts render and wallpaper picker (gradient → Unsplash → R2 upload) all function.
+- [ ] `FocusTimerWidget.tsx` is deleted only after the new `/focus` route is confirmed working end to end.
+- [ ] Phase B borderless refactor applied on top of a verified Phase A, with its own verification plan (§10.5) passing.
+
+add this .md files
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T20:54:24+05:30.
+</ADDITIONAL_METADATA>
+---MSG---
+<USER_REQUEST>
+# 12 — Database Schema Migrations (Consolidated)
+
+**Priority:** Run first, before files 01–11 (per `00-INDEX.md` Global Execution Order).
+**Target:** `apps/server/prisma/schema.prisma`, plus one raw-SQL trigger migration.
+
+---
+
+## 1. Scope
+
+This file is the single place every Prisma schema change from the entire remediation set is defined, so migrations are written once, in one coherent migration (or a small ordered sequence), rather than scattered piecemeal across the functional-fix files. Every other file references this one by section number instead of repeating schema diffs.
+
+## 2. Hard Rules
+
+- Write these as proper Prisma migrations (`prisma migrate dev` / `prisma migrate deploy`), not manual `db push` in production. Each numbered item below can be one migration file, or grouped into a single migration — group them if your migration tooling makes that easy, since they're all part of the same remediation pass and will be deployed together regardless.
+- **Every migration that adds a NOT NULL column to a table with existing rows needs a backfill strategy or a nullable-with-default approach.** Do not write a migration that will fail against production data with existing rows. Specifically for §12.1 (`TimeBlock.workspaceId`), see the backfill note there — this table almost certainly has existing rows.
+- Run migrations against a staging copy of production data before deploying, given the backfill requirement on §12.1.
+
+---
+
+## 3. §12.1 — Add `TimeBlock.workspaceId` (Ref: Audit §3.4, `02-SECURITY-AND-IDOR.md` SEC-04)
+
+**Why:** `TimeBlock` currently has only `userId`, so a user in two workspaces sees calendar data bleed across them. This is a security/correctness fix, not just a feature.
+
+**Schema change:**
+```prisma
+model TimeBlock {
+  // ...existing fields...
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  // ...existing indexes...
+  @@index([workspaceId, userId, date])
+}
+```
+
+**Backfill required:** existing `TimeBlock` rows have no `workspaceId`. Before making the column `NOT NULL`:
+1. Add the column as nullable first.
+2. Backfill: for each existing `TimeBlock`, set `workspaceId` from the linked `User`'s **default/first workspace membership** (or, if `TimeBlock` has any other field that indirectly implies a workspace — e.g. a linked `Task.workspaceId` via `taskId` — prefer that as a more accurate source than "first membership"). Confirm which backfill source is actually correct against the real data before running it against production; a wrong backfill here silently assigns TimeBlocks to the wrong workspace, which is the exact class of bug this migration exists to fix.
+3. Once backfilled and verified with zero remaining NULLs, alter the column to `NOT NULL` in a follow-up migration step.
+
+**Application-layer dependency:** every `prisma.timeBlock.*` call across `planner.routes.ts` (and the new Focus Mode service in file 11) must be updated to filter/set `workspaceId` once this lands — that work is specified in `02-SECURITY-AND-IDOR.md` §SEC-04, not here; this section is schema-only.
+
+---
+
+## 4. §12.2 — Expand `userAuthSelect` (Ref: Audit §2.1 pt. 4, `01-AUTH-AND-WORKSPACE.md` AUTH-03)
+
+**Why:** No schema change required — this is a Prisma `select` shape change in application code (`apps/server/src/utils/selectors.ts`), listed here only for completeness/traceability since it's part of the same root-cause fix as `TimeBlock`'s membership-shape work. See `01-AUTH-AND-WORKSPACE.md` §5 for the actual code change.
+
+---
+
+## 5. §12.3 — Remove `model Page` and `model Decision` (Ref: Audit §8.1, health matrix; `10-DEAD-CODE-REMOVAL.md` DEAD-01, DEAD-05)
+
+**Why:** Both are confirmed-unreferenced-after-grep dead tables (see the dead-code file for the exact grep protocol — **do not run this migration until that grep has been done and confirmed zero live references for each model independently**; they may not both be safe to remove at the same time).
+
+**Schema change:**
+```prisma
+// Remove entirely:
+// model Page { ... }
+// model Decision { ... }
+```
+Also remove any foreign key / relation fields on other models that pointed at `Page` or `Decision` (e.g. `Project.pages Page[] @relation("ProjectPages")` — see §12.4 below, which replaces this relation rather than just deleting it).
+
+**Migration order matters:** if any other table has a foreign key into `Page` or `Decision`, that FK must be dropped/repointed (§12.4 for the `Project`↔`Page` case) in the **same migration** as the table drop, or the drop will fail against a live FK constraint.
+
+---
+
+## 6. §12.4 — Fix `Project.pages` → `Project.documents` Relation (Ref: Audit §7.3)
+
+**Why:** `Project` currently has `pages Page[] @relation("ProjectPages")` while `Document` has `projectId String?` with **no Prisma relation back to `Project`** at all. `project.controller.ts`'s `listProjects` is counting a relation (`pages`) that reflects the wrong, dead model — it should be counting `Document`s.
+
+**Schema change:**
+```prisma
+model Project {
+  // Before:
+  // pages Page[] @relation("ProjectPages")
+  // After:
+  documents Document[]
+}
+
+model Document {
+  // ...existing fields, including projectId String?...
+  project Project? @relation(fields: [projectId], references: [id])
+}
+```
+
+**Application-layer dependency:** `project.controller.ts`'s `listProjects` (and anywhere else counting `project.pages`) must be updated to count/include `project.documents` instead — that code change belongs wherever `listProjects` lives; this section only defines the schema shape it depends on.
+
+**Sequencing with §12.3:** since `model Page` is being dropped in the same pass, this relation fix and that drop should land in the same migration (or immediately adjacent ones) — a state where `Project.pages` still points at a dropped `Page` model, even briefly, will break the Prisma client.
+
+---
+
+## 7. §12.5 — Milestone: Explicitly No Schema Change (Ref: Audit §6.3, `06-PLANNER-AND-CALENDAR.md` PLAN-03)
+
+**Why documented here at all:** to prevent a well-intentioned but wrong migration. The Prisma validation error on `milestone.update`/`delete` is caused by passing a non-unique compound `where` (`{ id, userId }`) into a Prisma call, **not** by a missing compound unique constraint in the schema. The correct fix is application-layer (`findFirst` to check ownership, then mutate by bare `id`) — see `06-PLANNER-AND-CALENDAR.md` §5.
+
+**Do not add** `@@unique([id, userId])` to `Milestone`. `id` is already `@id` (globally unique on its own); a compound unique including an already-unique field is redundant schema noise and does not address the actual bug, which is in the application code's `where` clause construction, not the schema's constraint definition.
+
+---
+
+## 8. §12.6 — `Document.searchVector` Trigger (Ref: Audit §4.2, `05-BRAIN-KNOWLEDGE-BASE.md` BRAIN-04)
+
+**Why:** `Document.searchVector` (a Postgres `tsvector` column) already exists in the schema but is permanently `NULL` because the trigger that populates it (`setup-brain-triggers.ts`) is never executed as part of any migration, seed, or startup path.
+
+**This is a raw-SQL migration, not a Prisma schema-model change** (Prisma doesn't model triggers natively — use a Prisma migration with a raw SQL block, e.g. via `prisma migrate dev --create-only` followed by hand-editing the generated SQL file):
+```sql
+CREATE OR REPLACE FUNCTION documents_search_vector_update() RETURNS trigger AS $$
+BEGIN
+  NEW."searchVector" := to_tsvector('english', coalesce(NEW.title, '') || ' ' || coalesce(NEW."contentMarkdown", ''));
+  RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS documents_search_vector_trigger ON "Document";
+CREATE TRIGGER documents_search_vector_trigger
+  BEFORE INSERT OR UPDATE ON "Document"
+  FOR EACH ROW EXECUTE FUNCTION documents_search_vector_update();
+
+UPDATE "Document" SET "searchVector" = to_tsvector('english', coalesce(title, '') || ' ' || coalesce("contentMarkdown", ''))
+WHERE "searchVector" IS NULL;
+```
+Verify the exact column name Prisma generated for `contentMarkdown` (or whatever the schema actually calls the document body field) against the real `schema.prisma` before running — the column name in this snippet is illustrative based on the audit's description, confirm it against the live schema.
+
+---
+
+## 9. §12.7 — Focus Mode: No Schema Change (Ref: `11-FOCUS-MODE-FEATURE.md` §10, Data Sources)
+
+Documented here for completeness: the entire Focus Mode feature (file 11) reads exclusively from fields that already exist — `FocusSession`, `Task.estimateMinutes`, `TimeBlock` (once §12.1 lands), `User.weeklyCapacityMinutes`. No new model or column is required to build it. If implementation reveals a genuine gap, treat that as a signal to re-check the feature spec against the live schema before writing a new migration — the design was verified against running code, so a mismatch likely means the schema drifted, not that the design was wrong.
+
+---
+
+## 10. Migration Execution Order (within this file)
+
+1. §12.1 `TimeBlock.workspaceId` (nullable → backfill → NOT NULL, as its own multi-step migration).
+2. §12.4 `Project.documents` relation fix — must land together with or immediately before §12.3's `Page` drop.
+3. §12.3 Drop `model Page` / `model Decision` — only after grep confirmation per `10-DEAD-CODE-REMOVAL.md`, and only after §12.4 has repointed the `Project` relation.
+4. §12.6 `Document.searchVector` trigger + backfill.
+5. §12.2 and §12.5 require no schema migration — confirm this file's readers understand that and don't accidentally write one.
+
+## 11. Section Completion Checklist
+
+- [ ] `TimeBlock.workspaceId` added, backfilled with zero NULLs, then set `NOT NULL` (§12.1).
+- [ ] `Project.documents` relation replaces `Project.pages`, and `Document.project` back-relation added (§12.4).
+- [ ] `model Page` and `model Decision` dropped only after independent grep-confirmation each (§12.3).
+- [ ] `Document.searchVector` trigger created and existing rows backfilled (§12.6).
+- [ ] Confirmed no schema change was made for Milestone or for Focus Mode (§12.5, §12.7) — these are application-layer-only fixes.
+- [ ] All migrations tested against a staging copy of production data before deploy, given the `TimeBlock` backfill risk.
+
+add this .md files
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T20:54:34+05:30.
+</ADDITIONAL_METADATA>
+---MSG---
+<USER_REQUEST>
+# CHANGES — Self-Audit Log
+
+This file records a self-review pass performed on the 13-file remediation set (`00-INDEX.md` through `12-DATABASE-SCHEMA-MIGRATIONS.md`) after initial authoring, in response to a request to verify the set for AI-introduced errors before handing it to an execution agent. Every change below was applied directly, in place, to the file listed — there is no separate "old version" to diff against; this log is the record of what changed and why.
+
+No changes were made to the underlying source audits or their factual findings. Every correction below is either (a) an internal-consistency bug in how I organized/cross-referenced the material, or (b) a place where I stated an unverified implementation detail as if it were confirmed fact, and have since downgraded it to an explicit "verify this first" instruction.
+
+---
+
+## 1. `req.workspaceId` presented as an established property (highest-severity catch)
+
+**Files touched:** `02-SECURITY-AND-IDOR.md`, `05-BRAIN-KNOWLEDGE-BASE.md`, `11-FOCUS-MODE-FEATURE.md`
+
+**What was wrong:** Three separate fixes (space-mutation IDOR, Brain cascade-delete, Focus Mode's schedule endpoint) read `req.workspaceId` as if some existing middleware already validates and attaches it to the request. No source audit document confirms this property exists anywhere in the codebase. The only *proven* pattern across all source material is reading `x-workspace-id` directly from headers (shown explicitly in the daily-log fix, `06-PLANNER-AND-CALENDAR.md` PLAN-01).
+
+**Why it mattered:** If wrong, every downstream fix using it would either read `undefined` (silently reintroducing the exact IDOR being closed) or throw at runtime — the worst possible outcome for a security fix.
+
+**Fix applied:** `02-SECURITY-AND-IDOR.md` §5 (SEC-03) is now the canonical place this gets resolved — it instructs the agent to check `auth.middleware.ts` first, and gives a safe, explicit membership-validated derivation as a fallback if no such decoration exists. `05-BRAIN-KNOWLEDGE-BASE.md` and `11-FOCUS-MODE-FEATURE.md` now point back at that verified resolution instead of asserting the property as fact.
+
+---
+
+## 2. Duplicate section number and a broken internal reference
+
+**File touched:** `11-FOCUS-MODE-FEATURE.md`
+
+**What was wrong:** Two sections were both numbered `## 9.` ("Frontend: api/client.ts Addition" and "Data Sources"), and one line referenced `§11.6.1` — a section that never existed anywhere in the doc.
+
+**Fix applied:** Renumbered sections 9 through 11 to 9 through 12 (Data Sources → 10, Phase B → 11, Checklist → 12). Replaced the broken `§11.6.1` reference with a correct pointer to Hard Rule 6 in §2.
+
+---
+
+## 3. Stale cross-file reference after the renumbering above
+
+**File touched:** `12-DATABASE-SCHEMA-MIGRATIONS.md`
+
+**What was wrong:** §12.7 cited `11-FOCUS-MODE-FEATURE.md §11.9` for the "no schema change needed" note — the section that citation pointed at moved during fix #2 above.
+
+**Fix applied:** Updated the citation to `§10, Data Sources` (its new location).
+
+---
+
+## 4. Wrong file named in a cross-reference
+
+**File touched:** `10-DEAD-CODE-REMOVAL.md`
+
+**What was wrong:** The `Project.pages` relation note incorrectly said this was "referenced in `07-HABITS-AND-GOALS.md`/audit §7.3" — that file has nothing to do with the `Project`/`Page`/`Document` relation; the actual fix lives only in `12-DATABASE-SCHEMA-MIGRATIONS.md` §12.4.
+
+**Fix applied:** Removed the incorrect `07-HABITS-AND-GOALS.md` mention; the note now cites only the audit and file 12.
+
+---
+
+## 5. Contradictory execution order between two files
+
+**File touched:** `10-DEAD-CODE-REMOVAL.md`
+
+**What was wrong:** This file's own header said to execute "after every functional fix in files 01–09 **and 11**" (i.e., after Focus Mode) — but `00-INDEX.md`'s Global Execution Order runs dead-code removal (position 11) *before* Focus Mode (position 12). On inspection, none of this file's six actual deletion items depend on Focus Mode at all; the one item that does (`FocusTimerWidget.tsx`) was already explicitly excluded from this file's own scope and deferred to file 11.
+
+**Fix applied:** Corrected this file's header to drop the false "and 11" dependency, rather than changing the index's order (which was already correct). The header now explicitly notes the `FocusTimerWidget.tsx` exception as the only Focus Mode connection.
+
+---
+
+## 6. Citation notation implying a document section that doesn't exist
+
+**Files touched:** `04-KANBAN-AND-SPRINTS.md`, `06-PLANNER-AND-CALENDAR.md`
+
+**What was wrong:** Two issue headers cited `§13`, using section notation (`§`) for what is actually "Step 13" of the source audit's separately-numbered Master Remediation Action Plan — a different numbering scheme than the audit's `§N.M` section numbers used everywhere else.
+
+**Fix applied:** Both citations now read "Master Remediation Action Plan Step 13" instead of `§13`.
+
+---
+
+## 7. A class assumed to exist, with no source confirmation and inconsistent with the doc set's own established pattern
+
+**File touched:** `07-HABITS-AND-GOALS.md`
+
+**What was wrong:** The Key-Result-deletion fix (GOAL-03) had `deleteGoal`/`restoreGoal` throw `new NotFoundError(...)` on a miss. No source document confirms this class exists anywhere in the codebase, and every other controller-level fix in this entire doc set uses a direct `res.status(404).json(...)` response instead — introducing a different, unverified error-handling convention specifically here was inconsistent with everything else in the set.
+
+**Fix applied:** Replaced the assumed class with an explicit instruction to check how `goal.service.ts` already signals "not found" elsewhere in that file (since these are service-layer functions without direct `req`/`res` access, unlike the controller-level fixes elsewhere) and match that existing convention — with a safe `return null` placeholder in the code sample rather than a fabricated class.
+
+---
+
+## 8. A helper function that read as possibly-already-existing
+
+**File touched:** `11-FOCUS-MODE-FEATURE.md`
+
+**What was wrong:** `resolveTimerPreferences(req)` appeared in the `getSchedule` handler with only a short inline comment — ambiguous about whether this was assumed to already exist somewhere or was new code the agent needs to write.
+
+**Fix applied:** Expanded the comment to explicitly state this is new helper code to write, and what it should do (read `User.metadata.timerPreferences`, apply defaults from the `TimerPreferences` interface in §4).
+
+---
+
+## Verification performed after all fixes
+
+- Every file's `## N.` section headers re-checked for sequential numbering with no gaps or duplicates — clean across all 13 files.
+- Every code fence (` ``` `) re-checked for balanced open/close pairs across all 13 files — clean, none unclosed.
+- Grepped for other instances of `req.workspaceId` and `throw new <CustomClass>` beyond the ones already fixed — none remaining; the two remaining `throw new Error(...)` calls are the plain JS built-in, not invented classes, and one of them is directly quoting the *existing buggy code* from the audit (code being removed, not proposed).
+- Re-checked every file's declared `**Depends on:**` line against its position in `00-INDEX.md`'s Global Execution Order — all dependencies are satisfied by files that run earlier in the sequence; no forward-reference issues remain.
+
+## What this pass does not cover
+
+This was a self-consistency and unverified-assumption audit of the documentation set itself — it does not re-verify the underlying facts of the original two forensic audits against the live KRAMA OS codebase (I don't have access to that codebase). Every "confirm this against the real code first" instruction that appears throughout files 01–12 is still exactly that: something the executing agent must check against the actual repository before applying, not something this pass could verify independently.
+
+add this .md files 
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T20:54:43+05:30.
+</ADDITIONAL_METADATA>
+---MSG---
+<USER_REQUEST>
+# KRAMA Ground-Truth Verification Prompt
+
+**Give this prompt, verbatim, to an agent that has actual read/execute access to the `sudhanshukumar03/KRAMA` repository** (cloned locally, or via a tool that can browse and run it — not an agent working from descriptions). Its only job is to find out what's *actually true*, since every document produced so far (two "forensic audits," a 13-file remediation set, an updated README) was built without anyone actually running or fully reading the live code. This prompt exists to stop trusting prose and start trusting evidence.
+
+---
+
+## Your Task
+
+You have access to the real KRAMA repository. Do not trust any prior description of this codebase — not a README, not an audit, not a remediation doc. For every claim below, find the actual implementing code, read it, and where feasible run it. Produce a verdict for each claim with file-and-line evidence. If you can't find something, say so plainly — "not found" is a valid and useful answer; a guess is not.
+
+### Hard rules for this verification pass
+
+1. **"The file exists" is not "the feature works."** A route or service file existing does not mean it's wired up, reachable from the UI, or functioning. Trace the actual call path: UI → API client → route → controller → service → database. If any link in that chain is missing, the feature is not working end-to-end, regardless of how much code exists for it.
+2. **Do not trust comments, docstrings, or variable names as evidence.** A function named `sendRealtimeUpdate` that is never called is dead code, no matter what it's named. A comment saying `// TODO: wire this up` means it isn't wired up.
+3. **Distinguish "present but broken" from "present and working" from "not present at all."** These are three different verdicts and matter differently — especially since a prior audit claimed some of this codebase's AI integration used invalid model names (a "present but broken" case, not "not present").
+4. **Check for mocks, stubs, and hardcoded fallbacks masquerading as real functionality.** E.g., a `setTimeout()` followed by a hardcoded success toast is not a real AI call, even if a button next to it says "Run AI Diagnostic."
+5. **Run the test suite if one exists**, and report actual pass/fail results — do not assume tests passing means the features they test are used anywhere in the live UI (a passing unit test for an orphaned endpoint proves the endpoint works in isolation, not that a user can reach it).
+6. **For every claim, cite the exact file path and line range** you verified it against. "I believe this works" is not acceptable; "confirmed at `apps/server/src/services/x.ts:42-58`, which is called from `apps/web/src/components/Y.tsx:110`" is.
+
+---
+
+## Part 1 — Verify the Current README's Claims
+
+For each bullet, determine: **Confirmed working** / **Present but broken or incomplete** / **Not found in codebase**. Cite evidence for all three verdicts, not just the negative ones.
+
+### Multi-tenancy / "personal tool with multiple workspaces"
+- [ ] Does a `Workspace` model exist in `schema.prisma`? Does the app support a single user account having more than one workspace?
+- [ ] Is there any code path that supports more than one distinct *user account* (registration, login as a second person), or is user creation effectively single-account-only?
+- [ ] Does switching between workspaces actually work end-to-end (frontend UI → backend → persisted selection survives reload)?
+
+### AI Assistant
+- [ ] Locate the actual AI service code. What provider(s) are actually configured and called — confirm exact model strings used in a live request, not just declared in a constant.
+- [ ] Send (or trace) an actual chat request through the code path. Does it return a real completion, or does it fail (e.g. 404 from an invalid model name)?
+- [ ] Is the daily-narrative debrief feature reachable from any real UI component? If yes, cite the component and the button/action that triggers it.
+- [ ] Confirm whether RAG/retrieval is actually used — i.e., does a chat request's prompt construction actually include retrieved document chunks, or is it a plain completion call with no retrieval step?
+
+### Vector search / `pgvector`
+- [ ] Is `pgvector` actually installed and enabled in the Postgres instance (check `docker-compose.yml` / migration files for the extension)?
+- [ ] Does the embedding generation pipeline run without error against a real document? Trace one document from creation through to a populated embedding column.
+- [ ] Is semantic search actually queryable from the UI, or does it exist only as an unused backend function?
+
+### Redis / BullMQ / real-time sync
+- [ ] Is Redis actually connected at runtime (check for a successful connection log, not just a client instantiation)?
+- [ ] Are any BullMQ jobs actually enqueued and processed by a running worker? Name the real job types found in the code.
+- [ ] Does `socketService.emitToUser()` (or equivalent) actually get called anywhere outside of Focus Mode's session-completed event? Confirm with a grep and a call-path trace, not an assumption.
+- [ ] Open two browser sessions (or simulate two socket connections) against a running instance if possible. Does a change in one actually appear in the other without a manual reload?
+
+### Execution Loop (Kanban, Sprints, Planner, Focus Mode)
+- [ ] Does drag-and-drop on the Kanban board correctly update task status without corrupting it (e.g., check whether a `TODO`-status task's status silently changes when something is dropped on it)?
+- [ ] Do all six `TaskStatus` enum values have a reachable place in the UI, or are any (e.g. `CANCELED`) permanently hidden?
+- [ ] Does Focus Mode's Planner mode actually compute a schedule from real `TimeBlock`/`Task` data, or does it fall back to an empty/synthetic state in practice?
+- [ ] Does sprint completion correctly handle canceled tasks (neither losing them nor resurrecting them to backlog)?
+
+### Goals / Pace Engine
+- [ ] Does a parent Goal's progress actually recompute when a child is added, completed, or deleted? Trace this with a real (or simulated) CRUD sequence.
+- [ ] Does the "Required Pace vs Actual Pace" claim have real backing data (a `GoalProgressSnapshot` model with a scheduled job populating it), or is it computed only from the two current-state numbers with no historical snapshot involved?
+
+### Data integrity (cascades, soft-delete, restore)
+- [ ] Deleting a Project with a Sprint and Issues — does "Undo" actually restore every child record with original IDs and statuses, as the README claims? Trace the actual delete/restore transaction code.
+- [ ] Does deleting a Space (or equivalent container) hard-delete child documents, or soft-delete them into a recoverable Trash?
+
+---
+
+## Part 2 — Re-Verify the Original Audit's Specific Bug Claims
+
+For each, determine: **Confirmed still present** / **Already fixed** / **Never actually a bug (audit was wrong)**. This is the part that actually tells us whether the original two audit documents were trustworthy at all — treat this section's outcome as the verdict on whether the rest of that audit (and everything built from it) should be trusted going forward.
+
+1. Are `gemini-3.6-flash` / `gemini-3.7-flash` (invalid model strings) actually present anywhere in the AI service code?
+2. Does `QuickCaptureModal` (or equivalent capture UI) actually omit body content when creating a document?
+3. Does creating a daily log actually fail with a `400` due to a missing `workspaceId`?
+4. Does re-creating a daily log for a date with a soft-deleted prior entry actually throw a `P2002` unique constraint error?
+5. Does updating or deleting a Milestone actually throw a Prisma validation error?
+6. Is `TaskStatus.CANCELED` actually misspelled as `CANCELLED` anywhere in the frontend?
+7. Does the global search route actually allow a cross-workspace `x-workspace-id` header with no membership check?
+8. Does `TimeBlock` actually lack a `workspaceId` column in the live schema?
+9. Is file upload actually unbounded (no `multer` file size limit)?
+10. Does the dashboard actually load full document bodies into memory just to count them?
+
+---
+
+## Required Output Format
+
+Produce a single report with these sections, in this order:
+
+1. **Executive verdict** (2–3 sentences): is the current README's picture of this project closer to reality than the original two audit documents were, or not?
+2. **README claim verification table** — one row per checklist item above, columns: Claim | Verdict | Evidence (file:line) | Notes
+3. **Original audit re-verification table** — same format, for Part 2's 10 items
+4. **Anything found that neither the README nor the audits mentioned** — new issues, or new working features, discovered incidentally while tracing the above
+5. **Recommendation**: given the actual state found, should the 13-file remediation doc set be discarded, partially salvaged (name which files), or is it still substantially accurate?
+
+Do not soften a negative finding to be diplomatic. The entire point of this pass is to replace assumption with evidence — a confident wrong answer here is worse than an honest "I couldn't verify this."
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-25T03:01:27+05:30.
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from Gemini 3.8 Flash (Medium) to Gemini 3.1 Pro (High). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>
+---MSG---

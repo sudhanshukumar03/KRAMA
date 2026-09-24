@@ -95,7 +95,35 @@ export class HabitService {
     });
   }
 
-  async logHabitCompletion(id: string, workspaceId: string, userId: string, dateStr?: string, dateIso?: string) {
+  async logHabitCompletion(
+    idOrOptions: string | { id: string; workspaceId: string; userId: string; dateStr?: string; dateIso?: string; allowOffSchedule?: boolean },
+    workspaceIdArg?: string,
+    userIdArg?: string,
+    dateStrArg?: string,
+    dateIsoArg?: string
+  ) {
+    let id: string;
+    let workspaceId: string;
+    let userId: string;
+    let dateStr: string | undefined;
+    let dateIso: string | undefined;
+    let allowOffSchedule = false;
+
+    if (typeof idOrOptions === 'object') {
+      id = idOrOptions.id;
+      workspaceId = idOrOptions.workspaceId;
+      userId = idOrOptions.userId;
+      dateStr = idOrOptions.dateStr;
+      dateIso = idOrOptions.dateIso;
+      allowOffSchedule = idOrOptions.allowOffSchedule ?? true;
+    } else {
+      id = idOrOptions;
+      workspaceId = workspaceIdArg!;
+      userId = userIdArg!;
+      dateStr = dateStrArg;
+      dateIso = dateIsoArg;
+    }
+
     return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await habitRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
@@ -114,9 +142,6 @@ export class HabitService {
         : [0, 1, 2, 3, 4, 5, 6];
 
       const offSchedule = !scheduled.includes(targetDate.getUTCDay());
-      if (offSchedule) {
-        throw new Error('Habit not scheduled for today');
-      }
 
       const completionsToday = await habitRepository.getCompletionCountToday(id, targetDate, tx);
       if (completionsToday > 0) {
@@ -143,7 +168,33 @@ export class HabitService {
     });
   }
 
-  async unlogHabitCompletion(id: string, workspaceId: string, userId: string, dateStr?: string, dateIso?: string) {
+  async unlogHabitCompletion(
+    idOrOptions: string | { id: string; workspaceId: string; userId: string; dateStr?: string; dateIso?: string },
+    workspaceIdArg?: string,
+    userIdArg?: string,
+    dateStrArg?: string,
+    dateIsoArg?: string
+  ) {
+    let id: string;
+    let workspaceId: string;
+    let userId: string;
+    let dateStr: string | undefined;
+    let dateIso: string | undefined;
+
+    if (typeof idOrOptions === 'object') {
+      id = idOrOptions.id;
+      workspaceId = idOrOptions.workspaceId;
+      userId = idOrOptions.userId;
+      dateStr = idOrOptions.dateStr;
+      dateIso = idOrOptions.dateIso;
+    } else {
+      id = idOrOptions;
+      workspaceId = workspaceIdArg!;
+      userId = userIdArg!;
+      dateStr = dateStrArg;
+      dateIso = dateIsoArg;
+    }
+
     return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await habitRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {

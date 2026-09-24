@@ -171,7 +171,7 @@ export function TodayView({
     const backlogList: any[] = [];
 
     taskList.forEach((t: any) => {
-      const isCompleted = t.status === 'DONE' || t.status === 'CANCELLED';
+      const isCompleted = t.status === 'DONE' || t.status === 'CANCELED';
       const tDateStr = t.scheduledDate || t.dueDate;
 
       if (!tDateStr) {

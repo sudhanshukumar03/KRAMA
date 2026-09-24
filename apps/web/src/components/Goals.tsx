@@ -39,7 +39,7 @@ function GoalCard({ goal, depth = 0, onAddChild, onEdit, projects = [] }: GoalCa
   }, [goal.progress]);
 
   const updateGoalMutation = useMutation({
-    mutationFn: (newProgress: number) => api.goals.update(goal.id, { progress: newProgress }),
+    mutationFn: (newProgress: number) => api.goals.update(goal.id, { progress: newProgress, version: goal.version }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
       setIsEditingProgress(false);
@@ -620,10 +620,19 @@ export function Goals() {
   const [editingGoal, setEditingGoal] = useState<GoalWithRelations | null>(null);
 
   const createGoalMutation = useMutation({
-    mutationFn: (data: { title: string; type: string; progress?: number; targetDate: string; icon?: string; parentGoalId?: string | null }) =>
+    mutationFn: (data: {
+      title: string;
+      type: string;
+      progress?: number;
+      status?: string;
+      targetDate: string;
+      icon?: string;
+      parentGoalId?: string | null;
+    }) =>
       api.goals.create({
         title: data.title,
         type: data.type,
+        status: data.status || 'ACTIVE',
         progress: data.progress ?? 0,
         icon: data.icon,
         parentGoalId: data.parentGoalId || null,
@@ -681,6 +690,7 @@ export function Goals() {
           icon: data.icon,
           progress: data.progress,
           status: data.status,
+          version: editingGoal.version,
           targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : null,
         }
       });

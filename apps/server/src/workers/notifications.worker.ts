@@ -3,6 +3,7 @@ import { QUEUE_NAMES } from '../queues';
 import { connection } from '../lib/redis';
 
 import { prisma } from '../prisma';
+import { socketService } from '../services/socket.service';
 
 export const notificationsWorker = new Worker(
   QUEUE_NAMES.NOTIFICATIONS,
@@ -19,7 +20,7 @@ export const notificationsWorker = new Worker(
     // Create Notification
     const task = await prisma.task.findUnique({ where: { id: taskId } });
     
-    await prisma.notification.create({
+    const notification = await prisma.notification.create({
       data: {
         userId,
         workspaceId,
@@ -27,6 +28,8 @@ export const notificationsWorker = new Worker(
         message: `You earned 10 points for completing: ${task?.title || 'a task'}!`,
       },
     });
+
+    socketService.emitToUser(notification.userId, 'notification', notification);
 
     return { success: true };
   },

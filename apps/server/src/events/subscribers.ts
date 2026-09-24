@@ -1,6 +1,19 @@
 import { domainEventBus } from './eventBus';
 import { notificationsQueue } from '../queues';
 import { prisma } from '../prisma';
+import { socketService } from '../services/socket.service';
+
+domainEventBus.onEvent<{ taskId: string; workspaceId: string; userId?: string }>('TASK_CREATED', (payload) => {
+  if (payload.userId) socketService.emitToUser(payload.userId, 'task:created', payload);
+});
+
+domainEventBus.onEvent<{ taskId: string; workspaceId: string; userId?: string }>('TASK_UPDATED', (payload) => {
+  if (payload.userId) socketService.emitToUser(payload.userId, 'task:updated', payload);
+});
+
+domainEventBus.onEvent<{ taskId: string; workspaceId: string; userId?: string }>('TASK_DELETED', (payload) => {
+  if (payload.userId) socketService.emitToUser(payload.userId, 'task:deleted', payload);
+});
 
 domainEventBus.onEvent<{ taskId: string; workspaceId: string; userId?: string }>('TASK_COMPLETED', async (payload) => {
   let recipientId = payload.userId;

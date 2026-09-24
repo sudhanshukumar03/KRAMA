@@ -57,6 +57,7 @@ export function SelectionToTaskModal({
       });
 
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['document-links', documentId] });
       toast.success(`Task "${cleanTitle}" created & linked`);
       onClose();

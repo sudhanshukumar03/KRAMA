@@ -5,7 +5,7 @@ import { api } from '../api/client';
 import {
   Clock, Play, Pause, CheckCircle2, CircleDashed, Check,
   ArrowRight, Plus, MoreVertical, Search,
-  Folder, Trash2, Edit2, X, Target, Activity, TrendingUp
+  Folder, Trash2, Edit2, X, Target, Activity, TrendingUp, Ban
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -205,28 +205,23 @@ export function SprintView() {
     }
   };
 
-  // Complete sprint - returns incomplete directives back to backlog cleanly
+  // Complete sprint - returns incomplete directives back to backlog cleanly via batch endpoint
   const handleCompleteSprint = async () => {
     if (!activeSprint) return;
-    const incompleteTasks = sprintDirectives.filter(i => i.status !== 'DONE');
+    const incompleteTasks = sprintDirectives.filter(
+      i => i.status !== 'DONE' && i.status !== 'CANCELED'
+    );
     const confirmMsg = incompleteTasks.length > 0
       ? `Complete sprint "${activeSprint.name}"? ${incompleteTasks.length} incomplete directive(s) will return to the backlog.`
       : `Complete sprint "${activeSprint.name}"?`;
     if (!window.confirm(confirmMsg)) return;
 
     try {
-      if (incompleteTasks.length > 0) {
-        await Promise.all(
-          incompleteTasks.map(t => api.tasks.update(t.id, { sprintId: null }))
-        );
-      }
-      await api.sprints.update(activeSprint.id, {
-        version: activeSprint.version,
-        status: 'completed'
-      });
+      await api.sprints.complete(activeSprint.id);
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
       queryClient.invalidateQueries({ queryKey: ['sprint-report'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast.success(`Completed sprint "${activeSprint.name}"`);
       setSprintMenuOpen(false);
     } catch (err: any) {
@@ -373,10 +368,17 @@ export function SprintView() {
     return sprintDirectives.filter(i => i.status === 'DONE');
   }, [sprintDirectives]);
 
-  // Progress Percentage based strictly on work completion
+  // 4. Canceled: CANCELED
+  const canceledDirectives = useMemo(() => {
+    return sprintDirectives.filter(i => i.status === 'CANCELED');
+  }, [sprintDirectives]);
+
+  // Progress Percentage based strictly on work completion (excluding canceled)
   const totalCount = sprintDirectives.length;
   const doneCount = completedDirectives.length;
-  const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+  const canceledCount = canceledDirectives.length;
+  const activeSprintTarget = totalCount - canceledCount;
+  const progressPct = activeSprintTarget > 0 ? Math.round((doneCount / activeSprintTarget) * 100) : 0;
 
   if (sprintsLoading || issuesLoading) {
     return <LoadingState variant="kanban" title="Loading Sprint..." description="Aligning sprint directives and milestones..." />;
@@ -797,6 +799,37 @@ export function SprintView() {
                     ))
                   )}
                 </div>
+
+                {/* Canceled Directives sub-section inside the Completed column */}
+                {canceledDirectives.length > 0 && (
+                  <div className="pt-2 mt-2 border-t border-border/50">
+                    <div className="flex items-center justify-between py-1 text-xs text-secondary font-semibold">
+                      <span className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-muted">
+                        <Ban className="w-3.5 h-3.5 text-muted" />
+                        <span>Canceled ({canceledDirectives.length})</span>
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 pt-1">
+                      {canceledDirectives.map(issue => (
+                        <div
+                          key={issue.id}
+                          onClick={() => setEditingIssue(issue)}
+                          className="p-2.5 rounded-lg bg-surface/50 border border-border/60 hover:border-border text-xs flex items-center justify-between gap-2 opacity-75 hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-4 h-4 rounded-full bg-surface-hover flex items-center justify-center text-muted shrink-0 text-[10px] font-mono">
+                              ✕
+                            </span>
+                            <span className="text-xs text-muted line-through truncate">{issue.title}</span>
+                          </div>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface border border-border text-muted shrink-0 uppercase">
+                            Canceled
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

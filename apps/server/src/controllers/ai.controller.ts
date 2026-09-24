@@ -9,7 +9,8 @@ import { vectorSearch, keywordSearch, mergeAndRank } from '../services/rag/retri
 
 export const kramaChat = async (req: any, res: any) => {
   try {
-    const { message, ragEnabled, provider } = req.body;
+    const message = req.body.message || req.body.prompt;
+    const { ragEnabled, provider } = req.body;
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
     const userId = req.user?.id || 'system';
 

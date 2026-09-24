@@ -17,7 +17,7 @@ router.post('/complete', kramaChat);
 router.post('/rag-query', kramaChat);
 router.post('/narrative', async (req: any, res: any) => {
   try {
-    const { narrative } = req.body;
+    const narrative = req.body.narrative || req.body.notes;
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
     const userId = req.user?.id || 'system';
     

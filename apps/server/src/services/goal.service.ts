@@ -117,46 +117,50 @@ export class GoalService {
 
         // Feature #1: Auto-rollup — if this is a KR (has parent), recompute parent's progress
         if (existing.parentGoalId) {
-          const siblings = await tx.goal.findMany({
-            where: { parentGoalId: existing.parentGoalId, deletedAt: null },
-            select: { progress: true }
-          });
-
-          if (siblings.length > 0) {
-            const avgProgress = Math.round(
-              siblings.reduce((sum: number, s: { progress: number }) => sum + s.progress, 0) / siblings.length
-            );
-
-            await tx.goal.update({
-              where: { id: existing.parentGoalId },
-              data: {
-                progress: avgProgress,
-                updatedBy: userId,
-                version: { increment: 1 },
-              }
-            });
-
-            // Record a snapshot for the parent too (upsert for idempotency)
-            const parentSnapToday = await tx.goalProgressSnapshot.findFirst({
-              where: { goalId: existing.parentGoalId, date: { gte: todayStart, lte: todayEnd } }
-            });
-            if (parentSnapToday) {
-              await tx.goalProgressSnapshot.update({
-                where: { id: parentSnapToday.id },
-                data: { progress: avgProgress }
-              });
-            } else {
-              await tx.goalProgressSnapshot.create({
-                data: { goalId: existing.parentGoalId, progress: avgProgress, date: new Date() }
-              });
-            }
-          }
+          await this.recalculateParentRollup(existing.parentGoalId, userId, tx);
         }
       }
 
       publishAfterCommit('GOAL_UPDATED', { goalId: goal.id, workspaceId: goal.workspaceId });
       return goal;
     });
+  }
+
+  private async recalculateParentRollup(parentGoalId: string, userId: string, tx: Prisma.TransactionClient) {
+    const siblings = await tx.goal.findMany({
+      where: { parentGoalId, deletedAt: null },
+      select: { progress: true }
+    });
+
+    const avgProgress = siblings.length > 0
+      ? Math.round(siblings.reduce((sum: number, s: { progress: number }) => sum + s.progress, 0) / siblings.length)
+      : 0;
+
+    await tx.goal.update({
+      where: { id: parentGoalId },
+      data: {
+        progress: avgProgress,
+        updatedBy: userId,
+        version: { increment: 1 },
+      }
+    });
+
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+
+    const parentSnapToday = await tx.goalProgressSnapshot.findFirst({
+      where: { goalId: parentGoalId, date: { gte: todayStart, lte: todayEnd } }
+    });
+    if (parentSnapToday) {
+      await tx.goalProgressSnapshot.update({
+        where: { id: parentSnapToday.id },
+        data: { progress: avgProgress }
+      });
+    } else {
+      await tx.goalProgressSnapshot.create({
+        data: { goalId: parentGoalId, progress: avgProgress, date: new Date() }
+      });
+    }
   }
 
   async deleteGoal(id: string, workspaceId: string, userId: string) {
@@ -190,6 +194,10 @@ export class GoalService {
         updatedBy: userId,
       }, tx);
 
+      if (existing.parentGoalId) {
+        await this.recalculateParentRollup(existing.parentGoalId, userId, tx);
+      }
+
       publishAfterCommit('GOAL_DELETED', { goalId: goal.id, workspaceId: goal.workspaceId });
       return goal;
     });
@@ -205,6 +213,10 @@ export class GoalService {
         deletedAt: null,
         updatedBy: userId
       }, tx);
+
+      if (existing.parentGoalId) {
+        await this.recalculateParentRollup(existing.parentGoalId, userId, tx);
+      }
 
       publishAfterCommit('GOAL_RESTORED', { goalId: goal.id, workspaceId: goal.workspaceId });
       return goal;

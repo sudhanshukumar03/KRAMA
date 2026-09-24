@@ -16,7 +16,7 @@ export const listProjects = async (req: Request, res: Response) => {
       include: {
         goal: true,
         _count: {
-          select: { tasks: true, pages: true, sprints: true },
+          select: { tasks: true, documents: true, sprints: true },
         },
       },
       orderBy: { position: 'asc' },
@@ -78,7 +78,7 @@ export const createProject = async (req: Request, res: Response) => {
       include: {
         goal: true,
         _count: {
-          select: { tasks: true, pages: true, sprints: true },
+          select: { tasks: true, documents: true, sprints: true },
         },
       },
     });
@@ -124,7 +124,7 @@ export const updateProject = async (req: Request, res: Response) => {
       include: {
         goal: true,
         _count: {
-          select: { tasks: true, pages: true, sprints: true },
+          select: { tasks: true, documents: true, sprints: true },
         },
       },
     });
@@ -146,12 +146,31 @@ export const deleteProject = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    await prisma.project.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        updatedBy: req.user!.id,
-      },
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      const sprints = await tx.sprint.findMany({ where: { projectId: id }, select: { id: true } });
+      const sprintIds = sprints.map(s => s.id);
+
+      await tx.project.update({
+        where: { id },
+        data: {
+          deletedAt: now,
+          updatedBy: req.user!.id,
+        },
+      });
+
+      await tx.task.updateMany({
+        where: {
+          OR: [{ projectId: id }, { sprintId: { in: sprintIds } }],
+          deletedAt: null
+        },
+        data: { deletedAt: now, updatedBy: req.user!.id },
+      });
+
+      await tx.sprint.updateMany({
+        where: { projectId: id, deletedAt: null },
+        data: { deletedAt: now, updatedBy: req.user!.id },
+      });
     });
 
     return res.status(200).json({ message: 'Project deleted' });
@@ -203,18 +222,38 @@ export const restoreProject = async (req: Request, res: Response) => {
       return res.status(409).json({ message: 'Conflict: nothing to restore' });
     }
 
-    const project = await prisma.project.update({
-      where: { id },
-      data: {
-        deletedAt: null,
-        updatedBy: req.user!.id,
-      },
-      include: {
-        goal: true,
-        _count: {
-          select: { tasks: true, pages: true, sprints: true },
+    const project = await prisma.$transaction(async (tx) => {
+      const sprints = await tx.sprint.findMany({ where: { projectId: id }, select: { id: true } });
+      const sprintIds = sprints.map(s => s.id);
+
+      const updatedProject = await tx.project.update({
+        where: { id },
+        data: {
+          deletedAt: null,
+          updatedBy: req.user!.id,
         },
-      },
+        include: {
+          goal: true,
+          _count: {
+            select: { tasks: true, documents: true, sprints: true },
+          },
+        },
+      });
+
+      await tx.task.updateMany({
+        where: {
+          OR: [{ projectId: id }, { sprintId: { in: sprintIds } }],
+          deletedAt: existing.deletedAt
+        },
+        data: { deletedAt: null, updatedBy: req.user!.id },
+      });
+
+      await tx.sprint.updateMany({
+        where: { projectId: id, deletedAt: existing.deletedAt },
+        data: { deletedAt: null, updatedBy: req.user!.id },
+      });
+
+      return updatedProject;
     });
 
     return res.status(200).json(project);

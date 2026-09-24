@@ -14,6 +14,44 @@ export const analyticsService = {
       orderBy: { date: 'asc' }
     });
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const hasToday = analytics.some(a => new Date(a.date).toDateString() === today.toDateString());
+    if (!hasToday) {
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const [weeklyVelocity, activeStreaks, goals, logs] = await Promise.all([
+        prisma.task.count({
+          where: { workspaceId, status: 'DONE', updatedAt: { gte: sevenDaysAgo }, deletedAt: null },
+        }),
+        prisma.habit.count({
+          where: { workspaceId, streak: { gt: 0 }, deletedAt: null },
+        }),
+        prisma.goal.findMany({
+          where: { workspaceId, deletedAt: null },
+          select: { progress: true },
+        }),
+        prisma.dailyLog.findMany({
+          where: { workspaceId, date: { gte: today }, deletedAt: null },
+        }),
+      ]);
+
+      const okrPace = goals.length > 0
+        ? Math.round(goals.reduce((sum, g) => sum + g.progress, 0) / goals.length)
+        : 0;
+      const deepWorkLogged = logs.reduce((sum, l) => sum + (l.deepWorkMinutes || 0), 0);
+
+      const todayRecord = await prisma.workspaceAnalytics.upsert({
+        where: { workspaceId_date: { workspaceId, date: today } },
+        update: { weeklyVelocity, activeStreaks, okrPace, deepWorkLogged },
+        create: { workspaceId, date: today, weeklyVelocity, activeStreaks, okrPace, deepWorkLogged },
+      });
+      analytics.push(todayRecord);
+      analytics.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }
+
     return analytics;
   },
 

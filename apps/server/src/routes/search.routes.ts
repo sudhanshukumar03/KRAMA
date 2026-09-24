@@ -1,16 +1,17 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { prisma } from '../prisma';
-import { requireAuth } from '../middlewares/auth.middleware';
+import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 
 const router: Router = Router();
 router.use(requireAuth);
+router.use(requireWorkspaceRole('MEMBER'));
 
 // GET /search?q=keyword
 router.get('/', async (req: Request, res: Response) => {
   try {
     const q = (req.query.q as string || '').trim();
-    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || '';
+    const workspaceId = (req as any).workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || '';
 
     if (!q) {
       return res.json({ results: [] });

@@ -1,5 +1,5 @@
 import type { 
-  Workspace, Space, ProjectWithRelations, IssueWithRelations, PageWithRelations, GoalWithRelations, Habit, Sprint, DailyLog, SearchResult
+  Workspace, Space, ProjectWithRelations, IssueWithRelations, GoalWithRelations, Habit, Sprint, DailyLog, SearchResult
 } from '../types/schema';
 import { toast } from 'sonner';
 
@@ -228,14 +228,6 @@ export const api = {
     delete: (id: string) => fetchApi<{ success: boolean }>(`/spaces/${id}`, { method: 'DELETE' }),
   },
 
-  pages: {
-    list: () => fetchApi<PageWithRelations[]>('/pages'),
-    get: (id: string) => fetchApi<PageWithRelations>(`/pages/${id}`),
-    create: (data: Record<string, any>) => fetchApi<PageWithRelations>('/pages', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, any>) => fetchApi<PageWithRelations>(`/pages/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<{ message: string }>(`/pages/${id}`, { method: 'DELETE' }),
-    restore: (id: string) => fetchApi<any>(`/pages/${id}/restore`, { method: 'POST' }),
-  },
   documents: {
     list: () => fetchApi<any[]>('/documents'),
     get: (id: string) => fetchApi<any>(`/documents/${id}`),
@@ -312,6 +304,7 @@ export const api = {
     getReport: (id: string) => fetchApi<any>(`/sprints/${id}/reports`),
     create: (data: Record<string, any>) => fetchApi<Sprint>('/sprints', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<Sprint>(`/sprints/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    complete: (id: string) => fetchApi<any>(`/sprints/${id}/complete`, { method: 'POST' }),
     delete: (id: string) => fetchApi<void>(`/sprints/${id}`, { method: 'DELETE' }),
   },
   habits: {
