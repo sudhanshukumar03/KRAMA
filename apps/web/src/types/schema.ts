@@ -1,7 +1,6 @@
 import type {
   User,
   Workspace,
-  WorkspaceMember,
   Project,
   Task as Issue,
   Sprint,
@@ -15,20 +14,13 @@ import type {
   DocumentVersion,
   Tag,
   DocumentTag,
-  EntityLink,
   DailyLog,
-  SprintReport,
-  WorkspaceAnalytics,
-  Notification,
-  ActivityLog,
-  Comment,
   Label,
-  AiRequest,
   TaskStatus,
   TaskPriority
 } from "@prisma/client";
 
-export type { TaskStatus, TaskPriority, Tag, DocumentTag, EntityLink, DocumentVersion, DocumentType };
+export type { TaskStatus, TaskPriority,    DocumentVersion, DocumentType };
 
 export type Habit = PrismaHabit & {
   linkedGoal?: Goal | null;
@@ -37,35 +29,30 @@ export type Habit = PrismaHabit & {
 };
 
 export type {
-  User,
+  
   Workspace,
-  WorkspaceMember,
-  Project,
+  
+  
   Issue,
   Sprint,
-  Goal,
-  GoalProgressSnapshot,
-  HabitCompletion,
+  
+  
+  
   Space,
-  Document,
+  
   DailyLog,
-  SprintReport,
-  WorkspaceAnalytics,
-  Notification,
-  ActivityLog,
-  Comment,
-  Label,
-  AiRequest
+  
+  
+  
+  
+  
+  
+  
 };
 
 
 
-export type RoadmapItem = any;
-export type Resource = any;
-export type LearningTopic = any;
-export type ApplicationEntry = any;
-export type AutomationRule = any;
-
+type RoadmapItem = any;
 // Extended types for relations
 export type GoalWithRelations = Goal & {
   childGoals?: GoalWithRelations[];
@@ -118,11 +105,6 @@ export type IssueWithRelations = Issue & {
   blocking?: Issue[];
   labels?: Label[];
   comments?: any[];
-};
-
-export type SpaceWithRelations = Space & {
-  projects?: Project[];
-  documents?: Document[];
 };
 
 export interface SearchResult {

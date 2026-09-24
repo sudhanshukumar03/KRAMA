@@ -25,7 +25,7 @@ const defaultGoalInclude = {
   }
 };
 
-export class GoalRepository implements BaseRepository<Goal, Prisma.GoalUncheckedCreateInput, Prisma.GoalUncheckedUpdateInput> {
+class GoalRepository implements BaseRepository<Goal, Prisma.GoalUncheckedCreateInput, Prisma.GoalUncheckedUpdateInput> {
   async findById(id: string, tx?: TxClient): Promise<Goal | null> {
     return (tx || prisma).goal.findUnique({
       where: { id },

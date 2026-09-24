@@ -24,4 +24,4 @@ export interface HolidayProvider {
   getHolidays(input: HolidayProviderInput): Promise<ExternalHoliday[]>;
 }
 
-export const __IS_HOLIDAY_PROVIDER = true;
+const __IS_HOLIDAY_PROVIDER = true;

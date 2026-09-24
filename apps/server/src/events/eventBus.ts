@@ -1,6 +1,6 @@
 import EventEmitter from 'events';
 
-export type DomainEvent = {
+type DomainEvent = {
   type: string;
   payload: any;
   timestamp: Date;

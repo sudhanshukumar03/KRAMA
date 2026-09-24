@@ -4,7 +4,7 @@ import { vectorSearch } from './rag/retriever';
 import { getEmbedding } from '../lib/embedding';
 import { aiService, GEMINI_MODEL } from './ai.service';
 
-export const ResponseTypeSchema = z.enum([
+const ResponseTypeSchema = z.enum([
   "direct",
   "explanation",
   "recommendation",
@@ -15,14 +15,14 @@ export const ResponseTypeSchema = z.enum([
   "action",
 ]);
 
-export const SourceSchema = z.object({
+const SourceSchema = z.object({
   pageId: z.string(),
   title: z.string(),
   chunkId: z.string().optional(),
   relevance: z.number().min(0).max(1).optional(),
 });
 
-export const ActionSchema = z.object({
+const ActionSchema = z.object({
   label: z.string(),
   type: z.enum([
     "open_page",
@@ -34,7 +34,7 @@ export const ActionSchema = z.object({
   id: z.string().optional(),
 });
 
-export const AIResponseSchema = z.object({
+const AIResponseSchema = z.object({
   type: ResponseTypeSchema,
   title: z.string().optional(),
   answer: z.string(),
@@ -49,10 +49,10 @@ export const AIResponseSchema = z.object({
   confidence: z.enum(["high", "medium", "low"]).optional(),
 });
 
-export type AIResponse = z.infer<typeof AIResponseSchema>;
-export type AIIntent = "general" | "knowledge" | "productivity" | "planning" | "task" | "summary";
+type AIResponse = z.infer<typeof AIResponseSchema>;
+type AIIntent = "general" | "knowledge" | "productivity" | "planning" | "task" | "summary";
 
-export class KramaAIService {
+class KramaAIService {
   private async detectIntent(message: string, workspaceId: string, userId: string): Promise<AIIntent> {
     const prompt = `
 You are the intent router for KRAMA OS.

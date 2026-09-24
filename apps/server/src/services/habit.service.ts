@@ -11,7 +11,7 @@ function formatHabit(h: any) {
   };
 }
 
-export class HabitService {
+class HabitService {
   async listHabits(workspaceId: string) {
     const habits = await habitRepository.findManyByWorkspace(workspaceId);
     return habits.map(formatHabit);

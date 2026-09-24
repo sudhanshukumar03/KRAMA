@@ -5,7 +5,7 @@ import { ReactRenderer } from '@tiptap/react';
 import { WikiLinkMenu, type WikiLinkMenuRef } from '../components/editor/WikiLinkMenu';
 import type { DocumentWithRelations } from '../types/schema';
 
-export const WikiLinkPluginKey = new PluginKey('wikiLink');
+const WikiLinkPluginKey = new PluginKey('wikiLink');
 
 export interface WikiLinkOptions {
   getDocuments: () => DocumentWithRelations[];

@@ -8,7 +8,7 @@ export interface TimerPreferences {
   longBreakAfter?: number;    // default: 4 pomodoros
 }
 
-export interface SessionSlot {
+interface SessionSlot {
   index: number;
   type: 'pomodoro' | 'short_break' | 'long_break';
   durationMin: number;

@@ -3,9 +3,9 @@ import Groq from 'groq-sdk';
 import { prisma } from '../prisma';
 import { logger } from '../utils/logger';
 
-export type ProviderType = 'groq' | 'gemini';
+type ProviderType = 'groq' | 'gemini';
 
-export interface AiCompleteParams {
+interface AiCompleteParams {
   prompt: string;
   model?: string;
   provider?: ProviderType;
@@ -13,7 +13,7 @@ export interface AiCompleteParams {
   userId: string;
 }
 
-export interface ProviderResponse {
+interface ProviderResponse {
   completionText: string;
   promptTokens: number;
   completionTokens: number;
@@ -98,7 +98,7 @@ const COST_MAP: Record<string, { prompt: number, completion: number }> = {
 };
 
 
-export class AiService {
+class AiService {
   private calculateCost(model: string, promptTokens: number, completionTokens: number): number {
     const rates = COST_MAP[model] || { prompt: 0, completion: 0 };
     return (promptTokens * rates.prompt) + (completionTokens * rates.completion);

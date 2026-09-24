@@ -3,7 +3,7 @@ import { prisma } from '../prisma';
 import type { Task, Prisma, TaskStatus } from '@prisma/client';
 import type { TxClient } from './user.repository';
 
-export class TaskRepository implements BaseRepository<Task, Prisma.TaskUncheckedCreateInput, Prisma.TaskUncheckedUpdateInput> {
+class TaskRepository implements BaseRepository<Task, Prisma.TaskUncheckedCreateInput, Prisma.TaskUncheckedUpdateInput> {
   async findById(id: string, tx?: TxClient): Promise<Task | null> {
     return (tx || prisma).task.findUnique({
       where: { id },

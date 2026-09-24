@@ -3,7 +3,7 @@ import { prisma } from '../prisma';
 import type { Session, Prisma } from '@prisma/client';
 import type { TxClient } from './user.repository';
 
-export class SessionRepository implements BaseRepository<Session, Prisma.SessionUncheckedCreateInput, Prisma.SessionUncheckedUpdateInput> {
+class SessionRepository implements BaseRepository<Session, Prisma.SessionUncheckedCreateInput, Prisma.SessionUncheckedUpdateInput> {
   async findById(id: string, tx?: TxClient): Promise<Session | null> {
     return (tx || prisma).session.findUnique({ where: { id } });
   }

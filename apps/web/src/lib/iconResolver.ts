@@ -66,7 +66,7 @@ import {
   Lightbulb,
 } from "lucide-react";
 
-export const ICONS = {
+const ICONS = {
   // Fitness & Health
   Dumbbell,
   Activity,

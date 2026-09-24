@@ -2,7 +2,7 @@ import type { Response } from 'express';
 import { ZodError } from 'zod';
 import { logger } from './logger';
 
-export class AppError extends Error {
+class AppError extends Error {
   public readonly statusCode: number;
   public readonly code: string;
   public readonly isOperational: boolean;

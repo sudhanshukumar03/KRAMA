@@ -825,4 +825,3 @@ export const FocusPage: React.FC = () => {
     </div>
   );
 };
-export default FocusPage;

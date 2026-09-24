@@ -21,7 +21,7 @@ type UpdateGoalDto = Partial<Omit<Prisma.GoalUncheckedUpdateInput, 'updatedBy' |
   progress?: number;
 };
 
-export class GoalService {
+class GoalService {
   async listGoals(workspaceId: string) {
     return goalRepository.findManyByWorkspace(workspaceId);
   }

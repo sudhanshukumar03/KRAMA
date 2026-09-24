@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-export function AIResponseRenderer({ response, navigate }: { response: any, navigate: any }) {
+function AIResponseRenderer({ response, navigate }: { response: any, navigate: any }) {
   const queryClient = useQueryClient();
 
   if (typeof response === 'string') {

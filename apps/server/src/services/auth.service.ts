@@ -12,7 +12,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'krama-os-secret-jwt-key-2026';
 const ACCESS_TOKEN_EXPIRY_MS = 15 * 60 * 1000; // 15 mins
 const REFRESH_TOKEN_EXPIRY_S = 30 * 24 * 60 * 60; // 30 days
 
-export class AuthService {
+class AuthService {
   async hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, 12);
   }

@@ -1,6 +1,6 @@
 import { Loader2 } from 'lucide-react';
 
-export type LoadingVariant = 'dashboard' | 'kanban' | 'brain' | 'goals' | 'project-detail' | 'habit-tracker' | 'default';
+type LoadingVariant = 'dashboard' | 'kanban' | 'brain' | 'goals' | 'project-detail' | 'habit-tracker' | 'default';
 
 interface LoadingStateProps {
  title?: string;

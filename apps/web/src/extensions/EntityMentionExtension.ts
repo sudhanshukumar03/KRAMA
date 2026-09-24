@@ -4,7 +4,7 @@ import { PluginKey } from '@tiptap/pm/state';
 import { ReactRenderer } from '@tiptap/react';
 import { EntityMentionMenu, type EntityMentionMenuRef, type MentionEntityItem } from '../components/editor/EntityMentionMenu';
 
-export const EntityMentionPluginKey = new PluginKey('entityMention');
+const EntityMentionPluginKey = new PluginKey('entityMention');
 
 export interface EntityMentionOptions {
   getEntities: () => MentionEntityItem[];

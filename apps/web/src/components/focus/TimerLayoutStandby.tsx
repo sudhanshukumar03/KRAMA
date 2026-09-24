@@ -340,4 +340,3 @@ export const TimerLayoutStandby: React.FC<TimerLayoutProps> = ({
   );
 };
 
-export default TimerLayoutStandby;

@@ -3,7 +3,7 @@ import { prisma } from '../prisma';
 import type { Habit, Prisma } from '@prisma/client';
 import type { TxClient } from './user.repository';
 
-export class HabitRepository implements BaseRepository<Habit, Prisma.HabitUncheckedCreateInput, Prisma.HabitUncheckedUpdateInput> {
+class HabitRepository implements BaseRepository<Habit, Prisma.HabitUncheckedCreateInput, Prisma.HabitUncheckedUpdateInput> {
   async findById(id: string, tx?: TxClient): Promise<Habit | null> {
     return (tx || prisma).habit.findUnique({
       where: { id },

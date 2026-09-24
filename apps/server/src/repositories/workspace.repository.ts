@@ -3,7 +3,7 @@ import { prisma } from '../prisma';
 import type { Workspace, Prisma } from '@prisma/client';
 import type { TxClient } from './user.repository';
 
-export class WorkspaceRepository implements BaseRepository<Workspace, Prisma.WorkspaceCreateInput, Prisma.WorkspaceUpdateInput> {
+class WorkspaceRepository implements BaseRepository<Workspace, Prisma.WorkspaceCreateInput, Prisma.WorkspaceUpdateInput> {
   async findById(id: string, tx?: TxClient): Promise<Workspace | null> {
     return (tx || prisma).workspace.findUnique({ where: { id } });
   }

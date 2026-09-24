@@ -1,7 +1,7 @@
 import { workspaceRepository } from '../repositories/workspace.repository';
 import { runInTransaction, prisma } from '../prisma';
 
-export class WorkspaceService {
+class WorkspaceService {
   async listWorkspaces(userId: string) {
     return workspaceRepository.findAll({
       where: {

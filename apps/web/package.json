@@ -18,7 +18,6 @@
     "@tanstack/react-query": "^5.101.4",
     "@tiptap/core": "^3.31.3",
     "@tiptap/extension-link": "^3.31.3",
-    "@tiptap/extension-mention": "^3.31.3",
     "@tiptap/extension-placeholder": "^3.31.3",
     "@tiptap/extension-task-item": "^3.31.3",
     "@tiptap/extension-task-list": "^3.31.3",

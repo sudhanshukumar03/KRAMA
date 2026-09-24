@@ -77,7 +77,7 @@ FORMATTING:
 
 IMPORTANT: Do not force every response into a template. The response should feel natural and context-aware.`;
 
-export const completeAiRequest = async (req: Request, res: Response) => {
+const completeAiRequest = async (req: Request, res: Response) => {
   try {
     const { prompt, model, provider } = req.body;
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
@@ -231,7 +231,7 @@ export const getConfig = async (req: Request, res: Response) => {
   });
 };
 
-export const ragQuery = async (req: Request, res: Response) => {
+const ragQuery = async (req: Request, res: Response) => {
   try {
     const { prompt } = req.body;
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);

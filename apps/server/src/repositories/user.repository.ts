@@ -4,7 +4,7 @@ import type { User, Prisma } from '@prisma/client';
 
 export type TxClient = Omit<Prisma.TransactionClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
-export class UserRepository implements BaseRepository<User, Prisma.UserCreateInput, Prisma.UserUpdateInput> {
+class UserRepository implements BaseRepository<User, Prisma.UserCreateInput, Prisma.UserUpdateInput> {
   async findById(id: string, tx?: TxClient): Promise<User | null> {
     return (tx || prisma).user.findUnique({ where: { id } });
   }

@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext } from 'react';
 import type { Socket } from 'socket.io-client';
 
 export interface SocketContextType {
@@ -10,5 +10,3 @@ export const SocketContext = createContext<SocketContextType>({
   socket: null,
   isConnected: false,
 });
-
-export const useSocket = () => useContext(SocketContext);

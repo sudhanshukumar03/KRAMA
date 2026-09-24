@@ -4,7 +4,7 @@ import { api } from '../../api/client';
 import { toast } from 'sonner';
 import type { WallpaperConfig, LayoutName } from './types';
 import { BUNDLED_WALLPAPERS, CURATED_WALLPAPERS } from './constants';
-export type { LayoutName };
+;
 
 interface WallpaperPickerProps {
   currentWallpaper: WallpaperConfig;

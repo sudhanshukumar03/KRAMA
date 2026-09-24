@@ -3,7 +3,7 @@ import { QUEUE_NAMES } from '../queues';
 import { connection } from '../lib/redis';
 import { prisma } from '../prisma';
 
-export { getUserLocalDateStr, calculateHabitStreak } from '../services/habitStreak.service';
+;
 import { calculateHabitStreak } from '../services/habitStreak.service';
 
 export const habitStreakWorker = new Worker(

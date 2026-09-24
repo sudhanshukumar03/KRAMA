@@ -3,7 +3,7 @@ import { taskRepository } from '../repositories/task.repository';
 import { TaskStatus } from '@prisma/client';
 import { runInTransaction } from '../prisma';
 
-export class TaskService {
+class TaskService {
   
   async rebalanceTasks(workspaceId: string): Promise<void> {
     const tasks = await prisma.task.findMany({

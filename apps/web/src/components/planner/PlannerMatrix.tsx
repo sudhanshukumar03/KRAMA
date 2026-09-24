@@ -74,7 +74,7 @@ interface Props {
 
 
 
-export const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, onClickTask, onToggleTask, onDeleteTask }: { task: any, onClickTask?: (task: any) => void, onToggleTask?: (task: any, e: any) => void, onDeleteTask?: (task: any) => void }) {
+const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, onClickTask, onToggleTask, onDeleteTask }: { task: any, onClickTask?: (task: any) => void, onToggleTask?: (task: any, e: any) => void, onDeleteTask?: (task: any) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `task-${task.id}`,
     data: { type: 'Task', task }
@@ -175,7 +175,7 @@ function dateKey(date: Date) {
 }
 
 
-export const DroppableTimeBlock = memo(function DroppableTimeBlock({ block, tasks, onClickTimeBlock, onDeleteTimeBlock }: { block: any, tasks: any[], onClickTimeBlock?: (block: any) => void, onDeleteTimeBlock?: (block: any) => void }) {
+const DroppableTimeBlock = memo(function DroppableTimeBlock({ block, tasks, onClickTimeBlock, onDeleteTimeBlock }: { block: any, tasks: any[], onClickTimeBlock?: (block: any) => void, onDeleteTimeBlock?: (block: any) => void }) {
   const { isOver, setNodeRef } = useDroppable({
     id: `timeblock-${block.id}`,
     data: { type: 'TimeBlock', block }

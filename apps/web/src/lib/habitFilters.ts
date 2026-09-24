@@ -1,4 +1,4 @@
-export function getHabitScheduledDays(habit: any): number[] {
+function getHabitScheduledDays(habit: any): number[] {
   return habit.scheduledDays && habit.scheduledDays.length > 0
     ? habit.scheduledDays
     : [0, 1, 2, 3, 4, 5, 6];

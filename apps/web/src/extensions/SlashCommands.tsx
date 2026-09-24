@@ -12,7 +12,7 @@ import {
 import { SlashCommandMenu, type SlashCommandMenuRef, type SlashCommandItem } from '../components/editor/SlashCommandMenu';
 
 const SlashCommandsPluginKey = new PluginKey('slashCommands');
-export type { SlashCommandItem };
+;
 
 const SLASH_COMMANDS: SlashCommandItem[] = [
   {

@@ -11,7 +11,7 @@ export type TimeBlockType =
   | 'ADMIN'
   | 'OTHER';
 
-export interface Routine {
+interface Routine {
   id: string;
   name: string;
 }
@@ -24,7 +24,7 @@ export interface RoutineOccurrence {
   completedAt?: string | null;
 }
 
-export interface PlannerTask {
+interface PlannerTask {
   id: string;
   title: string;
   completed: boolean;
@@ -34,7 +34,7 @@ export interface PlannerTask {
   estimateMinutes?: number | null;
 }
 
-export interface TimeBlock {
+interface TimeBlock {
   id: string;
   title: string;
   date: string;
@@ -45,12 +45,12 @@ export interface TimeBlock {
   projectId?: string | null;
 }
 
-export interface PlannerProject {
+interface PlannerProject {
   id: string;
   name: string;
 }
 
-export interface Milestone {
+interface Milestone {
   id: string;
   title: string;
   date: string;
@@ -58,7 +58,7 @@ export interface Milestone {
   projectId: string;
 }
 
-export interface Holiday {
+interface Holiday {
   id: string;
   name: string;
   date: string;
@@ -74,7 +74,7 @@ export interface Holiday {
   isOptional: boolean;
 }
 
-export interface PlannerCapacity {
+interface PlannerCapacity {
   weeklyCapacityMinutes: number;
   occupiedMinutes: number;
   meetingMinutes: number;
@@ -103,15 +103,4 @@ export interface PlannerData {
     countryCode: string;
     regionCode?: string | null;
   };
-}
-
-export interface CreateTimeBlockInput {
-  title: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  type: TimeBlockType;
-  taskId?: string | null;
-  projectId?: string | null;
-  notes?: string | null;
 }

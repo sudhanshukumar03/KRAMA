@@ -1,11 +1,11 @@
-export type TiptapNode = {
+type TiptapNode = {
   type: string;
   text?: string;
   content?: TiptapNode[];
   attrs?: Record<string, any>;
 };
 
-export function tiptapToText(
+function tiptapToText(
   nodes: TiptapNode[],
   headings: string[] = []
 ): string {
