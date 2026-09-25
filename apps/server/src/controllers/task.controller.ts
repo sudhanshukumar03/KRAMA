@@ -39,7 +39,8 @@ export const createTask = async (req: Request, res: Response) => {
     if (req.body.parentTaskId !== undefined) {
       (data as any).parentTaskId = req.body.parentTaskId;
     }
-    const task = await taskService.createTask(data, req.user!.id);
+    const { skillIds, ...cleanData } = data as any;
+    const task = await taskService.createTask(cleanData, req.user!.id);
     return res.status(201).json(task);
   } catch (error: any) {
     return handleControllerError(res, error, 'Failed to create task');
@@ -52,8 +53,9 @@ export const updateTask = async (req: Request, res: Response) => {
     if (req.body.metadata !== undefined) {
       (data as any).metadata = req.body.metadata;
     }
-    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || (data.workspaceId as string);
-    const task = await taskService.updateTask((req.params.id as string), workspaceId, data, req.user!.id);
+    const { skillIds, ...cleanData } = data as any;
+    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || (cleanData.workspaceId as string);
+    const task = await taskService.updateTask((req.params.id as string), workspaceId, cleanData, req.user!.id);
     return res.status(200).json(task);
   } catch (error: any) {
     return handleControllerError(res, error, 'Failed to update task');

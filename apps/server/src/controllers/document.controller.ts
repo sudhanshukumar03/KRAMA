@@ -973,7 +973,7 @@ export const aiAsk = async (req: Request, res: Response) => {
     if (process.env.GEMINI_API_KEY) {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-3.6-flash',
+        model: 'gemini-3.8-flash',
         contents: question,
         config: {
           systemInstruction: systemPrompt
@@ -998,7 +998,7 @@ export const aiAsk = async (req: Request, res: Response) => {
     if (process.env.GROQ_API_KEY) {
       const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
       const stream = await groq.chat.completions.create({
-        model: 'llama-3.1-8b-instant',
+        model: 'openai/gpt-oss-20b',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: question }
@@ -1050,7 +1050,7 @@ export const aiCompose = async (req: Request, res: Response) => {
     if (process.env.GEMINI_API_KEY) {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-3.6-flash',
+        model: 'gemini-3.8-flash',
         contents: userPrompt,
         config: {
           systemInstruction: systemPrompt
@@ -1075,7 +1075,7 @@ export const aiCompose = async (req: Request, res: Response) => {
     if (process.env.GROQ_API_KEY) {
       const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
       const stream = await groq.chat.completions.create({
-        model: 'llama-3.1-8b-instant',
+        model: 'openai/gpt-oss-20b',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: selection ? `Selection: ${selection}` : instruction }

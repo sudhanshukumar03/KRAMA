@@ -216,11 +216,11 @@ export const getUsage = async (req: Request, res: Response) => {
 export const getConfig = async (req: Request, res: Response) => {
   // Return the active configuration dynamically based on the environment
   let provider = 'groq';
-  let model = 'llama-3.1-8b-instant';
+  let model = 'openai/gpt-oss-20b';
 
   if (process.env.GEMINI_API_KEY) {
     provider = 'gemini';
-    model = 'gemini-1.5-flash';
+    model = 'gemini-3.8-flash';
   }
 
   return res.status(200).json({

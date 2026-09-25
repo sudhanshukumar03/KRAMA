@@ -65,13 +65,16 @@ export const createProject = async (req: Request, res: Response) => {
 
 
 
-    const { targetDate, progress, ...cleanData } = data as any;
-    const metadata = cleanData.metadata || (targetDate ? { targetDate } : undefined);
+    const { targetDate, progress, skillIds, description, color, ...cleanData } = data as any;
+    let metadata = cleanData.metadata || {};
+    if (targetDate !== undefined) metadata.targetDate = targetDate;
+    if (description !== undefined) metadata.description = description;
+    if (color !== undefined) metadata.color = color;
 
     const project = await prisma.project.create({
       data: {
         ...cleanData,
-        metadata: metadata ? metadata : undefined,
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         position,
         createdBy: req.user!.id,
       },
@@ -104,13 +107,17 @@ export const updateProject = async (req: Request, res: Response) => {
       return res.status(409).json({ message: 'Conflict: version mismatch' });
     }
 
-    const { version, workspaceId: bodyWorkspaceId, targetDate, progress, ...updateData } = data as any;
-
-
+    const { version, workspaceId: bodyWorkspaceId, targetDate, progress, skillIds, description, color, ...updateData } = data as any;
 
     let metadata = updateData.metadata !== undefined ? updateData.metadata : (existing.metadata as any || {});
     if (targetDate !== undefined) {
       metadata = { ...metadata, targetDate: targetDate || null };
+    }
+    if (description !== undefined) {
+      metadata = { ...metadata, description: description || null };
+    }
+    if (color !== undefined) {
+      metadata = { ...metadata, color: color || null };
     }
 
     const project = await prisma.project.update({

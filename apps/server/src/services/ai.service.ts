@@ -88,11 +88,14 @@ class ProviderFactory {
   }
 }
 
-export const GEMINI_MODEL = 'gemini-2.5-flash';
+export const GEMINI_MODEL = 'gemini-3.8-flash';
+export const GROQ_MODEL = 'openai/gpt-oss-20b';
 
 const COST_MAP: Record<string, { prompt: number, completion: number }> = {
+  'openai/gpt-oss-20b': { prompt: 0.05 / 1_000_000, completion: 0.08 / 1_000_000 },
   'llama-3.1-8b-instant': { prompt: 0.05 / 1_000_000, completion: 0.08 / 1_000_000 },
   'llama-3.1-70b-versatile': { prompt: 0.59 / 1_000_000, completion: 0.79 / 1_000_000 },
+  'gemini-3.8-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
   'gemini-2.5-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
   'gemini-2.0-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
 };
@@ -132,26 +135,54 @@ class AiService {
 
     // If provider is provided but model is not, set default model for that provider
     if (activeProvider && !activeModel) {
-      if (activeProvider === 'gemini') activeModel = 'gemini-1.5-flash-latest';
-      else if (activeProvider === 'groq') activeModel = 'llama-3.1-8b-instant';
+      if (activeProvider === 'gemini') activeModel = GEMINI_MODEL;
+      else if (activeProvider === 'groq') activeModel = GROQ_MODEL;
     }
 
     // If neither is provided, fallback based on available environment variables
     if (!activeProvider || !activeModel) {
-      if (process.env.GROQ_API_KEY) {
-        activeProvider = 'groq';
-        activeModel = 'llama-3.1-8b-instant';
-      } else if (process.env.GEMINI_API_KEY) {
+      if (process.env.GEMINI_API_KEY) {
         activeProvider = 'gemini';
-        activeModel = 'gemini-1.5-flash-latest';
-      } else {
+        activeModel = GEMINI_MODEL;
+      } else if (process.env.GROQ_API_KEY) {
         activeProvider = 'groq';
-        activeModel = 'llama-3.1-8b-instant';
+        activeModel = GROQ_MODEL;
+      } else {
+        activeProvider = 'gemini';
+        activeModel = GEMINI_MODEL;
       }
     }
 
-    const providerInstance = ProviderFactory.getProvider(activeProvider);
-    const response = await this.executeWithRetry(providerInstance, params.prompt, activeModel);
+    let response: ProviderResponse;
+    try {
+      const providerInstance = ProviderFactory.getProvider(activeProvider);
+      response = await this.executeWithRetry(providerInstance, params.prompt, activeModel);
+    } catch (primaryError: any) {
+      logger.warn(`Primary AI provider ${activeProvider} (${activeModel}) failed: ${primaryError.message}. Attempting fallback...`);
+      if (activeProvider === 'gemini' && process.env.GROQ_API_KEY) {
+        try {
+          const fallbackProvider = ProviderFactory.getProvider('groq');
+          activeProvider = 'groq';
+          activeModel = GROQ_MODEL;
+          response = await this.executeWithRetry(fallbackProvider, params.prompt, activeModel);
+        } catch (fallbackErr: any) {
+          logger.error(`Fallback provider groq also failed: ${fallbackErr.message}`);
+          throw primaryError;
+        }
+      } else if (activeProvider === 'groq' && process.env.GEMINI_API_KEY) {
+        try {
+          const fallbackProvider = ProviderFactory.getProvider('gemini');
+          activeProvider = 'gemini';
+          activeModel = GEMINI_MODEL;
+          response = await this.executeWithRetry(fallbackProvider, params.prompt, activeModel);
+        } catch (fallbackErr: any) {
+          logger.error(`Fallback provider gemini also failed: ${fallbackErr.message}`);
+          throw primaryError;
+        }
+      } else {
+        throw primaryError;
+      }
+    }
     const latencyMs = Date.now() - startTime;
 
     const estimatedCostUsd = this.calculateCost(activeModel, response.promptTokens, response.completionTokens);
@@ -186,12 +217,47 @@ class AiService {
     const model = params.model || GEMINI_MODEL;
     const client = getGeminiClient();
 
-    const interaction = await client.interactions.create({
-      model,
-      input: params.input,
-    });
+    let completionText = '';
+    let success = false;
+    let lastError: any = null;
 
-    const completionText = interaction.output_text || '';
+    // Retry loop with backoff (handles temporary 503 high demand or 429)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const interaction = await client.interactions.create({
+          model,
+          input: params.input,
+        });
+        completionText = interaction.output_text || '';
+        success = true;
+        break;
+      } catch (err: any) {
+        lastError = err;
+        const status = err.status || err.statusCode || err.response?.status;
+        if (status === 503 || status === 429) {
+          logger.warn(`Gemini interaction ${status}, retrying in 1s...`);
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+        }
+        break;
+      }
+    }
+
+    // Fallback to Groq if Gemini is temporarily unavailable
+    if (!success) {
+      if (process.env.GROQ_API_KEY) {
+        logger.warn('Gemini unavailable, falling back to Groq for interaction');
+        return this.complete({
+          prompt: params.input,
+          provider: 'groq',
+          model: GROQ_MODEL,
+          workspaceId: params.workspaceId,
+          userId: params.userId,
+        });
+      }
+      throw lastError;
+    }
+
     const latencyMs = Date.now() - startTime;
     const promptTokens = Math.ceil(params.input.length / 4);
     const completionTokens = Math.ceil(completionText.length / 4);
