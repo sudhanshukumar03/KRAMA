@@ -10,7 +10,7 @@
     "build": "tsc",
     "test": "tsx --test src/__tests__/**/*.test.ts",
     "seed": "tsx src/seed.ts",
-    "holidays:sync": "ts-node src/scripts/sync-holidays.ts"
+    "holidays:sync": "tsx src/scripts/sync-holidays.ts"
   },
   "keywords": [],
   "author": "",
@@ -51,6 +51,7 @@
     "@types/node": "^24.13.3",
     "@types/pg": "^8.23.1",
     "concurrently": "^8.2.2",
+    "esbuild": "^0.28.2",
     "prisma": "7.10.0",
     "typescript": "^6.0.3"
   }

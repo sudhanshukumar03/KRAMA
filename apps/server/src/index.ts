@@ -49,11 +49,23 @@ import searchRoutes from './routes/search.routes';
 
 const app = express();
 
+// Behind Nginx/Cloudflare, trust the first proxy hop so express-rate-limit and
+// req.ip see the real client IP (X-Forwarded-For) instead of the proxy's
+// address — otherwise every request shares one IP and the auth limiter locks
+// out all users globally after 10 attempts.
+app.set('trust proxy', 1);
+
+// CORS_ORIGIN may be a single origin or a comma-separated list; split so each
+// entry is matched individually (includes() on the whole string never matches).
+const corsEnvOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 const allowedOrigins = [
-  'http://localhost:5173', 
+  'http://localhost:5173',
   'http://localhost:5174',
   process.env.FRONTEND_URL,
-  process.env.CORS_ORIGIN
+  ...corsEnvOrigins,
 ].filter(Boolean) as string[];
 
 // Security Middlewares
