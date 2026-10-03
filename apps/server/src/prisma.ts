@@ -4,14 +4,26 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import { domainEventBus } from './events/eventBus';
 
-const connectionString = process.env.DATABASE_URL;
-const pool = new pg.Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
   pool: pg.Pool | undefined;
 };
+
+const connectionString = process.env.DATABASE_URL;
+const pool =
+  globalForPrisma.pool ??
+  new pg.Pool({
+    connectionString,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  });
+
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle pg client', err);
+});
+
+const adapter = new PrismaPg(pool);
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
 
