@@ -37,7 +37,7 @@ export type PostCommitPublisher = (type: string, payload: any) => void;
 export type TxClient = Omit<Prisma.TransactionClient, '$transaction'>;
 
 export const runInTransaction = async <T>(
-  fn: (tx: any, publishAfterCommit: PostCommitPublisher) => Promise<T>
+  fn: (tx: TxClient, publishAfterCommit: PostCommitPublisher) => Promise<T>
 ): Promise<T> => {
   const postCommitQueue: Array<{ type: string; payload: any }> = [];
   const publishAfterCommit: PostCommitPublisher = (type, payload) => {
