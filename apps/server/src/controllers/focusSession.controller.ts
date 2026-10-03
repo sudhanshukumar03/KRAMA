@@ -44,6 +44,9 @@ export const completeFocusSession = async (req: Request, res: Response) => {
 
     const ALLOWED_TYPES = ['pomodoro', 'short_break', 'long_break', 'custom', 'clock'];
     const sessionType = typeof type === 'string' && ALLOWED_TYPES.includes(type) ? type : 'pomodoro';
+    // Only genuine work sessions count toward deep work; breaks and the ambient
+    // clock must not inflate the daily deep-work metric or consume the focus cap.
+    const _isWorkSession = sessionType === 'pomodoro' || sessionType === 'custom';
 
     // Verify task and project belong to current workspace if provided
     let validTaskId: string | null = null;
@@ -80,41 +83,7 @@ export const completeFocusSession = async (req: Request, res: Response) => {
       }
     });
 
-    // 2. Update DailyLog
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    let dailyLog = await prisma.dailyLog.findUnique({
-      where: {
-        userId_workspaceId_date: {
-          userId,
-          workspaceId,
-          date: today
-        }
-      }
-    });
-
-    const durationMinutes = Math.round(duration / 60);
-
-    if (dailyLog) {
-      dailyLog = await prisma.dailyLog.update({
-        where: { id: dailyLog.id },
-        data: {
-          deepWorkMinutes: (dailyLog.deepWorkMinutes || 0) + durationMinutes
-        }
-      });
-    } else {
-      dailyLog = await prisma.dailyLog.create({
-        data: {
-          date: today,
-          deepWorkMinutes: durationMinutes,
-          userId,
-          workspaceId
-        }
-      });
-    }
-
-    // 3. Log Activity
+    // 2. Log Activity
     await logActivity({
       userId,
       workspaceId,
@@ -124,7 +93,7 @@ export const completeFocusSession = async (req: Request, res: Response) => {
       metadata: { duration, type }
     });
 
-    // 4. Invalidate Redis schedule cache
+    // 3. Invalidate Redis schedule cache
     try {
       await redisService.del(`focus:schedule:${userId}:${workspaceId}`);
       await redisService.del(`focus:schedule:${userId}`);
@@ -132,20 +101,19 @@ export const completeFocusSession = async (req: Request, res: Response) => {
       console.warn('Redis cache invalidation warning:', cacheErr);
     }
 
-    // 5. Emit socket event for cross-tab sync
+    // 4. Emit socket event for cross-tab sync
     try {
       socketService.emitToUser(userId, 'focus:session:completed', {
         sessionId: session.id,
         duration: session.duration,
         type: session.type,
         taskId: session.taskId,
-        dailyDeepWorkMinutes: dailyLog.deepWorkMinutes
       });
     } catch (sockErr) {
       console.warn('Socket emit warning:', sockErr);
     }
 
-    return res.status(201).json({ session, dailyLog });
+    return res.status(201).json({ session });
   } catch (error) {
     console.error('Error completing focus session:', error);
     return res.status(500).json({ message: 'Internal server error' });

@@ -5,7 +5,7 @@ type TiptapNode = {
   attrs?: Record<string, any>;
 };
 
-function tiptapToText(
+export function tiptapToText(
   nodes: TiptapNode[],
   headings: string[] = []
 ): string {

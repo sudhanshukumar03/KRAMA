@@ -126,9 +126,10 @@ describe('DateKey Unit Tests — Canonical Calendar Representation (Task 0 & PR1
     it(`Bijective roundtrip holds under TZ=${tz} across 365 days`, () => {
       const { execFileSync } = require('node:child_process');
       const path = require('node:path');
-      const runnerPath = path.join(__dirname, 'tz-runner.js');
-      execFileSync(process.execPath, [runnerPath], {
+      const runnerPath = path.join(__dirname, 'tz-runner.ts');
+      execFileSync(process.execPath, ['--import', 'tsx', runnerPath], {
         env: { ...process.env, TZ: tz },
+        stdio: 'pipe',
       });
     });
   }

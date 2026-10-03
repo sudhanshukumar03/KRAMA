@@ -190,7 +190,7 @@ export const TimerLayoutSidebar: React.FC<TimerLayoutProps> = ({
               <button
                 type="button"
                 onClick={handleToggleTimer}
-                className="group relative focus:outline-none cursor-pointer bg-transparent border-0 p-0 text-center transition-transform duration-200 active:scale-98"
+                className="group relative focus:outline-none cursor-pointer bg-transparent border-0 p-0 text-center transition-transform duration-200 active:scale-[0.98]"
                 title={isActive ? 'Click or press Enter to pause' : 'Click or press Enter to start'}
               >
                 <span

@@ -131,7 +131,7 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
               className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-white/10 transition-colors text-left"
             >
               <span className="flex items-center gap-2.5">
-                <Sliders className="w-3.5 h-3.5 text-purple-400" />
+                <Sliders className="w-3.5 h-3.5 text-accent-fg" />
                 <span>Customize</span>
               </span>
               <kbd className="text-[10px] font-mono text-white/40">S</kbd>
@@ -169,7 +169,7 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
               className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-white/10 transition-colors text-left"
             >
               <span className="flex items-center gap-2.5">
-                <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                <Calendar className="w-3.5 h-3.5 text-cat-timeblocks" />
                 <span>{operatingMode === 'planner' ? 'Switch to Manual' : "Load Today's Plan"}</span>
               </span>
             </button>
@@ -184,7 +184,7 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
                 className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-white/10 transition-colors text-left"
               >
                 <span className="flex items-center gap-2.5">
-                  <SkipForward className="w-3.5 h-3.5 text-amber-400" />
+                  <SkipForward className="w-3.5 h-3.5 text-warning-fg" />
                   <span>Skip to Next Session</span>
                 </span>
                 <kbd className="text-[10px] font-mono text-white/40">N</kbd>
@@ -202,10 +202,10 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
                 setIsOpen(false);
                 onClose();
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-red-500/20 text-white/80 hover:text-red-300 transition-colors text-left mt-1"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-danger-bg/40 text-white/80 hover:text-danger-fg transition-colors text-left mt-1"
             >
               <span className="flex items-center gap-2.5">
-                <X className="w-3.5 h-3.5 text-red-400" />
+                <X className="w-3.5 h-3.5 text-danger-fg" />
                 <span>Exit Focus Session</span>
               </span>
             </button>

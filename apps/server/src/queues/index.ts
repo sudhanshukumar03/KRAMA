@@ -4,7 +4,6 @@ import { connection } from '../lib/redis';
 export const QUEUE_NAMES = {
   NOTIFICATIONS: 'notifications',
   HABIT_STREAK: 'habit-streak',
-  SPRINT_REPORT: 'sprint-report',
   ANALYTICS: 'analytics',
   EMBEDDING: 'embedding',
   DOCUMENT_VERSION: 'document-version',
@@ -32,12 +31,6 @@ export const habitStreakQueue = new Queue(QUEUE_NAMES.HABIT_STREAK, {
   defaultJobOptions,
 });
 habitStreakQueue.on('error', () => {});
-
-export const sprintReportQueue = new Queue(QUEUE_NAMES.SPRINT_REPORT, {
-  connection,
-  defaultJobOptions,
-});
-sprintReportQueue.on('error', () => {});
 
 export const analyticsQueue = new Queue(QUEUE_NAMES.ANALYTICS, {
   connection,

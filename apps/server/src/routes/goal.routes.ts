@@ -1,6 +1,6 @@
 import type { Router } from 'express';
 import express from 'express';
-import { listGoals, getGoal, createGoal, updateGoal, deleteGoal, restoreGoal } from '../controllers/goal.controller';
+import { listGoals, listGoalsLite, getGoal, createGoal, updateGoal, deleteGoal, restoreGoal } from '../controllers/goal.controller';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 
 const router: Router = express.Router();
@@ -17,6 +17,8 @@ router.use(requireAuth);
 router.use(ensureWorkspaceId);
 
 router.get('/', requireWorkspaceRole('VIEWER'), listGoals);
+// `/lite` must precede `/:id` so the param route doesn't capture it as an id.
+router.get('/lite', requireWorkspaceRole('VIEWER'), listGoalsLite);
 router.get('/:id', requireWorkspaceRole('VIEWER'), getGoal);
 router.post('/', requireWorkspaceRole('MEMBER'), createGoal);
 router.patch('/:id', requireWorkspaceRole('MEMBER'), updateGoal);

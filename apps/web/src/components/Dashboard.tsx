@@ -81,18 +81,18 @@ export function Dashboard() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#2E1A47] text-white flex items-center justify-center font-semibold text-xs sm:text-sm select-none shadow-2xs">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-accent-subtle text-accent-fg border border-accent/20 flex items-center justify-center font-semibold text-xs sm:text-sm select-none shadow-2xs font-mono">
             {displayName.charAt(0).toUpperCase()}
           </div>
         </div>
       </div>
 
       {/* Greeting Header */}
-      <div className="shrink-0 mb-4 lg:mb-5">
-        <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-bold text-primary tracking-tight">
+      <div className="shrink-0 mb-5 pb-5 border-b border-border/30">
+        <h1 className="text-2xl font-bold text-primary tracking-tight">
           {salutation}
         </h1>
-        <p className="text-xs sm:text-sm text-secondary mt-0.5">
+        <p className="text-caption text-secondary mt-1">
           {subtitle}
         </p>
       </div>
@@ -104,7 +104,7 @@ export function Dashboard() {
         <div className="xl:col-span-2 flex flex-col justify-between gap-4 lg:gap-5 h-full min-h-0">
           
           {/* Today's Focus Card */}
-          <div className="v4-card p-4 sm:p-5 shadow-2xs flex-1 flex flex-col justify-between min-h-0">
+          <div className="krama-card p-4 sm:p-5 shadow-2xs flex-1 flex flex-col justify-between min-h-0">
             <div className="flex items-center justify-between mb-3 shrink-0">
               <h2 className="text-sm font-semibold text-primary flex items-center gap-2">
                 <Target className="w-4 h-4 text-primary" />
@@ -112,7 +112,7 @@ export function Dashboard() {
               </h2>
               <button 
                 onClick={() => navigate('/app/planner')} 
-                className="text-xs font-medium text-accent-fg hover:text-accent bg-accent-subtle hover:bg-accent/20 px-3 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                className="text-xs font-medium text-accent-fg hover:text-accent bg-accent-subtle hover:bg-accent/20 px-3 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer active:scale-[0.98]"
               >
                 <span>Open Planner</span>
                 <ArrowRight className="w-3 h-3" />
@@ -163,7 +163,7 @@ export function Dashboard() {
           {/* Active Projects & Habits Preview */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5 flex-1 min-h-0">
             {/* Active Projects */}
-            <div className="v4-card p-4 sm:p-5 shadow-2xs flex flex-col justify-between min-h-0">
+            <div className="krama-card p-4 sm:p-5 shadow-2xs flex flex-col justify-between min-h-0">
               <div className="flex items-center justify-between mb-3 shrink-0">
                 <h2 className="text-sm font-semibold text-primary flex items-center gap-2">
                   <Briefcase className="w-4 h-4 text-primary" />
@@ -195,7 +195,7 @@ export function Dashboard() {
                       </div>
                       <div className="w-full">
                         <div className="h-1.5 bg-surface-hover rounded-full overflow-hidden">
-                          <div className="h-full bg-accent transition-all duration-500 rounded-full" style={{ width: `${p.progress || 0}%` }} />
+                          <div className="h-full bg-cat-projects transition-all duration-500 rounded-full" style={{ width: `${p.progress || 0}%` }} />
                         </div>
                       </div>
                     </div>
@@ -208,7 +208,7 @@ export function Dashboard() {
                   <p className="text-xs text-secondary mt-0.5 mb-3">Create a project to organize your work.</p>
                   <button
                     onClick={() => navigate('/app/projects')}
-                    className="px-3.5 py-1.5 rounded-lg bg-accent-subtle hover:bg-accent/20 text-accent-fg border border-accent/20 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-lg bg-accent-subtle hover:bg-accent/20 text-accent-fg border border-accent/20 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer active:scale-[0.98]"
                   >
                     <span>+</span>
                     <span>New Project</span>
@@ -218,7 +218,7 @@ export function Dashboard() {
             </div>
 
             {/* Habits Today */}
-            <div className="v4-card p-4 sm:p-5 shadow-2xs flex flex-col justify-between min-h-0">
+            <div className="krama-card p-4 sm:p-5 shadow-2xs flex flex-col justify-between min-h-0">
               <div className="flex items-center justify-between mb-3 shrink-0">
                 <h2 className="text-sm font-semibold text-primary flex items-center gap-2">
                   <BarChart2 className="w-4 h-4 text-primary" />
@@ -255,7 +255,7 @@ export function Dashboard() {
                             const isScheduled = isHabitScheduledForDay(h, dayNum);
                             
                             let boxClass = 'bg-surface-hover border border-border';
-                            if (isCompleted) boxClass = 'bg-[#EA580C] text-white';
+                            if (isCompleted) boxClass = 'bg-accent text-on-accent';
                             else if (!isScheduled) boxClass = 'bg-transparent border border-border/40 opacity-40';
 
                             return <div key={i} className={`w-3 h-3 rounded-[3px] ${boxClass}`} title={dateStr} />;
@@ -272,7 +272,7 @@ export function Dashboard() {
                   <p className="text-xs text-secondary mt-0.5 mb-3">Start building better habits.</p>
                   <button
                     onClick={() => navigate('/app/habits')}
-                    className="px-3.5 py-1.5 rounded-lg bg-success-bg hover:bg-success-bg/80 text-success-fg border border-success-border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-lg bg-accent-subtle hover:bg-accent/20 text-accent-fg border border-accent/20 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer active:scale-[0.98]"
                   >
                     <span>+</span>
                     <span>Add Habit</span>
@@ -283,7 +283,7 @@ export function Dashboard() {
           </div>
 
           {/* Activity Feed */}
-          <div className="v4-card p-4 sm:p-5 shadow-2xs flex-1 flex flex-col justify-between min-h-0">
+          <div className="krama-card p-4 sm:p-5 shadow-2xs flex-1 flex flex-col justify-between min-h-0">
             <div className="flex items-center justify-between mb-2 shrink-0">
               <h2 className="text-sm font-semibold text-primary flex items-center gap-2">
                 <Clock className="w-4 h-4 text-primary" />
@@ -318,7 +318,7 @@ export function Dashboard() {
         <div className="flex flex-col justify-between gap-4 lg:gap-5 h-full min-h-0">
           
           {/* Quick Capture Card */}
-          <div className="v4-card p-4 sm:p-5 shadow-2xs hover:shadow-sm transition-shadow flex flex-col justify-between min-h-0">
+          <div className="krama-card p-4 sm:p-5 shadow-2xs hover:shadow-sm transition-shadow flex flex-col justify-between min-h-0">
             <h2 className="text-sm font-semibold text-primary mb-3 shrink-0 flex items-center gap-2">
               <Zap className="w-4 h-4 text-primary" />
               <span>Quick Capture</span>
@@ -333,7 +333,7 @@ export function Dashboard() {
                 <button
                   key={item.id}
                   onClick={() => handleQuickCapture(item.id)}
-                  className={`flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border border-border bg-surface hover:bg-surface-hover ${item.border} transition-all group cursor-pointer`}
+                  className={`flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border border-border bg-surface hover:bg-surface-hover ${item.border} transition-all group cursor-pointer active:scale-[0.98]`}
                 >
                   <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-1.5 ${item.bg} group-hover:scale-105 transition-transform`}>
                     <item.icon className="w-4 h-4" />
@@ -345,7 +345,7 @@ export function Dashboard() {
           </div>
 
           {/* Today's Due Tasks */}
-          <div className="v4-card p-4 sm:p-5 shadow-2xs flex-1 flex flex-col justify-between min-h-0">
+          <div className="krama-card p-4 sm:p-5 shadow-2xs flex-1 flex flex-col justify-between min-h-0">
             <div className="flex items-center justify-between mb-3 shrink-0">
               <h2 className="text-sm font-semibold text-primary flex items-center gap-2">
                 <CheckSquare className="w-4 h-4 text-primary" />
@@ -365,7 +365,7 @@ export function Dashboard() {
                 <p className="text-xs text-secondary mt-0.5 mb-4 text-center">Enjoy a clear day or capture new tasks.</p>
                 <button
                   onClick={() => handleQuickCapture('task')}
-                  className="w-full sm:w-auto px-6 py-2 rounded-xl bg-accent hover:bg-accent-hover text-on-accent font-medium text-xs shadow-xs transition-colors cursor-pointer"
+                  className="w-full sm:w-auto px-6 py-2 rounded-xl bg-accent hover:bg-accent-hover text-on-accent font-medium text-xs shadow-xs transition-colors cursor-pointer active:scale-[0.98]"
                 >
                   Create Task
                 </button>

@@ -15,6 +15,7 @@ import { api } from '../api/client';
 import { cn } from '../lib/utils';
 import { LoadingState } from './ui/LoadingState';
 import { ErrorState } from './ui/ErrorState';
+import { PageHeader } from './ui/PageHeader';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -88,53 +89,43 @@ export function AnalyticsPage() {
 
   return (
     <div className="h-full w-full max-w-[1360px] mx-auto px-6 sm:px-8 lg:px-12 pt-6 pb-12 flex flex-col overflow-y-auto min-h-0 animate-in fade-in duration-200">
-      {/* Header & Range Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="p-1.5 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
-              Analytics & Velocity
-            </h1>
-          </div>
-          <p className="text-xs sm:text-sm text-secondary">
-            Continuous operational telemetry: velocity, deep work, streak consistency, and strategic OKR pace.
-          </p>
-        </div>
-
+      <PageHeader
+        icon={TrendingUp}
+        title="Analytics & Velocity"
+        description="Continuous operational telemetry: velocity, deep work, streak consistency, and strategic OKR pace."
+        className="mb-6"
+      >
         {/* Range Segmented Control */}
-        <div className="flex items-center bg-surface border border-border rounded-xl p-1 shadow-2xs self-start sm:self-auto">
+        <div className="flex items-center bg-surface border border-border rounded-xl p-1 shadow-2xs">
           {(['7d', '30d', '90d'] as RangeOption[]).map((opt) => (
             <button
               key={opt}
               onClick={() => setRange(opt)}
               className={cn(
-                'px-3.5 py-1.5 text-xs font-mono font-medium rounded-lg transition-all',
+                'px-3.5 py-1.5 text-badge font-mono font-semibold rounded-lg transition-all cursor-pointer',
                 range === opt
-                  ? 'bg-primary text-primary-foreground shadow-xs font-semibold'
-                  : 'text-secondary hover:text-primary hover:bg-surface-hover'
+                  ? 'bg-accent text-on-accent shadow-xs'
+                  : 'text-secondary hover:text-primary hover:bg-surface-hover',
               )}
             >
-              {opt === '7d' ? '7 Days' : opt === '30d' ? '30 Days' : '90 Days'}
+              {opt === '7d' ? '7 DAYS' : opt === '30d' ? '30 DAYS' : '90 DAYS'}
             </button>
           ))}
         </div>
-      </div>
+      </PageHeader>
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {/* Card 1: Weekly Velocity */}
-        <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col justify-between">
+        <div className="krama-card p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-secondary mb-3">
             <span className="text-xs font-mono uppercase tracking-wider font-semibold">Weekly Velocity</span>
-            <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-500">
+            <div className="p-1.5 rounded-md bg-accent-subtle border border-accent/20 text-accent-fg">
               <Zap className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold font-mono text-primary">{latestStats.weeklyVelocity}</span>
+            <span className="text-3xl font-bold font-mono text-primary tabular-nums">{latestStats.weeklyVelocity}</span>
             <span className="text-xs text-secondary font-mono">tasks / wk</span>
           </div>
           <p className="text-xs text-secondary mt-2 flex items-center gap-1">
@@ -144,56 +135,56 @@ export function AnalyticsPage() {
         </div>
 
         {/* Card 2: Deep Work */}
-        <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col justify-between">
+        <div className="krama-card p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-secondary mb-3">
             <span className="text-xs font-mono uppercase tracking-wider font-semibold">Total Deep Work</span>
-            <div className="p-1.5 rounded-md bg-teal-500/10 text-teal-500">
+            <div className="p-1.5 rounded-md bg-cat-timeblocks-bg border border-cat-timeblocks/20 text-cat-timeblocks">
               <Brain className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold font-mono text-primary">{totalDeepWorkHours}</span>
+            <span className="text-3xl font-bold font-mono text-primary tabular-nums">{totalDeepWorkHours}</span>
             <span className="text-xs text-secondary font-mono">hours</span>
           </div>
           <p className="text-xs text-secondary mt-2 flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5 text-teal-500" />
+            <Clock className="w-3.5 h-3.5 text-cat-timeblocks" />
             {latestStats.deepWorkLogged} mins logged today
           </p>
         </div>
 
         {/* Card 3: Active Streaks */}
-        <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col justify-between">
+        <div className="krama-card p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-secondary mb-3">
             <span className="text-xs font-mono uppercase tracking-wider font-semibold">Active Streaks</span>
-            <div className="p-1.5 rounded-md bg-amber-500/10 text-amber-500">
+            <div className="p-1.5 rounded-md bg-warning-bg border border-warning-border text-warning-fg">
               <Flame className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold font-mono text-primary">{latestStats.activeStreaks}</span>
+            <span className="text-3xl font-bold font-mono text-primary tabular-nums">{latestStats.activeStreaks}</span>
             <span className="text-xs text-secondary font-mono">habits alive</span>
           </div>
           <p className="text-xs text-secondary mt-2 flex items-center gap-1">
-            <Activity className="w-3.5 h-3.5 text-amber-500" />
+            <Activity className="w-3.5 h-3.5 text-warning-fg" />
             Routines maintained continuously
           </p>
         </div>
 
         {/* Card 4: OKR Pace */}
-        <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col justify-between">
+        <div className="krama-card p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-secondary mb-3">
             <span className="text-xs font-mono uppercase tracking-wider font-semibold">OKR Strategic Pace</span>
-            <div className="p-1.5 rounded-md bg-purple-500/10 text-purple-500">
+            <div className="p-1.5 rounded-md bg-cat-projects-bg border border-cat-projects/20 text-cat-projects">
               <Target className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold font-mono text-primary">{latestStats.okrPace}%</span>
+            <span className="text-3xl font-bold font-mono text-primary tabular-nums">{latestStats.okrPace}%</span>
             <span className="text-xs text-secondary font-mono">avg progress</span>
           </div>
           <div className="w-full bg-surface-hover rounded-full h-1.5 mt-3 overflow-hidden">
             <div
-              className="bg-purple-500 h-1.5 rounded-full transition-all duration-500"
+              className="bg-cat-projects h-1.5 rounded-full transition-all duration-500"
               style={{ width: `${Math.min(100, Math.max(0, latestStats.okrPace))}%` }}
             />
           </div>
@@ -203,7 +194,7 @@ export function AnalyticsPage() {
       {/* Main Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Chart 1: Task Velocity Trend */}
-        <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col">
+        <div className="krama-card p-5 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-semibold text-primary">Task Velocity Over Time</h2>
@@ -218,8 +209,8 @@ export function AnalyticsPage() {
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="velocityGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
+                    <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border" />
@@ -227,18 +218,18 @@ export function AnalyticsPage() {
                 <YAxis tickLine={false} stroke="currentColor" className="text-muted text-[11px] font-mono" allowDecimals={false} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'var(--color-surface, #1e1e2d)',
-                    borderColor: 'var(--color-border, #333)',
+                    backgroundColor: 'var(--color-surface)',
+                    borderColor: 'var(--color-border)',
                     borderRadius: '8px',
                     fontSize: '12px',
-                    color: 'var(--color-primary, #fff)',
+                    color: 'var(--color-primary)',
                   }}
                 />
                 <Area
                   type="monotone"
                   dataKey="velocity"
                   name="Completed Tasks"
-                  stroke="#6366F1"
+                  stroke="var(--color-accent)"
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#velocityGrad)"
@@ -249,7 +240,7 @@ export function AnalyticsPage() {
         </div>
 
         {/* Chart 2: Deep Work Distribution */}
-        <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col">
+        <div className="krama-card p-5 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-semibold text-primary">Daily Deep Work Hours</h2>
@@ -267,17 +258,17 @@ export function AnalyticsPage() {
                 <YAxis tickLine={false} stroke="currentColor" className="text-muted text-[11px] font-mono" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'var(--color-surface, #1e1e2d)',
-                    borderColor: 'var(--color-border, #333)',
+                    backgroundColor: 'var(--color-surface)',
+                    borderColor: 'var(--color-border)',
                     borderRadius: '8px',
                     fontSize: '12px',
-                    color: 'var(--color-primary, #fff)',
+                    color: 'var(--color-primary)',
                   }}
                 />
                 <Bar
                   dataKey="deepWorkHours"
                   name="Deep Work (hrs)"
-                  fill="#0D9488"
+                  fill="var(--color-accent)"
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>
@@ -287,7 +278,7 @@ export function AnalyticsPage() {
       </div>
 
       {/* Focus Session Log History */}
-      <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col">
+      <div className="krama-card p-5 flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-base font-semibold text-primary">Recent Focus Sessions</h2>
@@ -309,7 +300,7 @@ export function AnalyticsPage() {
             {focusHistory.slice(0, 10).map((session: any) => (
               <div key={session.id} className="py-3 flex items-center justify-between hover:bg-surface-hover/50 px-2 rounded-lg transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-600 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-cat-timeblocks-bg border border-cat-timeblocks/20 text-cat-timeblocks flex items-center justify-center shrink-0">
                     <Clock className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
@@ -327,7 +318,7 @@ export function AnalyticsPage() {
                     {session.duration ? `${Math.round(session.duration / 60)} min` : 'Completed'}
                   </span>
                   {session.completed ? (
-                    <span className="text-[11px] text-teal-600 font-mono font-medium">DONE</span>
+                    <span className="text-[11px] text-success-fg font-mono font-medium">DONE</span>
                   ) : (
                     <span className="text-[11px] text-muted font-mono">PARTIAL</span>
                   )}

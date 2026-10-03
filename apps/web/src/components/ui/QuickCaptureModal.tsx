@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, FileText, CheckSquare, Lightbulb, Link as LinkIcon } from 'lucide-react';
 import { BaseButton } from './BaseButton';
+import { formatLocalDate } from '../../lib/utils';
 import { api } from '../../api/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -37,6 +38,17 @@ export function QuickCaptureModal({ open, onClose, defaultMode = 'task', default
 
   if (!open) return null;
 
+  // Build a TipTap doc from the free-text body so Notes/Ideas/Links persist
+  // their content instead of creating empty Brain documents.
+  const buildContentJson = (text: string) => {
+    const paragraphs = text
+      .split(/\n\s*\n/)
+      .map(p => p.trim())
+      .filter(Boolean)
+      .map(p => ({ type: 'paragraph', content: [{ type: 'text', text: p }] }));
+    return { type: 'doc', content: paragraphs.length > 0 ? paragraphs : [{ type: 'paragraph' }] };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() && mode !== 'link') return;
@@ -44,21 +56,23 @@ export function QuickCaptureModal({ open, onClose, defaultMode = 'task', default
     setIsSubmitting(true);
     try {
       if (mode === 'task') {
-        await api.tasks.create({ title, description: content, scheduledDate: defaultScheduledDate?.toISOString() });
+        const dayKey = formatLocalDate(defaultScheduledDate);
+        const scheduledIso = dayKey ? `${dayKey}T12:00:00.000Z` : undefined;
+        await api.tasks.create({ title, description: content, scheduledDate: scheduledIso });
         toast.success('Task created');
         queryClient.invalidateQueries({ queryKey: ['planner'] });
-        queryClient.invalidateQueries({ queryKey: ['tasks'] });
         queryClient.invalidateQueries({ queryKey: ['issues'] });
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
       } else if (mode === 'note') {
-        await api.documents.create({ title, documentType: 'NOTE' });
+        await api.documents.create({ title, documentType: 'NOTE', contentJson: buildContentJson(content) });
         toast.success('Note created in Brain');
         queryClient.invalidateQueries({ queryKey: ['documents'] });
       } else if (mode === 'idea') {
-        await api.documents.create({ title, documentType: 'IDEA' });
+        await api.documents.create({ title, documentType: 'IDEA', contentJson: buildContentJson(content) });
         toast.success('Idea saved in Brain');
         queryClient.invalidateQueries({ queryKey: ['documents'] });
       } else if (mode === 'link') {
-        await api.documents.create({ title: title || 'Bookmark', documentType: 'GENERAL' });
+        await api.documents.create({ title: title || 'Bookmark', documentType: 'GENERAL', contentJson: buildContentJson(content) });
         toast.success('Bookmark saved in Brain');
         queryClient.invalidateQueries({ queryKey: ['documents'] });
       }

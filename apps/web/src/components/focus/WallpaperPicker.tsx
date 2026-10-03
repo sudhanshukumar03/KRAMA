@@ -328,7 +328,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                 {/* Not configured warning */}
                 {!isLoadingPhotos && unsplashNotConfigured && (
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center">
-                    <Sparkles className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                    <Sparkles className="w-8 h-8 text-warning-fg mx-auto mb-2" />
                     <h4 className="text-sm font-semibold mb-1">Unsplash API Key Not Configured</h4>
                     <p className="text-xs text-white/60 max-w-sm mx-auto mb-4">
                       Add <code className="bg-black/40 px-1.5 py-0.5 rounded text-white font-mono">UNSPLASH_ACCESS_KEY</code> in server <code className="bg-black/40 px-1.5 py-0.5 rounded text-white font-mono">.env</code> to enable live Unsplash browsing.
@@ -447,7 +447,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                                   e.stopPropagation();
                                   handleRemoveWallpaper(wp.value);
                                 }}
-                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-black/70 hover:bg-red-500 text-white/80 hover:text-white transition-all cursor-pointer shadow-lg backdrop-blur-md border border-white/10 hover:border-red-400 text-xs font-medium"
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-black/70 hover:bg-danger-fg text-white/80 hover:text-white transition-all cursor-pointer shadow-lg backdrop-blur-md border border-white/10 hover:border-danger-border text-xs font-medium active:scale-[0.98]"
                                 title="Remove this wallpaper"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />

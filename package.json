@@ -10,6 +10,7 @@
     "dev": "pnpm --parallel -r run dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
+    "test": "pnpm --filter server test",
     "holidays:sync": "pnpm --filter server holidays:sync"
   },
   "devDependencies": {

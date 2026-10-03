@@ -142,3 +142,12 @@ e2e/*.png
 .Trashes
 ehthumbs.db
 Thumbs.db
+last_user_messages.txt
+
+# Audit Screenshots & Local Agent Config
+apps/web/audit_*.png
+apps/web/fixed_*.png
+apps/web/notif_*.png
+apps/web/s[0-9]_*.png
+apps/web/current_view.png
+.claude/

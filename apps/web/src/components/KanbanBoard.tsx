@@ -27,10 +27,11 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { IssueWithRelations, TaskStatus, TaskPriority } from '../types/schema';
 import { BaseButton } from './ui/BaseButton';
+import { PageHeader } from './ui/PageHeader';
 import { LoadingState } from './ui/LoadingState';
 import { ErrorState } from './ui/ErrorState';
 import { 
-  CircleDashed, CheckCircle, CheckCircle2, ListChecks, 
+  CircleDashed, CheckCircle2, ListChecks, 
   Search, Plus, AlertCircle, X, KanbanSquare, Clock, 
   Folder, CheckSquare, MoreVertical, ChevronDown, 
   LayoutGrid, List, Calendar, Inbox, Trash2, Edit2, Zap, Archive
@@ -39,7 +40,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
 
-// Six status columns aligned with TaskStatus schema
+// Status columns aligned with execution stages
 const STATUS_COLUMNS = [
   {
     id: "BACKLOG" as TaskStatus,
@@ -75,17 +76,6 @@ const STATUS_COLUMNS = [
     addText: "text-warning-fg hover:bg-warning-bg hover:border-warning-border",
   },
   {
-    id: "REVIEW" as TaskStatus,
-    title: "Review",
-    subtitle: "In review or awaiting feedback",
-    icon: CheckCircle,
-    iconColor: "text-cat-timeblocks",
-    bgLight: "bg-surface border-border/80",
-    topBorder: "border-t-[3px] border-t-cat-timeblocks",
-    badgeBg: "bg-cat-timeblocks-bg text-cat-timeblocks border border-cat-timeblocks/20",
-    addText: "text-cat-timeblocks hover:bg-cat-timeblocks-bg hover:border-cat-timeblocks/30",
-  },
-  {
     id: "DONE" as TaskStatus,
     title: "Done",
     subtitle: "Completed and shipped",
@@ -110,39 +100,30 @@ const CANCELED_COLUMN = {
   addText: "text-muted hover:bg-surface-hover",
 };
 
-const STATUS_IDS = ["BACKLOG", "TODO", "IN_PROGRESS", "REVIEW", "DONE", "CANCELED"];
+const STATUS_IDS = ["BACKLOG", "TODO", "IN_PROGRESS", "DONE", "CANCELED"];
+
+// Distinct color per priority so URGENT (red) / HIGH (amber) / MEDIUM (blue) /
+// LOW (green) are visually separable — previously URGENT and HIGH were both red.
+const PRIORITY_STYLES: Record<string, string> = {
+  URGENT: "bg-danger-bg text-danger-fg border border-danger-border",
+  HIGH: "bg-warning-bg text-warning-fg border border-warning-border",
+  MEDIUM: "bg-info-bg text-info-fg border border-info-border",
+  LOW: "bg-success-bg text-success-fg border border-success-border",
+};
 
 function getPriorityBadge(priority: string) {
-  switch (priority) {
-    case "URGENT":
-      return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-danger-bg text-danger-fg border border-danger-border">
-          Urgent
-        </span>
-      );
-    case "HIGH":
-      return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-danger-bg text-danger-fg border border-danger-border">
-          HIGH
-        </span>
-      );
-    case "MEDIUM":
-      return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-warning-bg text-warning-fg border border-warning-border">
-          MEDIUM
-        </span>
-      );
-    case "LOW":
-    default:
-      return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase bg-success-bg text-success-fg border border-success-border">
-          LOW
-        </span>
-      );
-  }
+  const style = PRIORITY_STYLES[priority] || PRIORITY_STYLES.LOW;
+  return (
+    <span className={cn(
+      "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase",
+      style
+    )}>
+      {priority || 'LOW'}
+    </span>
+  );
 }
 
-function IssueCard({
+const IssueCard = React.memo(function IssueCard({
   issue,
   isDragging,
   onDelete,
@@ -179,7 +160,7 @@ function IssueCard({
     opacity: isSortableDragging ? 0.35 : 1,
   };
 
-  const completedSubtasks = issue.childTasks?.filter((c: { status: string }) => c.status === "DONE" || c.status === "REVIEW").length || 0;
+  const completedSubtasks = issue.childTasks?.filter((c: { status: string }) => c.status === "DONE").length || 0;
   const totalSubtasks = issue.childTasks?.length || 0;
   const subtaskPct = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
   const hasDependencies = Boolean(issue.blockedBy) || (issue.blocking && issue.blocking.length > 0);
@@ -357,16 +338,16 @@ function IssueCard({
           ) : issue.estimateMinutes ? (
             <span className="inline-flex items-center gap-1 text-[10px] bg-surface-hover px-1.5 py-0.5 rounded-md border border-border/80 text-primary font-bold">
               <Clock className="w-2.5 h-2.5 text-muted" />
-              {issue.estimateMinutes}h
+              {issue.estimateMinutes}m
             </span>
           ) : null}
         </div>
       </div>
     </div>
   );
-}
+});
 
-function Column({
+const Column = React.memo(function Column({
   col,
   issues,
   onDelete,
@@ -460,15 +441,13 @@ function Column({
       </div>
     </div>
   );
-}
+});
 
 export function IssueCreateModal({
   open,
   initialStatus,
-  initialSprintId,
   allIssues,
   projects = [],
-  sprints = [],
   defaultProjectId,
   onClose,
   onSubmit,
@@ -476,31 +455,27 @@ export function IssueCreateModal({
 }: {
   open: boolean;
   initialStatus: TaskStatus;
-  initialSprintId?: string | null;
   allIssues: IssueWithRelations[];
   projects?: { id: string; name: string }[];
-  sprints?: { id: string; name: string; status: string }[];
   defaultProjectId?: string;
   onClose: () => void;
-  onSubmit: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; projectId?: string; sprintId?: string | null; dueDate?: string; scheduledDate?: string }) => void;
+  onSubmit: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; projectId?: string }) => void;
   isSubmitting: boolean;
 }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>(initialStatus || "BACKLOG");
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
-  const [estimate, setEstimate] = useState(2);
+  const [estimate, setEstimate] = useState(30);
   const [blockedById, setBlockedById] = useState<string | null>(null);
   const [selectedProjId, setSelectedProjId] = useState<string>(defaultProjectId || '');
-  const [selectedSprintId, setSelectedSprintId] = useState<string>(initialSprintId || '');
 
   useEffect(() => {
     if (open) {
       if (initialStatus) setStatus(initialStatus);
-      if (initialSprintId !== undefined) setSelectedSprintId(initialSprintId || '');
       if (defaultProjectId) setSelectedProjId(defaultProjectId);
     }
-  }, [open, initialStatus, initialSprintId, defaultProjectId]);
+  }, [open, initialStatus, defaultProjectId]);
 
   if (!open) return null;
 
@@ -512,10 +487,9 @@ export function IssueCreateModal({
       description: description.trim(),
       status: status as TaskStatus,
       priority: priority as TaskPriority,
-      estimateMinutes: Number(estimate) || 0,
+      estimateMinutes: Math.round(Number(estimate)) || 0,
       blockedById,
-      projectId: selectedProjId || undefined,
-      sprintId: selectedSprintId || null
+      projectId: selectedProjId || undefined
     });
   };
 
@@ -545,40 +519,20 @@ export function IssueCreateModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
-                Project Scope
-              </label>
-              <select
-                value={selectedProjId}
-                onChange={e => setSelectedProjId(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
-              >
-                <option value="">⚡ General Operations (No Project)</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>📁 {p.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
-                Sprint
-              </label>
-              <select
-                value={selectedSprintId}
-                onChange={e => setSelectedSprintId(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
-              >
-                <option value="">None (Backlog / General)</option>
-                {sprints.map(s => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.status})
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+              Project Scope
+            </label>
+            <select
+              value={selectedProjId}
+              onChange={e => setSelectedProjId(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+            >
+              <option value="">⚡ General Operations (No Project)</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>📁 {p.name}</option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -643,12 +597,12 @@ export function IssueCreateModal({
 
           <div>
             <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
-              Estimate (Hours)
+              Estimate (Minutes)
             </label>
             <input
               type="number"
               min="0"
-              step="0.5"
+              step="5"
               value={estimate}
               onChange={e => setEstimate(Number(e.target.value))}
               className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-accent text-primary"
@@ -692,7 +646,6 @@ export function IssueEditModal({
   issue,
   allIssues,
   projects = [],
-  sprints = [],
   onClose,
   onSubmit,
   isSubmitting
@@ -701,9 +654,8 @@ export function IssueEditModal({
   issue: IssueWithRelations | null;
   allIssues: IssueWithRelations[];
   projects?: { id: string; name: string }[];
-  sprints?: { id: string; name: string; status: string }[];
   onClose: () => void;
-  onSubmit: (id: string, data: Partial<IssueWithRelations> & { blockedById?: string | null; sprintId?: string | null; projectId?: string | null }) => void;
+  onSubmit: (id: string, data: Partial<IssueWithRelations> & { blockedById?: string | null; projectId?: string | null }) => void;
   isSubmitting: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -711,23 +663,30 @@ export function IssueEditModal({
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>("BACKLOG");
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
-  const [estimate, setEstimate] = useState(2);
+  const [estimate, setEstimate] = useState(30);
   const [blockedById, setBlockedById] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [sprintId, setSprintId] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+  // Comments are lazy-loaded per task (the board list no longer ships every
+  // task's thread). Fall back to any comments already on the passed issue.
+  const { data: fullIssue } = useQuery({
+    queryKey: ['task', issue?.id],
+    queryFn: () => api.tasks.get(issue!.id),
+    enabled: open && !!issue?.id,
+  });
+  const comments = fullIssue?.comments ?? issue?.comments ?? [];
 
   useEffect(() => {
     if (issue && open) {
       setTitle(issue.title || '');
       setDescription(issue.description || '');
-      setStatus(issue.status === "TODO" ? "BACKLOG" : (issue.status as TaskStatus));
+      setStatus(issue.status as TaskStatus);
       setPriority(issue.priority as TaskPriority);
-      setEstimate(issue.estimateMinutes || 2);
+      setEstimate(issue.estimateMinutes || 30);
       setBlockedById(issue.blockedById || null);
       setProjectId(issue.projectId || null);
-      setSprintId(issue.sprintId || null);
     }
   }, [issue, open]);
 
@@ -741,10 +700,9 @@ export function IssueEditModal({
       description: description.trim(),
       status: status as TaskStatus,
       priority: priority as TaskPriority,
-      estimateMinutes: Number(estimate) || 0,
+      estimateMinutes: Math.round(Number(estimate)) || 0,
       blockedById: blockedById || null,
-      projectId: projectId || null,
-      sprintId: sprintId || null
+      projectId: projectId || null
     });
   };
 
@@ -754,6 +712,7 @@ export function IssueEditModal({
       setIsSubmittingComment(true);
       await api.tasks.addComment(issue.id, newComment.trim());
       setNewComment('');
+      queryClient.invalidateQueries({ queryKey: ['task', issue.id] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       toast.success('Comment added');
     } catch {
@@ -847,7 +806,7 @@ export function IssueEditModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
             <div>
               <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
                 Project Scope
@@ -863,34 +822,16 @@ export function IssueEditModal({
                 ))}
               </select>
             </div>
-
-            <div>
-              <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
-                Sprint Assignment
-              </label>
-              <select
-                value={sprintId || ''}
-                onChange={e => setSprintId(e.target.value || null)}
-                className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
-              >
-                <option value="">None (Backlog / General)</option>
-                {sprints.map(s => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.status})
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
 
           <div>
             <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
-              Estimate (Hours)
+              Estimate (Minutes)
             </label>
             <input
               type="number"
               min="0"
-              step="0.5"
+              step="5"
               value={estimate}
               onChange={e => setEstimate(Number(e.target.value))}
               className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-accent text-primary"
@@ -919,13 +860,13 @@ export function IssueEditModal({
           <div className="pt-4 border-t border-border space-y-3">
             <h4 className="text-sm font-semibold text-primary">Activity & Discussion</h4>
             <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-              {!issue.comments || issue.comments.length === 0 ? (
+              {comments.length === 0 ? (
                 <p className="text-xs text-secondary italic">No comments yet.</p>
               ) : (
-                issue.comments.map((c: any) => (
+                comments.map((c: any) => (
                   <div key={c.id} className="p-2.5 rounded-lg bg-surface-hover/60 border border-border/50 text-xs">
                     <div className="flex items-center justify-between mb-1 text-[11px] text-muted">
-                      <span className="font-semibold text-primary">{c.user?.name || 'User'}</span>
+                      <span className="font-semibold text-primary">{c.author?.name || 'User'}</span>
                       <span>{new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <p className="text-sm text-secondary whitespace-pre-wrap">{c.content}</p>
@@ -983,17 +924,19 @@ export function KanbanBoard({
   const effectiveInitialProject = lockedProjectId || initialProjectId || urlProject || 'all';
 
   const queryClient = useQueryClient();
-  const { data: issues = [], isLoading: isLoadingIssues, isError } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
+  const { data: activeIssues = [], isLoading: isLoadingIssues, isError } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
+  // CANCELED tasks are excluded from the default /tasks response server-side, so
+  // fetch them under a sub-key. invalidateQueries(['issues']) prefix-matches this
+  // key too, so the archive stays in sync without extra invalidations.
+  const { data: canceledIssues = [] } = useQuery({ queryKey: ['issues', 'canceled'], queryFn: () => api.tasks.list({ status: 'CANCELED' }) });
+  const issues = useMemo(() => [...activeIssues, ...canceledIssues], [activeIssues, canceledIssues]);
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
-  const { data: sprints = [] } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
 
   const [activeIssue, setActiveIssue] = useState<IssueWithRelations | null>(null);
   const [activeView, setActiveView] = useState<'board' | 'list' | 'calendar'>('board');
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<'all' | "URGENT" | "HIGH" | "MEDIUM" | "LOW">('all');
   const [selectedProjectId, setSelectedProjectId] = useState<string>(effectiveInitialProject);
-  const [selectedSprintId, setSelectedSprintId] = useState<string>('all');
-  const [groupBy, setGroupBy] = useState<'status' | 'priority' | 'project'>('status');
   const [sortBy, setSortBy] = useState<'priority' | 'date' | 'title'>('priority');
   const [showCanceledArchive, setShowCanceledArchive] = useState(false);
 
@@ -1015,23 +958,22 @@ export function KanbanBoard({
   const [editingIssue, setEditingIssue] = useState<IssueWithRelations | null>(null);
 
   const createIssueMutation = useMutation({
-    mutationFn: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; projectId?: string; sprintId?: string | null }) =>
+    mutationFn: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; projectId?: string }) =>
       api.tasks.create({
         title: data.title,
         description: data.description,
         status: data.status,
         priority: data.priority as any,
         estimateMinutes: data.estimateMinutes,
-        assignee: 'me',
         projectId: data.projectId || (selectedProjectId !== 'all' ? selectedProjectId : null),
-        sprintId: data.sprintId ?? (selectedSprintId !== 'all' ? selectedSprintId : null),
-        labels: [],
         blockedById: data.blockedById
       }),
     onSuccess: (newIssue) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       setCreateModalOpen(false);
       toast.success(`Created "${newIssue?.title || 'Directive'}"`, {
         description: `Added to ${(newIssue?.status || createStatus).replace('_', ' ')}.`
@@ -1043,12 +985,14 @@ export function KanbanBoard({
   });
 
   const updateIssueDetailMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<IssueWithRelations> & { blockedById?: string | null; sprintId?: string | null } }) =>
+    mutationFn: ({ id, data }: { id: string; data: Partial<IssueWithRelations> & { blockedById?: string | null } }) =>
       api.tasks.update(id, data),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       setEditModalOpen(false);
       setEditingIssue(null);
       toast.success(`Updated "${updated?.title || 'Directive'}"`);
@@ -1058,23 +1002,32 @@ export function KanbanBoard({
     }
   });
 
-  const handleCreateIssue = (status: TaskStatus = "BACKLOG") => {
+  const handleCreateIssue = useCallback((status: TaskStatus = "BACKLOG") => {
     setCreateStatus(status);
     setCreateModalOpen(true);
-  };
+  }, []);
 
   const isDraggingRef = useRef(false);
 
-  const handleEditIssue = (issue: IssueWithRelations) => {
+  const handleEditIssue = useCallback((issue: IssueWithRelations) => {
     if (isDraggingRef.current) return;
     setEditingIssue(issue);
     setEditModalOpen(true);
-  };
+  }, []);
 
-  const handleDeleteIssue = async (issue: IssueWithRelations) => {
+  const handleDeleteIssue = useCallback(async (issue: IssueWithRelations) => {
     try {
       await api.tasks.delete(issue.id);
-      queryClient.setQueryData<IssueWithRelations[]>(['issues'], old => old?.filter(i => i.id !== issue.id));
+      // Remove from both the active list and the canceled archive cache so an
+      // archived directive disappears immediately too (exact keys don't prefix-match).
+      const removeFromCache = (key: readonly unknown[]) =>
+        queryClient.setQueryData<IssueWithRelations[]>(key, old => old?.filter(i => i.id !== issue.id));
+      removeFromCache(['issues']);
+      removeFromCache(['issues', 'canceled']);
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       toast.success(`Deleted "${issue.title}"`, {
         description: 'Directive removed.',
         action: {
@@ -1082,6 +1035,10 @@ export function KanbanBoard({
           onClick: async () => {
             await api.tasks.restore(issue.id);
             queryClient.invalidateQueries({ queryKey: ['issues'] });
+            queryClient.invalidateQueries({ queryKey: ['tasks'] });
+            queryClient.invalidateQueries({ queryKey: ['planner'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
             toast.success(`Restored "${issue.title}"`);
           }
         },
@@ -1090,7 +1047,7 @@ export function KanbanBoard({
     } catch {
       toast.error("Failed to delete directive");
     }
-  };
+  }, [queryClient]);
 
   const updateIssueMutation = useMutation({
     mutationFn: ({ id, data }: { id: string, data: Partial<IssueWithRelations> }) => api.tasks.update(id, data),
@@ -1107,6 +1064,9 @@ export function KanbanBoard({
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     }
   });
 
@@ -1118,6 +1078,9 @@ export function KanbanBoard({
   const filteredIssues = useMemo(() => {
     return issues.filter(issue => {
       if (issue.parentTaskId) return false;
+      // Keep canceled directives out of every view (board columns, list, calendar)
+      // unless the archive toggle is on — matches the board's column visibility.
+      if (issue.status === 'CANCELED' && !showCanceledArchive) return false;
       const q = searchQuery.toLowerCase().trim();
       const directiveCode = `kr-${issue.id.replace(/[^a-zA-Z0-9]/g, '').slice(-3).toLowerCase()}`;
       const matchesSearch = q === '' || 
@@ -1126,9 +1089,8 @@ export function KanbanBoard({
         (issue.description && issue.description.toLowerCase().includes(q));
       const matchesPriority = priorityFilter === 'all' || issue.priority === priorityFilter;
       const matchesProject = selectedProjectId === 'all' || (selectedProjectId === 'operations' ? !issue.projectId : issue.projectId === selectedProjectId);
-      const matchesSprint = selectedSprintId === 'all' || issue.sprintId === selectedSprintId;
 
-      return matchesSearch && matchesPriority && matchesProject && matchesSprint;
+      return matchesSearch && matchesPriority && matchesProject;
     }).sort((a, b) => {
       if (sortBy === 'title') return a.title.localeCompare(b.title);
       if (sortBy === 'date') {
@@ -1143,7 +1105,7 @@ export function KanbanBoard({
       if (weightA !== weightB) return weightB - weightA;
       return a.position - b.position;
     });
-  }, [issues, searchQuery, priorityFilter, selectedProjectId, selectedSprintId, sortBy]);
+  }, [issues, searchQuery, priorityFilter, selectedProjectId, sortBy, showCanceledArchive]);
 
   const collisionDetectionStrategy: CollisionDetection = useCallback((args) => {
     const pointerCollisions = pointerWithin(args);
@@ -1239,30 +1201,25 @@ export function KanbanBoard({
     }
 
     if (activeIssueData.status !== newStatus || activeIssueData.position !== newPosition) {
-      queryClient.setQueryData(['issues'], (old: any) => {
-        if (!old) return old;
-        return old.map((i: any) => i.id === activeId ? { ...i, status: newStatus, position: newPosition } : i);
-      });
-
-      updateIssueMutation.mutate({ id: activeId, data: { status: newStatus, position: newPosition } }, {
-        onError: () => {
-          queryClient.invalidateQueries({ queryKey: ['issues'] });
-          queryClient.invalidateQueries({ queryKey: ['tasks'] });
-          toast.error('Failed to move directive');
-        },
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ['issues'] });
-          queryClient.invalidateQueries({ queryKey: ['tasks'] });
-        }
-      });
+      // onMutate applies the optimistic move (and captures rollback state before it),
+      // onSettled re-syncs from the server — no manual cache writes needed here.
+      updateIssueMutation.mutate(
+        { id: activeId, data: { status: newStatus, position: newPosition } },
+        { onError: () => toast.error('Failed to move directive') }
+      );
     }
   };
 
-  const getColumnIssues = (colId: TaskStatus) => {
-    return filteredIssues.filter(i => i.status === colId);
-  };
+  const columnIssuesMap = useMemo(() => {
+    const map: Record<string, IssueWithRelations[]> = {};
+    for (const col of [...STATUS_COLUMNS, CANCELED_COLUMN]) map[col.id] = [];
+    for (const issue of filteredIssues) {
+      (map[issue.status] ??= []).push(issue);
+    }
+    return map;
+  }, [filteredIssues]);
 
-  if (isLoadingIssues) return <LoadingState variant="kanban" title="Loading Execution Board..." description="Organizing sprint directives and dependencies..." />;
+  if (isLoadingIssues) return <LoadingState variant="kanban" title="Loading Execution Board..." description="Organizing directives and dependencies..." />;
   if (isError) {
     return (
       <div className="p-8">
@@ -1279,73 +1236,49 @@ export function KanbanBoard({
     <div className="h-full flex flex-col min-w-0 w-full bg-canvas select-none overflow-hidden animate-in fade-in duration-150">
       {/* Page Header */}
       {!hideHeader && (
-        <div className="px-6 pt-4 pb-2.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shrink-0">
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-accent-subtle border border-accent/20 text-accent-fg flex items-center justify-center shrink-0 shadow-2xs">
-              <KanbanSquare className="w-5 h-5 stroke-[1.75]" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-primary tracking-tight">Execution Board</h1>
-              <p className="text-xs text-secondary mt-0.5">
-                Drag and drop directives across sprint stages. Bounded mission execution canvas.
-              </p>
-            </div>
+        <PageHeader
+          icon={KanbanSquare}
+          title="Execution Board"
+          description="Drag and drop directives across execution stages. Bounded mission execution canvas."
+          className="mx-6 mt-4 mb-2"
+        >
+          {/* View Switcher */}
+          <div className="flex items-center bg-surface-hover/80 p-0.5 rounded-lg border border-border/80 shadow-2xs">
+            {(['board', 'list', 'calendar'] as const).map((view) => {
+              const icons = { board: LayoutGrid, list: List, calendar: Calendar };
+              const labels = { board: 'Board', list: 'List', calendar: 'Calendar' };
+              const V = icons[view];
+              return (
+                <button
+                  key={view}
+                  onClick={() => setActiveView(view)}
+                  className={cn(
+                    'px-2.5 py-1 rounded-md flex items-center gap-1.5 text-badge font-mono font-semibold transition-all cursor-pointer',
+                    activeView === view
+                      ? 'bg-surface text-primary shadow-2xs'
+                      : 'text-secondary hover:text-primary',
+                  )}
+                >
+                  <V className="w-3.5 h-3.5" /> {labels[view]}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Right side: View Switcher + New Directive button */}
-          <div className="flex items-center gap-3 self-stretch md:self-auto justify-between md:justify-end">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-medium text-muted">View:</span>
-              <div className="flex items-center bg-surface-hover/80 p-0.5 rounded-lg border border-border/80 text-xs shadow-2xs">
-                <button
-                  onClick={() => setActiveView('board')}
-                  className={cn(
-                    "px-2.5 py-1 rounded-md flex items-center gap-1.5 font-medium transition-all cursor-pointer",
-                    activeView === 'board'
-                      ? "bg-surface text-primary shadow-2xs font-semibold"
-                      : "text-secondary hover:text-primary"
-                  )}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" /> Board
-                </button>
-                <button
-                  onClick={() => setActiveView('list')}
-                  className={cn(
-                    "px-2.5 py-1 rounded-md flex items-center gap-1.5 font-medium transition-all cursor-pointer",
-                    activeView === 'list'
-                      ? "bg-surface text-primary shadow-2xs font-semibold"
-                      : "text-secondary hover:text-primary"
-                  )}
-                >
-                  <List className="w-3.5 h-3.5" /> List
-                </button>
-                <button
-                  onClick={() => setActiveView('calendar')}
-                  className={cn(
-                    "px-2.5 py-1 rounded-md flex items-center gap-1.5 font-medium transition-all cursor-pointer",
-                    activeView === 'calendar'
-                      ? "bg-surface text-primary shadow-2xs font-semibold"
-                      : "text-secondary hover:text-primary"
-                  )}
-                >
-                  <Calendar className="w-3.5 h-3.5" /> Calendar
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={() => handleCreateIssue("BACKLOG")}
-              className="bg-accent hover:opacity-90 text-on-accent px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 shadow-sm hover:shadow cursor-pointer"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              New Directive
-            </button>
-          </div>
-        </div>
+          {/* New Directive */}
+          <button
+            onClick={() => handleCreateIssue('BACKLOG')}
+            className="krama-btn krama-btn-primary px-3.5 py-2 text-caption font-semibold flex items-center gap-1.5 shadow-sm"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            New Directive
+          </button>
+        </PageHeader>
       )}
 
       {/* 3. Filter Bar */}
-      <div className={cn("px-6 pb-3 flex flex-wrap items-center justify-between gap-3 shrink-0", hideHeader ? "pt-3" : "pt-1")}>
+      <div className={cn("px-6 pb-3 shrink-0", hideHeader ? "pt-3" : "pt-1")}>
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-surface border border-border/60 rounded-xl px-3 py-2 shadow-2xs">
         <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
           {/* Search Input */}
           <div className="relative min-w-[200px] max-w-sm flex-1">
@@ -1403,38 +1336,10 @@ export function KanbanBoard({
             <ChevronDown className="w-3 h-3 text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* All Sprints Dropdown */}
-          <div className="relative">
-            <select
-              value={selectedSprintId}
-              onChange={(e) => setSelectedSprintId(e.target.value)}
-              className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
-            >
-              <option value="all">All Sprints</option>
-              {sprints.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-            <ChevronDown className="w-3 h-3 text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
         </div>
 
-        {/* Right Group By, Sort Dropdowns & View Switcher */}
+        {/* Right Sort Dropdown & View Switcher */}
         <div className="flex items-center gap-2">
-          {/* Group By Status */}
-          <div className="relative">
-            <select
-              value={groupBy}
-              onChange={(e) => setGroupBy(e.target.value as any)}
-              className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
-            >
-              <option value="status">Group by Status</option>
-              <option value="priority">Group by Priority</option>
-              <option value="project">Group by Project</option>
-            </select>
-            <ChevronDown className="w-3 h-3 text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-
           {/* Sort Priority */}
           <div className="relative">
             <select
@@ -1514,9 +1419,10 @@ export function KanbanBoard({
                 <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                 New Directive
               </button>
-            </>
+          </>
           )}
         </div>
+      </div>
       </div>
 
       {/* 4. Board Viewport - Fluid Notion-style responsive columns */}
@@ -1530,7 +1436,7 @@ export function KanbanBoard({
               onDragEnd={handleDragEnd}
             >
               {visibleColumns.map((col) => {
-                const columnIssues = getColumnIssues(col.id);
+                const columnIssues = columnIssuesMap[col.id] || [];
                 return (
                   <div key={col.id} className="w-[280px] lg:w-[310px] shrink-0 h-full flex flex-col">
                     <Column
@@ -1592,7 +1498,7 @@ export function KanbanBoard({
             <Calendar className="w-8 h-8 text-accent mx-auto mb-2 stroke-[1.5]" />
             <h3 className="font-bold text-sm text-primary mb-1">Calendar Timeline</h3>
             <p className="text-xs text-secondary max-w-sm mx-auto mb-4">
-              Directives mapped across sprint milestone calendar dates.
+              Directives mapped across milestone calendar dates.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-left">
               {filteredIssues.map((issue) => (
@@ -1619,11 +1525,9 @@ export function KanbanBoard({
       <IssueCreateModal
         open={createModalOpen}
         initialStatus={createStatus}
-        initialSprintId={selectedSprintId !== 'all' ? selectedSprintId : null}
         defaultProjectId={selectedProjectId !== 'all' ? selectedProjectId : undefined}
         allIssues={issues}
         projects={projects}
-        sprints={sprints}
         onClose={() => setCreateModalOpen(false)}
         onSubmit={(data) => createIssueMutation.mutate(data)}
         isSubmitting={createIssueMutation.isPending}
@@ -1635,7 +1539,6 @@ export function KanbanBoard({
         issue={editingIssue}
         allIssues={issues}
         projects={projects}
-        sprints={sprints}
         onClose={() => { setEditModalOpen(false); setEditingIssue(null); }}
         onSubmit={(id, data) => updateIssueDetailMutation.mutate({ id, data: data as any })}
         isSubmitting={updateIssueDetailMutation.isPending}

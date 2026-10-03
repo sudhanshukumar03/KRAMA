@@ -3,9 +3,10 @@
 // =============================================================================
 // Top-level page component orchestrating the planner system
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { CalendarDays } from 'lucide-react';
-import { format, addMonths, subMonths, addDays } from 'date-fns';
+import { format, subMonths, addMonths, addDays } from 'date-fns';
+import { INDIAN_STATES, COUNTRIES } from './locationConstants';
 import { usePlannerWeek } from '../../hooks/usePlannerWeek';
 import { PlannerHeader } from './PlannerHeader';
 import { CapacitySummary } from './CapacitySummary';
@@ -15,27 +16,48 @@ import { TodayView } from './TodayView';
 import { PlannerSkeleton } from './PlannerSkeleton';
 import { TimeBlockModal } from './TimeBlockModal';
 import { RoutineModal } from './RoutineModal';
+import { MilestoneModal } from './MilestoneModal';
 import { QuickCaptureModal } from '../ui/QuickCaptureModal';
 import { toast } from 'sonner';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LocationSettingsModal } from './LocationSettingsModal';
 import { CapacitySettingsModal } from './CapacitySettingsModal';
 import { IssueEditModal } from '../KanbanBoard';
-import { COUNTRIES, INDIAN_STATES } from './locationConstants';
+import { useAuth } from '../../contexts/AuthContext';
+import { parseLocalDate } from '../../lib/utils';
 
 export function PlannerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const urlMode = searchParams.get('mode');
   const initialMode = (urlMode === 'day' || urlMode === 'schedule') ? 'day' : urlMode === 'calendar' ? 'calendar' : 'plan';
   const [mode, setMode] = useState<'plan' | 'calendar' | 'day'>(initialMode);
   const [previousMode, setPreviousMode] = useState<'plan' | 'calendar'>('plan');
   const [isDrilldown, setIsDrilldown] = useState(false);
   const dateParam = searchParams.get('date');
-  const [viewDay, setViewDay] = useState<Date>(() => dateParam ? new Date(dateParam) : new Date());
+  const [viewDay, setViewDay] = useState<Date>(() => parseLocalDate(dateParam) ?? new Date());
   const [calendarDate, setCalendarDate] = useState(new Date());
   const queryClient = useQueryClient();
+
+  // Sync mode and viewDay on browser back / forward navigation
+  useEffect(() => {
+    const currentUrlMode = searchParams.get('mode');
+    const targetMode = (currentUrlMode === 'day' || currentUrlMode === 'schedule') 
+      ? 'day' 
+      : currentUrlMode === 'calendar' 
+      ? 'calendar' 
+      : 'plan';
+    setMode(targetMode);
+
+    const currentDateParam = searchParams.get('date');
+    if (currentDateParam) {
+      const parsed = parseLocalDate(currentDateParam);
+      if (parsed) setViewDay(parsed);
+    }
+  }, [searchParams]);
+  const { workspaceId } = useAuth();
 
 
 
@@ -46,6 +68,7 @@ export function PlannerPage() {
  refetch,
     days,
     weekRangeLabel,
+    weekNumber,
     navigateWeek,
     navigateToDate,
     occurrenceFor,
@@ -53,11 +76,17 @@ export function PlannerPage() {
     createTimeBlockMutation,
     updateTimeBlockMutation,
     deleteTimeBlockMutation,
+    createMilestoneMutation,
+    updateMilestoneMutation,
+    deleteMilestoneMutation,
   } = usePlannerWeek();
 
   const [timeBlockModalOpen, setTimeBlockModalOpen] = useState(false);
   const [editingTimeBlock, setEditingTimeBlock] = useState<any | null>(null);
   const [routineModalOpen, setRoutineModalOpen] = useState(false);
+  const [milestoneModalOpen, setMilestoneModalOpen] = useState(false);
+  const [editingMilestone, setEditingMilestone] = useState<any | null>(null);
+  const [milestoneDefaultDate, setMilestoneDefaultDate] = useState<Date>(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [captureOpen, setCaptureOpen] = useState(false);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
@@ -71,8 +100,8 @@ export function PlannerPage() {
   const indiaRegion = data?.config?.countryCode === 'IN' ? (data?.config?.regionCode || '') : '';
   const worldCountry = data?.config?.countryCode !== 'IN' ? data?.config?.countryCode : 'US';
 
-  const { data: allIssues = [] } = useQuery({
-    queryKey: ['issues'],
+  const { data: allIssues = [], isError: issuesError } = useQuery({
+    queryKey: ['issues', workspaceId],
     queryFn: api.tasks.list,
     staleTime: 10_000,
   });
@@ -93,9 +122,12 @@ export function PlannerPage() {
  onSuccess: () => {
  queryClient.invalidateQueries({ queryKey: ['planner'] });
  queryClient.invalidateQueries({ queryKey: ['issues'] });
+ queryClient.invalidateQueries({ queryKey: ['tasks'] });
+ queryClient.invalidateQueries({ queryKey: ['projects'] });
+ queryClient.invalidateQueries({ queryKey: ['dashboard'] });
  },
  onError: (err: any) => {
- toast.error('Failed to update task: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+ toast.error('Failed to update task: ' + (err?.message || 'Unknown error'));
  }
  });
 
@@ -104,10 +136,13 @@ export function PlannerPage() {
  onSuccess: () => {
  queryClient.invalidateQueries({ queryKey: ['planner'] });
  queryClient.invalidateQueries({ queryKey: ['issues'] });
+ queryClient.invalidateQueries({ queryKey: ['tasks'] });
+ queryClient.invalidateQueries({ queryKey: ['projects'] });
+ queryClient.invalidateQueries({ queryKey: ['dashboard'] });
  toast.success('Task deleted');
  },
  onError: (err: any) => {
- toast.error('Failed to delete task: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+ toast.error('Failed to delete task: ' + (err?.message || 'Unknown error'));
  }
  });
 
@@ -119,7 +154,7 @@ export function PlannerPage() {
       toast.success('Routine unpinned from planner');
     },
     onError: (err: any) => {
-      toast.error('Failed to unpin routine: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+      toast.error('Failed to unpin routine: ' + (err?.message || 'Unknown error'));
     }
   });
 
@@ -154,12 +189,22 @@ export function PlannerPage() {
     });
   };
 
-  const handleLinkTaskToBlock = (blockId: string, taskId: string) => {
+  const handleLinkTaskToBlock = (blockId: string, taskId: string, blockDate?: string) => {
     updateTimeBlockMutation.mutate({
       id: blockId,
       data: { taskId }
     }, {
-      onSuccess: () => toast.success('Task linked to time block'),
+      onSuccess: () => {
+        toast.success('Task linked to time block');
+        if (blockDate) {
+          const dateOnly = blockDate.includes('T') ? blockDate.split('T')[0] : blockDate;
+          const targetIso = new Date(`${dateOnly}T12:00:00.000Z`).toISOString();
+          updateTaskMutation.mutate({
+            id: taskId,
+            data: { scheduledDate: targetIso }
+          });
+        }
+      },
       onError: (err: any) => toast.error(err?.message || 'Failed to link task')
     });
   };
@@ -206,6 +251,30 @@ export function PlannerPage() {
     setEditingTask(task);
   };
 
+  const handleAddMilestone = (day?: Date) => {
+    setEditingMilestone(null);
+    setMilestoneDefaultDate(day || new Date());
+    setMilestoneModalOpen(true);
+  };
+
+  const handleEditMilestone = (milestone: any) => {
+    setEditingMilestone(milestone);
+    setMilestoneModalOpen(true);
+  };
+
+  const handleToggleMilestone = (milestone: any) => {
+    updateMilestoneMutation.mutate({ id: milestone.id, data: { completed: !milestone.completed } });
+  };
+
+  const handleDeleteMilestone = (milestone: any) => {
+    deleteMilestoneMutation.mutate(milestone.id, {
+      onSuccess: () => {
+        setMilestoneModalOpen(false);
+        setEditingMilestone(null);
+      },
+    });
+  };
+
   const handleOpenDayView = (day: Date) => {
     setViewDay(day);
     navigateToDate(day);
@@ -226,7 +295,7 @@ export function PlannerPage() {
     : mode === 'calendar' 
     ? format(calendarDate, 'MMMM yyyy') 
     : format(viewDay, 'EEEE, MMMM d, yyyy');
-  const headerSubtitle = mode === 'plan' ? "Week " : mode === 'calendar' ? 'Month' : 'Day Details';
+  const headerSubtitle = mode === 'plan' ? `Week ${weekNumber}` : mode === 'calendar' ? 'Month' : 'Day Details';
 
   const handleNavigate = (dir: 'prev' | 'next' | 'today') => {
     if (mode === 'plan') {
@@ -236,19 +305,10 @@ export function PlannerPage() {
       else if (dir === 'prev') setCalendarDate(prev => subMonths(prev, 1));
       else setCalendarDate(prev => addMonths(prev, 1));
     } else {
-      if (dir === 'today') {
-        const today = new Date();
-        setViewDay(today);
-        navigateToDate(today);
-      } else if (dir === 'prev') {
-        const next = addDays(viewDay, -1);
-        setViewDay(next);
-        navigateToDate(next);
-      } else {
-        const next = addDays(viewDay, 1);
-        setViewDay(next);
-        navigateToDate(next);
-      }
+      const targetDate = dir === 'today' ? new Date() : dir === 'prev' ? addDays(viewDay, -1) : addDays(viewDay, 1);
+      setViewDay(targetDate);
+      navigateToDate(targetDate);
+      setSearchParams({ mode: 'day', date: format(targetDate, 'yyyy-MM-dd') });
     }
   };
 
@@ -262,9 +322,6 @@ export function PlannerPage() {
  } else {
  countryRegionStr = COUNTRIES.find(c => c.code === worldCountry)?.name || 'World';
  }
-
-  const targetDayKey = format(viewDay, 'yyyy-MM-dd');
-  const targetDayData = data?.days?.find((d: any) => d.dateKey === targetDayKey) || { dateKey: targetDayKey };
 
   return (
     <div className="flex flex-col h-full w-full min-h-0 overflow-hidden bg-canvas">
@@ -290,6 +347,34 @@ export function PlannerPage() {
           open={routineModalOpen}
           onClose={() => setRoutineModalOpen(false)}
         />
+        <MilestoneModal
+          open={milestoneModalOpen}
+          onClose={() => {
+            setMilestoneModalOpen(false);
+            setEditingMilestone(null);
+          }}
+          defaultDate={milestoneDefaultDate}
+          editingMilestone={editingMilestone}
+          projects={data?.projects || []}
+          isSubmitting={createMilestoneMutation.isPending || updateMilestoneMutation.isPending}
+          onDelete={editingMilestone ? () => handleDeleteMilestone(editingMilestone) : undefined}
+          onSubmit={(milestoneData) => {
+            if (editingMilestone && editingMilestone.id) {
+              updateMilestoneMutation.mutate({ id: editingMilestone.id, data: milestoneData }, {
+                onSuccess: () => {
+                  setMilestoneModalOpen(false);
+                  setEditingMilestone(null);
+                },
+              });
+            } else {
+              createMilestoneMutation.mutate(milestoneData, {
+                onSuccess: () => {
+                  setMilestoneModalOpen(false);
+                },
+              });
+            }
+          }}
+        />
         <TimeBlockModal
           open={timeBlockModalOpen}
           onClose={() => {
@@ -299,6 +384,7 @@ export function PlannerPage() {
           defaultDate={selectedDay}
           editingBlock={editingTimeBlock}
           tasks={data?.tasks || []}
+          projects={data?.projects || []}
           onDelete={editingTimeBlock ? () => {
             deleteTimeBlockMutation.mutate(editingTimeBlock.id, {
               onSuccess: () => {
@@ -360,7 +446,7 @@ export function PlannerPage() {
             setIsDrilldown(false);
             setMode(m);
             if (m !== 'day') setPreviousMode(m);
-            setSearchParams(m === 'plan' ? {} : { mode: m });
+            setSearchParams(m === 'plan' ? {} : m === 'day' ? { mode: 'day', date: format(viewDay, 'yyyy-MM-dd') } : { mode: m });
           }}
           title={headerTitle}
           subtitle={headerSubtitle}
@@ -374,6 +460,11 @@ export function PlannerPage() {
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {mode === 'plan' ? (
             <div className="flex-1 min-h-0 flex flex-col gap-2.5">
+              {issuesError && (
+                <div className="shrink-0 rounded-lg border border-warning-border bg-warning-bg px-3 py-2 text-[11px] font-medium text-warning-fg">
+                  Some tasks couldn't be loaded. Scheduling reflects the last known data — retry from the header to refresh.
+                </div>
+              )}
               <CapacitySummary capacity={data.capacity} onEdit={() => setCapacityModalOpen(true)} />
               <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 <PlannerMatrix
@@ -393,6 +484,11 @@ export function PlannerPage() {
                   onClickTimeBlock={handleEditTimeBlock}
                   onScheduleTask={handleScheduleTask}
                   onLinkTaskToBlock={handleLinkTaskToBlock}
+                  onMoveTimeBlock={(blockId, dateStr) => updateTimeBlockMutation.mutate({ id: blockId, data: { date: `${dateStr}T12:00:00.000Z` } })}
+                  onAddMilestone={handleAddMilestone}
+                  onClickMilestone={handleEditMilestone}
+                  onToggleMilestone={handleToggleMilestone}
+                  onClickGoalDeadline={() => navigate('/app/goals')}
                 />
               </div>
             </div>
@@ -401,14 +497,15 @@ export function PlannerPage() {
               <TodayView
                 day={viewDay}
                 data={mergedData}
-                dayData={targetDayData}
                 onToggleTask={handleToggleTask}
                 onClickTask={handleClickTask}
                 onClickTimeBlock={handleEditTimeBlock}
                 onAddTask={handleAddTask}
                 onAddTimeBlock={handleAddTimeBlock}
-                onDeleteTask={(task) => deleteTaskMutation.mutate(task.id)}
                 onDeleteTimeBlock={(block) => deleteTimeBlockMutation.mutate(block.id)}
+                onAddMilestone={handleAddMilestone}
+                onClickMilestone={handleEditMilestone}
+                onToggleMilestone={handleToggleMilestone}
                 onBack={isDrilldown ? handleBackFromDayView : undefined}
                 backLabel={previousMode === 'calendar' ? 'Month' : 'Week'}
               />
@@ -422,6 +519,8 @@ export function PlannerPage() {
                 localOnly={localOnly}
                 onOpenDayView={handleOpenDayView}
                 tasks={mergedData?.tasks || []}
+                onClickMilestone={handleEditMilestone}
+                onToggleMilestone={handleToggleMilestone}
               />
             </div>
           )}

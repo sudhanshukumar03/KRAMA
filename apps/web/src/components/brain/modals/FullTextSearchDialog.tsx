@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Search, RefreshCw, X, FileText } from 'lucide-react';
 import { api } from '../../../api/client';
+import { useModalA11y } from '../../../hooks/useModalA11y';
 import { cn } from '../../../lib/utils';
 
 export interface DocumentSearchResult {
@@ -34,9 +35,13 @@ export function FullTextSearchDialog({
   const [selectedType, setSelectedType] = useState('ALL');
   const [selectedProject, setSelectedProject] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
+  const [selectedTag, setSelectedTag] = useState('ALL');
+  const [tags, setTags] = useState<{ id: string; name: string; color?: string }[]>([]);
   const [results, setResults] = useState<DocumentSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const modalRef = useModalA11y(isOpen, onClose);
 
   useEffect(() => {
     if (!isOpen) {
@@ -44,10 +49,18 @@ export function FullTextSearchDialog({
       setSelectedType('ALL');
       setSelectedProject('ALL');
       setSelectedStatus('ALL');
+      setSelectedTag('ALL');
       setResults([]);
       return;
     }
-  }, [isOpen]);
+
+    const targetWid = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('krama_active_workspace') : '');
+    if (targetWid) {
+      api.documents.getTags(targetWid)
+        .then((fetched) => setTags(fetched || []))
+        .catch(() => setTags([]));
+    }
+  }, [isOpen, workspaceId]);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -64,6 +77,7 @@ export function FullTextSearchDialog({
           type: selectedType,
           projectId: selectedProject,
           status: selectedStatus,
+          tag: selectedTag,
         });
         setResults(res || []);
       } catch (err) {
@@ -72,13 +86,24 @@ export function FullTextSearchDialog({
         setIsSearching(false);
       }
     }, 250);
-  }, [query, selectedType, selectedProject, selectedStatus, workspaceId]);
+  }, [query, selectedType, selectedProject, selectedStatus, selectedTag, workspaceId]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-start justify-center pt-24 px-4 animate-in fade-in duration-150">
-      <div className="bg-surface border border-border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-start justify-center pt-24 px-4 animate-in fade-in duration-150"
+    >
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search Workspace Documents"
+        className="bg-surface border border-border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
+      >
         <div className="p-4 border-b border-border flex items-center gap-3 bg-surface">
           <Search className="w-5 h-5 text-accent-fg shrink-0" />
           <input
@@ -142,12 +167,27 @@ export function FullTextSearchDialog({
             <option value="DEPRECATED">DEPRECATED</option>
           </select>
 
-          {(selectedType !== 'ALL' || selectedProject !== 'ALL' || selectedStatus !== 'ALL') && (
+          {/* Tag Filter */}
+          {tags.length > 0 && (
+            <select
+              value={selectedTag}
+              onChange={(e) => setSelectedTag(e.target.value)}
+              className="bg-surface text-secondary hover:text-primary px-2 py-1 rounded-lg border border-border outline-none cursor-pointer font-bold max-w-[130px] truncate"
+            >
+              <option value="ALL">All Tags</option>
+              {tags.map((t) => (
+                <option key={t.id} value={t.name}>#{t.name}</option>
+              ))}
+            </select>
+          )}
+
+          {(selectedType !== 'ALL' || selectedProject !== 'ALL' || selectedStatus !== 'ALL' || selectedTag !== 'ALL') && (
             <button
               onClick={() => {
                 setSelectedType('ALL');
                 setSelectedProject('ALL');
                 setSelectedStatus('ALL');
+                setSelectedTag('ALL');
               }}
               className="text-accent-fg hover:underline px-1 py-0.5 ml-auto text-[10px] cursor-pointer"
             >

@@ -82,3 +82,54 @@ export function calculateCounts(plainText: string) {
   const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
   return { charCount, wordCount };
 }
+
+export interface ExtractedEntityLink {
+  targetType: 'DOCUMENT' | 'PROJECT' | 'TASK';
+  targetId: string;
+}
+
+export function extractEntityLinks(node: any): ExtractedEntityLink[] {
+  const links: ExtractedEntityLink[] = [];
+  const seen = new Set<string>();
+
+  const checkAttrs = (attrs: any) => {
+    if (!attrs) return;
+    const docId = attrs['data-doc-id'] || (attrs.type === 'DOCUMENT' ? attrs.id : undefined);
+    const entityType = attrs['data-entity-type'] || attrs.type;
+    const entityId = attrs['data-entity-id'] || attrs.id;
+
+    if (docId && !seen.has(`DOCUMENT:${docId}`)) {
+      seen.add(`DOCUMENT:${docId}`);
+      links.push({ targetType: 'DOCUMENT', targetId: docId });
+    } else if (entityType && entityId && ['DOCUMENT', 'PROJECT', 'TASK'].includes(entityType)) {
+      const key = `${entityType}:${entityId}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        links.push({ targetType: entityType, targetId: entityId });
+      }
+    }
+  };
+
+  const traverse = (curr: any) => {
+    if (!curr) return;
+    if (curr.attrs) {
+      checkAttrs(curr.attrs);
+    }
+    if (curr.marks && Array.isArray(curr.marks)) {
+      for (const mark of curr.marks) {
+        if (mark.attrs) {
+          checkAttrs(mark.attrs);
+        }
+      }
+    }
+
+    if (curr.content && Array.isArray(curr.content)) {
+      for (const child of curr.content) {
+        traverse(child);
+      }
+    }
+  };
+
+  traverse(node);
+  return links;
+}

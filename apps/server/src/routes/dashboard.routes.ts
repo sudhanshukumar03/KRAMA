@@ -6,7 +6,7 @@ const router: Router = Router();
 
 // Apply auth middleware to all routes in this file
 router.use(requireAuth);
-router.use(requireWorkspaceRole('MEMBER'));
+router.use(requireWorkspaceRole('VIEWER'));
 
 router.get('/', getDashboardData);
 

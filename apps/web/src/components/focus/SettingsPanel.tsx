@@ -59,7 +59,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-2.5">
-            <Sliders className="w-5 h-5 text-purple-400" />
+            <Sliders className="w-5 h-5 text-accent-fg" />
             <h2 className="text-base font-semibold">Timer Configuration</h2>
           </div>
           <button
@@ -247,7 +247,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 type="checkbox"
                 checked={localSettings.autoStartBreaks}
                 onChange={(e) => updateField('autoStartBreaks', e.target.checked)}
-                className="w-4 h-4 accent-teal-500 rounded cursor-pointer shrink-0"
+                className="w-4 h-4 accent-accent rounded cursor-pointer shrink-0"
               />
             </div>
 
@@ -261,7 +261,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 type="checkbox"
                 checked={localSettings.autoStartPomodoros}
                 onChange={(e) => updateField('autoStartPomodoros', e.target.checked)}
-                className="w-4 h-4 accent-teal-500 rounded cursor-pointer shrink-0"
+                className="w-4 h-4 accent-accent rounded cursor-pointer shrink-0"
               />
             </div>
           </div>

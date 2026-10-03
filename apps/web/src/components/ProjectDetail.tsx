@@ -17,7 +17,6 @@ import {
   ArrowRight,
   X,
   Search,
-  Bell,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -190,6 +189,8 @@ function ProjectEditModal({
                 <option value="active">⚡ Active Execution</option>
                 <option value="paused">⏸️ Paused</option>
                 <option value="shipped">🚀 Shipped / Live</option>
+                <option value="completed">✅ Completed</option>
+                <option value="archived">🗄️ Archived</option>
               </select>
             </div>
 
@@ -365,9 +366,20 @@ export function ProjectDetail() {
   const { data: projects = [], isLoading: pLoading, isError: pError } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
   const { data: issues = [], isLoading: iLoading, isError: iError } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
   const { data: pages = [], isLoading: docsLoading } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
-  const { data: goals = [], isLoading: goalsLoading } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
+  const { data: goals = [], isLoading: goalsLoading } = useQuery({ queryKey: ['goals', 'lite'], queryFn: api.goals.listLite });
 
-  const project = projects.find(p => p.id === id);
+  // Load this initiative directly via GET /projects/:id (authoritative, workspace-scoped),
+  // falling back to the cached list so the header renders instantly from an existing
+  // ['projects'] cache while the single fetch resolves. A 404 here (wrong workspace /
+  // deleted) leaves both empty → the "not found" state below.
+  const { data: fetchedProject } = useQuery({
+    queryKey: ['project', id],
+    queryFn: () => api.projects.get(id!),
+    enabled: !!id,
+    retry: false,
+  });
+
+  const project = fetchedProject || projects.find(p => p.id === id);
 
   const editProjectMutation = useMutation({
     mutationFn: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon?: string | null; goalId?: string | null; tags?: string[] }) => {
@@ -388,6 +400,7 @@ export function ProjectDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
       setEditModalOpen(false);
       toast.success('Initiative updated successfully');
@@ -404,6 +417,10 @@ export function ProjectDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       setDeleteModalOpen(false);
       toast.success(`Deleted initiative "${project?.name}"`);
       navigate('/app/projects');
@@ -414,7 +431,7 @@ export function ProjectDetail() {
   });
 
   const createDirectiveMutation = useMutation({
-    mutationFn: (data: { title: string; description: string; status: any; priority: any; estimateMinutes?: number; blockedById?: string | null; projectId?: string; sprintId?: string | null }) =>
+    mutationFn: (data: { title: string; description: string; status: any; priority: any; estimateMinutes?: number; blockedById?: string | null; projectId?: string }) =>
       api.tasks.create({
         title: data.title,
         description: data.description,
@@ -423,13 +440,15 @@ export function ProjectDetail() {
         estimateMinutes: data.estimateMinutes,
         assignee: 'me',
         projectId: project?.id,
-        sprintId: data.sprintId || null,
         labels: [],
         blockedById: data.blockedById
       }),
     onSuccess: (newIssue) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
       setCreateDirectiveModalOpen(false);
       toast.success(`Created "${newIssue?.title || 'Directive'}"`, {
         description: 'Directive added to initiative backlog.'
@@ -441,7 +460,7 @@ export function ProjectDetail() {
   });
 
   if (pLoading || iLoading || docsLoading || goalsLoading) {
-    return <LoadingState variant="project-detail" title="Loading Strategic Initiative..." description="Aggregating roadmap milestones, sprint tickets, and engineering documentation..." />;
+    return <LoadingState variant="project-detail" title="Loading Strategic Initiative..." description="Aggregating roadmap milestones, execution tickets, and engineering documentation..." />;
   }
 
   if (pError || iError) {
@@ -468,8 +487,8 @@ export function ProjectDetail() {
   const projectDocs = pages.filter(p => p.linkedProjectId === project.id || p.projectId === project.id);
   const projectGoal = project.goal || (project.goalId ? goals.find(g => g.id === project.goalId) : null);
 
-  const completedIssues = projectIssues.filter((i: any) => i.status === "DONE" || i.status === "REVIEW");
-  const openIssues = projectIssues.filter((i: any) => i.status !== "DONE" && i.status !== "REVIEW");
+  const completedIssues = projectIssues.filter((i: any) => i.status === "DONE");
+  const openIssues = projectIssues.filter((i: any) => i.status !== "DONE");
   const progressPct = projectIssues.length > 0 ? Math.round((completedIssues.length / projectIssues.length) * 100) : 0;
 
   // Calculate days since last update
@@ -486,7 +505,7 @@ export function ProjectDetail() {
 
   let riskStatus = 'NOMINAL VELOCITY';
   let riskBadgeClass = 'bg-success-bg text-success-fg border-success-border';
-  let riskMessage = `Execution velocity is tracking strongly at ${progressPct}%. Milestones and sprint deliverables are well balanced.`;
+  let riskMessage = `Execution velocity is tracking strongly at ${progressPct}%. Milestones and execution deliverables are well balanced.`;
 
   if (progressPct === 100) {
     riskStatus = 'DELIVERED & COMPLETE';
@@ -503,11 +522,11 @@ export function ProjectDetail() {
   } else if (hasUrgentBlockers) {
     riskStatus = 'ATTENTION: BLOCKERS DETECTED';
     riskBadgeClass = 'bg-warning-bg text-warning-fg border-warning-border';
-    riskMessage = `${urgentIssues.length} high/urgent priority ticket(s) currently open. Focus daily sprints on clearing these blockers first.`;
+    riskMessage = `${urgentIssues.length} high/urgent priority ticket(s) currently open. Focus daily execution on clearing these blockers first.`;
   } else if (projectIssues.length === 0) {
     riskStatus = 'SCOPE DEFINITION PHASE';
     riskBadgeClass = 'bg-accent-subtle text-accent-fg border-accent/20';
-    riskMessage = 'No execution tickets created yet. Add tickets to Kanban or link Sprint directives to establish tracking.';
+    riskMessage = 'No execution tickets created yet. Add tickets to Kanban or link milestones to establish tracking.';
   }
 
   const handleRunDiagnostic = async () => {
@@ -538,7 +557,7 @@ export function ProjectDetail() {
       name: project.name,
       problemStatement: project.problemStatement || '',
       status: newStatus,
-      targetDate: project.targetDate ? new Date(project.targetDate).toISOString() : '',
+      targetDate: (() => { const d = project.targetDate || (project.metadata as any)?.targetDate; return d ? new Date(d).toISOString() : ''; })(),
       icon: project.icon,
       goalId: project.goalId || null,
       tags: (project.metadata as any)?.tags || []
@@ -557,7 +576,7 @@ export function ProjectDetail() {
         name: project.name,
         problemStatement: project.problemStatement || '',
         status: project.status,
-        targetDate: project.targetDate ? new Date(project.targetDate).toISOString() : '',
+        targetDate: (() => { const d = project.targetDate || (project.metadata as any)?.targetDate; return d ? new Date(d).toISOString() : ''; })(),
         icon: project.icon,
         goalId: project.goalId || null,
         tags: updated
@@ -573,7 +592,7 @@ export function ProjectDetail() {
       name: project.name,
       problemStatement: project.problemStatement || '',
       status: project.status,
-      targetDate: project.targetDate ? new Date(project.targetDate).toISOString() : '',
+      targetDate: (() => { const d = project.targetDate || (project.metadata as any)?.targetDate; return d ? new Date(d).toISOString() : ''; })(),
       icon: project.icon,
       goalId: project.goalId || null,
       tags: updated
@@ -611,7 +630,6 @@ export function ProjectDetail() {
         defaultProjectId={project.id}
         allIssues={issues}
         projects={projects}
-        sprints={[]}
         onClose={() => setCreateDirectiveModalOpen(false)}
         onSubmit={(data) => createDirectiveMutation.mutate(data)}
         isSubmitting={createDirectiveMutation.isPending}
@@ -699,14 +717,6 @@ export function ProjectDetail() {
             )}
           </div>
 
-          <button
-            onClick={() => navigate('/app/notifications')}
-            className="w-8 h-8 rounded-full border border-border/70 bg-surface-hover/40 hover:bg-surface-hover text-secondary hover:text-primary flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
-            title="Notifications"
-          >
-            <Bell className="w-3.5 h-3.5" />
-          </button>
-
           <div className="relative" ref={moreMenuRef}>
             <button
               onClick={() => setMoreMenuOpen(prev => !prev)}
@@ -789,7 +799,9 @@ export function ProjectDetail() {
                       "font-mono text-badge font-bold px-2 py-0.5 rounded uppercase tracking-wider border",
                       project.status === 'active' ? "bg-accent-subtle text-accent-fg border-accent/30" :
                       project.status === 'shipped' ? "bg-success-bg text-success-fg border-success-border" :
+                      project.status === 'completed' ? "bg-success-bg text-success-fg border-success-border" :
                       project.status === 'paused' ? "bg-danger-bg text-danger-fg border-danger-border" :
+                      project.status === 'archived' ? "bg-surface-hover text-secondary border-border" :
                       "bg-warning-bg text-warning-fg border-warning-border"
                     )}>
                       {project.status || 'IDEA'}
@@ -832,15 +844,15 @@ export function ProjectDetail() {
                   <span className="flex h-2 w-2 relative">
                     <span className={cn(
                       "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
-                      progressPct === 100 ? "bg-emerald-400" :
-                      isPastDue ? "bg-rose-400" :
-                      isApproaching || hasUrgentBlockers ? "bg-amber-400" : "bg-emerald-400"
+                      progressPct === 100 ? "bg-success-fg" :
+                      isPastDue ? "bg-danger-fg" :
+                      isApproaching || hasUrgentBlockers ? "bg-warning-fg" : "bg-success-fg"
                     )} />
                     <span className={cn(
                       "relative inline-flex rounded-full h-2 w-2",
-                      progressPct === 100 ? "bg-emerald-500" :
-                      isPastDue ? "bg-rose-500" :
-                      isApproaching || hasUrgentBlockers ? "bg-amber-500" : "bg-emerald-500"
+                      progressPct === 100 ? "bg-success-fg" :
+                      isPastDue ? "bg-danger-fg" :
+                      isApproaching || hasUrgentBlockers ? "bg-warning-fg" : "bg-success-fg"
                     )} />
                   </span>
                   <span className={cn(
@@ -933,9 +945,9 @@ export function ProjectDetail() {
             <div className="lg:col-span-8 space-y-6">
 
               {/* CARD 1: AI Strategic Risk Sentinel Card */}
-              <div className="krama-card p-5 border-emerald-500/25 dark:border-emerald-500/20 bg-emerald-500/[0.04] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="krama-card p-5 border-success-border/40 bg-success-bg/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex items-start gap-3.5">
-                  <div className="w-11 h-11 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                  <div className="w-11 h-11 rounded-xl bg-success-bg text-success-fg border border-success-border flex items-center justify-center shrink-0">
                     <Sparkles className="w-5 h-5 stroke-[1.75]" />
                   </div>
                   <div>
@@ -1089,7 +1101,7 @@ export function ProjectDetail() {
                           <LayoutGrid className="w-8 h-8 text-muted stroke-[1.25] mx-auto mb-2 opacity-50" />
                           <h5 className="text-caption font-bold text-primary mb-1">No open execution tickets in initiative</h5>
                           <p className="text-caption text-muted max-w-[240px] mx-auto leading-relaxed">
-                            Create tickets in Kanban or link Sprint directives to start tracking progress.
+                            Create tickets in Kanban or link milestones to start tracking progress.
                           </p>
                         </div>
                       ) : (
@@ -1236,7 +1248,7 @@ export function ProjectDetail() {
 
                       {statusDropdownOpen && (
                         <div className="absolute right-0 top-full mt-1 w-40 bg-surface border border-border rounded-xl shadow-xl z-50 py-1 text-caption font-mono animate-in fade-in zoom-in-95 duration-100">
-                          {['idea', 'active', 'paused', 'shipped'].map(st => (
+                          {['idea', 'active', 'paused', 'shipped', 'completed', 'archived'].map(st => (
                             <button
                               key={st}
                               onClick={() => handleQuickStatusChange(st)}
@@ -1246,7 +1258,9 @@ export function ProjectDetail() {
                                 <span className={cn("w-1.5 h-1.5 rounded-full",
                                   st === 'active' ? "bg-accent" :
                                   st === 'idea' ? "bg-warning-fg" :
-                                  st === 'paused' ? "bg-danger-fg" : "bg-success-fg"
+                                  st === 'paused' ? "bg-danger-fg" :
+                                  st === 'completed' ? "bg-sky-500" :
+                                  st === 'archived' ? "bg-secondary/50" : "bg-success-fg"
                                 )} />
                                 {st}
                               </div>
@@ -1356,9 +1370,9 @@ export function ProjectDetail() {
                   </div>
                   <span className={cn(
                     "w-2 h-2 rounded-full",
-                    progressPct === 100 ? "bg-emerald-500" :
-                    isPastDue ? "bg-rose-500" :
-                    hasUrgentBlockers ? "bg-amber-500" : "bg-emerald-500"
+                    progressPct === 100 ? "bg-success-fg" :
+                    isPastDue ? "bg-danger-fg" :
+                    hasUrgentBlockers ? "bg-warning-fg" : "bg-success-fg"
                   )} />
                 </div>
 

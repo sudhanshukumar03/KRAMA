@@ -23,8 +23,9 @@ import helmet from 'helmet';
 
 import { socketService } from './services/socket.service';
 import { redisService } from './services/redis.service';
-import { ensureLocalUser } from './utils/bootstrap';
+import { ensureLocalUser, ensureVectorIndexes, ensureSearchVectorIndex } from './utils/bootstrap';
 import './events/subscribers';
+import './events/goalProgress.subscribers';
 
 import authRoutes from './routes/auth.routes';
 import workspaceRoutes from './routes/workspace.routes';
@@ -35,10 +36,7 @@ import projectRoutes from './routes/project.routes';
 import taskRoutes from './routes/task.routes';
 import goalRoutes from './routes/goal.routes';
 import habitRoutes from './routes/habit.routes';
-import sprintRoutes from './routes/sprint.routes';
-import dailyLogRoutes from './routes/dailyLog.routes';
 import aiRoutes from './routes/ai.routes';
-import knowledgeGraphRoutes from './routes/knowledgeGraph.routes';
 import notificationRoutes from './routes/notification.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import focusSessionRoutes from './routes/focusSession.routes';
@@ -73,7 +71,7 @@ app.use(helmet());
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Allow any localhost or 127.0.0.1 origin during development
-    if (!origin || /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin) || /^chrome-extension:\/\//.test(origin) || allowedOrigins.includes(origin)) {
+    if (!origin || /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin) || allowedOrigins.includes(origin)) {
       callback(null, true);
       return;
     }
@@ -104,10 +102,7 @@ app.use('/api/v1/tasks', taskRoutes);
 
 app.use('/api/v1/goals', goalRoutes);
 app.use('/api/v1/habits', habitRoutes);
-app.use('/api/v1/sprints', sprintRoutes);
-app.use('/api/v1/daily-logs', dailyLogRoutes);
 app.use('/api/v1/ai', aiRoutes);
-app.use('/api/v1/knowledge-graph', knowledgeGraphRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/focus-sessions', focusSessionRoutes);
@@ -151,6 +146,8 @@ httpServer.listen(PORT, async () => {
     }
   }
   await ensureLocalUser();
+  await ensureVectorIndexes();
+  await ensureSearchVectorIndex();
   console.log(`[Server] KRAMA OS Backend running on port ${PORT}`);
 });
 

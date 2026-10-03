@@ -51,7 +51,7 @@ export function PageTreeNode({
       if (copy?.id) onSelect(copy.id);
       toast.success(`Duplicated "${page.title}"`);
     } catch (err: any) {
-      toast.error('Failed to duplicate: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+      toast.error('Failed to duplicate: ' + (err?.message || 'Unknown error'));
     }
   };
 
@@ -83,14 +83,13 @@ export function PageTreeNode({
         title: 'Untitled Child Document',
         spaceId: page.spaceId || undefined,
         parentId: page.id,
-        blocks: []
       });
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       setExpanded(true);
       if (newPage?.id) onSelect(newPage.id);
       toast.success(`Created sub-page under "${page.title}"`);
     } catch (err: any) {
-      toast.error('Failed to create sub-page: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+      toast.error('Failed to create sub-page: ' + (err?.message || 'Unknown error'));
     }
   };
   
@@ -122,8 +121,8 @@ export function PageTreeNode({
           <div className="w-4 h-4 flex items-center justify-center shrink-0 relative">
             {React.createElement(resolveIcon(page.icon), { className: cn("w-3.5 h-3.5 shrink-0", isSelected ? "text-accent-fg" : "text-muted group-hover:text-secondary") })}
             {page.isFavorite && (
-              <span className="absolute -top-1 -right-1 text-amber-500">
-                <Star className="w-2.5 h-2.5 fill-amber-500" />
+              <span className="absolute -top-1 -right-1 text-warning-fg">
+                <Star className="w-2.5 h-2.5 fill-warning-fg" />
               </span>
             )}
           </div>
@@ -142,15 +141,15 @@ export function PageTreeNode({
           <button
             onClick={handleToggleFavorite}
             className={cn("p-1 rounded transition-colors",
-              page.isFavorite ? "text-amber-500 hover:text-amber-600" : "text-muted hover:text-amber-500"
+              page.isFavorite ? "text-warning-fg" : "text-muted hover:text-warning-fg"
             )}
             title={page.isFavorite ? "Favorited" : "Favorite"}
           >
-            <Star className={cn("w-3.5 h-3.5", page.isFavorite && "fill-amber-500")} />
+            <Star className={cn("w-3.5 h-3.5", page.isFavorite && "fill-warning-fg")} />
           </button>
           <button
             onClick={handleDuplicate}
-            className="p-1 rounded text-muted hover:text-blue-600 hover:bg-blue-500/10 transition-colors"
+            className="p-1 rounded text-muted hover:text-accent-fg hover:bg-accent-subtle transition-colors cursor-pointer"
             title="Duplicate subtree"
           >
             <Copy className="w-3.5 h-3.5" />
@@ -160,7 +159,7 @@ export function PageTreeNode({
               e.stopPropagation();
               onMoveDoc?.(page);
             }}
-            className="p-1 rounded text-muted hover:text-blue-600 hover:bg-blue-500/10 transition-colors"
+            className="p-1 rounded text-muted hover:text-accent-fg hover:bg-accent-subtle transition-colors cursor-pointer"
             title="Move document"
           >
             <FolderInput className="w-3.5 h-3.5" />
@@ -175,7 +174,7 @@ export function PageTreeNode({
                   handleCreateChildPage(e);
                 }
               }}
-              className="p-1 rounded text-muted hover:text-blue-600 hover:bg-blue-500/10 transition-colors cursor-pointer"
+              className="p-1 rounded text-muted hover:text-accent-fg hover:bg-accent-subtle transition-colors cursor-pointer"
               title="Add sub-document"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -183,7 +182,7 @@ export function PageTreeNode({
           )}
           <button
             onClick={handleDeletePage}
-            className="p-1 rounded text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
+            className="p-1 rounded text-muted hover:text-danger-fg hover:bg-danger-bg transition-colors cursor-pointer"
             title="Delete page"
           >
             <Trash2 className="w-3.5 h-3.5" />

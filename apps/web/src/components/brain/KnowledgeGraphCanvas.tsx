@@ -30,16 +30,19 @@ export function KnowledgeGraphCanvas({
   const [searchFilter, setSearchFilter] = useState('');
 
   // Refs for smooth animation loop without thrashing on mouse movement
-  const offsetRef = useRef({ x: 0, y: 0 });
-  offsetRef.current = offset;
-  const zoomRef = useRef(1);
-  zoomRef.current = zoom;
-  const hoveredNodeRef = useRef<any | null>(null);
-  hoveredNodeRef.current = hoveredNode;
-  const searchFilterRef = useRef('');
-  searchFilterRef.current = searchFilter;
+  const offsetRef = useRef(offset);
+  const zoomRef = useRef(zoom);
+  const hoveredNodeRef = useRef<any | null>(hoveredNode);
+  const searchFilterRef = useRef(searchFilter);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    offsetRef.current = offset;
+    zoomRef.current = zoom;
+    hoveredNodeRef.current = hoveredNode;
+    searchFilterRef.current = searchFilter;
+  }, [offset, zoom, hoveredNode, searchFilter]);
 
   const isSimulatingRef = useRef(false);
   const animIdRef = useRef<number | null>(null);
@@ -72,7 +75,7 @@ export function KnowledgeGraphCanvas({
     wakeSimulation();
   }, [graphData, wakeSimulation]);
 
-  const tick = () => {
+  const tick = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) {
       isSimulatingRef.current = false;
@@ -231,8 +234,11 @@ export function KnowledgeGraphCanvas({
       isSimulatingRef.current = false;
       animIdRef.current = null;
     }
-  };
-  tickRef.current = tick;
+  }, [graphData]);
+
+  useEffect(() => {
+    tickRef.current = tick;
+  });
 
   // Start simulation loop on graph data
   useEffect(() => {
@@ -355,6 +361,7 @@ export function KnowledgeGraphCanvas({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
         onClick={handleClick}
         className={cn("flex-1 cursor-grab active:cursor-grabbing w-full h-full", hoveredNode && "cursor-pointer")}
       />

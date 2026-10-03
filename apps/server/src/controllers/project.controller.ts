@@ -1,7 +1,26 @@
 import type { Request, Response } from 'express';
 import { CreateProjectSchema, UpdateProjectSchema, ReorderSchema } from '@krama/validation';
+import type { Prisma } from '@prisma/client';
 
 import { prisma } from '../prisma';
+import { goalService } from '../services/goal.service';
+import { socketService } from '../services/socket.service';
+
+// Shared include for project responses. The task `_count` is filtered to
+// countable tasks (non-deleted, CANCELED excluded) so the denominator matches
+// what the board list returns and what goal auto-progress derives — otherwise
+// soft-deleted/canceled tickets silently inflate the total and depress the
+// progress % shown on the Projects card, the ProjectDetail page, and the Goal
+// drawer's "linked tasks". Documents likewise exclude soft-deleted rows.
+const projectInclude = {
+  goal: true,
+  _count: {
+    select: {
+      tasks: { where: { deletedAt: null, status: { not: 'CANCELED' } } },
+      documents: { where: { deletedAt: null } },
+    },
+  },
+} satisfies Prisma.ProjectInclude;
 
 export const listProjects = async (req: Request, res: Response) => {
   try {
@@ -13,12 +32,7 @@ export const listProjects = async (req: Request, res: Response) => {
         workspaceId,
         deletedAt: null,
       },
-      include: {
-        goal: true,
-        _count: {
-          select: { tasks: true, documents: true, sprints: true },
-        },
-      },
+      include: projectInclude,
       orderBy: { position: 'asc' },
     });
     
@@ -35,7 +49,7 @@ export const getProject = async (req: Request, res: Response) => {
 
     const project = await prisma.project.findUnique({
       where: { id },
-      include: { goal: true },
+      include: projectInclude,
     });
 
     if (!project || project.deletedAt || project.workspaceId !== workspaceId) {
@@ -65,7 +79,7 @@ export const createProject = async (req: Request, res: Response) => {
 
 
 
-    const { targetDate, progress, skillIds, description, color, ...cleanData } = data as any;
+    const { targetDate, progress: _progress, skillIds: _skillIds, description, color, ...cleanData } = data as any;
     let metadata = cleanData.metadata || {};
     if (targetDate !== undefined) metadata.targetDate = targetDate;
     if (description !== undefined) metadata.description = description;
@@ -78,13 +92,16 @@ export const createProject = async (req: Request, res: Response) => {
         position,
         createdBy: req.user!.id,
       },
-      include: {
-        goal: true,
-        _count: {
-          select: { tasks: true, documents: true, sprints: true },
-        },
-      },
+      include: projectInclude,
     });
+
+    if (project.goalId) {
+      await goalService.recomputeAutoProgress(project.goalId, req.user!.id).catch(() => {});
+    }
+
+    if (project.workspaceId) {
+      socketService.emitToWorkspace(project.workspaceId, 'project:created', { projectId: project.id, workspaceId: project.workspaceId, goalId: project.goalId });
+    }
 
     return res.status(201).json(project);
   } catch (error: any) {
@@ -107,7 +124,7 @@ export const updateProject = async (req: Request, res: Response) => {
       return res.status(409).json({ message: 'Conflict: version mismatch' });
     }
 
-    const { version, workspaceId: bodyWorkspaceId, targetDate, progress, skillIds, description, color, ...updateData } = data as any;
+    const { version: _version, workspaceId: _bodyWorkspaceId, targetDate, progress: _progress, skillIds: _skillIds, description, color, ...updateData } = data as any;
 
     let metadata = updateData.metadata !== undefined ? updateData.metadata : (existing.metadata as any || {});
     if (targetDate !== undefined) {
@@ -128,13 +145,20 @@ export const updateProject = async (req: Request, res: Response) => {
         version: { increment: 1 },
         updatedBy: req.user!.id,
       },
-      include: {
-        goal: true,
-        _count: {
-          select: { tasks: true, documents: true, sprints: true },
-        },
-      },
+      include: projectInclude,
     });
+
+    // A project's tasks feed a linked goal's auto-progress. If the goal link changed,
+    // refresh both the old and new goal (recompute no-ops on manual goals).
+    if (existing.goalId !== project.goalId) {
+      for (const gid of [existing.goalId, project.goalId]) {
+        if (gid) await goalService.recomputeAutoProgress(gid, req.user!.id).catch(() => {});
+      }
+    }
+
+    if (project.workspaceId) {
+      socketService.emitToWorkspace(project.workspaceId, 'project:updated', { projectId: project.id, workspaceId: project.workspaceId, goalId: project.goalId });
+    }
 
     return res.status(200).json(project);
   } catch (error: any) {
@@ -155,9 +179,6 @@ export const deleteProject = async (req: Request, res: Response) => {
 
     const now = new Date();
     await prisma.$transaction(async (tx) => {
-      const sprints = await tx.sprint.findMany({ where: { projectId: id }, select: { id: true } });
-      const sprintIds = sprints.map(s => s.id);
-
       await tx.project.update({
         where: { id },
         data: {
@@ -168,17 +189,24 @@ export const deleteProject = async (req: Request, res: Response) => {
 
       await tx.task.updateMany({
         where: {
-          OR: [{ projectId: id }, { sprintId: { in: sprintIds } }],
+          projectId: id,
           deletedAt: null
         },
         data: { deletedAt: now, updatedBy: req.user!.id },
       });
 
-      await tx.sprint.updateMany({
-        where: { projectId: id, deletedAt: null },
-        data: { deletedAt: now, updatedBy: req.user!.id },
+      // PRJ-01: Cascade delete project milestones when project is deleted
+      await tx.milestone.deleteMany({
+        where: { projectId: id },
       });
     });
+
+    // Its tasks were just soft-deleted; refresh the linked goal's auto-progress.
+    if (existing.goalId) await goalService.recomputeAutoProgress(existing.goalId, req.user!.id).catch(() => {});
+
+    if (workspaceId) {
+      socketService.emitToWorkspace(workspaceId, 'project:deleted', { projectId: id, workspaceId, goalId: existing.goalId });
+    }
 
     return res.status(200).json({ message: 'Project deleted' });
   } catch (error) {
@@ -207,6 +235,7 @@ export const reorderProject = async (req: Request, res: Response) => {
         version: { increment: 1 },
         updatedBy: req.user!.id,
       },
+      include: projectInclude,
     });
 
     return res.status(200).json(project);
@@ -230,38 +259,32 @@ export const restoreProject = async (req: Request, res: Response) => {
     }
 
     const project = await prisma.$transaction(async (tx) => {
-      const sprints = await tx.sprint.findMany({ where: { projectId: id }, select: { id: true } });
-      const sprintIds = sprints.map(s => s.id);
-
       const updatedProject = await tx.project.update({
         where: { id },
         data: {
           deletedAt: null,
           updatedBy: req.user!.id,
         },
-        include: {
-          goal: true,
-          _count: {
-            select: { tasks: true, documents: true, sprints: true },
-          },
-        },
+        include: projectInclude,
       });
 
       await tx.task.updateMany({
         where: {
-          OR: [{ projectId: id }, { sprintId: { in: sprintIds } }],
+          projectId: id,
           deletedAt: existing.deletedAt
         },
         data: { deletedAt: null, updatedBy: req.user!.id },
       });
 
-      await tx.sprint.updateMany({
-        where: { projectId: id, deletedAt: existing.deletedAt },
-        data: { deletedAt: null, updatedBy: req.user!.id },
-      });
-
       return updatedProject;
     });
+
+    // Its tasks were just restored; refresh the linked goal's auto-progress.
+    if (existing.goalId) await goalService.recomputeAutoProgress(existing.goalId, req.user!.id).catch(() => {});
+
+    if (project.workspaceId) {
+      socketService.emitToWorkspace(project.workspaceId, 'project:restored', { projectId: project.id, workspaceId: project.workspaceId, goalId: project.goalId });
+    }
 
     return res.status(200).json(project);
   } catch (error) {

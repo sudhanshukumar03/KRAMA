@@ -96,7 +96,7 @@ export function LandingPage() {
  </div>
  <div>
  <div className="text-card-title text-primary">KRM-102: Migrate storage engine to SQLite WAL</div>
- <div className="text-caption text-secondary">Sprint 14 • Execution Board</div>
+ <div className="text-caption text-secondary">This Week • Execution Board</div>
  </div>
  </div>
  <span className="text-badge text-danger-fg bg-danger-bg px-2 py-0.5 rounded border border-danger-border">Urgent</span>

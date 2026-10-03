@@ -2,6 +2,7 @@ import { X, Pin } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { toast } from 'sonner';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 interface Props {
  open: boolean;
@@ -30,16 +31,18 @@ export function RoutineModal({ open, onClose }: Props) {
  },
  });
 
+ const dialogRef = useModalA11y(open, onClose);
+
  if (!open) return null;
 
  const unpinnedHabits = habits.filter((h: any) => !h.pinnedToPlanner);
 
  return (
- <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
- <div className="bg-surface rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
- <div className="flex items-center justify-between p-4 border-b border-border bg-slate-50/50">
- <h2 className="text-sm font-bold text-primary">Pin Routine</h2>
- <button onClick={onClose} className="p-1 text-muted hover:text-primary rounded-lg hover:bg-surface-hover transition-colors">
+ <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+ <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="routine-modal-title" tabIndex={-1} className="krama-dialog w-full max-w-md overflow-hidden flex flex-col max-h-[80vh] outline-none" onClick={e => e.stopPropagation()}>
+ <div className="flex items-center justify-between p-4 border-b border-border bg-surface-hover/50">
+ <h2 id="routine-modal-title" className="text-sm font-bold text-primary">Pin Routine</h2>
+ <button onClick={onClose} aria-label="Close" className="p-1 text-muted hover:text-primary rounded-lg hover:bg-surface-hover transition-colors">
  <X size={16} />
  </button>
  </div>
@@ -59,7 +62,7 @@ export function RoutineModal({ open, onClose }: Props) {
  key={habit.id}
  onClick={() => pinMutation.mutate(habit.id)}
  disabled={pinMutation.isPending}
- className="w-full flex items-center justify-between p-3 rounded-lg border border-border hover:border-accent/20 hover:bg-indigo-50/50 transition-colors text-left disabled:opacity-50"
+ className="w-full flex items-center justify-between p-3 rounded-lg border border-border hover:border-accent/20 hover:bg-surface-hover transition-colors text-left disabled:opacity-50"
  >
  <span className="text-sm font-medium text-primary truncate">{habit.name}</span>
  <Pin size={14} className="text-muted" />

@@ -242,8 +242,8 @@ export const FocusPage: React.FC = () => {
     });
 
     sock.on('notification', (data: any) => {
+      // Surface server-pushed event as a transient toast (no persistent notification store)
       toast(data.title, { description: data.message });
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     });
 
     sock.on('task:updated', () => {

@@ -1,6 +1,6 @@
 import type { Router } from 'express';
 import express from 'express';
-import { getOverview, getFocusHistory, getHabitHeatmap } from '../controllers/analytics.controller';
+import { getOverview, getFocusHistory } from '../controllers/analytics.controller';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 
 const router: Router = express.Router();
@@ -19,6 +19,5 @@ router.use(ensureWorkspaceId);
 
 router.get('/overview', requireWorkspaceRole('VIEWER'), getOverview);
 router.get('/focus-history', requireWorkspaceRole('VIEWER'), getFocusHistory);
-router.get('/habit-heatmap', requireWorkspaceRole('VIEWER'), getHabitHeatmap);
 
 export default router;

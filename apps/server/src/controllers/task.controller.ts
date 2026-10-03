@@ -10,7 +10,6 @@ export const listTasks = async (req: Request, res: Response) => {
 
     const tasks = await taskService.listTasks(workspaceId, {
       projectId: req.query.projectId as string,
-      sprintId: req.query.sprintId as string,
       status: req.query.status as string,
     });
     
@@ -39,7 +38,7 @@ export const createTask = async (req: Request, res: Response) => {
     if (req.body.parentTaskId !== undefined) {
       (data as any).parentTaskId = req.body.parentTaskId;
     }
-    const { skillIds, ...cleanData } = data as any;
+    const { skillIds: _skillIds, ...cleanData } = data as any;
     const task = await taskService.createTask(cleanData, req.user!.id);
     return res.status(201).json(task);
   } catch (error: any) {
@@ -53,7 +52,7 @@ export const updateTask = async (req: Request, res: Response) => {
     if (req.body.metadata !== undefined) {
       (data as any).metadata = req.body.metadata;
     }
-    const { skillIds, ...cleanData } = data as any;
+    const { skillIds: _skillIds, ...cleanData } = data as any;
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || (cleanData.workspaceId as string);
     const task = await taskService.updateTask((req.params.id as string), workspaceId, cleanData, req.user!.id);
     return res.status(200).json(task);
@@ -120,17 +119,23 @@ export const addComment = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
 
-    if (!content) return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Content is required' });
+    if (typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Content is required' });
+    }
+    const trimmedContent = content.trim();
+    if (trimmedContent.length > 5000) {
+      return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Content must be 5000 characters or fewer' });
+    }
 
     const { prisma } = await import('../prisma');
-    
+
     // Check task exists
     const task = await prisma.task.findUnique({ where: { id, workspaceId } });
     if (!task) return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Task not found' });
 
     const comment = await prisma.comment.create({
       data: {
-        content,
+        content: trimmedContent,
         taskId: id,
         authorId: userId
       },

@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import { domainEventBus } from './events/eventBus';
@@ -21,6 +21,8 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export type PostCommitPublisher = (type: string, payload: any) => void;
+
+export type TxClient = Omit<Prisma.TransactionClient, '$transaction'>;
 
 export const runInTransaction = async <T>(
   fn: (tx: any, publishAfterCommit: PostCommitPublisher) => Promise<T>

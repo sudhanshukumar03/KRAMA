@@ -5,7 +5,7 @@ import { api } from '../api/client';
 import { toast } from 'sonner';
 import { 
   Home, BookOpen, Target,
-  Calendar, KanbanSquare, Clock, BarChart2,
+  Calendar, KanbanSquare, BarChart2,
   Search, LogOut, Moon, Sun, Download, X, 
   Settings, User, Briefcase,
   PanelLeftClose, Timer, ExternalLink,
@@ -15,8 +15,8 @@ import { useTheme } from '../lib/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { KramaLogo } from './ui/KramaLogo';
-import { NotificationCenter } from './NotificationCenter';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
+import { NotificationCenter } from './NotificationCenter';
 
 interface NavItem {
   name: string;
@@ -35,7 +35,6 @@ const overviewItems: NavItem[] = [
 
 const planAndExecuteItems: NavItem[] = [
   { name: 'Execution Board', path: '/app/board', icon: KanbanSquare, shortcut: 'E K', badgeKey: 'openIssues' },
-  { name: 'Sprint', path: '/app/sprint', icon: Clock, shortcut: 'E S', badgeKey: 'sprintIssues' },
   { name: 'Planner', path: '/app/planner', icon: Calendar, shortcut: 'E W', badgeKey: null },
   { name: 'Focus Timer', path: '/focus', icon: Timer, shortcut: '⌃⇧Q', badgeKey: null, external: true },
 ];
@@ -83,24 +82,18 @@ export function Sidebar({
 
   // Fetch live counts for badges
   const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
-  const { data: sprints = [] } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
-  const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
+  const { data: goals = [] } = useQuery({ queryKey: ['goals', 'lite'], queryFn: api.goals.listLite });
   const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
-  const { data: documents = [] } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
+  const { data: documents = [] } = useQuery({ queryKey: ['documents'], queryFn: () => api.documents.list() });
 
-  const activeSprint = sprints.find(s => s.status === 'active') || sprints[0];
-  const openIssuesCount = issues.filter(i => i.status !== "DONE" && i.status !== "REVIEW" && i.status !== "CANCELED").length;
-  const sprintIssuesCount = activeSprint
-    ? issues.filter(i => i.sprintId === activeSprint.id && i.status !== 'DONE' && i.status !== 'CANCELED').length
-    : 0;
+  const openIssuesCount = issues.filter(i => i.status !== "DONE" && i.status !== "CANCELED").length;
   const activeProjectsCount = projects.filter(p => p.status === 'active').length;
 
   const getBadgeValue = (key: string | null) => {
     if (key === 'openIssues') return openIssuesCount;
-    if (key === 'sprintIssues') return sprintIssuesCount;
     if (key === 'projects') return activeProjectsCount;
-    if (key === 'goals') return goals.length;
+    if (key === 'goals') return goals.filter((g: any) => !g.parentGoalId && g.progress < 100 && (g.metadata?.status !== 'COMPLETED' && g.metadata?.status !== 'CANCELED')).length;
     if (key === 'habits') return habits.length;
     if (key === 'documents') return documents.length;
     return null;

@@ -1,59 +1,46 @@
 import { useState, useEffect, useMemo } from "react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Calendar,
+  CalendarCheck,
+  CalendarPlus,
+  Check,
+  CheckCircle2,
+  Circle,
+  Clock,
+  Clock4,
+  Edit3,
+  Flag,
+  Layers,
+  Plus,
+  Search,
+  Sparkles,
+  Target,
+  Trash2,
+  XCircle,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { format, isSameDay, parseISO } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
-  Check, 
-  CheckCircle2, 
-  Circle, 
-  Clock, 
-  Clock4, 
-  CalendarPlus, 
-  Sparkles, 
-  Trash2, 
-  Plus, 
-  AlertTriangle, 
-  ArrowLeft, 
-  Search,
-  Briefcase,
-  User,
-  GraduationCap,
-  HeartPulse,
-  Shield,
-  Grid,
-  Calendar,
-  Layers,
-  Edit3,
-  CalendarCheck,
-  XCircle,
-  FileText
-} from "lucide-react";
 import { api } from "../../api/client";
-import { cn } from "../../lib/utils";
+import { useAuth } from "../../contexts/AuthContext";
+import { cn, blockMinutesOfDay, formatBlockTime } from "../../lib/utils";
+import { blockTypeStyle } from "../../lib/blockTypeStyles";
 import { toast } from "sonner";
-import type { TimeBlockType } from "../../types/planner";
-import { DailyLogSection } from "./DailyLogSection";
-
-const TYPE_CONFIG: Record<TimeBlockType, { label: string; icon: React.ReactNode; color: string; border: string; bg: string }> = {
-  MEETING: { label: 'Meeting', icon: <Briefcase className="w-3.5 h-3.5" />, color: 'text-cat-timeblocks', border: 'border-l-cat-timeblocks', bg: 'bg-cat-timeblocks-bg' },
-  WORK: { label: 'Work', icon: <Grid className="w-3.5 h-3.5" />, color: 'text-cat-tasks', border: 'border-l-cat-tasks', bg: 'bg-cat-tasks-bg' },
-  PERSONAL: { label: 'Personal', icon: <User className="w-3.5 h-3.5" />, color: 'text-cat-projects', border: 'border-l-cat-projects', bg: 'bg-cat-projects-bg' },
-  STUDY: { label: 'Study', icon: <GraduationCap className="w-3.5 h-3.5" />, color: 'text-success-fg', border: 'border-l-success-fg', bg: 'bg-success-bg' },
-  HEALTH: { label: 'Health', icon: <HeartPulse className="w-3.5 h-3.5" />, color: 'text-danger-fg', border: 'border-l-danger-fg', bg: 'bg-danger-bg' },
-  ADMIN: { label: 'Admin', icon: <Shield className="w-3.5 h-3.5" />, color: 'text-secondary', border: 'border-l-border-strong', bg: 'bg-surface-2' },
-  OTHER: { label: 'Other', icon: <Clock className="w-3.5 h-3.5" />, color: 'text-muted', border: 'border-l-border-default', bg: 'bg-surface-2' },
-};
 
 interface Props {
   day: Date;
   data: any; // PlannerData
-  dayData?: any; // The day object from data.days
   onToggleTask?: (task: any, e: React.MouseEvent) => void;
   onClickTask?: (task: any) => void;
   onClickTimeBlock?: (block: any) => void;
-  onDeleteTask?: (task: any) => void;
   onDeleteTimeBlock?: (block: any) => void;
   onAddTask?: (day: Date) => void;
   onAddTimeBlock?: (day: Date, initialData?: any) => void;
+  onAddMilestone?: (day?: Date) => void;
+  onClickMilestone?: (milestone: any) => void;
+  onToggleMilestone?: (milestone: any) => void;
   onBack?: () => void;
   backLabel?: string;
 }
@@ -67,12 +54,17 @@ export function TodayView({
   onDeleteTimeBlock,
   onAddTask,
   onAddTimeBlock,
+  onAddMilestone,
+  onClickMilestone,
+  onToggleMilestone,
   onBack,
   backLabel = 'Plan',
 }: Props) {
   const queryClient = useQueryClient();
+  const { workspaceId } = useAuth();
+  const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [activeTaskTab, setActiveTaskTab] = useState<'today' | 'backlog' | 'log'>('today');
+  const [activeTaskTab, setActiveTaskTab] = useState<'today' | 'backlog'>('today');
   const [backlogSearch, setBacklogSearch] = useState('');
   const [inlineTaskTitle, setInlineTaskTitle] = useState('');
 
@@ -89,14 +81,14 @@ export function TodayView({
 
   // Query all workspace tasks to guarantee full task and backlog visibility
   const { data: allIssues = [] } = useQuery({
-    queryKey: ['issues'],
+    queryKey: ['issues', workspaceId],
     queryFn: api.tasks.list,
     staleTime: 10_000,
   });
 
   // Query specific day planner week/blocks if day is navigated outside current cached week
   const { data: dayPlannerData } = useQuery({
-    queryKey: ['plannerDay', targetDateStr],
+    queryKey: ['planner', 'day', targetDateStr, workspaceId],
     queryFn: () => api.planner.getWeek(targetDateStr, targetDateStr),
     staleTime: 15_000,
   });
@@ -106,7 +98,10 @@ export function TodayView({
     mutationFn: ({ id, data }: { id: string; data: any }) => api.tasks.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (err: any) => {
       toast.error('Failed to update task: ' + (err?.message || 'Unknown error'));
@@ -117,7 +112,10 @@ export function TodayView({
     mutationFn: (taskData: any) => api.tasks.create(taskData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Task added for today');
       setInlineTaskTitle('');
     },
@@ -130,7 +128,10 @@ export function TodayView({
     mutationFn: (id: string) => api.tasks.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Task deleted');
     },
     onError: (err: any) => {
@@ -149,6 +150,10 @@ export function TodayView({
   // Filter and sort time blocks for this day
   const timeBlocks = useMemo(() => {
     return rawBlocks
+      // Drop synthesized holiday pseudo-blocks (isExternal): they have ids like
+      // "holiday-<name>" with no real row, so their Edit/Delete controls 404.
+      // PlannerMatrix applies the same filter.
+      .filter((b: any) => !b.isExternal)
       .filter((b: any) => {
         try {
           if (b.date) return isSameDay(parseISO(b.date), day);
@@ -188,8 +193,6 @@ export function TodayView({
           todayList.push(t);
         } else if (isPast && !isCompleted) {
           carriedList.push(t);
-        } else if (!isCompleted) {
-          backlogList.push(t);
         }
       } catch {
         if (!isCompleted) backlogList.push(t);
@@ -236,85 +239,32 @@ export function TodayView({
     hour12: false,
   });
 
-  const formatTime = (iso: string) => {
-    try {
-      if (!iso) return '';
-      if (typeof iso === 'string' && !iso.includes('T') && iso.includes(':')) {
-        return iso.slice(0, 5);
-      }
-      return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-    } catch {
-      return '';
-    }
-  };
+  // Time blocks are stored as UTC wall-clock; read/format them with UTC helpers.
+  const formatTime = (iso: string) => formatBlockTime(iso);
 
   const getHHMM = (isoOrTime: string) => {
-    try {
-      if (!isoOrTime) return '09:00';
-      if (typeof isoOrTime === 'string' && !isoOrTime.includes('T') && isoOrTime.includes(':')) {
-        const [h, m] = isoOrTime.split(':').map(Number);
-        return `${String(h || 0).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
-      }
-      const d = new Date(isoOrTime);
-      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-    } catch {
-      return '09:00';
-    }
+    const formatted = formatBlockTime(isoOrTime);
+    return formatted || '09:00';
   };
 
   const getDurationString = (startIso: string, endIso: string) => {
-    try {
-      let sMin = 0;
-      let eMin = 0;
-      if (typeof startIso === 'string' && startIso.includes('T')) {
-        const s = new Date(startIso);
-        sMin = s.getHours() * 60 + s.getMinutes();
-      } else if (typeof startIso === 'string' && startIso.includes(':')) {
-        const [h, m] = startIso.split(':').map(Number);
-        sMin = (h || 0) * 60 + (m || 0);
-      }
-      if (typeof endIso === 'string' && endIso.includes('T')) {
-        const e = new Date(endIso);
-        eMin = e.getHours() * 60 + e.getMinutes();
-      } else if (typeof endIso === 'string' && endIso.includes(':')) {
-        const [h, m] = endIso.split(':').map(Number);
-        eMin = (h || 0) * 60 + (m || 0);
-      }
-      const mins = Math.max(0, eMin - sMin);
-      if (mins < 60) return `${mins}m`;
-      const h = Math.floor(mins / 60);
-      const rem = mins % 60;
-      return rem > 0 ? `${h}h ${rem}m` : `${h}h`;
-    } catch {
-      return '';
-    }
+    const sMin = blockMinutesOfDay(startIso);
+    const eMin = blockMinutesOfDay(endIso);
+    if (sMin === null || eMin === null) return '';
+    const mins = Math.max(0, eMin - sMin);
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60);
+    const rem = mins % 60;
+    return rem > 0 ? `${h}h ${rem}m` : `${h}h`;
   };
 
   const getNextAvailableSlot = (blocks: any[], forDay: Date) => {
     const intervals: { start: number; end: number }[] = [];
     for (const b of blocks) {
-      try {
-        let sMin = 0;
-        let eMin = 0;
-        if (typeof b.startTime === 'string' && b.startTime.includes('T')) {
-          const sDate = new Date(b.startTime);
-          sMin = sDate.getHours() * 60 + sDate.getMinutes();
-        } else if (typeof b.startTime === 'string' && b.startTime.includes(':')) {
-          const [h, m] = b.startTime.split(':').map(Number);
-          sMin = (h || 0) * 60 + (m || 0);
-        }
-        if (typeof b.endTime === 'string' && b.endTime.includes('T')) {
-          const eDate = new Date(b.endTime);
-          eMin = eDate.getHours() * 60 + eDate.getMinutes();
-        } else if (typeof b.endTime === 'string' && b.endTime.includes(':')) {
-          const [h, m] = b.endTime.split(':').map(Number);
-          eMin = (h || 0) * 60 + (m || 0);
-        }
-        if (eMin > sMin) {
-          intervals.push({ start: sMin, end: eMin });
-        }
-      } catch {
-        // ignore
+      const sMin = blockMinutesOfDay(b.startTime);
+      const eMin = blockMinutesOfDay(b.endTime);
+      if (sMin !== null && eMin !== null && eMin > sMin) {
+        intervals.push({ start: sMin, end: eMin });
       }
     }
 
@@ -373,14 +323,24 @@ export function TodayView({
     });
   };
 
-  const handleRescheduleAllOverdue = () => {
-    carriedOverTasks.forEach((t: any) => {
-      updateTaskMutation.mutate({
-        id: t.id,
-        data: { scheduledDate: targetDateIso }
-      });
-    });
-    toast.success(`Rescheduled ${carriedOverTasks.length} task(s) to ${isViewingToday ? 'today' : format(day, 'MMM d')}`);
+  const handleRescheduleAllOverdue = async () => {
+    const whenLabel = isViewingToday ? 'today' : format(day, 'MMM d');
+    const results = await Promise.allSettled(
+      carriedOverTasks.map((t: any) =>
+        updateTaskMutation.mutateAsync({
+          id: t.id,
+          data: { scheduledDate: targetDateIso }
+        })
+      )
+    );
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.length - succeeded;
+    if (succeeded > 0) {
+      toast.success(`Rescheduled ${succeeded} task(s) to ${whenLabel}`);
+    }
+    if (failed > 0) {
+      toast.error(`Failed to reschedule ${failed} task(s)`);
+    }
   };
 
   const handleCreateInlineTask = (e: React.FormEvent) => {
@@ -407,6 +367,32 @@ export function TodayView({
       });
     }
   };
+
+  // Milestones for this day (C10). Prefer the day-scoped planner fetch, fall
+  // back to the week payload passed in via `data`.
+  const dayMilestones = useMemo(() => {
+    const source = dayPlannerData?.milestones ?? data?.milestones ?? [];
+    return source.filter((m: any) => {
+      try {
+        return m.date && isSameDay(parseISO(m.date), day);
+      } catch {
+        return false;
+      }
+    });
+  }, [dayPlannerData?.milestones, data?.milestones, day]);
+
+  // Goals whose target date lands on this day — read-only deadline chips
+  // (goals are edited from the Goals page, not the planner).
+  const dayGoalDeadlines = useMemo(() => {
+    const source = dayPlannerData?.goalDeadlines ?? data?.goalDeadlines ?? [];
+    return source.filter((g: any) => {
+      try {
+        return g.targetDate && isSameDay(parseISO(g.targetDate), day);
+      } catch {
+        return false;
+      }
+    });
+  }, [dayPlannerData?.goalDeadlines, data?.goalDeadlines, day]);
 
   return (
     <div className="flex flex-col gap-5 animate-in fade-in duration-150 pb-12">
@@ -507,7 +493,7 @@ export function TodayView({
 
         {/* LEFT COLUMN (7 cols): CHRONOLOGICAL SCHEDULE & TIME BLOCKS */}
         <div className="lg:col-span-7 flex flex-col gap-4">
-          <div className="bg-surface border border-border rounded-2xl p-5 md:p-6 shadow-sm flex flex-col">
+          <div className="krama-card p-5 md:p-6 flex flex-col">
             
             {/* Card Header */}
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
@@ -560,33 +546,45 @@ export function TodayView({
             ) : (
               <div className="space-y-3 relative">
                 {timeBlocks.map((tb: any, idx: number) => {
-                  const typeCfg = TYPE_CONFIG[tb.type as TimeBlockType] || TYPE_CONFIG.OTHER;
+                  const typeCfg = blockTypeStyle(tb.type);
+                  const TypeIcon = typeCfg.Icon;
                   const durationStr = getDurationString(tb.startTime, tb.endTime);
                   const linkedTask = tb.taskId ? taskList.find((t: any) => t.id === tb.taskId) : null;
-                  const isTaskDone = linkedTask ? (linkedTask.status === "DONE" || linkedTask.status === "REVIEW") : false;
+                  const isTaskDone = linkedTask ? linkedTask.status === "DONE" : false;
 
-                  const now = currentTime.getTime();
-                  const tbStart = new Date(tb.startTime).getTime();
-                  const tbEnd = new Date(tb.endTime).getTime();
-                  const isCurrent = isViewingToday && (now >= tbStart && now <= tbEnd);
-                  const percentElapsed = isCurrent && tbEnd > tbStart 
-                    ? Math.min(100, Math.max(0, Math.round(((now - tbStart) / (tbEnd - tbStart)) * 100))) 
+                  // Blocks store wall-clock as UTC; compare against the viewer's
+                  // local wall-clock minutes-of-day so "now" lines up with the
+                  // times shown in the block (which are rendered in UTC).
+                  const nowMin = currentTime.getHours() * 60 + currentTime.getMinutes();
+                  const sMin = blockMinutesOfDay(tb.startTime) ?? 0;
+                  const eMin = blockMinutesOfDay(tb.endTime) ?? 0;
+                  const isCurrent = isViewingToday && nowMin >= sMin && nowMin <= eMin;
+                  const percentElapsed = isCurrent && eMin > sMin
+                    ? Math.min(100, Math.max(0, Math.round(((nowMin - sMin) / (eMin - sMin)) * 100)))
                     : 0;
-                  const minutesRemaining = isCurrent ? Math.max(0, Math.round((tbEnd - now) / 60000)) : 0;
+                  const minutesRemaining = isCurrent ? Math.max(0, eMin - nowMin) : 0;
 
                   const nextTb = timeBlocks[idx + 1];
                   let gapMinutes = 0;
                   if (nextTb) {
-                    const nextStart = new Date(nextTb.startTime).getTime();
-                    gapMinutes = Math.round((nextStart - tbEnd) / 60000);
+                    const nextStart = blockMinutesOfDay(nextTb.startTime) ?? 0;
+                    gapMinutes = nextStart - eMin;
                   }
 
                   return (
                     <div key={tb.id} className="flex flex-col gap-2">
-                      <div 
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => onClickTimeBlock && onClickTimeBlock(tb)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            if (onClickTimeBlock) onClickTimeBlock(tb);
+                          }
+                        }}
                         className={cn(
-                          "relative flex items-start gap-3.5 p-3.5 rounded-xl border transition-all cursor-pointer group bg-surface shadow-2xs hover:shadow-xs overflow-hidden",
+                          "relative flex items-start gap-3.5 p-3.5 rounded-xl border transition-all cursor-pointer group bg-surface shadow-2xs hover:shadow-xs overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
                           typeCfg.border,
                           "border-l-4",
                           isCurrent ? "ring-2 ring-accent border-accent/40 bg-accent/5" : "border-border hover:border-accent/50"
@@ -618,7 +616,7 @@ export function TodayView({
                               typeCfg.bg,
                               typeCfg.color
                             )}>
-                              {typeCfg.icon}
+                              <TypeIcon className="w-3.5 h-3.5" />
                               {typeCfg.label}
                             </span>
 
@@ -639,12 +637,21 @@ export function TodayView({
 
                           {/* Linked Task badge if any */}
                           {linkedTask && (
-                            <div 
+                            <div
+                              role="button"
+                              tabIndex={0}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (onClickTask) onClickTask(linkedTask);
                               }}
-                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-hover border border-border text-[11px] font-medium text-secondary hover:text-primary max-w-full truncate mt-1"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (onClickTask) onClickTask(linkedTask);
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-hover border border-border text-[11px] font-medium text-secondary hover:text-primary max-w-full truncate mt-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                             >
                               <button
                                 type="button"
@@ -652,11 +659,11 @@ export function TodayView({
                                   e.stopPropagation();
                                   if (onToggleTask) onToggleTask(linkedTask, e);
                                 }}
-                                className="text-muted hover:text-emerald-500 shrink-0"
+                                className="text-muted hover:text-success-fg shrink-0"
                                 title={isTaskDone ? "Mark incomplete" : "Mark done"}
                               >
                                 {isTaskDone ? (
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                  <CheckCircle2 className="w-3 h-3 text-success-fg" />
                                 ) : (
                                   <Circle className="w-3 h-3" />
                                 )}
@@ -692,7 +699,7 @@ export function TodayView({
                                 e.stopPropagation();
                                 onDeleteTimeBlock(tb);
                               }}
-                              className="w-7 h-7 rounded-lg text-muted hover:text-rose-600 hover:bg-rose-500/10 flex items-center justify-center transition-colors"
+                              className="w-7 h-7 rounded-lg text-muted hover:text-danger-fg hover:bg-danger-bg flex items-center justify-center transition-colors"
                               title="Delete time block"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -702,10 +709,10 @@ export function TodayView({
 
                         {/* Active Progress Line */}
                         {isCurrent && (
-                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500/15 overflow-hidden">
-                            <div 
-                              className="h-full bg-emerald-500 transition-all duration-1000" 
-                              style={{ width: `${percentElapsed}%` }} 
+                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-success-bg overflow-hidden">
+                            <div
+                              className="h-full bg-success-fg transition-all duration-1000"
+                              style={{ width: `${percentElapsed}%` }}
                             />
                           </div>
                         )}
@@ -713,14 +720,15 @@ export function TodayView({
 
                       {/* Gap Slot Filler */}
                       {gapMinutes >= 30 && nextTb && (
-                        <div 
+                        <button
+                          type="button"
                           onClick={() => onAddTimeBlock && onAddTimeBlock(day, {
                             date: targetDateStr,
                             startTime: getHHMM(tb.endTime),
                             endTime: getHHMM(nextTb.startTime),
                             type: 'WORK'
                           })}
-                          className="my-1 py-1.5 px-3 rounded-lg border border-dashed border-border/80 hover:border-accent/50 hover:bg-accent/5 text-[11px] font-medium text-secondary hover:text-accent flex items-center justify-between cursor-pointer transition-colors group/gap"
+                          className="w-full my-1 py-1.5 px-3 rounded-lg border border-dashed border-border/80 hover:border-accent/50 hover:bg-accent/5 text-[11px] font-medium text-secondary hover:text-accent flex items-center justify-between cursor-pointer transition-colors group/gap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                         >
                           <span className="flex items-center gap-1.5">
                             <Plus className="w-3 h-3 text-muted group-hover/gap:text-accent" />
@@ -729,7 +737,7 @@ export function TodayView({
                           <span className="text-[10px] font-mono text-muted group-hover/gap:text-accent">
                             + Fill Slot
                           </span>
-                        </div>
+                        </button>
                       )}
                     </div>
                   );
@@ -737,11 +745,124 @@ export function TodayView({
               </div>
             )}
           </div>
+
+          {/* MILESTONES CARD */}
+          <div className="krama-card p-5 flex flex-col">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-cat-projects-bg text-cat-projects flex items-center justify-center">
+                  <Target className="w-4 h-4 stroke-[2]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-primary">Milestones</h3>
+                  <p className="text-[11px] text-secondary">
+                    Project checkpoints due {format(day, 'MMM d')}
+                  </p>
+                </div>
+              </div>
+              {onAddMilestone && (
+                <button
+                  type="button"
+                  onClick={() => onAddMilestone(day)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface hover:bg-surface-hover text-primary border border-border text-xs font-semibold transition-colors cursor-pointer"
+                  title="Add milestone"
+                >
+                  <Plus className="w-3.5 h-3.5 text-secondary" />
+                  <span>Milestone</span>
+                </button>
+              )}
+            </div>
+
+            {dayMilestones.length === 0 ? (
+              <div className="py-6 text-center border border-dashed border-border rounded-xl bg-surface-hover/30">
+                <p className="text-xs text-secondary">No milestones for this day.</p>
+                {onAddMilestone && (
+                  <button
+                    type="button"
+                    onClick={() => onAddMilestone(day)}
+                    className="mt-2 text-[11px] font-semibold text-accent hover:underline cursor-pointer"
+                  >
+                    + Add a milestone
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {dayMilestones.map((m: any) => (
+                  <div
+                    key={m.id}
+                    className="group flex items-center gap-2.5 p-2.5 rounded-xl border border-border bg-surface shadow-2xs hover:border-cat-projects/40 transition-colors"
+                  >
+                    <button
+                      type="button"
+                      aria-label={m.completed ? 'Mark milestone incomplete' : 'Mark milestone complete'}
+                      onClick={() => onToggleMilestone && onToggleMilestone(m)}
+                      className="shrink-0 transition-transform active:scale-[0.98]"
+                    >
+                      {m.completed
+                        ? <CheckCircle2 className="w-4 h-4 text-cat-projects" />
+                        : <Circle className="w-4 h-4 text-muted hover:text-cat-projects transition-colors" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onClickMilestone && onClickMilestone(m)}
+                      className="flex-1 min-w-0 flex items-center gap-2 text-left cursor-pointer"
+                    >
+                      <Target className="w-3.5 h-3.5 shrink-0 text-cat-projects" />
+                      <span className={cn(
+                        "text-xs font-semibold truncate",
+                        m.completed ? "text-muted line-through" : "text-primary"
+                      )}>
+                        {m.title}
+                      </span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Goal deadlines due this day (read-only) */}
+            {dayGoalDeadlines.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-secondary mb-2 flex items-center gap-1.5">
+                  <Flag className="w-3 h-3 text-accent" />
+                  Goal Deadlines
+                </p>
+                <div className="space-y-2">
+                  {dayGoalDeadlines.map((g: any) => {
+                    const done = g.progress >= 100;
+                    return (
+                      <div
+                        key={g.id}
+                        onClick={() => navigate('/app/goals')}
+                        className={cn(
+                          "flex items-center gap-2.5 p-2.5 rounded-xl border shadow-2xs cursor-pointer transition-all hover:scale-[1.01] hover:shadow-xs",
+                          done ? "border-border bg-surface-hover/40 text-muted" : "border-accent/30 bg-accent-subtle hover:bg-accent/15"
+                        )}
+                        title={`Strategic Goal due: ${g.title} (${g.progress}%) — Click to open OKRs`}
+                      >
+                        <Flag className={cn("w-3.5 h-3.5 shrink-0", done ? "text-muted" : "text-accent")} />
+                        <span className={cn(
+                          "text-xs font-semibold truncate flex-1 min-w-0",
+                          done ? "text-muted line-through" : "text-primary"
+                        )}>
+                          {g.title}
+                        </span>
+                        <span className="text-[10px] font-mono font-bold text-accent shrink-0">
+                          {g.progress}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* RIGHT COLUMN (5 cols): TASKS & SCHEDULING PANEL */}
         <div className="lg:col-span-5 flex flex-col gap-4">
-          <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm flex flex-col min-h-[500px]">
+          <div className="krama-card p-5 flex flex-col min-h-[500px]">
 
             {/* Segmented Pill Switcher: Today's Tasks vs Backlog */}
             <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-border">
@@ -776,28 +897,14 @@ export function TodayView({
                       : "text-secondary hover:text-primary"
                   )}
                 >
-                  <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                  <Layers className="w-3.5 h-3.5 text-cat-tasks" />
                   <span>Backlog</span>
                   <span className={cn(
                     "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
-                    activeTaskTab === 'backlog' ? "bg-indigo-500/10 text-indigo-500 font-bold" : "bg-surface text-muted"
+                    activeTaskTab === 'backlog' ? "bg-cat-tasks-bg text-cat-tasks font-bold" : "bg-surface text-muted"
                   )}>
                     {backlogTasks.length}
                   </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTaskTab('log')}
-                  className={cn(
-                    "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
-                    activeTaskTab === 'log'
-                      ? "bg-surface text-primary shadow-xs border border-border/80"
-                      : "text-secondary hover:text-primary"
-                  )}
-                >
-                  <FileText className="w-3.5 h-3.5 text-cat-routines" />
-                  <span>Daily Log</span>
                 </button>
               </div>
             </div>
@@ -823,11 +930,96 @@ export function TodayView({
                   </button>
                 </form>
 
+                {/* Overdue / Carried Over Tasks Section */}
+                {carriedOverTasks.length > 0 && (
+                  <div className="rounded-xl border border-warning-border bg-warning-bg p-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-warning-fg shrink-0" />
+                        <span className="text-xs font-bold text-primary">
+                          Carried Over ({carriedOverTasks.length})
+                        </span>
+                        <span className="text-[10px] text-muted hidden sm:inline">
+                          Overdue from past days
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRescheduleAllOverdue}
+                        className="text-[11px] font-semibold text-warning-fg hover:underline cursor-pointer"
+                      >
+                        Reschedule all →
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-0.5">
+                      {carriedOverTasks.map((task: any) => (
+                        <div
+                          key={task.id}
+                          className="flex items-center justify-between p-2 rounded-lg bg-surface border border-border shadow-2xs group text-xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                if (onToggleTask) {
+                                  onToggleTask(task, e);
+                                } else {
+                                  updateTaskMutation.mutate({
+                                    id: task.id,
+                                    data: { status: 'DONE' }
+                                  });
+                                }
+                              }}
+                              className="text-muted hover:text-success-fg transition-colors shrink-0 cursor-pointer"
+                              title="Mark done"
+                            >
+                              <Circle className="w-3.5 h-3.5" />
+                            </button>
+                            <span 
+                              className="font-medium text-primary truncate cursor-pointer hover:text-accent"
+                              onClick={() => onClickTask && onClickTask(task)}
+                            >
+                              {task.title}
+                            </span>
+                            {task.project?.name && (
+                              <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border shrink-0">
+                                {task.project.name}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0 ml-2">
+                            <button
+                              type="button"
+                              onClick={() => handleScheduleForToday(task)}
+                              className="px-2 py-0.5 rounded bg-accent/10 hover:bg-accent hover:text-white text-accent text-[10px] font-semibold transition-colors cursor-pointer"
+                              title={`Schedule for ${isViewingToday ? 'today' : format(day, 'MMM d')}`}
+                            >
+                              Today
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUnschedule(task)}
+                              className="p-1 rounded text-muted hover:text-primary transition-colors cursor-pointer"
+                              title="Move to backlog"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Today's Tasks List */}
                 {todayTasks.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center py-12 text-center border border-dashed border-border rounded-xl bg-surface-hover/20 p-4">
+                  <div className="flex-1 flex flex-col items-center justify-center py-10 text-center border border-dashed border-border rounded-xl bg-surface-hover/20 p-4">
                     <Calendar className="w-8 h-8 text-muted mb-2 stroke-[1.5]" />
-                    <h5 className="text-xs font-bold text-primary mb-1">No tasks scheduled for today</h5>
+                    <h5 className="text-xs font-bold text-primary mb-1">
+                      {carriedOverTasks.length > 0 ? "No new tasks scheduled for today" : "No tasks scheduled for today"}
+                    </h5>
                     <p className="text-[11px] text-muted max-w-[240px] mb-3">
                       Add a task above, or browse your workspace backlog to pull in pending tasks.
                     </p>
@@ -865,10 +1057,10 @@ export function TodayView({
                                   });
                                 }
                               }}
-                              className="text-muted hover:text-emerald-500 transition-colors shrink-0 cursor-pointer"
+                              className="text-muted hover:text-success-fg transition-colors shrink-0 cursor-pointer"
                             >
                               {isDone ? (
-                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                <CheckCircle2 className="w-4 h-4 text-success-fg" />
                               ) : (
                                 <Circle className="w-4 h-4" />
                               )}
@@ -933,7 +1125,7 @@ export function TodayView({
                             <button
                               type="button"
                               onClick={() => deleteTaskMutation.mutate(task.id)}
-                              className="p-1 rounded-lg text-muted hover:text-rose-600 hover:bg-rose-500/10 transition-colors"
+                              className="p-1 rounded-lg text-muted hover:text-danger-fg hover:bg-danger-bg transition-colors"
                               title="Delete task"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -965,7 +1157,7 @@ export function TodayView({
                 {/* Backlog Items List */}
                 {filteredBacklogTasks.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center py-12 text-center border border-dashed border-border rounded-xl bg-surface-hover/20 p-4">
-                    <Check className="w-8 h-8 text-emerald-500 mb-2 stroke-[2]" />
+                    <Check className="w-8 h-8 text-success-fg mb-2 stroke-[2]" />
                     <h5 className="text-xs font-bold text-primary mb-1">
                       {backlogSearch ? "No matching backlog tasks" : "Workspace backlog is clear!"}
                     </h5>
@@ -1032,11 +1224,6 @@ export function TodayView({
                   </div>
                 )}
               </div>
-            )}
-
-            {/* TAB 3: DAILY LOG & DEBRIEF */}
-            {activeTaskTab === 'log' && (
-              <DailyLogSection day={day} />
             )}
 
           </div>

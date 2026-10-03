@@ -10,14 +10,17 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useHolidays, getCalendarGridRange } from "../../hooks/useHolidays";
 import { api } from "../../api/client";
-import { 
-  Calendar as CalendarIcon, 
-  CheckCircle2, 
-  Circle, 
-  Clock, 
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  Calendar as CalendarIcon,
+  CheckCircle2,
+  Circle,
+  Clock,
   ChevronRight,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  Target,
+  Flag
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -42,24 +45,46 @@ interface Props {
   localOnly: boolean;
   onOpenDayView?: (day: Date) => void;
   tasks?: any[];
+  onClickMilestone?: (milestone: any) => void;
+  onToggleMilestone?: (milestone: any) => void;
 }
 
-export function CalendarMode({ 
-  calendarDate, 
-  currentCountry, 
-  currentRegion, 
-  localOnly, 
+export function CalendarMode({
+  calendarDate,
+  currentCountry,
+  currentRegion,
+  localOnly,
   onOpenDayView,
-  tasks: propTasks = [] 
+  tasks: propTasks = [],
+  onClickMilestone,
+  onToggleMilestone,
 }: Props) {
+  const { workspaceId } = useAuth();
+
   // Query all workspace tasks to guarantee month-wide task visibility
   const { data: allIssues = [] } = useQuery({
-    queryKey: ['issues'],
+    queryKey: ['issues', workspaceId],
     queryFn: api.tasks.list,
     staleTime: 15_000,
   });
 
   const taskList = allIssues.length > 0 ? allIssues : propTasks;
+
+  // Calendar Grid Math (Monday start, shared with useHolidays)
+  const { startDate, endDate } = getCalendarGridRange(calendarDate);
+  const monthDays = eachDayOfInterval({ start: startDate, end: endDate });
+
+  // Milestones spanning the full visible grid (C10). Keyed to the same
+  // `['planner', ...]` prefix the week/day views use so optimistic writes propagate.
+  const gridStartKey = format(startDate, 'yyyy-MM-dd');
+  const gridEndKey = format(endDate, 'yyyy-MM-dd');
+  const { data: gridPlannerData } = useQuery({
+    queryKey: ['planner', 'milestones', gridStartKey, gridEndKey, workspaceId],
+    queryFn: () => api.planner.getMilestones(gridStartKey, gridEndKey, workspaceId),
+    staleTime: 15_000,
+  });
+  const milestones = gridPlannerData?.milestones || [];
+  const goalDeadlines = gridPlannerData?.goalDeadlines || [];
 
   const { data: monthData, isLoading: isHolidaysLoading } = useHolidays(currentCountry, currentRegion, calendarDate);
 
@@ -77,13 +102,14 @@ export function CalendarMode({
     });
   }, [holidays, currentMonthKey]);
 
-  // Calendar Grid Math (Monday start, shared with useHolidays)
-  const { startDate, endDate } = getCalendarGridRange(calendarDate);
-  const monthDays = eachDayOfInterval({ start: startDate, end: endDate });
+  // Active tasks excluding canceled
+  const activeTaskList = useMemo(() => {
+    return taskList.filter((t: any) => t.status !== 'CANCELED');
+  }, [taskList]);
 
   // Filter tasks belonging to current active month
   const monthTasks = useMemo(() => {
-    return taskList.filter((t: any) => {
+    return activeTaskList.filter((t: any) => {
       const dStr = t.scheduledDate || t.dueDate;
       if (!dStr) return false;
       try {
@@ -93,10 +119,10 @@ export function CalendarMode({
         return false;
       }
     });
-  }, [taskList, calendarDate]);
+  }, [activeTaskList, calendarDate]);
 
   const completedMonthTasks = useMemo(() => {
-    return monthTasks.filter((t: any) => t.status === 'DONE' || t.status === 'REVIEW');
+    return monthTasks.filter((t: any) => t.status === 'DONE');
   }, [monthTasks]);
 
   const completionPercentage = monthTasks.length > 0 
@@ -139,14 +165,14 @@ export function CalendarMode({
         </div>
 
         {/* Month matrix cells */}
-        <div className="grid grid-cols-7 auto-rows-fr gap-0 flex-1 overflow-hidden border-l border-t border-border rounded-xl shadow-2xs">
+        <div className="grid grid-cols-7 auto-rows-fr gap-0 flex-1 overflow-hidden border-l border-t border-border rounded-[14px] [box-shadow:0_1px_2px_0_rgba(0,0,0,0.04),inset_0_1px_0_0_rgba(255,255,255,0.07)]">
           {monthDays.map((day) => {
             const dayKey = format(day, 'yyyy-MM-dd');
             const dayHolidays = holidays.filter((h: any) => {
               return getHolidayDateKey(h.date) === dayKey;
             });
 
-            const dayTasks = taskList.filter((t: any) => {
+            const dayTasks = activeTaskList.filter((t: any) => {
               const dStr = t.scheduledDate || t.dueDate;
               if (!dStr) return false;
               try {
@@ -156,19 +182,52 @@ export function CalendarMode({
               }
             });
 
+            const dayMilestones = milestones.filter((m: any) => {
+              try {
+                return m.date && isSameDay(parseISO(m.date), day);
+              } catch {
+                return false;
+              }
+            });
+
+            const dayGoalDeadlines = goalDeadlines.filter((g: any) => {
+              try {
+                return g.targetDate && isSameDay(parseISO(g.targetDate), day);
+              } catch {
+                return false;
+              }
+            });
+
             const isCurrentMonth = isSameMonth(day, calendarDate);
             const today = isToday(day);
-            const totalItems = dayHolidays.length + dayTasks.length;
-            const maxVisible = 2;
-            const remainingCount = totalItems - maxVisible;
+
+            // Row budget of 2 shared across holiday → milestone → goal → tasks
+            const shownHolidays = dayHolidays.slice(0, 1);
+            const shownMilestones = dayMilestones.slice(0, 1);
+            const shownGoals = dayGoalDeadlines.slice(0, 1);
+            const taskSlots = Math.max(0, 2 - shownHolidays.length - shownMilestones.length - shownGoals.length);
+            const shownTasks = dayTasks.slice(0, taskSlots);
+            const remainingCount =
+              (dayHolidays.length - shownHolidays.length) +
+              (dayMilestones.length - shownMilestones.length) +
+              (dayGoalDeadlines.length - shownGoals.length) +
+              (dayTasks.length - shownTasks.length);
 
             return (
-              <div 
-                key={day.toISOString()} 
-                onClick={() => onOpenDayView && onOpenDayView(day)}
-                title="Click to open day schedule"
+              <div
+                key={day.toISOString()}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open schedule for ${format(day, 'EEEE, MMMM d')}`}
+                onClick={() => onOpenDayView?.(day)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onOpenDayView?.(day);
+                  }
+                }}
                 className={cn(
-                  "flex flex-col min-h-0 p-1.5 border-r border-b border-border transition-all overflow-hidden cursor-pointer select-none group",
+                  "flex flex-col min-h-0 p-1.5 border-r border-b border-border transition-all overflow-hidden cursor-pointer select-none group text-left outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset focus-visible:z-10",
                   isCurrentMonth ? "bg-surface hover:bg-surface-hover/70" : "bg-surface-hover/30 hover:bg-surface-hover/60",
                   today && "ring-1 ring-inset ring-accent z-10"
                 )}
@@ -177,10 +236,10 @@ export function CalendarMode({
                 <div className="flex justify-between items-center mb-1">
                   <span className={cn(
                     "text-[11px] font-bold w-5 h-5 flex items-center justify-center rounded-full transition-transform group-hover:scale-105",
-                    today 
-                      ? "bg-accent text-white shadow-2xs" 
-                      : isCurrentMonth 
-                      ? "text-primary font-semibold" 
+                    today
+                      ? "bg-accent text-on-accent shadow-2xs"
+                      : isCurrentMonth
+                      ? "text-primary font-semibold"
                       : "text-muted/60"
                   )}>
                     {format(day, "d")}
@@ -193,16 +252,16 @@ export function CalendarMode({
                   )}
                 </div>
                 
-                {/* Cell Body: Holidays and Scheduled Tasks */}
+                {/* Cell Body: Holidays, Milestones and Scheduled Tasks */}
                 <div className="flex-1 flex flex-col gap-1 overflow-hidden">
                   {/* Holidays */}
-                  {dayHolidays.slice(0, 1).map((h: any) => (
-                    <div 
-                      key={h.id || h.name} 
+                  {shownHolidays.map((h: any) => (
+                    <div
+                      key={h.id || h.name}
                       className={cn(
                         "text-[9px] font-bold px-1.5 py-0.5 rounded leading-tight truncate border",
-                        h.isPublicHoliday 
-                          ? "bg-danger-bg text-danger-fg border-danger-border" 
+                        h.isPublicHoliday
+                          ? "bg-danger-bg text-danger-fg border-danger-border"
                           : "bg-success-bg text-success-fg border-success-border"
                       )}
                       title={h.name}
@@ -211,16 +270,74 @@ export function CalendarMode({
                     </div>
                   ))}
 
-                  {/* Tasks */}
-                  {dayTasks.slice(0, dayHolidays.length > 0 ? 1 : 2).map((task: any) => {
-                    const isDone = task.status === 'DONE' || task.status === 'REVIEW';
+                  {/* Milestones */}
+                  {shownMilestones.map((m: any) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center gap-1 text-[9px] px-1 py-0.5 rounded leading-tight border bg-cat-projects-bg border-cat-projects/30"
+                      title={m.title}
+                    >
+                      <button
+                        type="button"
+                        aria-label={m.completed ? 'Mark milestone incomplete' : 'Mark milestone complete'}
+                        onClick={(e) => { e.stopPropagation(); onToggleMilestone?.(m); }}
+                        className="shrink-0"
+                      >
+                        {m.completed
+                          ? <CheckCircle2 className="w-2.5 h-2.5 text-cat-projects" />
+                          : <Circle className="w-2.5 h-2.5 text-cat-projects/70 hover:text-cat-projects" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onClickMilestone?.(m); }}
+                        className="flex items-center gap-1 min-w-0 flex-1 text-left"
+                      >
+                        <Target className="w-2.5 h-2.5 shrink-0 text-cat-projects" />
+                        <span className={cn(
+                          "truncate font-semibold",
+                          m.completed ? "text-muted line-through" : "text-cat-projects"
+                        )}>
+                          {m.title}
+                        </span>
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Goal deadlines (read-only — goals are edited on the Goals page) */}
+                  {shownGoals.map((g: any) => {
+                    const done = g.progress >= 100;
                     return (
-                      <div 
+                      <div
+                        key={g.id}
+                        className={cn(
+                          "flex items-center gap-1 text-[9px] px-1 py-0.5 rounded leading-tight border",
+                          done
+                            ? "bg-surface-hover/50 border-border/60"
+                            : "bg-accent-subtle border-accent/30"
+                        )}
+                        title={`Goal due: ${g.title} (${g.progress}%)`}
+                      >
+                        <Flag className={cn("w-2.5 h-2.5 shrink-0", done ? "text-muted" : "text-accent")} />
+                        <span className={cn(
+                          "truncate font-semibold",
+                          done ? "text-muted line-through" : "text-accent"
+                        )}>
+                          {g.title}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {/* Tasks */}
+                  {shownTasks.map((task: any) => {
+                    const isDone = task.status === 'DONE';
+                    return (
+                      <div
                         key={task.id}
                         className={cn(
                           "text-[9px] px-1.5 py-0.5 rounded leading-tight truncate flex items-center gap-1 border transition-colors",
-                          isDone 
-                            ? "bg-surface-hover/50 text-muted line-through border-border/60" 
+                          isDone
+                            ? "bg-surface-hover/50 text-muted line-through border-border/60"
                             : "bg-accent/5 text-primary border-accent/20 hover:border-accent/40 font-medium"
                         )}
                         title={task.title}
@@ -252,7 +369,7 @@ export function CalendarMode({
       <div className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-3.5 overflow-y-auto hide-scrollbar pb-2">
         
         {/* MONTHLY EXECUTION OVERVIEW */}
-        <div className="flex flex-col bg-surface rounded-2xl p-4 border border-border shadow-xs">
+        <div className="flex flex-col krama-card p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
@@ -292,7 +409,7 @@ export function CalendarMode({
         </div>
 
         {/* UPCOMING TASKS IN MONTH */}
-        <div className="flex flex-col bg-surface rounded-2xl p-4 border border-border shadow-xs">
+        <div className="flex flex-col krama-card p-4">
           <div className="flex items-center gap-2 mb-3">
             <Clock className="w-4 h-4 text-accent" />
             <h3 className="text-xs font-bold text-primary">Upcoming in Month</h3>
@@ -307,11 +424,12 @@ export function CalendarMode({
               {upcomingMonthTasks.map((t: any) => {
                 const d = parseISO(t.scheduledDate || t.dueDate);
                 return (
-                  <div 
+                  <button
+                    type="button"
                     key={t.id}
                     onClick={() => onOpenDayView && onOpenDayView(d)}
-                    className="flex items-center justify-between p-2 rounded-xl border border-border bg-surface-hover/30 hover:bg-surface-hover transition-colors cursor-pointer group"
-                    title="Click to view day schedule"
+                    aria-label={`Open day schedule for ${t.title} on ${format(d, 'MMMM d')}`}
+                    className="w-full flex items-center justify-between p-2 rounded-xl border border-border bg-surface-hover/30 hover:bg-surface-hover transition-colors cursor-pointer group text-left outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     <div className="flex items-center gap-2.5 min-w-0 pr-2">
                       <div className="w-8 h-8 rounded-lg bg-surface border border-border flex flex-col items-center justify-center shrink-0">
@@ -328,7 +446,7 @@ export function CalendarMode({
                       </div>
                     </div>
                     <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:text-accent transition-colors shrink-0" />
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -338,7 +456,7 @@ export function CalendarMode({
         {/* UPCOMING HOLIDAYS */}
         <div className="flex flex-col bg-surface rounded-2xl p-4 border border-border shadow-xs">
           <div className="flex items-center gap-2 mb-3">
-            <CalendarIcon className="w-4 h-4 text-rose-500" />
+            <CalendarIcon className="w-4 h-4 text-danger-fg" />
             <h3 className="text-xs font-bold text-primary">Holidays & Observances</h3>
           </div>
 

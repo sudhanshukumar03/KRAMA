@@ -1,5 +1,7 @@
 import { prisma } from '../prisma';
 import { calculateCapacity } from './capacity.service';
+import { resolveUserTimeZone, getUserLocalDateStr } from './habitStreak.service';
+import { localDayBoundsUtc } from './plannerTime';
 
 export interface TimerPreferences {
   focusDuration?: number;     // default: 25 min
@@ -44,18 +46,21 @@ export async function buildFocusSchedule(
     longBreakAfter: userPrefs?.longBreakAfter && userPrefs.longBreakAfter > 0 ? userPrefs.longBreakAfter : 4,
   };
 
-  // STEP 1: Load today's data
-  const today = new Date();
-  const startOfDay = new Date(today);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(today);
-  endOfDay.setHours(23, 59, 59, 999);
+  // STEP 1: Load today's data.
+  // "Today" is the user's LOCAL calendar day, not the server's — a server
+  // deployed in another timezone would otherwise build the wrong day's
+  // schedule. Resolve the user's timezone, derive their local date key, and
+  // build UTC day-bounds from it (matching how /week keys blocks and tasks at
+  // UTC noon), and use the same window for the completed-sessions query.
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { weeklyCapacityMinutes: true, metadata: true, countryCode: true }
+  });
+  const timeZone = resolveUserTimeZone(user);
+  const localDateKey = getUserLocalDateStr(new Date(), timeZone);
+  const { start: startOfDay, end: endOfDay } = localDayBoundsUtc(localDateKey);
 
-  const [user, timeBlocks, tasks, completedSessions, projects] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: { weeklyCapacityMinutes: true, metadata: true }
-    }),
+  const [timeBlocks, tasks, completedSessions, projects] = await Promise.all([
     prisma.timeBlock.findMany({
       where: { userId, workspaceId, date: { gte: startOfDay, lte: endOfDay } },
       orderBy: { startTime: 'asc' }
@@ -64,7 +69,7 @@ export async function buildFocusSchedule(
       where: {
         workspaceId,
         deletedAt: null,
-        status: { not: 'DONE' },
+        status: { notIn: ['DONE', 'CANCELED'] },
         OR: [
           { scheduledDate: { gte: startOfDay, lte: endOfDay } },
           { dueDate: { gte: startOfDay, lte: endOfDay } }
@@ -76,7 +81,7 @@ export async function buildFocusSchedule(
       where: {
         userId,
         workspaceId,
-        startTime: { gte: startOfDay },
+        startTime: { gte: startOfDay, lte: endOfDay },
         completed: true
       }
     }),
@@ -95,10 +100,10 @@ export async function buildFocusSchedule(
   const meetingMinutes = capacity.meetingMinutes;
   const effectiveDailyCapMinutes = Math.max(0, dailyCapMinutes - meetingMinutes);
 
-  const alreadyLoggedMinutes = completedSessions.reduce(
-    (sum, s) => sum + Math.round(s.duration / 60),
-    0
-  );
+  // Break/clock sessions must not consume the daily work cap.
+  const alreadyLoggedMinutes = completedSessions
+    .filter(s => s.type === 'pomodoro' || s.type === 'custom')
+    .reduce((sum, s) => sum + Math.round(s.duration / 60), 0);
   const remainingMinutes = Math.max(0, effectiveDailyCapMinutes - alreadyLoggedMinutes);
 
   // STEP 3: Build work slots from TimeBlocks

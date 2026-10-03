@@ -4,13 +4,14 @@ import { History, X } from 'lucide-react';
 import { api } from '../../../api/client';
 import type { DocumentVersion } from '../../../types/schema';
 import { BaseButton } from '../../ui/BaseButton';
+import { useModalA11y } from '../../../hooks/useModalA11y';
 import { toast } from 'sonner';
 
 export interface VersionHistoryModalProps {
   documentId: string;
   isOpen: boolean;
   onClose: () => void;
-  onRestoreSuccess: (restoredContentJson?: Record<string, unknown> | null) => void;
+  onRestoreSuccess: (restoredDoc?: any) => void;
 }
 
 export function VersionHistoryModal({
@@ -27,6 +28,8 @@ export function VersionHistoryModal({
   });
 
   const [restoringId, setRestoringId] = useState<string | null>(null);
+
+  const modalRef = useModalA11y(isOpen, onClose);
 
   const handleManualSave = async () => {
     try {
@@ -45,7 +48,7 @@ export function VersionHistoryModal({
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       queryClient.invalidateQueries({ queryKey: ['document-versions', documentId] });
       toast.success('Restored document to selected snapshot');
-      onRestoreSuccess(restoredDoc?.contentJson);
+      onRestoreSuccess(restoredDoc);
       onClose();
     } catch {
       toast.error('Failed to restore version snapshot');
@@ -57,12 +60,23 @@ export function VersionHistoryModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-surface border border-border w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="version-history-title"
+        className="bg-surface border border-border w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
+      >
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
           <div className="flex items-center gap-2">
             <History className="w-5 h-5 text-accent-fg" />
-            <span className="font-bold text-primary text-body">Version Snapshots</span>
+            <span id="version-history-title" className="font-bold text-primary text-body">Version Snapshots</span>
           </div>
           <div className="flex items-center gap-2">
             <BaseButton onClick={handleManualSave} className="text-caption py-1 px-2.5">

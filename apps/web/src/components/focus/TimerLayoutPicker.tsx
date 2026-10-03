@@ -92,7 +92,7 @@ const LAYOUT_ITEMS: LayoutItem[] = [
         <div className="w-4/5 h-4/5 rounded-lg bg-white/10 backdrop-blur-md border border-white/20 p-2 flex flex-col justify-between items-center shadow-lg">
           <div className="w-full flex justify-between items-center text-[7px] text-white/50">
             <span>TASK</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span className="w-1.5 h-1.5 rounded-full bg-success-fg" />
           </div>
           <span className={`text-sm font-mono font-bold ${isSelected ? 'text-teal-300' : 'text-white'}`}>
             25:00

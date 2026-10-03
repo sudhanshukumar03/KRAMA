@@ -10,7 +10,7 @@ class HabitRepository implements BaseRepository<Habit, Prisma.HabitUncheckedCrea
       include: {
         completions: {
           orderBy: { completedAt: 'desc' },
-          take: 30, // Last 30 completions
+          take: 120, // ~13-week window for the per-card consistency heatmap
         }
       }
     });
@@ -29,7 +29,7 @@ class HabitRepository implements BaseRepository<Habit, Prisma.HabitUncheckedCrea
       include: {
         completions: {
           orderBy: { completedAt: 'desc' },
-          take: 30, // Limit to recent completions
+          take: 120, // ~13-week window for the per-card consistency heatmap
         }
       },
       orderBy: { createdAt: 'desc' },
@@ -58,19 +58,21 @@ class HabitRepository implements BaseRepository<Habit, Prisma.HabitUncheckedCrea
     return (tx || prisma).habitCompletion.create({ data });
   }
 
-  async removeCompletionToday(habitId: string, targetDate: Date, tx?: TxClient): Promise<void> {
+  async removeCompletionToday(habitId: string, userId: string, targetDate: Date, tx?: TxClient): Promise<void> {
     await (tx || prisma).habitCompletion.deleteMany({
       where: {
         habitId,
+        userId,
         date: targetDate,
       }
     });
   }
 
-  async getCompletionCountToday(habitId: string, targetDate: Date, tx?: TxClient): Promise<number> {
+  async getCompletionCountToday(habitId: string, userId: string, targetDate: Date, tx?: TxClient): Promise<number> {
     return (tx || prisma).habitCompletion.count({
       where: {
         habitId,
+        userId,
         date: targetDate,
       }
     });

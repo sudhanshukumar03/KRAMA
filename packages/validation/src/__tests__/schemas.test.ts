@@ -3,10 +3,8 @@ import assert from 'node:assert/strict';
 import {
   UpdateGoalSchema,
   UpdateHabitSchema,
-  UpdateDailyLogSchema,
   UpdateTaskSchema,
   UpdateProjectSchema,
-  UpdateSprintSchema,
 } from '../execution';
 
 describe('Validation Schema Concurrency Rules (P0)', () => {
@@ -39,16 +37,6 @@ describe('Validation Schema Concurrency Rules (P0)', () => {
     assert.strictEqual(parsed.name, 'Morning Deep Work');
   });
 
-  it('UpdateDailyLogSchema: allows omitting version', () => {
-    const parsed = UpdateDailyLogSchema.parse({
-      workspaceId: dummyWorkspace,
-      mood: 'PRODUCTIVE',
-      deepWorkMinutes: 120,
-    });
-    assert.strictEqual(parsed.version, undefined);
-    assert.strictEqual(parsed.deepWorkMinutes, 120);
-  });
-
   it('UpdateTaskSchema: allows omitting version', () => {
     const parsed = UpdateTaskSchema.parse({
       workspaceId: dummyWorkspace,
@@ -73,27 +61,6 @@ describe('Validation Schema Concurrency Rules (P0)', () => {
     const valid = UpdateProjectSchema.parse({
       workspaceId: dummyWorkspace,
       name: 'Renamed Project',
-      version: 1,
-    });
-    assert.strictEqual(valid.version, 1);
-  });
-
-  it('Amendment 3 - UpdateSprintSchema: version remains REQUIRED', () => {
-    assert.throws(
-      () => {
-        UpdateSprintSchema.parse({
-          workspaceId: dummyWorkspace,
-          name: 'Sprint 10',
-        });
-      },
-      (err: any) => {
-        return err.name === 'ZodError';
-      }
-    );
-
-    const valid = UpdateSprintSchema.parse({
-      workspaceId: dummyWorkspace,
-      name: 'Sprint 10',
       version: 1,
     });
     assert.strictEqual(valid.version, 1);

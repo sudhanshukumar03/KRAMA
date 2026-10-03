@@ -1,11 +1,10 @@
 import { notificationsWorker } from './workers/notifications.worker';
 import { habitStreakWorker } from './workers/habitStreak.worker';
-import { sprintReportWorker } from './workers/sprintReport.worker';
 import { analyticsWorker } from './workers/analytics.worker';
 import { embeddingWorker } from './workers/embedding.worker';
 import { documentVersionWorker } from './workers/documentVersion.worker';
 
-import { habitStreakQueue, sprintReportQueue, analyticsQueue } from './queues';
+import { habitStreakQueue, analyticsQueue } from './queues';
 
 // Schedule repeatable jobs safely
 const scheduleJobs = async () => {
@@ -24,13 +23,6 @@ const scheduleJobs = async () => {
       name: 'aggregate-analytics'
     });
 
-    // Weekly on Sunday at 2 AM UTC
-    await sprintReportQueue.upsertJobScheduler('generate-sprint-reports-job', {
-      pattern: '0 2 * * 0'
-    }, {
-      name: 'generate-sprint-reports'
-    });
-
     console.log('[Worker] Repeatable jobs scheduled.');
   } catch (err: any) {
     console.warn('[Worker] Could not register scheduler (Redis offline):', err?.message || err);
@@ -45,7 +37,6 @@ const shutdown = async () => {
   await Promise.allSettled([
     notificationsWorker.close(),
     habitStreakWorker.close(),
-    sprintReportWorker.close(),
     analyticsWorker.close(),
     embeddingWorker.close(),
     documentVersionWorker.close(),

@@ -7,27 +7,38 @@ export type GoalPace = {
   badge: string;
   projectedDate: Date | null;
   daysRemaining: number;
+  isDueToday?: boolean;
 };
 
 // Helper to compute pace strictly from real snapshot deltas or creation timestamps
 export function computeGoalPace(goal: GoalWithRelations): GoalPace {
   const rawStatus = (goal as any).metadata?.status || (goal as any).status;
   if (rawStatus === 'COMPLETED' || goal.progress >= 100) {
-    return { status: 'completed', requiredPace: 0, actualPace: 0, badge: 'Completed', projectedDate: null, daysRemaining: 0 };
+    return { status: 'completed', requiredPace: 0, actualPace: 0, badge: 'Completed', projectedDate: null, daysRemaining: 0, isDueToday: false };
   }
   if (rawStatus === 'PAUSED' || rawStatus === 'CANCELED') {
-    return { status: 'stalled', requiredPace: 0, actualPace: 0, badge: rawStatus === 'PAUSED' ? 'Paused' : 'Canceled', projectedDate: null, daysRemaining: 0 };
+    return { status: 'stalled', requiredPace: 0, actualPace: 0, badge: rawStatus === 'PAUSED' ? 'Paused' : 'Canceled', projectedDate: null, daysRemaining: 0, isDueToday: false };
   }
   
   if (!goal.targetDate) {
-    return { status: 'unknown', requiredPace: 0, actualPace: 0, badge: 'No Target Date', projectedDate: null, daysRemaining: 0 };
+    return { status: 'unknown', requiredPace: 0, actualPace: 0, badge: 'No Target Date', projectedDate: null, daysRemaining: 0, isDueToday: false };
   }
 
   const today = new Date();
   const target = new Date(goal.targetDate);
-  const daysRemaining = Math.max(0, Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+
+  // If target date is a midnight timestamp (e.g. from YYYY-MM-DD picker), extend to end-of-day 23:59:59.999
+  const isMidnight = target.getUTCHours() === 0 && target.getUTCMinutes() === 0 && target.getUTCSeconds() === 0;
+  const effectiveTarget = isMidnight
+    ? new Date(target.getFullYear(), target.getMonth(), target.getDate(), 23, 59, 59, 999)
+    : target;
+
+  const msRemaining = effectiveTarget.getTime() - today.getTime();
+  const isPastDue = msRemaining < 0;
+  const isDueToday = !isPastDue && today.toDateString() === effectiveTarget.toDateString();
+  const daysRemaining = isPastDue ? 0 : Math.max(isDueToday ? 0 : 1, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
   
-  const requiredPace = daysRemaining > 0 ? (100 - goal.progress) / daysRemaining : Infinity;
+  const requiredPace = !isPastDue ? (100 - goal.progress) / Math.max(1, daysRemaining) : Infinity;
 
   let actualPace = 0;
 
@@ -61,14 +72,19 @@ export function computeGoalPace(goal: GoalWithRelations): GoalPace {
     // Fallback: compute genuine pace from creation timestamp to current date
     const created = goal.createdAt ? new Date(goal.createdAt) : new Date();
     const daysSinceCreation = Math.max(1, Math.ceil((today.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
-    actualPace = Math.max(0, goal.progress / daysSinceCreation);
+    if (daysSinceCreation >= 3) {
+      actualPace = Math.max(0, goal.progress / daysSinceCreation);
+    }
   }
 
   let status: 'on_track' | 'behind' | 'stalled' | 'ahead' | 'past_due' = 'on_track';
-  if (daysRemaining === 0 && goal.progress < 100) {
+  if (isPastDue && goal.progress < 100) {
     status = 'past_due';
   } else if (actualPace === 0 && goal.progress < 100) {
-    status = 'stalled';
+    // If created recently (within 3 days), it is freshly in progress, not stalled
+    const created = goal.createdAt ? new Date(goal.createdAt) : new Date();
+    const daysSinceCreation = Math.max(1, Math.ceil((today.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+    status = daysSinceCreation <= 3 ? 'on_track' : 'stalled';
   } else if (actualPace < requiredPace) {
     status = 'behind';
   } else if (actualPace > requiredPace * 1.2) {
@@ -81,12 +97,19 @@ export function computeGoalPace(goal: GoalWithRelations): GoalPace {
     projectedDate = new Date(today.getTime() + daysToFinish * 86400000);
   }
 
+  const badge = status === 'past_due'
+    ? (actualPace === 0 ? 'Stalled / Past Due' : 'Past Due')
+    : isDueToday
+      ? 'Due Today'
+      : status.replace('_', ' ');
+
   return { 
     status, 
     requiredPace, 
     actualPace, 
-    badge: status === 'past_due' ? (actualPace === 0 ? 'Stalled / Past Due' : 'Past Due') : status.replace('_', ' '), 
+    badge, 
     projectedDate,
-    daysRemaining
+    daysRemaining,
+    isDueToday
   };
 }

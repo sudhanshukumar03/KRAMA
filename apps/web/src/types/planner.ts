@@ -45,12 +45,12 @@ interface TimeBlock {
   projectId?: string | null;
 }
 
-interface PlannerProject {
+export interface PlannerProject {
   id: string;
   name: string;
 }
 
-interface Milestone {
+export interface Milestone {
   id: string;
   title: string;
   date: string;
@@ -58,20 +58,15 @@ interface Milestone {
   projectId: string;
 }
 
-interface Holiday {
+// A goal whose targetDate falls inside the queried range — surfaced in the
+// planner as a read-only deadline chip (goals are edited from the Goals page,
+// not the planner).
+export interface GoalDeadline {
   id: string;
-  name: string;
-  date: string;
-  countryCode: string;
-  regionCode?: string | null;
-  type:
-    | 'NATIONAL'
-    | 'STATE'
-    | 'REGIONAL'
-    | 'OPTIONAL'
-    | 'INTERNATIONAL'
-    | 'OBSERVANCE';
-  isOptional: boolean;
+  title: string;
+  targetDate: string;
+  progress: number;
+  icon?: string | null;
 }
 
 interface PlannerCapacity {
@@ -83,22 +78,32 @@ interface PlannerCapacity {
   completionPercent: number;
 }
 
+// One day column as emitted by GET /week. The server pre-buckets tasks, blocks,
+// routine occurrences and milestones per day, keyed by the canonical day string.
+export interface PlannerDay {
+  dateKey: string;
+  date: string;
+  occurrences: RoutineOccurrence[];
+  tasks: PlannerTask[];
+  timeBlocks: TimeBlock[];
+  milestones: Milestone[];
+  goalDeadlines?: GoalDeadline[];
+}
+
 export interface PlannerData {
   weekStart: string;
   weekEnd: string;
   routines: Routine[];
   occurrences: RoutineOccurrence[];
+  days: PlannerDay[];
   tasks: PlannerTask[];
+  backlog?: PlannerTask[];
   timeBlocks: TimeBlock[];
   projects: PlannerProject[];
   milestones: Milestone[];
-  holidays: Holiday[];
+  goalDeadlines?: GoalDeadline[];
   capacity: PlannerCapacity;
-  syncStatus?: {
-    provider?: string | null;
-    status?: string;
-    lastSyncedAt?: string | null;
-  } | null;
+  workDayMinutes?: number;
   config?: {
     countryCode: string;
     regionCode?: string | null;

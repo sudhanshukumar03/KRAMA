@@ -1,5 +1,5 @@
 import type { 
-  Workspace, Space, ProjectWithRelations, IssueWithRelations, GoalWithRelations, Habit, Sprint, DailyLog, SearchResult
+  Workspace, Space, ProjectWithRelations, IssueWithRelations, GoalWithRelations, Habit, SearchResult
 } from '../types/schema';
 import { toast } from 'sonner';
 
@@ -37,6 +37,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     const headers = new Headers(options.headers || {});
     if (token) headers.set('Authorization', `Bearer ${token}`);
     if (currentWorkspaceId) headers.set('x-workspace-id', currentWorkspaceId);
+    headers.set('x-timezone-offset', String(new Date().getTimezoneOffset()));
     if (!(options.body instanceof FormData)) {
       headers.set('Content-Type', 'application/json');
     }
@@ -61,21 +62,19 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
       if (res.status === 403) {
         toast.error(`Permission Denied: ${errorMessage}`);
-        throw new Error(errorMessage);
-      }
-      if (res.status === 409) {
+      } else if (res.status === 409) {
         toast.error(`Update Conflict: ${errorMessage}`, {
           description: 'This record was modified elsewhere. Please refresh to see the latest changes.',
           duration: 5000,
         });
-        throw new Error(errorMessage);
-      }
-      if (res.status === 429) {
+      } else if (res.status === 429) {
         toast.error('Too Many Requests', { description: 'Please slow down.' });
-        throw new Error(errorMessage);
       }
 
-      throw new Error(errorMessage);
+      // Attach the HTTP status so callers can branch on it (e.g. 429 handling).
+      const err = new Error(errorMessage) as Error & { status?: number };
+      err.status = res.status;
+      throw err;
     }
 
     // Handle 204 No Content
@@ -151,6 +150,13 @@ async function streamDocumentAi(
           }
           try {
             const parsed = JSON.parse(payload);
+            // The server streams `data: {"error": "..."}` before its final
+            // [DONE] when generation fails. Surface it instead of silently
+            // ending the stream with an empty response.
+            if (parsed.error) {
+              onError(new Error(parsed.error));
+              return;
+            }
             if (parsed.text) onChunk(parsed.text);
           } catch {}
         }
@@ -229,13 +235,15 @@ export const api = {
   },
 
   documents: {
-    list: () => fetchApi<any[]>('/documents'),
+    list: (spaceId?: string) => fetchApi<any[]>(`/documents${spaceId && spaceId !== 'ALL' ? `?spaceId=${spaceId}` : ''}`),
+    listDeleted: (spaceId?: string) => fetchApi<any[]>(`/documents?deleted=true${spaceId && spaceId !== 'ALL' ? `&spaceId=${spaceId}` : ''}`),
     get: (id: string) => fetchApi<any>(`/documents/${id}`),
     create: (data: Record<string, any>) => fetchApi<any>('/documents', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<any>(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    updateContent: (id: string, contentJson: any) => fetchApi<any>(`/documents/${id}/content`, { method: 'PATCH', body: JSON.stringify({ contentJson }) }),
+    updateContent: (id: string, contentJson: any, expectedUpdatedAt?: string) => fetchApi<any>(`/documents/${id}/content`, { method: 'PATCH', body: JSON.stringify({ contentJson, expectedUpdatedAt }) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/documents/${id}`, { method: 'DELETE' }),
     restore: (id: string) => fetchApi<any>(`/documents/${id}/restore`, { method: 'POST' }),
+    purge: (id: string) => fetchApi<{ message: string }>(`/documents/${id}/permanent`, { method: 'DELETE' }),
     move: (id: string, data: { targetFolderId?: string | null; targetParentId?: string | null }) => 
       fetchApi<any>(`/documents/${id}/move`, { method: 'POST', body: JSON.stringify(data) }),
     duplicate: (id: string) => fetchApi<any>(`/documents/${id}/duplicate`, { method: 'POST' }),
@@ -253,12 +261,12 @@ export const api = {
     removeLink: (linkId: string) => fetchApi<any>(`/links/${linkId}`, { method: 'DELETE' }),
     createTask: (id: string, data: { title: string; priority?: string; status?: string; description?: string }) =>
       fetchApi<{ task: any; link: any }>(`/documents/${id}/tasks`, { method: 'POST', body: JSON.stringify(data) }),
-    search: (workspaceId: string, q: string, filters?: { type?: string; projectId?: string; status?: string }) => {
-
+    search: (workspaceId: string, q: string, filters?: { type?: string; projectId?: string; status?: string; tag?: string }) => {
       const params = new URLSearchParams({ q });
       if (filters?.type && filters.type !== 'ALL') params.append('type', filters.type);
       if (filters?.projectId && filters.projectId !== 'ALL') params.append('projectId', filters.projectId);
       if (filters?.status && filters.status !== 'ALL') params.append('status', filters.status);
+      if (filters?.tag && filters.tag !== 'ALL') params.append('tag', filters.tag);
       return fetchApi<any[]>(`/workspaces/${workspaceId}/search?${params.toString()}`);
     },
 
@@ -272,6 +280,10 @@ export const api = {
   },
   goals: {
     list: () => fetchApi<GoalWithRelations[]>('/goals'),
+    // Scalar-only list (no snapshots / nested childGoals) for link dropdowns,
+    // sidebar counts, and the command palette.
+    listLite: () => fetchApi<GoalWithRelations[]>('/goals/lite'),
+    get: (id: string) => fetchApi<GoalWithRelations>(`/goals/${id}`),
     create: (data: Record<string, any>) => fetchApi<GoalWithRelations>('/goals', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<GoalWithRelations>(`/goals/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/goals/${id}`, { method: 'DELETE' }),
@@ -279,9 +291,12 @@ export const api = {
   },
     projects: {
     list: () => fetchApi<ProjectWithRelations[]>('/projects'),
+    get: (id: string) => fetchApi<ProjectWithRelations>(`/projects/${id}`),
     create: (data: Record<string, any>) => fetchApi<ProjectWithRelations>('/projects', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<ProjectWithRelations>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/projects/${id}`, { method: 'DELETE' }),
+    reorder: (id: string, data: { position: number; version: number; workspaceId?: string }) =>
+      fetchApi<ProjectWithRelations>(`/projects/${id}/reorder`, { method: 'PATCH', body: JSON.stringify(data) }),
     restore: (id: string) => fetchApi<any>(`/projects/${id}/restore`, { method: 'POST' }),
   },
   tasks: {
@@ -298,15 +313,7 @@ export const api = {
     complete: (id: string) => fetchApi<IssueWithRelations>(`/tasks/${id}/complete`, { method: 'PATCH' }),
       addComment: (id: string, content: string) => fetchApi<any>(`/tasks/${id}/comments`, { method: 'POST', body: JSON.stringify({ content }) }),
   },
-  
-  sprints: {
-    list: () => fetchApi<Sprint[]>('/sprints'),
-    getReport: (id: string) => fetchApi<any>(`/sprints/${id}/reports`),
-    create: (data: Record<string, any>) => fetchApi<Sprint>('/sprints', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, any>) => fetchApi<Sprint>(`/sprints/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    complete: (id: string) => fetchApi<any>(`/sprints/${id}/complete`, { method: 'POST' }),
-    delete: (id: string) => fetchApi<void>(`/sprints/${id}`, { method: 'DELETE' }),
-  },
+
   habits: {
     list: () => fetchApi<Habit[]>('/habits'),
     create: (data: Record<string, any>) => fetchApi<Habit>('/habits', { method: 'POST', body: JSON.stringify(data) }),
@@ -316,18 +323,6 @@ export const api = {
     complete: (id: string, date?: string, dateIso?: string) => fetchApi<Habit>(`/habits/${id}/log`, { method: 'POST', ...(date ? { body: JSON.stringify({ date, dateIso }) } : {}) }),
     uncomplete: (id: string, date?: string, dateIso?: string) => fetchApi<Habit>(`/habits/${id}/log?date=${date || ''}&dateIso=${dateIso || ''}`, { method: 'DELETE' }),
   },
-  dailyLogs: {
-    list: (params?: { date?: string; range?: number }) => {
-      const q = new URLSearchParams();
-      if (params?.date) q.append('date', params.date);
-      if (params?.range) q.append('range', String(params.range));
-      const qs = q.toString();
-      return fetchApi<DailyLog[]>(`/daily-logs${qs ? `?${qs}` : ''}`);
-    },
-    create: (data: Record<string, any>) => fetchApi<DailyLog>('/daily-logs', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, any>) => fetchApi<DailyLog>(`/daily-logs/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<void>(`/daily-logs/${id}`, { method: 'DELETE' }),
-  },
   search: {
     query: (q: string) => fetchApi<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}`),
   },
@@ -335,14 +330,11 @@ export const api = {
   ai: {
     complete: (data: Record<string, any>) => fetchApi<any>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),
     ragQuery: (data: Record<string, any>) => fetchApi<any>('/ai/rag-query', { method: 'POST', body: JSON.stringify(data) }),
-    narrative: (data: Record<string, any>) => fetchApi<any>('/ai/narrative', { method: 'POST', body: JSON.stringify(data) }),
     config: () => fetchApi<any>('/ai/config'),
     analyzeTelemetry: (data: Record<string, any>) => fetchApi<{ insight: string }>('/ai/analyze-telemetry', { method: 'POST', body: JSON.stringify(data) }),
     getDashboardInsight: (force?: boolean) => fetchApi<{ insight: string }>(`/ai/dashboard-insight${force ? '?force=true' : ''}`)
   },
-  knowledgeGraph: {
-    get: () => fetchApi<any>('/knowledge-graph', { method: 'GET' })
-  },
+
   notifications: {
     list: () => fetchApi<any[]>('/notifications', { method: 'GET' }),
     markAsRead: (id: string) => fetchApi<any>(`/notifications/${id}/read`, { method: 'PATCH' }),
@@ -359,8 +351,7 @@ export const api = {
   },
   analytics: {
     overview: (range: string) => fetchApi<any[]>(`/analytics/overview?range=${range}`, { method: 'GET' }),
-    focusHistory: (range: string) => fetchApi<any[]>(`/analytics/focus-history?range=${range}`, { method: 'GET' }),
-    habitHeatmap: (habitId: string, range: string) => fetchApi<any[]>(`/analytics/habit-heatmap?habitId=${habitId}&range=${range}`, { method: 'GET' })
+    focusHistory: (range: string) => fetchApi<any[]>(`/analytics/focus-history?range=${range}`, { method: 'GET' })
   },
   planner: {
     getWeek: (start: string, end: string, workspaceId?: string | null) => {
@@ -376,7 +367,11 @@ export const api = {
     createTimeBlock: (data: any) => fetchApi<any>('/planner/time-blocks', { method: 'POST', body: JSON.stringify(data) }),
     updateTimeBlock: (id: string, data: any) => fetchApi<any>(`/planner/time-blocks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     deleteTimeBlock: (id: string) => fetchApi<any>(`/planner/time-blocks/${id}`, { method: 'DELETE' }),
-    toggleRoutine: (data: any) => fetchApi<any>('/planner/routine-occurrences', { method: 'PATCH', body: JSON.stringify(data) }),
+    getMilestones: (start: string, end: string, workspaceId?: string | null) => {
+      let url = `/planner/milestones?start=${start}&end=${end}`;
+      if (workspaceId) url += `&workspaceId=${workspaceId}`;
+      return fetchApi<any>(url);
+    },
     createMilestone: (data: any) => fetchApi<any>('/planner/milestones', { method: 'POST', body: JSON.stringify(data) }),
     updateMilestone: (id: string, data: any) => fetchApi<any>(`/planner/milestones/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     deleteMilestone: (id: string) => fetchApi<any>(`/planner/milestones/${id}`, { method: 'DELETE' })

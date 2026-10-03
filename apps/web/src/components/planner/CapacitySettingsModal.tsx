@@ -3,6 +3,7 @@ import { X, CalendarDays } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { toast } from 'sonner';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 interface Props {
   open: boolean;
@@ -34,25 +35,32 @@ export function CapacitySettingsModal({ open, onClose, currentCapacityMinutes }:
     },
     onError: () => {
       toast.error('Failed to update capacity');
-      onClose();
     }
   });
+
+  const dialogRef = useModalA11y(open, onClose);
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150" onClick={onClose}>
-      <div 
-        className="bg-surface rounded-2xl w-full max-w-sm shadow-xl overflow-hidden animate-in zoom-in-95 duration-150"
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="capacity-modal-title"
+        tabIndex={-1}
+        className="krama-dialog w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150 outline-none"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2 text-primary">
             <CalendarDays size={18} className="text-accent" />
-            <h3 className="font-bold text-sm">Weekly Capacity</h3>
+            <h3 id="capacity-modal-title" className="font-bold text-sm">Weekly Capacity</h3>
           </div>
-          <button 
+          <button
             onClick={onClose}
+            aria-label="Close"
             className="p-1.5 hover:bg-surface-hover rounded-lg text-muted transition-colors"
           >
             <X size={16} />
@@ -68,8 +76,8 @@ export function CapacitySettingsModal({ open, onClose, currentCapacityMinutes }:
                 min="0"
                 max="168"
                 value={hours}
-                onChange={e => setHours(parseInt(e.target.value) || 0)}
-                className="w-full bg-surface-hover border border-border rounded-xl px-3 py-2.5 text-sm font-medium text-primary focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
+                onChange={e => setHours(parseInt(e.target.value, 10) || 0)}
+                className="w-full bg-surface-hover border border-border rounded-lg px-3 py-2 text-sm font-mono font-medium text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-all"
                 placeholder="40"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">
@@ -85,14 +93,14 @@ export function CapacitySettingsModal({ open, onClose, currentCapacityMinutes }:
         <div className="p-4 bg-surface-hover/50 border-t border-border flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-muted hover:bg-surface transition-colors"
+            className="krama-btn krama-btn-secondary px-3.5 py-1.5 text-xs font-medium cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={() => saveMutation.mutate(hours * 60)}
             disabled={saveMutation.isPending}
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50"
+            className="krama-btn krama-btn-primary px-3.5 py-1.5 text-xs font-medium cursor-pointer disabled:opacity-50"
           >
             {saveMutation.isPending ? 'Saving...' : 'Save Capacity'}
           </button>

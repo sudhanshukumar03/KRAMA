@@ -7,7 +7,7 @@ class TaskRepository implements BaseRepository<Task, Prisma.TaskUncheckedCreateI
   async findById(id: string, tx?: TxClient): Promise<Task | null> {
     return (tx || prisma).task.findUnique({
       where: { id },
-      include: { project: { include: { goal: true } }, sprint: true, childTasks: true, blockedBy: true, comments: { orderBy: { createdAt: 'asc' }, include: { author: { select: { name: true } } } } },
+      include: { project: { include: { goal: true } }, childTasks: true, blockedBy: true, blocking: { select: { id: true, title: true } }, comments: { orderBy: { createdAt: 'asc' }, include: { author: { select: { name: true } } } } },
     });
   }
 
@@ -15,10 +15,9 @@ class TaskRepository implements BaseRepository<Task, Prisma.TaskUncheckedCreateI
     return (tx || prisma).task.findMany(options || {});
   }
 
-  async findManyByWorkspace(workspaceId: string, filters: { projectId?: string; sprintId?: string; status?: TaskStatus }, tx?: TxClient): Promise<Task[]> {
+  async findManyByWorkspace(workspaceId: string, filters: { projectId?: string; status?: TaskStatus }, tx?: TxClient): Promise<Task[]> {
     const where: any = { workspaceId, deletedAt: null };
     if (filters.projectId) where.projectId = filters.projectId;
-    if (filters.sprintId) where.sprintId = filters.sprintId;
     
     if (filters.status) {
       where.status = filters.status;
@@ -28,7 +27,11 @@ class TaskRepository implements BaseRepository<Task, Prisma.TaskUncheckedCreateI
 
     return (tx || prisma).task.findMany({
       where,
-      include: { project: { include: { goal: true } }, sprint: true, blockedBy: true, childTasks: true, comments: { orderBy: { createdAt: 'asc' }, include: { author: { select: { name: true } } } } },
+      // Comments are intentionally NOT included here: the board list is a hot path
+      // and comment threads are only shown in the detail modal, which fetches the
+      // single task (findById) on open. Keeping them out avoids loading every
+      // task's full thread on every board render.
+      include: { project: { include: { goal: true } }, blockedBy: true, blocking: { select: { id: true, title: true } }, childTasks: true },
       orderBy: { position: 'asc' },
     });
   }
@@ -45,7 +48,7 @@ class TaskRepository implements BaseRepository<Task, Prisma.TaskUncheckedCreateI
   async create(data: Prisma.TaskUncheckedCreateInput, tx?: TxClient): Promise<Task> {
     return (tx || prisma).task.create({
       data,
-      include: { project: { include: { goal: true } }, sprint: true, childTasks: true, blockedBy: true, comments: { orderBy: { createdAt: 'asc' }, include: { author: { select: { name: true } } } } },
+      include: { project: { include: { goal: true } }, childTasks: true, blockedBy: true, blocking: { select: { id: true, title: true } }, comments: { orderBy: { createdAt: 'asc' }, include: { author: { select: { name: true } } } } },
     });
   }
 
@@ -53,7 +56,7 @@ class TaskRepository implements BaseRepository<Task, Prisma.TaskUncheckedCreateI
     return (tx || prisma).task.update({
       where: { id },
       data,
-      include: { project: { include: { goal: true } }, sprint: true, childTasks: true, blockedBy: true, comments: { orderBy: { createdAt: 'asc' }, include: { author: { select: { name: true } } } } },
+      include: { project: { include: { goal: true } }, childTasks: true, blockedBy: true, blocking: { select: { id: true, title: true } }, comments: { orderBy: { createdAt: 'asc' }, include: { author: { select: { name: true } } } } },
     });
   }
 

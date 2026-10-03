@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, X, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, X, ArrowRight, ShieldCheck, ChevronUp, ChevronDown } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
+import { PageHeader } from './ui/PageHeader';
 import { LoadingState } from './ui/LoadingState';
 import { ConfirmDeleteButton } from './ui/ConfirmDeleteButton';
 import { cn } from '../lib/utils';
@@ -16,16 +17,19 @@ function ProjectCreateModal({
  open,
  onClose,
  onSubmit,
- isSubmitting
+ isSubmitting,
+ goals = []
 }: {
  open: boolean;
  onClose: () => void;
- onSubmit: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon: string }) => void;
+ onSubmit: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon: string; goalId?: string | null }) => void;
  isSubmitting: boolean;
+ goals?: any[];
 }) {
  const [name, setName] = useState('');
  const [problemStatement, setProblemStatement] = useState('');
  const [status, setStatus] = useState('active');
+ const [goalId, setGoalId] = useState('');
  const [targetDate, setTargetDate] = useState(() => {
  const d = new Date();
  d.setDate(d.getDate() + 60);
@@ -38,7 +42,7 @@ function ProjectCreateModal({
  const handleSubmit = (e: React.FormEvent) => {
  e.preventDefault();
  if (!name.trim()) return;
- onSubmit({ name: name.trim(), problemStatement: problemStatement.trim(), status, targetDate, icon });
+ onSubmit({ name: name.trim(), problemStatement: problemStatement.trim(), status, targetDate, icon, goalId: goalId || null });
  };
 
  return (
@@ -48,7 +52,7 @@ function ProjectCreateModal({
  >
  <div
  onClick={e => e.stopPropagation()}
- className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+ className="krama-dialog w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
  >
  <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/80 backdrop-blur-md">
  <div className="flex items-center gap-2.5">
@@ -111,6 +115,8 @@ function ProjectCreateModal({
                 <option value="active">⚡ Active Execution</option>
                 <option value="paused">⏸️ Paused</option>
                 <option value="shipped">🚀 Shipped / Live</option>
+                <option value="completed">✅ Completed</option>
+                <option value="archived">🗄️ Archived</option>
               </select>
             </div>
 
@@ -125,6 +131,28 @@ function ProjectCreateModal({
                 className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono font-bold"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-accent stroke-[1.75]" />
+                Linked Strategic Goal / OKR
+              </span>
+              <span className="text-secondary font-normal lowercase">(Optional)</span>
+            </label>
+            <select
+              value={goalId}
+              onChange={e => setGoalId(e.target.value)}
+              className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono cursor-pointer"
+            >
+              <option value="">No linked goal (Standalone initiative)</option>
+              {goals.map((g: any) => (
+                <option key={g.id} value={g.id}>
+                  {g.title} ({g.type} · {g.progress || 0}%)
+                </option>
+              ))}
+            </select>
           </div>
  </div>
 
@@ -142,13 +170,6 @@ function ProjectCreateModal({
  );
 }
 
-// Helper to generate ASCII progress bar blocks
-function renderAsciiProgress(pct: number) {
- const totalBlocks = 10;
- const filledBlocks = Math.round((pct / 100) * totalBlocks);
- const emptyBlocks = totalBlocks - filledBlocks;
- return '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
-}
 
 export function Projects() {
  const navigate = useNavigate();
@@ -156,19 +177,21 @@ export function Projects() {
  const { data: projects = [], isLoading: pLoading } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
  const { data: issues = [], isLoading: iLoading } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
  const { data: pages = [], isLoading: docLoading } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
- const { data: sprints = [], isLoading: sLoading } = useQuery({ queryKey: ['sprints'], queryFn: api.sprints.list });
+ const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
 
  const handleDeleteProject = async (e: React.MouseEvent, project: any) => {
  e.stopPropagation();
  try {
  await api.projects.delete(project.id);
  queryClient.invalidateQueries({ queryKey: ['projects'] });
+ queryClient.invalidateQueries({ queryKey: ['goals'] });
  toast.success(`Deleted initiative "${project.name}"`, {
  action: {
  label: 'Undo',
  onClick: async () => {
  await api.projects.restore(project.id);
  queryClient.invalidateQueries({ queryKey: ['projects'] });
+ queryClient.invalidateQueries({ queryKey: ['goals'] });
  toast.success(`Restored initiative "${project.name}"`);
  }
  }
@@ -180,19 +203,21 @@ export function Projects() {
 
  const [createModalOpen, setCreateModalOpen] = useState(false);
  const createProjectMutation = useMutation({
- mutationFn: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon: string }) =>
+ mutationFn: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon: string; goalId?: string | null }) =>
  api.projects.create({
  name: data.name,
  problemStatement: data.problemStatement,
  status: data.status,
  progress: 0,
  icon: data.icon,
+ goalId: data.goalId || null,
  targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : null
  }),
  onSuccess: (newProj) => {
  queryClient.invalidateQueries({ queryKey: ['projects'] });
+ queryClient.invalidateQueries({ queryKey: ['goals'] });
  setCreateModalOpen(false);
- toast.success(`Created strategic initiative"${newProj?.name || 'Project'}"`, {
+ toast.success(`Created strategic initiative "${newProj?.name || 'Project'}"`, {
  description: 'Click initiative card to access engineering mission control.'
  });
  if (newProj?.id) navigate(`/app/projects/${newProj.id}`);
@@ -206,8 +231,64 @@ export function Projects() {
  setCreateModalOpen(true);
  };
 
+ // Persist manual ordering via PATCH /projects/:id/reorder. Positions are global
+ // floats (listProjects orders by position asc); moving a card computes a midpoint
+ // between its same-status neighbours so only one row is written. Optimistic so the
+ // card doesn't snap back before the refetch; rolled back on error.
+ const reorderMutation = useMutation({
+ mutationFn: (vars: { id: string; position: number; version: number }) =>
+ api.projects.reorder(vars.id, { position: vars.position, version: vars.version }),
+ onMutate: async (vars) => {
+ await queryClient.cancelQueries({ queryKey: ['projects'] });
+ const prev = queryClient.getQueryData<any[]>(['projects']);
+ queryClient.setQueryData<any[]>(['projects'], (old) =>
+ old
+ ? old
+ .map((p) => (p.id === vars.id ? { ...p, position: vars.position, version: p.version + 1 } : p))
+ .sort((a, b) => a.position - b.position)
+ : old
+ );
+ return { prev };
+ },
+ onError: (_err, _vars, ctx) => {
+ if (ctx?.prev) queryClient.setQueryData(['projects'], ctx.prev);
+ toast.error('Failed to reorder initiative');
+ },
+ onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+ });
+
+ const handleMove = (e: React.MouseEvent, project: any, direction: 'up' | 'down') => {
+ e.stopPropagation();
+ // Same-status siblings in their current (position-asc) order.
+ const siblings = projects
+ .filter((p) => p.status === project.status)
+ .sort((a, b) => a.position - b.position);
+ const idx = siblings.findIndex((p) => p.id === project.id);
+ if (idx === -1) return;
+
+ let newPosition: number;
+ if (direction === 'up') {
+ if (idx === 0) return; // already first
+ const prev = siblings[idx - 1];
+ const prevPrev = siblings[idx - 2];
+ newPosition = prevPrev
+ ? (prevPrev.position + prev.position) / 2
+ : prev.position > 0
+ ? prev.position / 2
+ : prev.position - 500;
+ } else {
+ if (idx === siblings.length - 1) return; // already last
+ const next = siblings[idx + 1];
+ const nextNext = siblings[idx + 2];
+ newPosition = nextNext ? (next.position + nextNext.position) / 2 : next.position + 1000;
+ }
+
+ if (newPosition === project.position) return;
+ reorderMutation.mutate({ id: project.id, position: newPosition, version: project.version });
+ };
+
  const [searchQuery, setSearchQuery] = useState('');
- const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'idea' | 'paused' | 'shipped'>('all');
+ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'idea' | 'paused' | 'shipped' | 'completed' | 'archived'>('all');
 
  const filteredProjects = useMemo(() => {
  return projects.filter(p => {
@@ -217,68 +298,57 @@ export function Projects() {
  });
  }, [projects, searchQuery, statusFilter]);
 
- if (pLoading || iLoading || docLoading || sLoading) return <LoadingState title="Loading Strategic Portfolio..." description="Aggregating initiative milestones, engineering telemetry, and AI risk analysis..." />;
+ if (pLoading || iLoading || docLoading) return <LoadingState title="Loading Strategic Portfolio..." description="Aggregating initiative milestones, engineering telemetry, and AI risk analysis..." />;
 
- const statuses = statusFilter === 'all' ? ['active', 'idea', 'paused', 'shipped'] : [statusFilter];
+ const statuses = statusFilter === 'all' ? ['active', 'idea', 'paused', 'shipped', 'completed', 'archived'] : [statusFilter];
 
  return (
-    <div className="p-6 md:p-8 flex flex-col h-full bg-canvas overflow-y-auto min-w-0 animate-in fade-in duration-150 gap-6 pb-24 font-sans text-primary">
-      {/* Top Page Header with Logo and Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-accent-subtle border border-accent/20 text-accent-fg flex items-center justify-center shrink-0 shadow-2xs">
-            <FolderKanban className="w-5 h-5 stroke-[1.75]" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl font-bold text-primary tracking-tight">Project</h1>
-              <span className="bg-surface-hover text-secondary border border-border px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-accent-fg stroke-[1.5]" /> {projects.length} Tracked
-              </span>
-            </div>
-            <p className="text-xs text-secondary mt-0.5">
-              Engineering command center for multi-phase roadmaps, sprints, and strategic OKRs.
-            </p>
-          </div>
-        </div>
-        <BaseButton onClick={handleCreateProject} className="shrink-0 cursor-pointer">
-          <Plus className="w-4 h-4 mr-1.5 stroke-[1.5]" />
-          New Initiative
-        </BaseButton>
-      </div>
-
-  {/* STRATEGIC HEALTH FILTER & SEARCH BAR */}
-  <div className="v4-card rounded-xl p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-    <div className="relative flex-1 max-w-md">
-      <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 stroke-[1.5]" />
-      <input
-        type="text"
-        placeholder="Search initiatives by title or technical scope..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        className="w-full pl-9 pr-4 py-2 text-caption bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent focus:bg-surface transition-all placeholder:text-muted text-primary font-sans font-medium"
+    <div className="p-6 md:p-8 flex flex-col h-full bg-canvas overflow-y-auto min-w-0 animate-in fade-in duration-150 gap-5 pb-24 font-sans text-primary">
+      <PageHeader
+        icon={FolderKanban}
+        title="Projects & Strategic Initiatives"
+        description="Engineering command center for multi-phase roadmaps, technical milestones, and high-impact deliverables."
+        primaryAction={{
+          label: 'New Initiative',
+          icon: Plus,
+          onClick: handleCreateProject,
+        }}
+        className="mb-0"
       />
-    </div>
 
- <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 font-mono">
- <span className="text-badge font-bold text-secondary flex items-center gap-1 mr-1 shrink-0 uppercase tracking-wider">
- <Filter className="w-3.5 h-3.5 stroke-[1.5]" /> Status:
- </span>
- {(['all', 'active', 'idea', 'paused', 'shipped'] as const).map((stat) => (
- <button
- key={stat}
- onClick={() => setStatusFilter(stat)}
- className={cn("px-3 py-1 rounded-lg text-caption font-bold uppercase tracking-wider transition-all shrink-0 cursor-pointer",
- statusFilter === stat 
- ?"bg-primary text-surface shadow-2xs" 
- :"bg-surface-hover text-secondary hover:text-primary border border-border/60"
- )}
- >
- {stat} {stat !== 'all' && `(${projects.filter(p => p.status === stat).length})`}
- </button>
- ))}
- </div>
- </div>
+      {/* STRATEGIC HEALTH FILTER & SEARCH BAR */}
+      <div className="bg-surface/80 border border-border/80 rounded-xl p-3 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-2xs backdrop-blur-sm">
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 stroke-[1.75]" />
+          <input
+            type="text"
+            placeholder="Search initiatives by title or technical scope..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface-hover/80 border border-border/70 rounded-lg focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent focus:bg-surface transition-all placeholder:text-muted text-primary font-medium"
+          />
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+          <span className="text-[10px] font-bold text-secondary flex items-center gap-1 mr-1 shrink-0 uppercase tracking-wider font-mono">
+            <Filter className="w-3.5 h-3.5 stroke-[1.5]" /> Status:
+          </span>
+          {(['all', 'active', 'idea', 'paused', 'shipped', 'completed', 'archived'] as const).map((stat) => (
+            <button
+              key={stat}
+              onClick={() => setStatusFilter(stat)}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all shrink-0 cursor-pointer",
+                statusFilter === stat 
+                  ? "bg-primary text-text-inverse shadow-xs ring-1 ring-primary/20" 
+                  : "bg-surface-hover/60 text-secondary hover:text-primary border border-border/60 hover:bg-surface-hover"
+              )}
+            >
+              {stat} {stat !== 'all' && `(${projects.filter(p => p.status === stat).length})`}
+            </button>
+          ))}
+        </div>
+      </div>
 
  {/* LUXURY LARGE CARDS LIST / GRID */}
  <div className="flex flex-col gap-8">
@@ -299,9 +369,11 @@ export function Projects() {
  {/* Category Status Ribbon */}
  <div className="flex items-center gap-2 text-secondary font-mono font-bold text-caption uppercase tracking-wider px-1">
  <span className={cn("w-2.5 h-2.5 rounded-full shadow-2xs",
- status === 'active' ? 'bg-accent animate-pulse' : 
- status === 'idea' ? 'bg-amber-500' :
- status === 'shipped' ? 'bg-emerald-500' : 'bg-secondary'
+ status === 'active' ? 'bg-accent animate-pulse' :
+ status === 'idea' ? 'bg-warning-fg' :
+ status === 'shipped' ? 'bg-success-fg' :
+ status === 'completed' ? 'bg-cat-tasks' :
+ status === 'archived' ? 'bg-secondary/50' : 'bg-secondary'
  )} />
  <span>{status} INITIATIVES</span>
  <span className="ml-auto bg-surface border border-border px-2.5 py-0.5 rounded-md font-mono text-caption font-bold text-primary shadow-2xs">
@@ -310,12 +382,11 @@ export function Projects() {
  </div>
  
  <div className="flex flex-col gap-4">
- {statusProjects.map(project => {
+ {statusProjects.map((project, groupIdx) => {
  const projectIssues = project.tasks || issues.filter(i => i.projectId === project.id);
  const totalDocs = pages.filter(p => p.linkedProjectId === project.id || p.projectId === project.id).length;
- const totalSprints = project._count?.sprints ?? (project.sprints?.length || sprints.filter(s => s.projectId === project.id).length);
- 
- const completedIssues = projectIssues.filter((i: any) => i.status === "DONE" || i.status === "REVIEW").length;
+
+ const completedIssues = projectIssues.filter((i: any) => i.status === "DONE").length;
  const totalIssues = project._count?.tasks ?? projectIssues.length;
  const progressPct = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
 
@@ -335,18 +406,30 @@ export function Projects() {
             {/* Top Row: Title, Problem Statement & Actions */}
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-3 mb-1.5">
-                  <div className="w-6 h-6 text-primary flex items-center justify-center">
-                    {React.createElement(resolveIcon(project.icon || 'FolderKanban'), { className: "w-5 h-5 stroke-[1.5]" })}
+                <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
+                  <div className="w-8 h-8 rounded-lg bg-cat-projects-bg border border-cat-projects/20 text-cat-projects flex items-center justify-center shrink-0">
+                    {React.createElement(resolveIcon(project.icon || 'FolderKanban'), { className: "w-4 h-4 stroke-[1.75]" })}
                   </div>
-                  <h3 className="text-card text-primary mb-2 md: truncate group-hover/card:text-accent transition-colors">
+                  <h3 className="text-base font-bold text-primary truncate group-hover/card:text-accent transition-colors tracking-tight">
                     {project.name}
                   </h3>
-                  {project.goalId && (
-                    <span className="bg-success-bg text-success-fg border border-success-border px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
-                      <Target className="w-3 h-3 stroke-[1.5]" /> OKR LINKED
-                    </span>
-                  )}
+                  {project.goalId && (() => {
+                    const linkedGoal = goals.find((g: any) => g.id === project.goalId);
+                    return (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate('/app/goals');
+                        }}
+                        className="bg-cat-projects-bg text-cat-projects border border-cat-projects/25 hover:bg-cat-projects-bg/80 px-2.5 py-0.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title={linkedGoal ? `Working toward goal: ${linkedGoal.title}` : 'Linked to Goal'}
+                      >
+                        <Target className="w-3 h-3 stroke-[2]" />
+                        <span className="truncate max-w-[320px]">{linkedGoal ? `Goal: ${linkedGoal.title}` : 'OKR Linked'}</span>
+                      </button>
+                    );
+                  })()}
                 </div>
                 
                 {project.problemStatement && (
@@ -358,6 +441,26 @@ export function Projects() {
 
               {/* Right Quick Actions */}
               <div className="flex items-center gap-2 shrink-0 self-end md:self-start">
+                <div className="flex items-center opacity-0 group-hover/card:opacity-100 transition-opacity">
+                  <button
+                    type="button"
+                    aria-label="Move initiative up"
+                    disabled={groupIdx === 0 || reorderMutation.isPending}
+                    onClick={(e) => handleMove(e, project, 'up')}
+                    className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  >
+                    <ChevronUp className="w-4 h-4 stroke-[1.5]" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Move initiative down"
+                    disabled={groupIdx === statusProjects.length - 1 || reorderMutation.isPending}
+                    onClick={(e) => handleMove(e, project, 'down')}
+                    className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  >
+                    <ChevronDown className="w-4 h-4 stroke-[1.5]" />
+                  </button>
+                </div>
                 <ConfirmDeleteButton
                   onConfirm={(e) => handleDeleteProject(e, project)}
                   className="opacity-0 group-hover/card:opacity-100 p-2"
@@ -369,64 +472,50 @@ export function Projects() {
                     e.stopPropagation();
                     navigate(`/app/projects/${project.id}`);
                   }}
-                  className="px-3.5 py-1.5 rounded-xl bg-surface-hover group-hover/card:bg-accent text-secondary group-hover/card:text-accent-fg font-mono text-caption font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer border-none"
+                  className="px-3.5 py-1.5 rounded-xl bg-surface-hover hover:bg-accent/15 text-secondary hover:text-accent font-semibold text-xs transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer border border-border/70"
                 >
                   <span>Open Initiative</span>
-                  <ArrowRight className="w-3.5 h-3.5 stroke-[1.5] group-hover/card:translate-x-0.5 transition-transform" />
+                  <ArrowRight className="w-3.5 h-3.5 stroke-[2] group-hover/card:translate-x-0.5 transition-transform" />
                 </button>
               </div>
             </div>
 
-            {/* Middle Row: Large Luxury Schematic Progress Bar (Krama OS ██████████ 82% Sprint 4 4 Issues Last Active 2h ago) */}
-            <div className="bg-surface-hover/80 border border-border/80 rounded-xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 font-mono">
-              
-              {/* Left: ASCII Progress Block + Percentage */}
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="text-caption font-bold text-primary tracking-widest bg-surface px-2.5 py-1 rounded border border-border/60 shadow-2xs shrink-0 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-accent" /> KRAMA OS
+            {/* Middle Row: Unified High-Precision Progress & Telemetry */}
+            <div className="bg-surface-hover/50 border border-border/70 rounded-xl p-3.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-secondary">Completion</span>
+                  <span className="text-sm font-bold text-primary font-mono tabular-nums">{progressPct}%</span>
                 </div>
-                <div className="text-caption text-accent font-bold tracking-tighter shrink-0 select-none">
-                  {renderAsciiProgress(progressPct)}
-                </div>
-                <div className="text-body font-bold text-primary shrink-0">
-                  {progressPct}%
+                <div className="w-36 bg-border/40 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-cat-projects to-accent rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${progressPct}%` }}
+                  />
                 </div>
               </div>
 
-              {/* Center/Right: Sprints, Issues, Docs & Last Active Telemetry */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-caption text-secondary justify-end">
-                <span className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded border border-border/60 text-primary font-bold">
-                  <Zap className="w-3.5 h-3.5 text-accent stroke-[1.5]" />
-                  {totalSprints} {totalSprints === 1 ? 'Sprint' : 'Sprints'}
-                </span>
-                <span className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded border border-border/60 text-primary font-bold">
-                  <FolderKanban className="w-3.5 h-3.5 text-purple-500 stroke-[1.5]" />
+              {/* Telemetry chips */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-cat-projects-bg border border-cat-projects/20 text-cat-projects font-semibold text-[11px]">
+                  <FolderKanban className="w-3.5 h-3.5" />
                   {totalDocs} {totalDocs === 1 ? 'Doc' : 'Docs'}
                 </span>
-                <span className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded border border-border/60 text-primary font-bold">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 stroke-[1.5]" />
+                <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-success-bg border border-success-border text-success-fg font-semibold text-[11px] font-mono tabular-nums">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
                   {completedIssues}/{totalIssues} Issues
                 </span>
-                <span className="flex items-center gap-1 text-muted">
-                  <Clock className="w-3.5 h-3.5 stroke-[1.5]" />
-                  Last Active {lastActiveLabel}
+                <span className="flex items-center gap-1 text-[11px] text-muted font-medium">
+                  <Clock className="w-3.5 h-3.5" />
+                  Active {lastActiveLabel}
                 </span>
               </div>
             </div>
 
-            {/* Bottom Progress Bar + Invisible AI Risk Analysis (Revealed on Hover) */}
-            <div className="space-y-2.5">
-              <div className="h-2 w-full bg-surface-hover rounded-full overflow-hidden border border-border/60">
-                <div 
-                  className="h-full bg-accent transition-all duration-700 ease-out"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-
               {/* Invisible AI Risk Analysis Bar (Reveals on card hover) */}
               <div className="opacity-0 group-hover/card:opacity-100 max-h-0 group-hover/card:max-h-16 transition-all duration-300 overflow-hidden pt-1">
-                <div className="text-badge font-mono bg-purple-500/10 border border-purple-500/20 text-primary px-3 py-1.5 rounded-lg flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 font-bold text-purple-500">
+                <div className="text-badge font-mono bg-accent-subtle border border-accent/20 text-primary px-3 py-1.5 rounded-lg flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 font-bold text-accent-fg">
                     <Sparkles className="w-3.5 h-3.5 stroke-[1.5] shrink-0" /> AI Risk Sentinel:
                   </span>
                   <span className="truncate flex-1 text-secondary">
@@ -434,17 +523,15 @@ export function Projects() {
                       ? "Initiative completed. Ready for quarterly archive and post-mortem review." 
                       : progressPct > 60 
                       ? "Velocity nominal (94% probability of achieving target horizon on schedule)."
-                      : "Early execution phase. AI recommends scheduling deep-work sprint sessions."}
+                      : "Early execution phase. AI recommends scheduling deep-work focus sessions."}
                   </span>
                   <span className="font-bold text-primary flex items-center gap-1 shrink-0">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 stroke-[1.5]" /> Nominal
+                    <ShieldCheck className="w-3.5 h-3.5 text-success-fg stroke-[1.5]" /> Nominal
                   </span>
                 </div>
               </div>
             </div>
-          </div>
-
- );
+          );
  })}
  </div>
  </div>
@@ -457,6 +544,7 @@ export function Projects() {
  onClose={() => setCreateModalOpen(false)}
  onSubmit={(data) => createProjectMutation.mutate(data)}
  isSubmitting={createProjectMutation.isPending}
+ goals={goals}
  />
  </div>
  );

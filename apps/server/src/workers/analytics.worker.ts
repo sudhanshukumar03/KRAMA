@@ -6,7 +6,7 @@ import { prisma } from '../prisma';
 
 export const analyticsWorker = new Worker(
   QUEUE_NAMES.ANALYTICS,
-  async (job) => {
+  async (_job) => {
     console.log(`[Worker:Analytics] Running analytics aggregation...`);
 
     const workspaces = await prisma.workspace.findMany({
@@ -63,15 +63,15 @@ export const analyticsWorker = new Worker(
         ? goals.reduce((sum, g) => sum + g.progress, 0) / goals.length 
         : 0;
 
-      // 4. Deep Work Logged Today
-      const logs = await prisma.dailyLog.findMany({
+      // 4. Deep Work Logged Today (from completed focus sessions)
+      const focusSessionsToday = await prisma.focusSession.findMany({
         where: {
           workspaceId: workspace.id,
-          date: { gte: today },
-          deletedAt: null,
+          completed: true,
+          startTime: { gte: today },
         },
       });
-      const deepWorkLogged = logs.reduce((sum, l) => sum + (l.deepWorkMinutes || 0), 0);
+      const deepWorkLogged = focusSessionsToday.reduce((sum, s) => sum + Math.round(s.duration / 60), 0);
 
       // Upsert Analytics row for today
       await prisma.workspaceAnalytics.upsert({

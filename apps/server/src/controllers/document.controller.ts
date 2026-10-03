@@ -3,11 +3,12 @@ import { prisma } from '../prisma';
 import { Prisma } from '@prisma/client';
 
 import { DocumentService } from '../services/document.service';
-import { extractMarkdown, extractPlainText, calculateCounts } from '../utils/tiptap';
+import { extractMarkdown, extractPlainText, calculateCounts, extractEntityLinks } from '../utils/tiptap';
 import { documentVersionQueue, embeddingQueue } from '../queues';
 import { redisService } from '../services/redis.service';
 import Groq from 'groq-sdk';
 import { GoogleGenAI } from '@google/genai';
+import { GROQ_MODEL, GEMINI_MODEL } from '../services/ai.service';
 
 /**
  * Helper to ensure the target document belongs to the active workspace.
@@ -32,62 +33,6 @@ const verifyDocWorkspace = async (docId: string, req: Request): Promise<{ ok: bo
   return { ok: true, doc };
 };
 
-export const getDocuments = async (req: Request, res: Response) => {
-  try {
-    const spaceId = req.params.spaceId as string;
-    const userId = (req as any).user?.id;
-
-    if (!spaceId) {
-      return res.status(400).json({ message: 'Space ID is required' });
-    }
-
-    const space = await prisma.space.findUnique({
-      where: { id: spaceId },
-      select: { workspaceId: true }
-    });
-    if (!space) {
-      return res.status(404).json({ message: 'Space not found' });
-    }
-
-    if (userId) {
-      const isMember = await prisma.workspaceMember.findFirst({
-        where: { workspaceId: space.workspaceId, userId }
-      });
-      if (!isMember) {
-        return res.status(403).json({ message: 'Forbidden' });
-      }
-    }
-
-    const folderId = req.query.folderId as string | undefined;
-    const parentId = req.query.parentId as string | undefined;
-    const projectId = req.query.projectId as string | undefined;
-
-    const where: any = { 
-      spaceId,
-      deletedAt: null 
-    };
-
-    if (folderId !== undefined) {
-      where.folderId = folderId === 'null' ? null : folderId;
-    }
-    if (parentId !== undefined) {
-      where.parentId = parentId === 'null' ? null : parentId;
-    }
-    if (projectId !== undefined) {
-      where.projectId = projectId;
-    }
-
-    const documents = await prisma.document.findMany({
-      where,
-      include: { tags: { include: { tag: true } } },
-      orderBy: { updatedAt: 'desc' }
-    });
-
-    res.status(200).json(documents);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
-};
 
 export const getWorkspaceDocuments = async (req: Request, res: Response) => {
   try {
@@ -103,13 +48,22 @@ export const getWorkspaceDocuments = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Workspace ID is required' });
     }
 
-    const documents = await prisma.document.findMany({
-      where: {
-        space: { workspaceId },
-        deletedAt: null
+    const isDeleted = req.query.deleted === 'true';
+    const spaceId = req.query.spaceId as string | undefined;
+
+    const where: any = {
+      space: { 
+        workspaceId,
+        ...(isDeleted ? {} : { deletedAt: null }),
+        ...(spaceId && spaceId !== 'ALL' ? { id: spaceId } : {})
       },
+      deletedAt: isDeleted ? { not: null } : null
+    };
+
+    const documents = await prisma.document.findMany({
+      where,
       include: { tags: { include: { tag: true } } },
-      orderBy: { updatedAt: 'desc' }
+      orderBy: isDeleted ? { deletedAt: 'desc' } : { updatedAt: 'desc' }
     });
 
     res.status(200).json(documents);
@@ -139,15 +93,38 @@ export const createWorkspaceDocument = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Title is required' });
     }
 
-    // Determine target space: provided spaceId or the first default space in workspace
+    // If parentId is provided, inherit the parent document's spaceId to preserve tree consistency
     let targetSpaceId = spaceId;
+    if (parentId) {
+      const parentDoc = await prisma.document.findFirst({
+        where: { id: parentId, deletedAt: null },
+        select: { spaceId: true, space: { select: { workspaceId: true } } }
+      });
+      if (!parentDoc) {
+        return res.status(400).json({ message: 'Parent document not found or has been deleted' });
+      }
+      if (parentDoc.space?.workspaceId !== workspaceId) {
+        return res.status(403).json({ message: 'Parent document belongs to a different workspace' });
+      }
+      targetSpaceId = parentDoc.spaceId;
+    }
+
+    if (projectId) {
+      const proj = await prisma.project.findFirst({
+        where: { id: projectId, workspaceId, deletedAt: null }
+      });
+      if (!proj) {
+        return res.status(400).json({ message: 'Target project must belong to the active workspace' });
+      }
+    }
+
     if (targetSpaceId) {
-      const exists = await prisma.space.findFirst({ where: { id: targetSpaceId, workspaceId } });
+      const exists = await prisma.space.findFirst({ where: { id: targetSpaceId, workspaceId, deletedAt: null } });
       if (!exists) targetSpaceId = undefined;
     }
     if (!targetSpaceId) {
       let space = await prisma.space.findFirst({
-        where: { workspaceId }
+        where: { workspaceId, deletedAt: null }
       });
       if (!space) {
         space = await prisma.space.create({
@@ -203,72 +180,24 @@ export const getDocumentById = async (req: Request, res: Response) => {
   }
 };
 
-export const createDocument = async (req: Request, res: Response) => {
-  try {
-    const { spaceId } = req.params;
-    const { title, folderId, parentId, projectId, documentType, contentJson } = req.body;
-    const userId = (req as any).user?.id; // Assuming auth middleware sets req.user
-
-    if (!spaceId || typeof spaceId !== 'string') {
-      return res.status(400).json({ message: 'Space ID is required' });
-    }
-
-    const space = await prisma.space.findUnique({
-      where: { id: spaceId },
-      select: { workspaceId: true }
-    });
-    if (!space) {
-      return res.status(404).json({ message: 'Space not found' });
-    }
-
-    if (userId) {
-      const isMember = await prisma.workspaceMember.findFirst({
-        where: { workspaceId: space.workspaceId, userId }
-      });
-      if (!isMember) {
-        return res.status(403).json({ message: 'Forbidden' });
-      }
-    }
-
-    if (!title) {
-      return res.status(400).json({ message: 'Title is required' });
-    }
-
-    const doc = await DocumentService.createDocument({
-      spaceId,
-      folderId,
-      parentId,
-      projectId,
-      title,
-      createdById: userId,
-      documentType,
-      contentJson,
-    });
-
-    if (doc.contentMarkdown) {
-      embeddingQueue.add('embed-document', {
-        documentId: doc.id,
-        content: doc.contentMarkdown,
-      }, {
-        jobId: `embed-doc-${doc.id}`,
-        delay: 2000,
-      }).catch(console.error);
-    }
-
-    res.status(201).json(doc);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
-  }
-};
 
 export const updateDocumentMetadata = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { ok } = await verifyDocWorkspace(id, req);
-    if (!ok) return res.status(404).json({ message: 'Document not found' });
+    const { ok, doc } = await verifyDocWorkspace(id, req);
+    if (!ok || !doc || doc.deletedAt) return res.status(404).json({ message: 'Document not found' });
 
     const { title, subtitle, statusBadges, documentType, isFavorite, icon, projectId, linkedProjectId } = req.body;
     const project = projectId !== undefined ? projectId : linkedProjectId;
+
+    if (project) {
+      const proj = await prisma.project.findFirst({
+        where: { id: project, workspaceId: doc.space?.workspaceId, deletedAt: null }
+      });
+      if (!proj) {
+        return res.status(400).json({ message: 'Target project must belong to the active workspace' });
+      }
+    }
 
     const updated = await prisma.document.update({
       where: { id },
@@ -382,6 +311,52 @@ export const restoreDocument = async (req: Request, res: Response) => {
   }
 };
 
+export const purgeDocument = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ message: 'Document ID is required' });
+    }
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
+    // Hard delete document and all its relations recursively
+    await prisma.$transaction(async (tx) => {
+      const collectIds = async (docId: string): Promise<string[]> => {
+        const children = await tx.document.findMany({ where: { parentId: docId }, select: { id: true } });
+        let ids = [docId];
+        for (const child of children) {
+          const childIds = await collectIds(child.id);
+          ids = ids.concat(childIds);
+        }
+        return ids;
+      };
+
+      const allIds = await collectIds(id);
+
+      await tx.knowledgeChunk.deleteMany({ where: { documentId: { in: allIds } } });
+      await tx.documentVersion.deleteMany({ where: { documentId: { in: allIds } } });
+      await tx.entityLink.deleteMany({
+        where: {
+          OR: [
+            { sourceType: 'DOCUMENT', sourceId: { in: allIds } },
+            { targetType: 'DOCUMENT', targetId: { in: allIds } }
+          ]
+        }
+      });
+      await tx.documentTag.deleteMany({ where: { documentId: { in: allIds } } });
+
+      for (const docId of allIds.reverse()) {
+        await tx.document.delete({ where: { id: docId } }).catch(() => {});
+      }
+    });
+
+    res.status(200).json({ message: 'Permanently deleted' });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const updateDocumentContent = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -391,23 +366,44 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
     const { ok } = await verifyDocWorkspace(id, req);
     if (!ok) return res.status(404).json({ message: 'Document not found' });
 
-    const { contentJson } = req.body;
+    const { contentJson, expectedUpdatedAt } = req.body;
     const userId = (req as any).user?.id || 'system';
 
     const plainText = extractPlainText(contentJson);
     const contentMarkdown = extractMarkdown(contentJson);
     const { wordCount, charCount } = calculateCounts(plainText);
 
-    const updated = await prisma.document.update({
-      where: { id },
-      data: {
-        contentJson,
-        contentMarkdown,
-        wordCount,
-        charCount,
-        lastEditedById: userId,
+    const data = {
+      contentJson,
+      contentMarkdown,
+      wordCount,
+      charCount,
+      lastEditedById: userId,
+    };
+
+    // Optimistic concurrency: when the client sends the `updatedAt` it last saw,
+    // scope the write to that revision. A zero-row result means another writer
+    // (another tab/user, or a queued autosave) moved the document on since — 409
+    // so the client surfaces the "modified elsewhere" toast instead of silently
+    // clobbering the newer content. Document has no `version` column, so its
+    // @updatedAt token stands in as the revision marker.
+    let updated: { updatedAt: Date } | null;
+    if (expectedUpdatedAt) {
+      const result = await prisma.document.updateMany({
+        where: { id, updatedAt: new Date(expectedUpdatedAt) },
+        data,
+      });
+      if (result.count === 0) {
+        return res.status(409).json({ message: 'Document was modified elsewhere. Refresh to load the latest version.' });
       }
-    });
+      updated = await prisma.document.findUnique({ where: { id }, select: { updatedAt: true } });
+    } else {
+      updated = await prisma.document.update({
+        where: { id },
+        data,
+        select: { updatedAt: true },
+      });
+    }
 
     if (contentMarkdown) {
       embeddingQueue.add('embed-document', {
@@ -456,10 +452,45 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
       console.warn('[updateDocumentContent] Redis versioning skipped:', redisErr);
     }
 
-    res.status(200).json({ 
-      updatedAt: updated.updatedAt, 
-      wordCount, 
-      charCount 
+    // Reconcile EntityLink references from document content
+    try {
+      const extractedLinks = extractEntityLinks(contentJson);
+      const currentLinks = await prisma.entityLink.findMany({
+        where: { sourceType: 'DOCUMENT', sourceId: id }
+      });
+
+      const extractedKeys = new Set(extractedLinks.map(l => `${l.targetType}:${l.targetId}`));
+      const toDelete = currentLinks.filter(l => !extractedKeys.has(`${l.targetType}:${l.targetId}`));
+      const currentKeys = new Set(currentLinks.map(l => `${l.targetType}:${l.targetId}`));
+      const toAdd = extractedLinks.filter(l => !currentKeys.has(`${l.targetType}:${l.targetId}`));
+
+      if (toDelete.length > 0) {
+        await prisma.entityLink.deleteMany({
+          where: { id: { in: toDelete.map(l => l.id) } }
+        });
+      }
+
+      if (toAdd.length > 0) {
+        await prisma.entityLink.createMany({
+          data: toAdd.map(l => ({
+            sourceType: 'DOCUMENT',
+            sourceId: id,
+            targetType: l.targetType,
+            targetId: l.targetId,
+            linkType: 'REFERENCE',
+            createdById: userId
+          })),
+          skipDuplicates: true
+        });
+      }
+    } catch (linkErr) {
+      console.warn('[updateDocumentContent] Link reconciliation skipped:', linkErr);
+    }
+
+    res.status(200).json({
+      updatedAt: updated?.updatedAt,
+      wordCount,
+      charCount
     });
   } catch (error: any) {
     res.status(400).json({ message: error.message });
@@ -697,16 +728,35 @@ export const getDocumentLinks = async (req: Request, res: Response) => {
 export const addDocumentLink = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { ok } = await verifyDocWorkspace(id, req);
-    if (!ok) return res.status(404).json({ message: 'Document not found' });
+    const { ok, doc } = await verifyDocWorkspace(id, req);
+    if (!ok || !doc) return res.status(404).json({ message: 'Document not found' });
 
     const { targetType, targetId, linkType } = req.body;
     const userId = (req as any).user?.id || 'system';
 
-    if (targetType === 'DOCUMENT' && targetId) {
+    if (!targetId || !['DOCUMENT', 'PROJECT', 'TASK'].includes(targetType)) {
+      return res.status(400).json({ message: 'A valid targetType (DOCUMENT | PROJECT | TASK) and targetId are required' });
+    }
+
+    // Every link target must live in the same workspace as the source document.
+    // Previously only DOCUMENT targets were checked, so a document could be linked
+    // to a project/task from another workspace (or to a non-existent id), leaking
+    // cross-workspace references into the graph and backlinks.
+    const workspaceId = doc.space?.workspaceId;
+    if (targetType === 'DOCUMENT') {
       const targetCheck = await verifyDocWorkspace(targetId, req);
       if (!targetCheck.ok) {
         return res.status(400).json({ message: 'Target document must belong to the active workspace' });
+      }
+    } else if (targetType === 'PROJECT') {
+      const project = await prisma.project.findUnique({ where: { id: targetId }, select: { workspaceId: true, deletedAt: true } });
+      if (!project || project.deletedAt || project.workspaceId !== workspaceId) {
+        return res.status(400).json({ message: 'Target project must belong to the active workspace' });
+      }
+    } else if (targetType === 'TASK') {
+      const task = await prisma.task.findUnique({ where: { id: targetId }, select: { workspaceId: true, deletedAt: true } });
+      if (!task || task.deletedAt || task.workspaceId !== workspaceId) {
+        return res.status(400).json({ message: 'Target task must belong to the active workspace' });
       }
     }
 
@@ -813,7 +863,7 @@ export const searchDocuments = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { q, type, projectId, status } = req.query;
+    const { q, type, projectId, status, tag } = req.query;
     if (!q) return res.status(200).json([]);
 
     const queryStr = String(q).trim();
@@ -827,20 +877,39 @@ export const searchDocuments = async (req: Request, res: Response) => {
     const statusFilter = status && status !== 'ALL' 
       ? Prisma.sql`AND ${String(status)} = ANY(d."statusBadges")` 
       : Prisma.empty;
+    const tagFilter = tag && tag !== 'ALL'
+      ? Prisma.sql`AND EXISTS (
+          SELECT 1 FROM "DocumentTag" dt
+          JOIN "Tag" t ON dt."tagId" = t.id
+          WHERE dt."documentId" = d.id AND t.name ILIKE ${String(tag).trim()}
+        )`
+      : Prisma.empty;
 
-    // Use raw query with plainto_tsquery for syntax-safe ranked search against tsvector
+    // The `searchVector` column is populated via document_search_vector_trigger and
+    // indexed with GIN (Document_searchVector_gin_idx). We match directly against
+    // searchVector @@ plainto_tsquery, and OR in a title ILIKE so short/partial
+    // words (e.g. "arch" → "architecture") that produce no lexemes still match.
+    const likePattern = `%${queryStr}%`;
     const results = await prisma.$queryRaw`
       SELECT d.id, d.title, d.subtitle, d.icon, d."documentType", d."statusBadges", d."projectId", d."updatedAt",
              ts_headline('english', d."contentMarkdown", plainto_tsquery('english', ${queryStr}), 'MaxFragments=1, MaxWords=20') as snippet
       FROM "Document" d
       JOIN "Space" s ON d."spaceId" = s.id
       WHERE s."workspaceId" = ${id}
+        AND s."deletedAt" IS NULL
         AND d."deletedAt" IS NULL
-        AND d."searchVector" @@ plainto_tsquery('english', ${queryStr})
+        AND (
+          (d."searchVector" IS NOT NULL AND d."searchVector" @@ plainto_tsquery('english', ${queryStr}))
+          OR d.title ILIKE ${likePattern}
+        )
         ${typeFilter}
         ${projectFilter}
         ${statusFilter}
-      ORDER BY ts_rank(d."searchVector", plainto_tsquery('english', ${queryStr})) DESC
+        ${tagFilter}
+      ORDER BY ts_rank(
+                 coalesce(d."searchVector", to_tsvector('english', coalesce(d.title, ''))),
+                 plainto_tsquery('english', ${queryStr})
+               ) DESC
       LIMIT 25;
     `;
 
@@ -867,8 +936,9 @@ export const exportDocument = async (req: Request, res: Response) => {
     if (!doc) return res.status(404).json({ message: 'Document not found' });
 
     if (format === 'md') {
+      const safeFilename = encodeURIComponent((doc.title || 'document').replace(/[^\w\s.-]/g, '_').trim());
       res.setHeader('Content-Type', 'text/markdown');
-      res.setHeader('Content-Disposition', `attachment; filename="${doc.title}.md"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}.md"; filename*=UTF-8''${safeFilename}.md`);
       return res.status(200).send(doc.contentMarkdown);
     }
 
@@ -902,8 +972,9 @@ wordCount: ${doc.wordCount}
 `;
       const specContent = yamlFrontmatter + doc.contentMarkdown + '\n' + treeMd;
 
+      const safeFilename = encodeURIComponent((doc.title || 'document').replace(/[^\w\s.-]/g, '_').trim());
       res.setHeader('Content-Type', 'text/markdown');
-      res.setHeader('Content-Disposition', `attachment; filename="${doc.title}-spec.md"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}-spec.md"; filename*=UTF-8''${safeFilename}-spec.md`);
       return res.status(200).send(specContent);
     }
 
@@ -970,10 +1041,49 @@ export const aiAsk = async (req: Request, res: Response) => {
     const availableAnchorsList = allAnchors.length > 0 ? `Available section anchor citations: ${allAnchors.slice(0, 25).join(', ')}` : '';
     const systemPrompt = `You are an AI assistant grounded ONLY in the following knowledge base content:\n\n${contextText}\n\n${availableAnchorsList}\n\nAnswer the user's question accurately. When citing information, you MUST cite the specific document section using its anchor slug like [#section-title] where applicable.`;
 
+    // Groq is the primary generation provider. GEMINI_API_KEY is present for
+    // embeddings (Groq has no embeddings API), so it must NOT be checked first
+    // here or text generation would always route to Gemini; Groq leads, Gemini
+    // stays only as a fallback when Groq isn't configured.
+    if (process.env.GROQ_API_KEY) {
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      const stream = await groq.chat.completions.create({
+        model: GROQ_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: question }
+        ],
+        stream: true
+      });
+
+      let isAborted = false;
+      req.on('close', () => { isAborted = true; });
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      for await (const chunk of stream) {
+        if (isAborted || res.writableEnded) break;
+        const text = chunk.choices[0]?.delta?.content || '';
+        if (text && !res.writableEnded) {
+          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        }
+      }
+      if (!isAborted && !res.writableEnded) {
+        res.write('data: [DONE]\n\n');
+        res.end();
+      }
+      return;
+    }
+
     if (process.env.GEMINI_API_KEY) {
+      let isAborted = false;
+      req.on('close', () => { isAborted = true; });
+
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-3.8-flash',
+        model: GEMINI_MODEL,
         contents: question,
         config: {
           systemInstruction: systemPrompt
@@ -985,43 +1095,20 @@ export const aiAsk = async (req: Request, res: Response) => {
       res.setHeader('Connection', 'keep-alive');
 
       for await (const chunk of responseStream) {
+        if (isAborted || res.writableEnded) break;
         const text = chunk.text || '';
-        if (text) {
+        if (text && !res.writableEnded) {
           res.write(`data: ${JSON.stringify({ text })}\n\n`);
         }
       }
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
-    }
-
-    if (process.env.GROQ_API_KEY) {
-      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-      const stream = await groq.chat.completions.create({
-        model: 'openai/gpt-oss-20b',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: question }
-        ],
-        stream: true
-      });
-
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      for await (const chunk of stream) {
-        const text = chunk.choices[0]?.delta?.content || '';
-        if (text) {
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
-        }
+      if (!isAborted && !res.writableEnded) {
+        res.write('data: [DONE]\n\n');
+        res.end();
       }
-      res.write('data: [DONE]\n\n');
-      res.end();
       return;
     }
 
-    throw new Error('Neither GEMINI_API_KEY nor GROQ_API_KEY is configured.');
+    throw new Error('Neither GROQ_API_KEY nor GEMINI_API_KEY is configured.');
   } catch (error: any) {
     if (!res.headersSent) {
       res.status(500).json({ message: error.message });
@@ -1047,10 +1134,46 @@ export const aiCompose = async (req: Request, res: Response) => {
 
     const userPrompt = selection ? `Selection: ${selection}\n\nInstruction: ${instruction}` : instruction;
 
+    // Groq primary; Gemini fallback only (GEMINI_API_KEY stays set for embeddings).
+    if (process.env.GROQ_API_KEY) {
+      let isAborted = false;
+      req.on('close', () => { isAborted = true; });
+
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      const stream = await groq.chat.completions.create({
+        model: GROQ_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        stream: true
+      });
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      for await (const chunk of stream) {
+        if (isAborted || res.writableEnded) break;
+        const text = chunk.choices[0]?.delta?.content || '';
+        if (text && !res.writableEnded) {
+          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        }
+      }
+      if (!isAborted && !res.writableEnded) {
+        res.write('data: [DONE]\n\n');
+        res.end();
+      }
+      return;
+    }
+
     if (process.env.GEMINI_API_KEY) {
+      let isAborted = false;
+      req.on('close', () => { isAborted = true; });
+
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-3.8-flash',
+        model: GEMINI_MODEL,
         contents: userPrompt,
         config: {
           systemInstruction: systemPrompt
@@ -1062,43 +1185,20 @@ export const aiCompose = async (req: Request, res: Response) => {
       res.setHeader('Connection', 'keep-alive');
 
       for await (const chunk of responseStream) {
+        if (isAborted || res.writableEnded) break;
         const text = chunk.text || '';
-        if (text) {
+        if (text && !res.writableEnded) {
           res.write(`data: ${JSON.stringify({ text })}\n\n`);
         }
       }
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
-    }
-
-    if (process.env.GROQ_API_KEY) {
-      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-      const stream = await groq.chat.completions.create({
-        model: 'openai/gpt-oss-20b',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: selection ? `Selection: ${selection}` : instruction }
-        ],
-        stream: true
-      });
-
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      for await (const chunk of stream) {
-        const text = chunk.choices[0]?.delta?.content || '';
-        if (text) {
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
-        }
+      if (!isAborted && !res.writableEnded) {
+        res.write('data: [DONE]\n\n');
+        res.end();
       }
-      res.write('data: [DONE]\n\n');
-      res.end();
       return;
     }
 
-    throw new Error('Neither GEMINI_API_KEY nor GROQ_API_KEY is configured.');
+    throw new Error('Neither GROQ_API_KEY nor GEMINI_API_KEY is configured.');
   } catch (error: any) {
     if (!res.headersSent) {
       res.status(500).json({ message: error.message });
@@ -1134,11 +1234,11 @@ export const importDocumentSpec = async (req: Request, res: Response) => {
     // Find or create default space
     let targetSpaceId = spaceId;
     if (targetSpaceId) {
-      const exists = await prisma.space.findFirst({ where: { id: targetSpaceId, workspaceId } });
+      const exists = await prisma.space.findFirst({ where: { id: targetSpaceId, workspaceId, deletedAt: null } });
       if (!exists) targetSpaceId = undefined;
     }
     if (!targetSpaceId) {
-      let space = await prisma.space.findFirst({ where: { workspaceId } });
+      let space = await prisma.space.findFirst({ where: { workspaceId, deletedAt: null } });
       if (!space) {
         space = await prisma.space.create({ data: { name: 'General', workspaceId } });
       }
@@ -1351,6 +1451,18 @@ export const getWorkspaceGraph = async (req: Request, res: Response) => {
     let docIdsToInclude: Set<string> = new Set();
 
     if (rootId) {
+      // Seed validation: the rootId must be a live document in this workspace.
+      // Otherwise a crafted rootId would kick off a BFS rooted in another
+      // workspace's graph (the final metadata fetch is workspace-scoped, so
+      // nothing leaks, but we short-circuit rather than walk foreign links).
+      const rootDoc = await prisma.document.findFirst({
+        where: { id: rootId, deletedAt: null, space: { workspaceId: id } },
+        select: { id: true }
+      });
+      if (!rootDoc) {
+        return res.status(200).json({ nodes: [], links: [] });
+      }
+
       // BFS traversal starting from rootId up to maxDepth
       const visited = new Set<string>([rootId]);
       let currentQueue: string[] = [rootId];
@@ -1385,7 +1497,7 @@ export const getWorkspaceGraph = async (req: Request, res: Response) => {
     } else {
       const docs = await prisma.document.findMany({
         where: {
-          space: { workspaceId: id },
+          space: { workspaceId: id, deletedAt: null },
           deletedAt: null
         },
         take: maxNodesCap,
@@ -1394,9 +1506,12 @@ export const getWorkspaceGraph = async (req: Request, res: Response) => {
       docIdsToInclude = new Set(docs.map(d => d.id));
     }
 
-    // Retrieve documents metadata
+    // Retrieve documents metadata — always workspace-scoped. The rootId BFS above
+    // walks entity links, which (in legacy data) could reach documents in other
+    // workspaces; constraining the metadata fetch to this workspace's spaces keeps
+    // a crafted rootId from surfacing foreign documents in the graph.
     const docs = await prisma.document.findMany({
-      where: { id: { in: Array.from(docIdsToInclude) }, deletedAt: null },
+      where: { id: { in: Array.from(docIdsToInclude) }, deletedAt: null, space: { workspaceId: id, deletedAt: null } },
       select: { id: true, title: true, documentType: true }
     });
 
@@ -1422,13 +1537,15 @@ export const getWorkspaceGraph = async (req: Request, res: Response) => {
       if (l.sourceType === 'TASK') taskIds.add(l.sourceId);
     }
 
+    // Workspace-scope the external entities too, so cross-workspace links in
+    // legacy data don't pull foreign projects/tasks into the graph.
     const projects = projectIds.size > 0 ? await prisma.project.findMany({
-      where: { id: { in: Array.from(projectIds) } },
+      where: { id: { in: Array.from(projectIds) }, workspaceId: id },
       select: { id: true, name: true }
     }) : [];
 
     const tasks = taskIds.size > 0 ? await prisma.task.findMany({
-      where: { id: { in: Array.from(taskIds) } },
+      where: { id: { in: Array.from(taskIds) }, workspaceId: id },
       select: { id: true, title: true }
     }) : [];
 

@@ -63,7 +63,7 @@ export function LoadingState({
  <div className="h-6 w-36 bg-surface-hover rounded-md animate-pulse" />
  <div className="flex gap-2">
  <div className="h-9 w-24 bg-surface-hover border border-border rounded-lg animate-pulse" />
- <div className="h-9 w-28 bg-[#2563EB]/20 rounded-lg animate-pulse" />
+ <div className="h-9 w-28 bg-accent/20 rounded-lg animate-pulse" />
  </div>
  </div>
  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
@@ -131,7 +131,7 @@ export function LoadingState({
  <div className="p-6 space-y-6 w-full animate-in fade-in duration-200">
  <div className="flex justify-between items-center">
  <div className="h-6 w-40 bg-surface-hover rounded-md animate-pulse" />
- <div className="h-9 w-32 bg-[#2563EB]/20 rounded-lg animate-pulse" />
+ <div className="h-9 w-32 bg-accent/20 rounded-lg animate-pulse" />
  </div>
  <div className="space-y-4">
  {[1, 2, 3, 4].map((i) => (
@@ -168,7 +168,7 @@ export function LoadingState({
  <div className="p-6 space-y-6 w-full animate-in fade-in duration-200">
  <div className="flex justify-between items-center">
  <div className="h-6 w-44 bg-surface-hover rounded-md animate-pulse" />
- <div className="h-9 w-32 bg-[#0D9488]/20 rounded-lg animate-pulse" />
+ <div className="h-9 w-32 bg-accent/20 rounded-lg animate-pulse" />
  </div>
  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
  {[1, 2, 3].map((i) => (

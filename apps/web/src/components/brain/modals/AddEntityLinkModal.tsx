@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link2, X } from 'lucide-react';
 import { api } from '../../../api/client';
 import type { DocumentWithRelations, Issue } from '../../../types/schema';
 import { BaseButton } from '../../ui/BaseButton';
+import { useModalA11y } from '../../../hooks/useModalA11y';
 import { cn } from '../../../lib/utils';
 import { toast } from 'sonner';
 
@@ -29,22 +30,36 @@ export function AddEntityLinkModal({
   const [targetId, setTargetId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const modalRef = useModalA11y(isOpen, onClose);
+
   // Fetch workspace tasks
   const { data: tasks = [] } = useQuery({
-    queryKey: ['tasks'],
+    queryKey: ['issues'],
     queryFn: () => api.tasks.list(),
     enabled: isOpen
   });
 
   // Available documents excluding current
-  const availableDocs = pages.filter(p => p.id !== documentId);
+  const availableDocs = useMemo(
+    () => pages.filter(p => p.id !== documentId),
+    [pages, documentId]
+  );
 
   useEffect(() => {
-    if (targetType === 'DOCUMENT' && availableDocs[0]) setTargetId(availableDocs[0].id);
-    else if (targetType === 'PROJECT' && projects[0]) setTargetId(projects[0].id);
-    else if (targetType === 'TASK' && tasks[0]) setTargetId(tasks[0].id);
-    else setTargetId('');
-  }, [targetType, tasks, projects, availableDocs]);
+    if (targetType === 'DOCUMENT') {
+      if (!availableDocs.some(d => d.id === targetId)) {
+        setTargetId(availableDocs[0]?.id || '');
+      }
+    } else if (targetType === 'PROJECT') {
+      if (!projects.some(p => p.id === targetId)) {
+        setTargetId(projects[0]?.id || '');
+      }
+    } else if (targetType === 'TASK') {
+      if (!tasks.some((t: Issue) => t.id === targetId)) {
+        setTargetId(tasks[0]?.id || '');
+      }
+    }
+  }, [targetType, availableDocs, projects, tasks, targetId]);
 
   const handleCreate = async () => {
     if (!targetId) {
@@ -62,7 +77,7 @@ export function AddEntityLinkModal({
       onSuccess();
       onClose();
     } catch (err: any) {
-      toast.error('Failed to link entity: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+      toast.error('Failed to link entity: ' + (err?.message || 'Unknown error'));
     } finally {
       setIsSubmitting(false);
     }
@@ -71,12 +86,23 @@ export function AddEntityLinkModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-entity-link-title"
+        className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
+      >
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
           <div className="flex items-center gap-2">
             <Link2 className="w-4 h-4 text-accent-fg" />
-            <span className="font-bold text-primary text-body">Link Document</span>
+            <span id="add-entity-link-title" className="font-bold text-primary text-body">Link Document</span>
           </div>
           <button onClick={onClose} className="p-1 text-muted hover:text-primary">
             <X className="w-4 h-4" />
@@ -140,17 +166,40 @@ export function AddEntityLinkModal({
             <select
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
+              disabled={
+                (targetType === 'DOCUMENT' && availableDocs.length === 0) ||
+                (targetType === 'PROJECT' && projects.length === 0) ||
+                (targetType === 'TASK' && tasks.length === 0)
+              }
               className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent font-mono text-caption"
             >
-              {targetType === 'DOCUMENT' && availableDocs.map(d => (
-                <option key={d.id} value={d.id}>{d.title}</option>
-              ))}
-              {targetType === 'PROJECT' && projects.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-              {targetType === 'TASK' && tasks.map((t: Issue) => (
-                <option key={t.id} value={t.id}>{t.title} ({t.status || 'TODO'})</option>
-              ))}
+              {targetType === 'DOCUMENT' && (
+                availableDocs.length === 0 ? (
+                  <option value="">No other documents available</option>
+                ) : (
+                  availableDocs.map(d => (
+                    <option key={d.id} value={d.id}>{d.title || 'Untitled Document'}</option>
+                  ))
+                )
+              )}
+              {targetType === 'PROJECT' && (
+                projects.length === 0 ? (
+                  <option value="">No projects found</option>
+                ) : (
+                  projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))
+                )
+              )}
+              {targetType === 'TASK' && (
+                tasks.length === 0 ? (
+                  <option value="">No tasks found</option>
+                ) : (
+                  tasks.map((t: Issue) => (
+                    <option key={t.id} value={t.id}>{t.title} ({t.status || 'TODO'})</option>
+                  ))
+                )
+              )}
             </select>
           </div>
 
@@ -158,7 +207,7 @@ export function AddEntityLinkModal({
             <BaseButton variant="secondary" onClick={onClose} className="text-caption py-1.5">
               Cancel
             </BaseButton>
-            <BaseButton disabled={isSubmitting} onClick={handleCreate} className="text-caption py-1.5">
+            <BaseButton disabled={isSubmitting || !targetId} onClick={handleCreate} className="text-caption py-1.5">
               {isSubmitting ? 'Linking...' : 'Create Link'}
             </BaseButton>
           </div>

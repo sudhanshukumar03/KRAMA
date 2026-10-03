@@ -8,8 +8,11 @@
     "start": "tsx src/index.ts",
     "worker": "tsx src/worker.ts",
     "build": "tsc",
-    "test": "tsx --test src/__tests__/**/*.test.ts",
+    "lint": "oxlint src",
+    "test": "tsx src/scripts/run-all-tests.ts",
     "seed": "tsx src/seed.ts",
+    "db:deploy": "prisma migrate deploy",
+    "db:status": "prisma migrate status",
     "holidays:sync": "tsx src/scripts/sync-holidays.ts"
   },
   "keywords": [],
@@ -52,6 +55,7 @@
     "@types/pg": "^8.23.1",
     "concurrently": "^8.2.2",
     "esbuild": "^0.28.2",
+    "oxlint": "^1.76.0",
     "prisma": "7.10.0",
     "typescript": "^6.0.3"
   }

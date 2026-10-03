@@ -40,7 +40,7 @@ export const INDIAN_STATES = [
 export const COUNTRIES = [
   { code: 'IN', name: 'India' },
   { code: 'US', name: 'United States' },
-  { code: 'UK', name: 'United Kingdom' },
+  { code: 'GB', name: 'United Kingdom' },
   { code: 'AE', name: 'UAE' },
   { code: 'SG', name: 'Singapore' },
   { code: 'AU', name: 'Australia' },

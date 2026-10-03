@@ -4,7 +4,6 @@ import { prisma } from '../prisma';
 import { goalService } from '../services/goal.service';
 import { habitService } from '../services/habit.service';
 import { taskService } from '../services/task.service';
-import { UpdateDailyLogSchema } from '@krama/validation';
 
 describe('P0 Concurrency & Version Increment Suite', () => {
   let workspace: any;
@@ -34,7 +33,16 @@ describe('P0 Concurrency & Version Increment Suite', () => {
   });
 
   after(async () => {
-    await prisma.$disconnect();
+    await prisma.$disconnect().catch(() => {});
+    await (globalThis as any).pool?.end?.().catch(() => {});
+    try {
+      const { redisService } = await import('../services/redis.service');
+      await redisService.client.quit().catch(() => {});
+    } catch {}
+    try {
+      const { connection } = await import('../lib/redis');
+      await connection.quit().catch(() => {});
+    } catch {}
   });
 
   describe('Goal Model Concurrency', () => {
@@ -191,70 +199,6 @@ describe('P0 Concurrency & Version Increment Suite', () => {
 
       // Cleanup
       await prisma.task.delete({ where: { id: created.id } });
-    });
-  });
-
-  describe('DailyLog Model Concurrency (Daily Review)', () => {
-    it('succeeds without version and increments version from 1 to 2; rejects stale version', async () => {
-      const created = await prisma.dailyLog.create({
-        data: {
-          date: new Date(),
-          workspaceId: workspace.id,
-          userId: user.id,
-          version: 1,
-          createdBy: user.id,
-          mood: 'PRODUCTIVE',
-        },
-      });
-      assert.strictEqual(created.version, 1);
-
-      // Helper reproducing daily log update controller logic
-      async function updateLog(id: string, body: any) {
-        const data = UpdateDailyLogSchema.parse({ ...body, workspaceId: workspace.id });
-        const existing = await prisma.dailyLog.findUnique({ where: { id } });
-        if (!existing || existing.deletedAt || existing.workspaceId !== data.workspaceId) {
-          throw new Error('Daily Log not found');
-        }
-        if (data.version !== undefined && existing.version !== data.version) {
-          throw new Error('Conflict: version mismatch');
-        }
-        const { version, workspaceId: _, date, ...updateData } = data;
-        return prisma.dailyLog.update({
-          where: { id },
-          data: {
-            ...updateData,
-            ...(date && { date: new Date(date) }),
-            version: { increment: 1 },
-            updatedBy: user.id,
-          },
-        });
-      }
-
-      // 1. Update without version
-      const updatedNoVersion = await updateLog(created.id, {
-        deepWorkMinutes: 90,
-        mood: 'FOCUSED',
-      });
-      assert.strictEqual(updatedNoVersion.version, 2, 'DailyLog version must increment from 1 to 2 on write');
-      assert.strictEqual(updatedNoVersion.deepWorkMinutes, 90);
-
-      // 2. Stale update with version 1
-      await assert.rejects(
-        async () => {
-          await updateLog(created.id, { deepWorkMinutes: 120, version: 1 });
-        },
-        (err: Error) => {
-          assert(err.message.includes('Conflict'), `Expected Conflict error, got: ${err.message}`);
-          return true;
-        }
-      );
-
-      // 3. Update with matching version 2
-      const updatedMatching = await updateLog(created.id, { deepWorkMinutes: 120, version: 2 });
-      assert.strictEqual(updatedMatching.version, 3, 'DailyLog version must increment from 2 to 3');
-
-      // Cleanup
-      await prisma.dailyLog.delete({ where: { id: created.id } });
     });
   });
 });

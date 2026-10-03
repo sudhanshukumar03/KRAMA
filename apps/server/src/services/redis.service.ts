@@ -38,12 +38,19 @@ class RedisService {
       console.log('[Redis] Connected to Redis server');
     });
 
-    this.client.connect().catch(() => {
-      this.isConnected = false;
-    });
+    if (process.env.NODE_ENV !== 'test') {
+      this.client.connect().catch(() => {
+        this.isConnected = false;
+      });
+    }
   }
 
   public async ensureConnected(timeoutMs = 5000): Promise<void> {
+    if (this.client.status === 'wait') {
+      this.client.connect().catch(() => {
+        this.isConnected = false;
+      });
+    }
     const start = Date.now();
     while (this.client.status !== 'ready' && (Date.now() - start) < timeoutMs) {
       await new Promise((r) => setTimeout(r, 100));

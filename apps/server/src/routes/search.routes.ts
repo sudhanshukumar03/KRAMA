@@ -5,7 +5,8 @@ import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middlewar
 
 const router: Router = Router();
 router.use(requireAuth);
-router.use(requireWorkspaceRole('MEMBER'));
+// Search is read-only; any workspace member including VIEWER may use it.
+router.use(requireWorkspaceRole('VIEWER'));
 
 // GET /search?q=keyword
 router.get('/', async (req: Request, res: Response) => {

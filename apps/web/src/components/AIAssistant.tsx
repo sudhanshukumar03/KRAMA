@@ -64,7 +64,7 @@ function AIResponseRenderer({ response, navigate }: { response: any, navigate: a
                   }
                 }
               }}
-              className="rounded-lg border border-border bg-surface-hover hover:bg-surface text-primary px-3.5 py-2 text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+              className="rounded-lg border border-border bg-surface-hover hover:bg-surface text-primary px-3.5 py-2 text-xs font-bold transition-all shadow-sm active:scale-[0.98] cursor-pointer"
             >
               {action.label}
             </button>
@@ -123,20 +123,23 @@ export function AIAssistant() {
  }
  setTimeout(() => inputRef.current?.focus(), 100);
  };
- 
- const handleKeyDown = (e: KeyboardEvent) => {
- if (e.key === 'Escape') {
- setIsOpen(false);
- }
- };
- 
+
  window.addEventListener('open-ai-assistant', handleOpenAssistant);
- window.addEventListener('keydown', handleKeyDown);
  return () => {
  window.removeEventListener('open-ai-assistant', handleOpenAssistant);
- window.removeEventListener('keydown', handleKeyDown);
  };
  }, []);
+
+ // Close on Escape only while the assistant is open, so it doesn't swallow
+ // Escape for the rest of the app.
+ useEffect(() => {
+ if (!isOpen) return;
+ const handleKeyDown = (e: KeyboardEvent) => {
+ if (e.key === 'Escape') setIsOpen(false);
+ };
+ window.addEventListener('keydown', handleKeyDown);
+ return () => window.removeEventListener('keydown', handleKeyDown);
+ }, [isOpen]);
 
  useEffect(() => {
  if (isOpen) {
@@ -145,7 +148,15 @@ export function AIAssistant() {
  }, [messages, isOpen]);
 
  useEffect(() => {
- api.ai.config().then(setConfig).catch(console.error);
+ api.ai.config().then((cfg) => {
+ setConfig(cfg);
+ // Seed the provider from the server's active provider so the first message
+ // doesn't hit a provider the deployment has no API key for (e.g. defaulting
+ // to 'gemini' on a Groq-only deploy 500s until the user flips the dropdown).
+ if (cfg?.provider === 'gemini' || cfg?.provider === 'groq') {
+ setProvider(cfg.provider);
+ }
+ }).catch(console.error);
  }, []);
 
  const handleSend = async () => {
@@ -170,10 +181,10 @@ export function AIAssistant() {
  }]);
  } catch (err: any) {
  console.error(err);
- if (err.response?.status === 429) {
+ if (err?.status === 429) {
  setError('Rate limit exceeded. Please try again later.');
  } else {
- setError(err.response?.data?.message || err.message || 'Failed to get response');
+ setError(err?.message || 'Failed to get response');
  }
  } finally {
  setIsLoading(false);

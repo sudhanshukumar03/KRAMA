@@ -1,18 +1,25 @@
 import type { Holiday } from '@prisma/client';
 import type { HolidayProvider, HolidayProviderInput } from "./HolidayProvider";
 import { NagerDateHolidayProvider } from './NagerDateHolidayProvider';
+import { CalendarificHolidayProvider } from './CalendarificHolidayProvider';
 import { prisma } from '../../prisma';
 
 export class HolidaySyncService {
   private provider: HolidayProvider;
 
   constructor(provider?: HolidayProvider) {
-    this.provider = provider || new NagerDateHolidayProvider();
+    // Prefer Calendarific when an API key is configured — it supports
+    // sub-national (regional) holidays. Fall back to the national-only
+    // Nager.Date provider otherwise.
+    this.provider =
+      provider ||
+      (process.env.CALENDARIFIC_API_KEY
+        ? new CalendarificHolidayProvider()
+        : new NagerDateHolidayProvider());
   }
 
   async ensureHolidays(input: HolidayProviderInput): Promise<Holiday[]> {
-    const { countryCode, regionCode, year } = input;
-    
+    const { year } = input;
     const localHolidays = await this.getLocalHolidays(input);
     if (localHolidays.length > 0) {
       return localHolidays;

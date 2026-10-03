@@ -233,6 +233,35 @@
     box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
   }
 
+  /* Krama Standard Dialog & Modal with Specular Rim Highlight */
+  .krama-dialog,
+  .krama-modal {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-dialog);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  }
+
+  /* Krama Standard Input & Form Controls */
+  .krama-input {
+    background-color: var(--color-surface-hover);
+    color: var(--color-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-input);
+    transition: border-color var(--motion-fast) var(--ease-out),
+                box-shadow var(--motion-fast) var(--ease-out);
+  }
+
+  .krama-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px var(--color-ring);
+  }
+
+  .krama-input::placeholder {
+    color: var(--color-muted);
+  }
+
   /* BaseButton Component Classes with Hardware Click Compression */
   .krama-btn {
     display: inline-flex;
@@ -364,7 +393,7 @@
     width: 1rem;
     height: 1rem;
     border-radius: 0.25rem;
-    accent-color: #2563eb;
+    accent-color: var(--color-accent);
   }
 
   ul[data-type="taskList"] li > div {
@@ -386,37 +415,40 @@
     font-size: 0.875em;
     text-decoration: none;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all var(--motion-fast) var(--ease-out);
   }
 
   .mention-wikilink {
-    background-color: rgba(59, 130, 246, 0.1);
-    color: #3b82f6;
-    border: 1px solid rgba(59, 130, 246, 0.25);
+    background-color: var(--cat-tasks-bg);
+    color: var(--cat-tasks);
+    border: 1px solid var(--cat-tasks);
   }
 
   .mention-wikilink:hover {
-    background-color: rgba(59, 130, 246, 0.2);
+    background-color: var(--cat-tasks-bg);
+    opacity: 0.85;
   }
 
   .mention-task {
-    background-color: rgba(16, 185, 129, 0.1);
-    color: #10b981;
-    border: 1px solid rgba(16, 185, 129, 0.25);
+    background-color: var(--success-bg);
+    color: var(--success-fg);
+    border: 1px solid var(--success-border);
   }
 
   .mention-task:hover {
-    background-color: rgba(16, 185, 129, 0.2);
+    background-color: var(--success-bg);
+    opacity: 0.85;
   }
 
   .mention-project {
-    background-color: rgba(168, 85, 247, 0.1);
-    color: #a855f7;
-    border: 1px solid rgba(168, 85, 247, 0.25);
+    background-color: var(--accent-subtle);
+    color: var(--accent);
+    border: 1px solid var(--accent);
   }
 
   .mention-project:hover {
-    background-color: rgba(168, 85, 247, 0.2);
+    background-color: var(--accent-subtle);
+    opacity: 0.85;
   }
 }
 

@@ -66,11 +66,11 @@ export const EntityMentionMenu = forwardRef<EntityMentionMenuRef, EntityMentionM
   const getTypeIcon = (type: MentionEntityItem['type']) => {
     switch (type) {
       case 'DOCUMENT':
-        return <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0" />;
+        return <FileText className="w-3.5 h-3.5 text-cat-tasks shrink-0" />;
       case 'TASK':
-        return <CheckSquare className="w-3.5 h-3.5 text-emerald-500 shrink-0" />;
+        return <CheckSquare className="w-3.5 h-3.5 text-success-fg shrink-0" />;
       case 'PROJECT':
-        return <FolderKanban className="w-3.5 h-3.5 text-purple-500 shrink-0" />;
+        return <FolderKanban className="w-3.5 h-3.5 text-cat-projects shrink-0" />;
     }
   };
 
@@ -95,9 +95,9 @@ export const EntityMentionMenu = forwardRef<EntityMentionMenuRef, EntityMentionM
             >
               <div className={cn(
                 "w-6 h-6 rounded-md flex items-center justify-center shrink-0",
-                item.type === 'DOCUMENT' && "bg-blue-500/10",
-                item.type === 'TASK' && "bg-emerald-500/10",
-                item.type === 'PROJECT' && "bg-purple-500/10",
+                item.type === 'DOCUMENT' && "bg-cat-tasks-bg",
+                item.type === 'TASK' && "bg-success-bg",
+                item.type === 'PROJECT' && "bg-cat-projects-bg",
               )}>
                 {getTypeIcon(item.type)}
               </div>
@@ -108,9 +108,9 @@ export const EntityMentionMenu = forwardRef<EntityMentionMenuRef, EntityMentionM
                 <div className="text-[10px] font-mono text-muted flex items-center gap-1.5 mt-0.5">
                   <span className={cn(
                     "uppercase font-bold text-[9px] px-1 py-0.2 rounded",
-                    item.type === 'DOCUMENT' && "text-blue-500 bg-blue-500/10",
-                    item.type === 'TASK' && "text-emerald-500 bg-emerald-500/10",
-                    item.type === 'PROJECT' && "text-purple-500 bg-purple-500/10",
+                    item.type === 'DOCUMENT' && "text-cat-tasks bg-cat-tasks-bg",
+                    item.type === 'TASK' && "text-success-fg bg-success-bg",
+                    item.type === 'PROJECT' && "text-cat-projects bg-cat-projects-bg",
                   )}>
                     {item.type}
                   </span>

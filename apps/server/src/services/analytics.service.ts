@@ -5,6 +5,7 @@ export const analyticsService = {
     const days = parseInt(range.replace('d', ''));
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0); // anchor to midnight so the earliest day's (midnight-stamped) row is included
 
     const analytics = await prisma.workspaceAnalytics.findMany({
       where: {
@@ -22,7 +23,7 @@ export const analyticsService = {
       const sevenDaysAgo = new Date(today);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-      const [weeklyVelocity, activeStreaks, goals, logs] = await Promise.all([
+      const [weeklyVelocity, activeStreaks, goals, todayFocusSessions] = await Promise.all([
         prisma.task.count({
           where: { workspaceId, status: 'DONE', updatedAt: { gte: sevenDaysAgo }, deletedAt: null },
         }),
@@ -33,15 +34,15 @@ export const analyticsService = {
           where: { workspaceId, deletedAt: null },
           select: { progress: true },
         }),
-        prisma.dailyLog.findMany({
-          where: { workspaceId, date: { gte: today }, deletedAt: null },
+        prisma.focusSession.findMany({
+          where: { workspaceId, completed: true, startTime: { gte: today } },
         }),
       ]);
 
       const okrPace = goals.length > 0
         ? Math.round(goals.reduce((sum, g) => sum + g.progress, 0) / goals.length)
         : 0;
-      const deepWorkLogged = logs.reduce((sum, l) => sum + (l.deepWorkMinutes || 0), 0);
+      const deepWorkLogged = todayFocusSessions.reduce((sum, s) => sum + Math.round(s.duration / 60), 0);
 
       const todayRecord = await prisma.workspaceAnalytics.upsert({
         where: { workspaceId_date: { workspaceId, date: today } },
@@ -59,6 +60,7 @@ export const analyticsService = {
     const days = parseInt(range.replace('d', ''));
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
 
     const sessions = await prisma.focusSession.findMany({
       where: {
@@ -75,22 +77,5 @@ export const analyticsService = {
     });
 
     return sessions;
-  },
-
-  async getHabitHeatmap(workspaceId: string, habitId: string, range: '30d' | '90d' | '365d') {
-    const days = parseInt(range.replace('d', ''));
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-
-    const completions = await prisma.habitCompletion.findMany({
-      where: {
-        habitId,
-        habit: { workspaceId },
-        completedAt: { gte: startDate }
-      },
-      orderBy: { completedAt: 'asc' }
-    });
-
-    return completions;
   }
 };

@@ -27,28 +27,42 @@ export const embeddingWorker = new Worker(
     }
 
     console.log(`[Worker:Embedding] Chunking and embedding document ${documentId}...`);
-    
+
+    // Skip (and purge) if the document was soft-deleted after this job was
+    // queued. Embed jobs run on a 2s delay, so a delete racing an autosave could
+    // otherwise resurrect chunks for a deleted document and let them surface in
+    // RAG answers.
+    if (doc.deletedAt) {
+      await prisma.knowledgeChunk.deleteMany({ where: { documentId } });
+      return { skipped: true, reason: 'Document deleted' };
+    }
+
     // 1. Chunk content
     const chunks = createChunks(content, 800, 100);
 
-    // 2. Delete old chunks
-    await prisma.knowledgeChunk.deleteMany({
-      where: { documentId }
-    });
-
-    // 3. Embed and save new chunks
-    for (let i = 0; i < chunks.length; i++) {
-      const chunkText = chunks[i] as string;
-      const embeddingArray = await getEmbedding(chunkText);
-      const vectorString = `[${embeddingArray.join(',')}]`;
-
-      await prisma.$executeRawUnsafe(`
-        INSERT INTO "KnowledgeChunk" ("id", "workspaceId", "documentId", "content", "chunkIndex", "embedding", "createdAt", "updatedAt")
-        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::vector, NOW(), NOW())
-      `, workspaceId, documentId, chunkText, i, vectorString);
+    // 2. Embed everything first (network calls to the embedding provider) so the
+    //    DB transaction below stays short and never holds a connection open on a
+    //    remote call.
+    const embedded: { text: string; vector: string }[] = [];
+    for (const chunkText of chunks) {
+      const embeddingArray = await getEmbedding(chunkText as string);
+      embedded.push({ text: chunkText as string, vector: `[${embeddingArray.join(',')}]` });
     }
 
-    return { documentId, success: true, chunksCount: chunks.length };
+    // 3. Swap old chunks for new ones atomically. The previous loop deleted first
+    //    and inserted one row at a time without a transaction, so a mid-loop
+    //    failure left the document with a partial (or empty) embedding set.
+    await prisma.$transaction(async (tx) => {
+      await tx.knowledgeChunk.deleteMany({ where: { documentId } });
+      for (let i = 0; i < embedded.length; i++) {
+        await tx.$executeRawUnsafe(`
+          INSERT INTO "KnowledgeChunk" ("id", "workspaceId", "documentId", "content", "chunkIndex", "embedding", "createdAt", "updatedAt")
+          VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::vector, NOW(), NOW())
+        `, workspaceId, documentId, embedded[i]!.text, i, embedded[i]!.vector);
+      }
+    });
+
+    return { documentId, success: true, chunksCount: embedded.length };
   },
   { connection }
 );

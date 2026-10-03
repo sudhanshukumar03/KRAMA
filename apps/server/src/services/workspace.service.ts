@@ -85,16 +85,6 @@ class WorkspaceService {
         data: { deletedAt: now, updatedBy: userId }
       });
 
-      await tx.sprint.updateMany({
-        where: { workspaceId: id, deletedAt: null },
-        data: { deletedAt: now, updatedBy: userId }
-      });
-
-      await tx.dailyLog.updateMany({
-        where: { workspaceId: id, deletedAt: null },
-        data: { deletedAt: now, updatedBy: userId }
-      });
-
       // 3. Cascade to indirect children (Documents are space-scoped)
       const spaces = await tx.space.findMany({ where: { workspaceId: id }, select: { id: true } });
       const spaceIds = spaces.map((s: any) => s.id);
@@ -126,7 +116,6 @@ class WorkspaceService {
         projects: { where: { deletedAt: null } },
         spaces: { where: { deletedAt: null } },
         tasks: { where: { deletedAt: null } },
-        sprints: { where: { deletedAt: null } },
         habits: { where: { deletedAt: null } },
       }
     });

@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Sparkles, X, Info, RefreshCw, Send } from 'lucide-react';
 import { api } from '../../api/client';
 import { BaseButton } from '../ui/BaseButton';
@@ -32,15 +32,46 @@ export function GroundedAIPanel({
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Read selection from editor if any
-  const selectionText = useMemo(() => {
-    if (!isOpen || !editor || editor.isDestroyed) return '';
-    const { from, to } = editor.state.selection;
-    return editor.state.doc.textBetween(from, to, ' ');
+  // Live-track the editor selection while the panel is open. A useMemo keyed on
+  // [editor, isOpen] only sampled once at open and went stale the moment the user
+  // reselected; subscribing to selectionUpdate keeps "Target Selection" and the
+  // Replace action honest.
+  const [selectionText, setSelectionText] = useState('');
+  useEffect(() => {
+    if (!isOpen || !editor || editor.isDestroyed) {
+      setSelectionText('');
+      return;
+    }
+    const read = () => {
+      if (editor.isDestroyed) return;
+      const { from, to } = editor.state.selection;
+      setSelectionText(editor.state.doc.textBetween(from, to, ' '));
+    };
+    read();
+    editor.on('selectionUpdate', read);
+    editor.on('update', read);
+    return () => {
+      editor.off('selectionUpdate', read);
+      editor.off('update', read);
+    };
   }, [editor, isOpen]);
+
+  // Abort any in-flight stream when the panel closes or unmounts, so a closed
+  // panel doesn't keep an SSE connection (and token spend) alive in the
+  // background. Clear the loading flags too — an aborted stream never fires
+  // onDone, which would otherwise leave the Send button disabled on reopen.
+  useEffect(() => {
+    if (!isOpen) {
+      abortControllerRef.current?.abort();
+      setIsAsking(false);
+      setIsComposing(false);
+    }
+    return () => abortControllerRef.current?.abort();
+  }, [isOpen]);
 
   const handleAsk = () => {
     if (!question.trim()) return;
+    abortControllerRef.current?.abort();
     setAskOutput('');
     setIsAsking(true);
     abortControllerRef.current = new AbortController();
@@ -60,6 +91,7 @@ export function GroundedAIPanel({
 
   const handleCompose = () => {
     if (!composeInstruction.trim()) return;
+    abortControllerRef.current?.abort();
     setComposeOutput('');
     setIsComposing(true);
     abortControllerRef.current = new AbortController();

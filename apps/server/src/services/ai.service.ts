@@ -139,17 +139,20 @@ class AiService {
       else if (activeProvider === 'groq') activeModel = GROQ_MODEL;
     }
 
-    // If neither is provided, fallback based on available environment variables
+    // If neither is provided, fall back based on available environment
+    // variables. Groq is the primary text-generation provider; GEMINI_API_KEY
+    // is present for embeddings (Groq has no embeddings API), so it must not be
+    // preferred here or all text would route to Gemini.
     if (!activeProvider || !activeModel) {
-      if (process.env.GEMINI_API_KEY) {
-        activeProvider = 'gemini';
-        activeModel = GEMINI_MODEL;
-      } else if (process.env.GROQ_API_KEY) {
+      if (process.env.GROQ_API_KEY) {
         activeProvider = 'groq';
         activeModel = GROQ_MODEL;
-      } else {
+      } else if (process.env.GEMINI_API_KEY) {
         activeProvider = 'gemini';
         activeModel = GEMINI_MODEL;
+      } else {
+        activeProvider = 'groq';
+        activeModel = GROQ_MODEL;
       }
     }
 
@@ -224,11 +227,11 @@ class AiService {
     // Retry loop with backoff (handles temporary 503 high demand or 429)
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const interaction = await client.interactions.create({
+        const response = await client.models.generateContent({
           model,
-          input: params.input,
+          contents: params.input,
         });
-        completionText = interaction.output_text || '';
+        completionText = response.text || '';
         success = true;
         break;
       } catch (err: any) {
@@ -327,11 +330,6 @@ class AiService {
   }
 
   public async buildWorkspaceContext(workspaceId: string): Promise<string> {
-    const now = new Date();
-    const activeSprint = await prisma.sprint.findFirst({
-      where: { workspaceId, startDate: { lte: now }, endDate: { gte: now } }
-    });
-
     const activeGoals = await prisma.goal.findMany({
       where: { workspaceId, progress: { lt: 100 }, deletedAt: null }
     });
@@ -343,10 +341,6 @@ class AiService {
     });
 
     let contextStr = "--- WORKSPACE CONTEXT ---\n";
-
-    if (activeSprint) {
-      contextStr += `Current Sprint: "${activeSprint.name}"\n`;
-    }
 
     if (activeGoals.length > 0) {
       contextStr += `Active Goals:\n` + activeGoals.map(g => `- ${g.title} (${g.progress}% complete)`).join('\n') + '\n';

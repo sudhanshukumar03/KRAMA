@@ -59,14 +59,14 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
 
   if (!props.items || props.items.length === 0) {
     return (
-      <div className="w-64 p-3 bg-surface/95 backdrop-blur-md border border-border rounded-xl shadow-2xl text-caption text-secondary font-mono text-center">
+      <div className="w-64 p-3 krama-dialog text-caption text-secondary font-mono text-center">
         No matching commands
       </div>
     );
   }
 
   return (
-    <div className="w-72 max-h-80 overflow-y-auto p-1.5 bg-surface/95 backdrop-blur-md border border-border rounded-xl shadow-2xl flex flex-col gap-0.5 font-sans animate-in fade-in zoom-in-95 duration-100">
+    <div className="w-72 max-h-80 overflow-y-auto p-1.5 krama-dialog flex flex-col gap-0.5 font-sans animate-in fade-in zoom-in-95 duration-100">
       <div className="px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-muted border-b border-border/60 mb-1">
         Commands
       </div>
@@ -80,9 +80,9 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
             onClick={() => selectItem(index)}
             onMouseEnter={() => setSelectedIndex(index)}
             className={cn(
-              "w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer group",
+              "w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer group active:scale-[0.98]",
               isSelected 
-                ? "bg-blue-600 text-white shadow-2xs" 
+                ? "bg-accent text-on-accent shadow-2xs" 
                 : "text-primary hover:bg-surface-hover"
             )}
           >
@@ -103,7 +103,7 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
               <div
                 className={cn(
                   "text-[11px] leading-tight truncate mt-0.5",
-                  isSelected ? "text-blue-100" : "text-secondary"
+                  isSelected ? "text-on-accent/80" : "text-secondary"
                 )}
               >
                 {item.description}

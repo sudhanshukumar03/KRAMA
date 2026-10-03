@@ -9,6 +9,7 @@ router.use(requireAuth);
 router.get('/', requireWorkspaceRole('VIEWER'), listSpaces);
 router.post('/', requireWorkspaceRole('MEMBER'), createSpace);
 router.put('/:id', requireWorkspaceRole('MEMBER'), updateSpace);
+router.patch('/:id', requireWorkspaceRole('MEMBER'), updateSpace);
 router.delete('/:id', requireWorkspaceRole('ADMIN'), deleteSpace);
 
 export default router;

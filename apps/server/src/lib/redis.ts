@@ -7,7 +7,7 @@ let hasWarned = false;
 // Shared connection for BullMQ
 export const connection = new Redis(REDIS_URL, {
   maxRetriesPerRequest: null,
-  retryStrategy(times) {
+  retryStrategy(_times) {
     if (!hasWarned) {
       console.warn('[Redis/BullMQ] Redis server is not running on localhost:6379. Queues and workers are paused.');
       hasWarned = true;

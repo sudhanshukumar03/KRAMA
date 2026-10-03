@@ -9,8 +9,36 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: krama
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/krama?schema=public"
+      REDIS_URL: "redis://localhost:6379"
+      JWT_ACCESS_SECRET: "test-jwt-access-secret-32-chars-long!!"
+      JWT_REFRESH_SECRET: "test-jwt-refresh-secret-32-chars-long!!"
 
     steps:
     - name: Checkout Code
@@ -30,25 +58,20 @@ jobs:
     - name: Install Dependencies
       run: pnpm install --frozen-lockfile
 
-    - name: Lint Frontend
-      run: pnpm --filter client run lint
+    - name: Lint Workspace
+      run: pnpm -r run lint
 
     - name: Generate Prisma Client
       run: pnpm --filter server exec prisma generate
-      env:
-        DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/krama?schema=public"
 
-    - name: Build Shared Packages
-      run: pnpm --filter "./packages/*" run build
+    - name: Push Database Schema
+      run: pnpm --filter server exec prisma db push --skip-generate
 
-    - name: TypeScript Check (Backend)
-      run: pnpm --filter server exec tsc --noEmit
+    - name: Build Monorepo Packages
+      run: pnpm -r build
 
-    - name: Run Backend Tests
-      run: pnpm --filter server run test || echo "Tests not configured yet"
+    - name: Run Validation Unit Tests
+      run: pnpm --filter validation test
 
-    - name: TypeScript Check (Frontend)
-      run: pnpm --filter client exec tsc -b
-
-    - name: Docker Compose Smoke Test
-      run: docker compose -f docker-compose.prod.yml build --progress=plain
+    - name: Run Backend Integration & Unit Tests
+      run: pnpm --filter server test

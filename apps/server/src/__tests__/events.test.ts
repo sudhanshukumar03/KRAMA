@@ -32,6 +32,19 @@ describe('P1 Post-Commit Event Publishing Suite', () => {
     }
   });
 
+  after(async () => {
+    await prisma.$disconnect().catch(() => {});
+    await (globalThis as any).pool?.end?.().catch(() => {});
+    try {
+      const { redisService } = await import('../services/redis.service');
+      await redisService.client.quit().catch(() => {});
+    } catch {}
+    try {
+      const { connection } = await import('../lib/redis');
+      await connection.quit().catch(() => {});
+    } catch {}
+  });
+
 
 
   describe('runInTransaction Post-Commit Guarantees', () => {

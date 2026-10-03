@@ -8,8 +8,8 @@ import { workspaceRepository } from '../repositories/workspace.repository';
 import { runInTransaction, prisma } from '../prisma';
 import { userAuthSelect } from '../utils/selectors';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'krama-os-secret-jwt-key-2026';
-const ACCESS_TOKEN_EXPIRY_MS = 15 * 60 * 1000; // 15 mins
+const JWT_SECRET = process.env.JWT_SECRET as string;
+const ACCESS_TOKEN_EXPIRY_S = 15 * 60; // 15 mins
 const REFRESH_TOKEN_EXPIRY_S = 30 * 24 * 60 * 60; // 30 days
 
 class AuthService {
@@ -22,13 +22,16 @@ class AuthService {
   }
 
   generateAccessToken(userId: string, sessionId: string, email: string, name: string | null): string {
+    const nowInSeconds = Math.floor(Date.now() / 1000);
     const payload = {
       sub: userId,
       sessionId,
       email,
       name,
-      iat: Date.now(),
-      exp: Date.now() + ACCESS_TOKEN_EXPIRY_MS,
+      // RFC 7519: iat/exp are NumericDate (seconds since epoch). jwt-simple
+      // enforces exp as `Date.now() > exp * 1000`, so seconds are required.
+      iat: nowInSeconds,
+      exp: nowInSeconds + ACCESS_TOKEN_EXPIRY_S,
     };
     return jwt.encode(payload, JWT_SECRET, 'HS256');
   }
@@ -49,7 +52,7 @@ class AuthService {
 
     const passwordHash = await this.hashPassword(data.password);
 
-    const { newUser, workspaceId } = await runInTransaction(async (tx) => {
+    const { newUser } = await runInTransaction(async (tx) => {
       const createdUser = await userRepository.create({
         email: data.email,
         name: data.name,

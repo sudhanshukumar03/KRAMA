@@ -16,8 +16,10 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
   const token = authHeader.split(' ')[1];
 
   try {
-    const payload = jwt.decode(token as string, JWT_SECRET as string);
-    if (payload.exp < Date.now()) {
+    const payload = jwt.decode(token as string, JWT_SECRET as string, false, 'HS256');
+    // exp is a NumericDate (seconds); compare against ms epoch. jwt-simple also
+    // enforces this internally, so this is defense-in-depth.
+    if (payload.exp * 1000 < Date.now()) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -45,7 +47,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
     req.user = { id: userId, email, name, sessionId } as RequestUser;
     next();
-  } catch (error) {
+  } catch {
     // Hide whether it's expired or invalid signature
     return res.status(401).json({ message: 'Unauthorized' });
   }

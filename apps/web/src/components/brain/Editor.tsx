@@ -5,7 +5,7 @@ import {
   Star, FolderKanban, FolderInput, Copy, History, Sparkles, 
   ChevronDown, FileText, FileCode, CheckSquare, ListTree, Check, Plus, 
   Heading1, Heading2, List, ListOrdered, Code, Quote, Minus, Link2,
-  X, ArrowUpRight, MoreHorizontal
+  X, ArrowUpRight, MoreHorizontal, Trash2
 } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Content } from '@tiptap/react';
@@ -71,10 +71,14 @@ export function Editor({
   const latestJsonRef = useRef<any>(page.contentJson);
   const latestTitleRef = useRef(title);
   latestTitleRef.current = title;
+  // Revision token for optimistic concurrency on content autosave. Document has
+  // no `version` column, so its `updatedAt` stands in as the token: we send the
+  // last value we saw and the server 409s if another writer moved it since.
+  const latestUpdatedAtRef = useRef<string | undefined>(page.updatedAt as any);
 
   // Fetch workspace tasks for entity linking and references
   const { data: tasks = [] } = useQuery({
-    queryKey: ['tasks'],
+    queryKey: ['issues'],
     queryFn: () => api.tasks.list()
   });
 
@@ -105,10 +109,13 @@ export function Editor({
   const mentionEntitiesRef = useRef(mentionEntities);
   mentionEntitiesRef.current = mentionEntities;
 
-  // Sync title when active document switches
+  // Sync title when the active document switches. Deliberately keyed on page.id
+  // only — depending on page.title too would let a background ['documents']
+  // refetch (fired by every content autosave) overwrite an in-progress title edit.
   useEffect(() => {
     setTitle(page.title || '');
-  }, [page.id, page.title]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page.id]);
 
   // Fetch links for current document
   const { data: linksData, refetch: refetchLinks } = useQuery({
@@ -166,7 +173,7 @@ export function Editor({
       if (copy?.id) onSelectDoc(copy.id);
       toast.success(`Duplicated "${page.title}"`);
     } catch (err: any) {
-      toast.error('Failed to duplicate document: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+      toast.error('Failed to duplicate document: ' + (err?.message || 'Unknown error'));
     }
   };
 
@@ -297,8 +304,30 @@ export function Editor({
       latestJsonRef.current = json;
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        api.documents.updateContent(page.id, json)
+        api.documents.updateContent(page.id, json, latestUpdatedAtRef.current)
+          .then((res: any) => {
+            // Advance our revision token to the value the server just wrote, so
+            // the next autosave carries the current revision.
+            if (res?.updatedAt) latestUpdatedAtRef.current = res.updatedAt;
+            // Refresh the ['documents'] cache so switching to another doc and
+            // back reads the freshly saved content instead of the 5-min-stale
+            // snapshot. The content-sync effect only calls setContent on an id
+            // change, so a same-id refetch here can't jump the cursor.
+            queryClient.invalidateQueries({ queryKey: ['documents'] });
+          })
           .catch((err: any) => {
+            if (err?.status === 409) {
+              // Another writer (other tab/user, or a queued snapshot) moved the
+              // document. The conflict toast is raised globally in fetchApi; here
+              // we just re-sync the token from the server's current revision so the
+              // user's next edit can save, and refresh the tree. We keep their
+              // in-editor text rather than clobbering it with a forced reload.
+              api.documents.get(page.id)
+                .then((fresh: any) => { if (fresh?.updatedAt) latestUpdatedAtRef.current = fresh.updatedAt; })
+                .catch(() => {});
+              queryClient.invalidateQueries({ queryKey: ['documents'] });
+              return;
+            }
             const now = Date.now();
             if (now - lastSaveErrorToastRef.current > 4000) {
               lastSaveErrorToastRef.current = now;
@@ -411,7 +440,9 @@ export function Editor({
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
         if (latestJsonRef.current) {
-          api.documents.updateContent(currentDocIdRef.current, latestJsonRef.current).catch(console.error);
+          api.documents.updateContent(currentDocIdRef.current, latestJsonRef.current, latestUpdatedAtRef.current)
+            .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
+            .catch(console.error);
         }
       }
       if (titleDebounceRef.current && currentDocIdRef.current) {
@@ -419,10 +450,15 @@ export function Editor({
         titleDebounceRef.current = null;
         const clean = latestTitleRef.current.trim();
         if (clean) {
-          api.documents.update(currentDocIdRef.current, { title: clean }).catch(console.error);
+          api.documents.update(currentDocIdRef.current, { title: clean })
+            .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
+            .catch(console.error);
         }
       }
     };
+    // queryClient is a stable singleton from context; this cleanup must run only
+    // on unmount, so the empty dep array is intentional.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync content strictly on document ID switch, avoiding cursor jumps during debounced save
@@ -433,7 +469,9 @@ export function Editor({
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
         if (latestJsonRef.current) {
-          api.documents.updateContent(currentDocIdRef.current, latestJsonRef.current).catch(console.error);
+          api.documents.updateContent(currentDocIdRef.current, latestJsonRef.current, latestUpdatedAtRef.current)
+            .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
+            .catch(console.error);
         }
       }
       if (titleDebounceRef.current && currentDocIdRef.current) {
@@ -441,12 +479,15 @@ export function Editor({
         titleDebounceRef.current = null;
         const clean = latestTitleRef.current.trim();
         if (clean) {
-          api.documents.update(currentDocIdRef.current, { title: clean }).catch(console.error);
+          api.documents.update(currentDocIdRef.current, { title: clean })
+            .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
+            .catch(console.error);
         }
       }
 
       currentDocIdRef.current = page.id;
       latestJsonRef.current = page.contentJson;
+      latestUpdatedAtRef.current = page.updatedAt as any;
       if (editor && !editor.isDestroyed) {
         if (page.contentJson) {
           editor.commands.setContent(page.contentJson as Content);
@@ -455,6 +496,9 @@ export function Editor({
         }
       }
     }
+    // queryClient is a stable singleton from context; intentionally excluded so
+    // the sync effect only reacts to document id/content/editor changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page.id, page.contentJson, editor]);
 
   // Word count & metrics
@@ -478,12 +522,12 @@ export function Editor({
               onClick={handleToggleFavorite}
               className={cn("p-1.5 rounded-lg border transition-colors cursor-pointer shrink-0",
                 page.isFavorite
-                  ? "bg-amber-500/10 border-amber-500/30 text-amber-500 hover:bg-amber-500/20"
+                  ? "bg-warning-bg border-warning-border text-warning-fg hover:bg-warning-bg/80"
                   : "border-border bg-surface hover:bg-surface-hover text-muted hover:text-primary"
               )}
               title={page.isFavorite ? "Favorited" : "Star as favorite"}
             >
-              <Star className={cn("w-3.5 h-3.5", page.isFavorite && "fill-amber-500")} />
+              <Star className={cn("w-3.5 h-3.5", page.isFavorite && "fill-warning-fg")} />
             </button>
 
             {/* Project Linker */}
@@ -546,7 +590,7 @@ export function Editor({
                 className={cn(
                   "p-1.5 rounded-lg border transition-colors cursor-pointer",
                   isMoreMenuOpen
-                    ? "border-blue-500/30 bg-surface-hover text-primary"
+                    ? "border-accent/40 bg-surface-hover text-primary"
                     : "border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary"
                 )}
                 title="More actions (Move, Duplicate, History, Export)"
@@ -563,7 +607,7 @@ export function Editor({
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-primary flex items-center gap-2 cursor-pointer"
                   >
-                    <FolderInput className="w-3.5 h-3.5 text-blue-500" />
+                    <FolderInput className="w-3.5 h-3.5 text-cat-projects" />
                     <span>Move Document...</span>
                   </button>
                   <button
@@ -573,7 +617,7 @@ export function Editor({
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-primary flex items-center gap-2 cursor-pointer"
                   >
-                    <Copy className="w-3.5 h-3.5 text-emerald-500" />
+                    <Copy className="w-3.5 h-3.5 text-accent-fg" />
                     <span>Duplicate Subtree</span>
                   </button>
                   <button
@@ -583,7 +627,7 @@ export function Editor({
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-primary flex items-center gap-2 cursor-pointer"
                   >
-                    <History className="w-3.5 h-3.5 text-purple-500" />
+                    <History className="w-3.5 h-3.5 text-cat-routines" />
                     <span>Version History</span>
                   </button>
                   <div className="my-1 border-t border-border" />
@@ -595,7 +639,7 @@ export function Editor({
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-primary flex items-center gap-2 cursor-pointer"
                   >
-                    <FileText className="w-3.5 h-3.5 text-blue-500" />
+                    <FileText className="w-3.5 h-3.5 text-cat-projects" />
                     <span>Markdown (.md)</span>
                   </button>
                   <button
@@ -605,8 +649,37 @@ export function Editor({
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-primary flex items-center gap-2 cursor-pointer"
                   >
-                    <FileCode className="w-3.5 h-3.5 text-purple-500" />
+                    <FileCode className="w-3.5 h-3.5 text-cat-tasks" />
                     <span>Full Spec (.spec.md)</span>
+                  </button>
+                  <div className="my-1 border-t border-border" />
+                  <button
+                    onClick={async () => {
+                      setIsMoreMenuOpen(false);
+                      if (!window.confirm(`Move "${page.title || 'Untitled'}" to Trash?`)) return;
+                      try {
+                        await api.documents.delete(page.id);
+                        queryClient.invalidateQueries({ queryKey: ['documents'] });
+                        toast.success(`Moved "${page.title || 'Untitled'}" to Trash`, {
+                          action: {
+                            label: 'Undo',
+                            onClick: async () => {
+                              await api.documents.restore(page.id);
+                              queryClient.invalidateQueries({ queryKey: ['documents'] });
+                              onSelectDoc(page.id);
+                            }
+                          }
+                        });
+                        const nextDoc = pages.find(p => p.id !== page.id);
+                        onSelectDoc(nextDoc?.id || '');
+                      } catch (err: any) {
+                        toast.error('Failed to delete document: ' + (err?.message || 'Unknown error'));
+                      }
+                    }}
+                    className="w-full text-left px-3 py-1.5 hover:bg-danger-bg text-danger-fg flex items-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Move to Trash</span>
                   </button>
                 </div>
               )}
@@ -704,7 +777,7 @@ export function Editor({
                   placeholder="tag name..."
                   className="bg-transparent border-none outline-none text-primary w-24 text-[11px]"
                 />
-                <button onClick={handleAddTag} className="text-blue-600 hover:text-blue-500">
+                <button onClick={handleAddTag} className="text-accent-fg hover:text-accent">
                   <Check className="w-3 h-3" />
                 </button>
               </div>
@@ -728,8 +801,8 @@ export function Editor({
               <div className="flex flex-wrap items-center gap-1">
                 <button
                   onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer",
-                    editor.isActive('heading', { level: 1 }) ? "bg-blue-600 text-white" : "bg-surface text-primary border border-border hover:bg-surface-hover"
+                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer active:scale-[0.98]",
+                    editor.isActive('heading', { level: 1 }) ? "bg-accent text-on-accent shadow-xs" : "bg-surface text-primary border border-border hover:bg-surface-hover"
                   )}
                   title="Heading 1"
                 >
@@ -737,8 +810,8 @@ export function Editor({
                 </button>
                 <button
                   onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer",
-                    editor.isActive('heading', { level: 2 }) ? "bg-blue-600 text-white" : "bg-surface text-primary border border-border hover:bg-surface-hover"
+                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer active:scale-[0.98]",
+                    editor.isActive('heading', { level: 2 }) ? "bg-accent text-on-accent shadow-xs" : "bg-surface text-primary border border-border hover:bg-surface-hover"
                   )}
                   title="Heading 2"
                 >
@@ -746,8 +819,8 @@ export function Editor({
                 </button>
                 <button
                   onClick={() => editor.chain().focus().toggleBulletList().run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer",
-                    editor.isActive('bulletList') ? "bg-blue-600 text-white" : "bg-surface text-primary border border-border hover:bg-surface-hover"
+                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer active:scale-[0.98]",
+                    editor.isActive('bulletList') ? "bg-accent text-on-accent shadow-xs" : "bg-surface text-primary border border-border hover:bg-surface-hover"
                   )}
                   title="Bullet List"
                 >
@@ -755,8 +828,8 @@ export function Editor({
                 </button>
                 <button
                   onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer",
-                    editor.isActive('orderedList') ? "bg-blue-600 text-white" : "bg-surface text-primary border border-border hover:bg-surface-hover"
+                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer active:scale-[0.98]",
+                    editor.isActive('orderedList') ? "bg-accent text-on-accent shadow-xs" : "bg-surface text-primary border border-border hover:bg-surface-hover"
                   )}
                   title="Ordered List"
                 >
@@ -764,8 +837,8 @@ export function Editor({
                 </button>
                 <button
                   onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer",
-                    editor.isActive('codeBlock') ? "bg-blue-600 text-white" : "bg-surface text-primary border border-border hover:bg-surface-hover"
+                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer active:scale-[0.98]",
+                    editor.isActive('codeBlock') ? "bg-accent text-on-accent shadow-xs" : "bg-surface text-primary border border-border hover:bg-surface-hover"
                   )}
                   title="Code Block"
                 >
@@ -773,8 +846,8 @@ export function Editor({
                 </button>
                 <button
                   onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer",
-                    editor.isActive('blockquote') ? "bg-blue-600 text-white" : "bg-surface text-primary border border-border hover:bg-surface-hover"
+                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer active:scale-[0.98]",
+                    editor.isActive('blockquote') ? "bg-accent text-on-accent shadow-xs" : "bg-surface text-primary border border-border hover:bg-surface-hover"
                   )}
                   title="Blockquote"
                 >
@@ -782,7 +855,7 @@ export function Editor({
                 </button>
                 <button
                   onClick={() => editor.chain().focus().setHorizontalRule().run()}
-                  className="px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer bg-surface text-primary border border-border hover:bg-surface-hover"
+                  className="px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer bg-surface text-primary border border-border hover:bg-surface-hover active:scale-[0.98]"
                   title="Horizontal Rule"
                 >
                   <Minus className="w-3.5 h-3.5" />
@@ -790,7 +863,7 @@ export function Editor({
               </div>
 
               <span className="text-[11px] font-mono text-muted flex items-center gap-1">
-                <Check className="w-3 h-3 text-emerald-500" /> Auto-saved
+                <Check className="w-3 h-3 text-success-fg" /> Auto-saved
               </span>
             </div>
           )}
@@ -925,12 +998,12 @@ export function Editor({
                             <div
                               key={link.id}
                               onClick={handleLinkClick}
-                              className="flex items-center justify-between p-2 rounded-lg bg-surface-hover/50 hover:bg-blue-500/10 cursor-pointer transition-colors group"
+                              className="flex items-center justify-between p-2 rounded-lg bg-surface-hover/50 hover:bg-accent-subtle cursor-pointer transition-colors group"
                             >
                               <div className="flex items-center gap-2 min-w-0 flex-1">
-                                {link.targetType === 'DOCUMENT' && <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0" />}
-                                {link.targetType === 'PROJECT' && <FolderKanban className="w-3.5 h-3.5 text-purple-500 shrink-0" />}
-                                {link.targetType === 'TASK' && <CheckSquare className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                                {link.targetType === 'DOCUMENT' && <FileText className="w-3.5 h-3.5 text-cat-tasks shrink-0" />}
+                                {link.targetType === 'PROJECT' && <FolderKanban className="w-3.5 h-3.5 text-cat-projects shrink-0" />}
+                                {link.targetType === 'TASK' && <CheckSquare className="w-3.5 h-3.5 text-warning-fg shrink-0" />}
                                 <span className="font-sans font-medium text-primary text-[13px] truncate group-hover:text-accent-fg">
                                   {label}
                                 </span>
@@ -953,7 +1026,7 @@ export function Editor({
                                     e.stopPropagation();
                                     handleDeleteLink(link.id);
                                   }}
-                                  className="p-1 text-muted hover:text-red-500 transition-colors"
+                                  className="p-1 text-muted hover:text-danger-fg transition-colors"
                                   title="Remove reference"
                                 >
                                   <X className="w-3.5 h-3.5" />
@@ -985,10 +1058,10 @@ export function Editor({
       <VersionHistoryModal
         documentId={page.id}
         isOpen={isVersionModalOpen}
-        onClose={() => setIsVersionModalOpen(false)}
-        onRestoreSuccess={(restoredContentJson) => {
-          if (restoredContentJson && editor && !editor.isDestroyed) {
-            editor.commands.setContent(restoredContentJson as Content);
+        onRestoreSuccess={(restoredDoc) => {
+          if (restoredDoc?.contentJson && editor && !editor.isDestroyed) {
+            if (restoredDoc.updatedAt) latestUpdatedAtRef.current = restoredDoc.updatedAt;
+            editor.commands.setContent(restoredDoc.contentJson as Content);
           }
           queryClient.invalidateQueries({ queryKey: ['documents'] });
         }}

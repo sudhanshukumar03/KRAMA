@@ -16,6 +16,12 @@ const ensureWorkspaceId = (req: express.Request, res: express.Response, next: ex
   const workspaceId = req.params.id || req.headers['x-workspace-id'] || req.query.workspaceId;
   if (workspaceId) {
     (req as any).workspaceId = workspaceId;
+    // The role check (rbac.middleware) reads x-workspace-id FIRST. The /:id
+    // controllers act on req.params.id, so we must force the role check to
+    // authorize against the SAME workspace the action targets — otherwise a
+    // user can pass their own workspace in the header and mutate any other
+    // workspace named in the path (cross-workspace IDOR).
+    req.headers['x-workspace-id'] = workspaceId as string;
   }
   next();
 };

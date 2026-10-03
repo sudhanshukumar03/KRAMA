@@ -3,7 +3,6 @@ import type {
   Workspace,
   Project,
   Task as Issue,
-  Sprint,
   Goal,
   GoalProgressSnapshot,
   Habit as PrismaHabit,
@@ -14,7 +13,6 @@ import type {
   DocumentVersion,
   Tag,
   DocumentTag,
-  DailyLog,
   Label,
   TaskStatus,
   TaskPriority
@@ -26,6 +24,12 @@ export type Habit = PrismaHabit & {
   linkedGoal?: Goal | null;
   completions?: HabitCompletion[];
   pinnedToPlanner?: boolean;
+  // Weekly cadence target (N completions/week). Stored in `metadata` JSON on the
+  // server and re-exposed by formatHabit — not a Prisma column.
+  weeklyTarget?: number;
+  // Longest streak ever achieved (Prisma column; declared here so the web type
+  // is stable regardless of prisma-generate timing).
+  bestStreak?: number;
 };
 
 export type {
@@ -34,13 +38,11 @@ export type {
   
   
   Issue,
-  Sprint,
-  
-  
-  
+
+
+
   Space,
   
-  DailyLog,
   
   
   
@@ -69,13 +71,11 @@ export type ProjectWithRelations = Project & {
   targetDate?: string | Date | null;
   tasks?: Issue[];
   documents?: Document[];
-  sprints?: Sprint[];
   roadmapItems?: RoadmapItem[];
   goal?: GoalWithRelations | null;
   space?: Space | null;
   _count?: {
     tasks?: number;
-    sprints?: number;
     roadmapItems?: number;
     documents?: number;
   };
@@ -91,14 +91,12 @@ export type DocumentWithRelations = Document & {
   linkedProject?: (Project & {
     tasks?: Issue[];
     goal?: Goal | null;
-    sprints?: Sprint[];
   }) | null;
 };
 
 export type IssueWithRelations = Issue & {
   assignee?: User | null;
   project?: Project | null;
-  sprint?: Sprint | null;
   childTasks?: Issue[];
   parentTask?: Issue | null;
   blockedBy?: Issue | null;

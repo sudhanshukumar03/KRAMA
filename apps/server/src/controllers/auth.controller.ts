@@ -21,6 +21,10 @@ export const signup = async (req: Request, res: Response) => {
 
     return res.status(201).json({
       accessToken: result.accessToken,
+      // Also returned in-body so non-cookie clients (e.g. mobile or CLI apps)
+      // can persist and replay it via req.body.refreshToken. The web app ignores
+      // this and relies on the httpOnly cookie.
+      refreshToken: result.refreshToken,
       user: result.user,
     });
   } catch (error: any) {
@@ -52,6 +56,8 @@ export const login = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       accessToken: result.accessToken,
+      // See signup: in-body copy for non-cookie clients.
+      refreshToken: result.refreshToken,
       user: result.user,
     });
   } catch (error: any) {
@@ -85,8 +91,13 @@ export const refresh = async (req: Request, res: Response) => {
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    return res.status(200).json({ accessToken: result.accessToken });
-  } catch (error: any) {
+    return res.status(200).json({
+      accessToken: result.accessToken,
+      // See signup: in-body copy for non-cookie clients so they can persist
+      // the rotated refresh token.
+      refreshToken: result.refreshToken,
+    });
+  } catch {
     return res.status(401).json({ message: 'Invalid or expired refresh token' });
   }
 };
@@ -165,7 +176,7 @@ export const updatePreferences = async (req: Request, res: Response) => {
         ...currentMetadata,
         ...(timerPreferences ? {
           timerPreferences: {
-            ...(currentMetadata.timerPreferences || {}),
+            ...currentMetadata.timerPreferences,
             ...timerPreferences
           }
         } : {}),
@@ -174,8 +185,8 @@ export const updatePreferences = async (req: Request, res: Response) => {
       };
     }
     if (locationConfig) {
-      updateData.countryCode = locationConfig.countryCode;
-      updateData.regionCode = locationConfig.regionCode;
+      updateData.countryCode = locationConfig.countryCode || 'IN';
+      updateData.regionCode = locationConfig.regionCode ? locationConfig.regionCode : null;
     }
     if (weeklyCapacityMinutes !== undefined) {
       updateData.weeklyCapacityMinutes = weeklyCapacityMinutes;

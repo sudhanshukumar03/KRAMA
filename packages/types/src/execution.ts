@@ -8,10 +8,6 @@ import {
   UpdateGoalSchema,
   CreateHabitSchema,
   UpdateHabitSchema,
-  CreateSprintSchema,
-  UpdateSprintSchema,
-  CreateDailyLogSchema,
-  UpdateDailyLogSchema,
   ReorderSchema,
   HabitLogSchema,
 } from '@krama/validation';
@@ -24,9 +20,5 @@ export type CreateGoalDto = z.infer<typeof CreateGoalSchema>;
 export type UpdateGoalDto = z.infer<typeof UpdateGoalSchema>;
 export type CreateHabitDto = z.infer<typeof CreateHabitSchema>;
 export type UpdateHabitDto = z.infer<typeof UpdateHabitSchema>;
-export type CreateSprintDto = z.infer<typeof CreateSprintSchema>;
-export type UpdateSprintDto = z.infer<typeof UpdateSprintSchema>;
-export type CreateDailyLogDto = z.infer<typeof CreateDailyLogSchema>;
-export type UpdateDailyLogDto = z.infer<typeof UpdateDailyLogSchema>;
 export type ReorderDto = z.infer<typeof ReorderSchema>;
 export type HabitLogDto = z.infer<typeof HabitLogSchema>;

@@ -33,7 +33,7 @@ class TaskService {
     }
   }
 
-  async listTasks(workspaceId: string, filters: { projectId?: string; sprintId?: string; status?: string }) {
+  async listTasks(workspaceId: string, filters: { projectId?: string; status?: string }) {
     return taskRepository.findManyByWorkspace(workspaceId, {
       ...filters,
       status: filters.status as TaskStatus,
@@ -54,10 +54,6 @@ class TaskService {
       const position = maxPos + 1.0;
 
 
-      if (data.sprintId) {
-        const sprint = await tx.sprint.findUnique({ where: { id: data.sprintId } });
-        if (!sprint || sprint.workspaceId !== data.workspaceId) throw new Error('Conflict: invalid sprint scoping');
-      }
       if (data.projectId) {
         const project = await tx.project.findUnique({ where: { id: data.projectId } });
         if (!project || project.workspaceId !== data.workspaceId) throw new Error('Conflict: invalid project scoping');
@@ -86,13 +82,9 @@ class TaskService {
         throw new Error('Conflict: version mismatch');
       }
 
-      const { version, workspaceId: _, ...updateData } = data;
+      const { version: _version, workspaceId: _, ...updateData } = data;
 
 
-      if (updateData.sprintId) {
-        const sprint = await tx.sprint.findUnique({ where: { id: updateData.sprintId } });
-        if (!sprint || sprint.workspaceId !== workspaceId) throw new Error('Conflict: invalid sprint scoping');
-      }
       if (updateData.projectId) {
         const project = await tx.project.findUnique({ where: { id: updateData.projectId } });
         if (!project || project.workspaceId !== workspaceId) throw new Error('Conflict: invalid project scoping');

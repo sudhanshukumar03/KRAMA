@@ -18,10 +18,11 @@ const getStore = (prefix: string) => {
   });
 };
 
-// Strict limit for login/signup: 500 requests per 15 minutes per IP (increased for E2E testing)
+// Strict limit for login/signup per IP. Secure default of 10 per 15 min; override
+// via AUTH_RATE_LIMIT_MAX for E2E/CI runs that perform many auth calls.
 export const strictAuthLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500,
+  max: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '10', 10),
   standardHeaders: true,
   legacyHeaders: false,
   passOnStoreError: true,
@@ -29,10 +30,11 @@ export const strictAuthLimiter = rateLimit({
   store: getStore('rl:auth:strict:'),
 });
 
-// Looser limit for refresh: 30 requests per 15 minutes per IP (increased for E2E testing)
+// Looser limit for refresh per IP. Secure default of 30 per 15 min; override
+// via REFRESH_RATE_LIMIT_MAX for E2E/CI runs.
 export const refreshLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500,
+  max: parseInt(process.env.REFRESH_RATE_LIMIT_MAX || '30', 10),
   standardHeaders: true,
   legacyHeaders: false,
   passOnStoreError: true,
