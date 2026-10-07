@@ -91,3 +91,29 @@ Stop the dashboard endpoint from loading entire document bodies into memory just
 - [x] Dashboard focus sessions are scoped to the requesting user, not the whole workspace (DASH-01).
 - [x] Dashboard is scrollable on smaller viewports; no clipped cards (DASH-02).
 - [x] `/app/analytics` renders a real page with real data, not a redirect (DASH-03).
+
+## 6. Dashboard and Analytics follow-up — 2026-10-07
+
+**Status: COMPLETE — 18 follow-up findings repaired.** The current implementation supersedes the earlier live-backfill and “OKR pace” descriptions in this document. Analytics reads live source records for exactly 7/30/90 days; personal focus, Planner logs and streaks are user-scoped. Current top-level goal progress is labelled as progress.
+
+The repaired list is DASH-04–21: personal history scope, frozen snapshots, dense date ranges, work-only focus totals, separate Planner logs, stable task completion dates, history pagination, independent retry controls, accurate goal aggregation, calendar/instant boundaries, personal activity, responsive scrolling, task completion/version handling, direct habit checkoffs, progress previews, accessible Quick Capture with draft retention, connected refresh, and accessible charts/table/CSV export.
+
+Verification: 9 Dashboard/Analytics live checks and 18 reporting-time/habit-timezone/Planner-capacity unit checks passed. Frontend/backend builds and lint passed. Temporary verification fixtures were removed. Legacy task dates, current-goal reporting, cross-midnight focus allocation and bounded Dashboard previews are documented in the review.
+
+## 7. Dashboard and Analytics UI follow-up — 2026-10-07
+
+**Complete: DASH-22–29, eight additional UI/usability findings repaired; 26 follow-up repairs in total.**
+
+The follow-up improves focus hierarchy, task filters/counts and checked states, task/history detail destinations, overdue ranking, separation of current snapshots from range totals, Daily/7-day rolling chart controls, guided empty states, failed history-page recovery, break labels, refresh feedback, theme-aware accent text/progress, mobile loading containment and accessible retry controls.
+
+The expanded live suite has eleven checks. The frontend production build/typecheck and lint were repeated. Reporting boundaries from the functional pass still apply; no deployment or real-user data was changed.
+
+The subsequent connected-flow audit corrected Dashboard/Analytics Start Focus links to the mounted `/focus` destination and verified both in the browser. The Focus accounting/scheduling and Brain-to-goal integration findings are now repaired and verified. All 11 Dashboard/Analytics regression tests passed again after those repairs.
+
+## 8. Analytics follow-up UI repairs — 2026-10-07
+
+**ANUI-01–06 repaired.** Repairs cover reporting controls, compact mobile metrics, empty chart sizing, cached-report recovery after refresh failure, retained daily-data expansion, and explicit date/duration units. All 11 regression tests passed, including new recovery and return-navigation checks. The final responsive toolbar check, frontend build and lint also passed. This pass retains the restored global UI style.
+
+## 9. Planned and judged visual polish — 2026-10-07
+
+**KUI-01–05 addressed on Dashboard and Analytics.** Changes include grouped reporting controls/metrics, clearer typography, quieter supporting surfaces, compact empty charts and stronger daily focus hierarchy. Existing palette, shell and repaired workflows remain. All twelve live checks, frontend build/typecheck and lint passed.

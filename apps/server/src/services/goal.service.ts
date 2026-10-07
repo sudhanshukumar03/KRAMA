@@ -61,6 +61,18 @@ type UpdateGoalDto = Partial<Omit<Prisma.GoalUncheckedUpdateInput, 'updatedBy' |
 };
 
 class GoalService {
+  private async validateParent(parentId: string | null | undefined, workspaceId: string, tx: TxClient, goalId?: string) {
+    const visited = new Set(goalId ? [goalId] : []);
+    let cursor = parentId;
+    while (cursor) {
+      if (visited.has(cursor)) throw new Error('Invalid goal hierarchy: cycles are not allowed');
+      visited.add(cursor);
+      const parent = await tx.goal.findFirst({ where: { id: cursor, workspaceId, deletedAt: null }, select: { parentGoalId: true } });
+      if (!parent) throw new Error('Invalid parent goal');
+      cursor = parent.parentGoalId;
+    }
+  }
+
   private getCacheKey(workspaceId: string, lite = false): string {
     return lite ? `goals:workspace:lite:${workspaceId}` : `goals:workspace:${workspaceId}`;
   }
@@ -122,7 +134,9 @@ class GoalService {
 
   async createGoal(data: CreateGoalDto, userId: string) {
     const createdGoal = await runInTransaction(async (tx, publishAfterCommit) => {
+      await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${data.workspaceId} FOR UPDATE`;
       const { status, metadata: incomingMetadata, ...restData } = data;
+      await this.validateParent(restData.parentGoalId, restData.workspaceId, tx);
       // Preserve caller-supplied metadata (measurable-KR fields, progressMode, color)
       // instead of discarding everything but status.
       const merged = { ...toRecord(incomingMetadata), ...(status ? { status } : {}) };
@@ -168,6 +182,7 @@ class GoalService {
 
   async updateGoal(id: string, workspaceId: string, data: UpdateGoalDto, userId: string) {
     const { goal, isAuto } = await runInTransaction(async (tx, publishAfterCommit) => {
+      await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
       const existing = await goalRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
         throw new Error('Goal not found');
@@ -176,6 +191,8 @@ class GoalService {
       if (data.version !== undefined && existing.version !== data.version) {
         throw new Error('Conflict: version mismatch');
       }
+      const parentId = data.parentGoalId === undefined ? existing.parentGoalId : data.parentGoalId as string | null;
+      await this.validateParent(parentId, workspaceId, tx, id);
 
       const { version: _version, workspaceId: _, status, metadata: incomingMetadata, note, ...updateData } = data;
 
@@ -190,13 +207,15 @@ class GoalService {
         ...(status ? { status } : {}),
       };
       const metadataChanged = status !== undefined || incomingMetadata !== undefined;
+      const isAutomatic = toRecord(mergedMetadata).progressMode === 'auto';
+      if (isAutomatic) delete updateData.progress;
 
       const goal = await goalRepository.update(id, {
         ...(updateData as Prisma.GoalUncheckedUpdateInput),
         ...(metadataChanged ? { metadata: mergedMetadata as Prisma.InputJsonValue } : {}),
         version: { increment: 1 },
         updatedBy: userId,
-      }, tx);
+      }, tx, { id, workspaceId, deletedAt: null, version: existing.version });
 
       // Upsert today's snapshot on a progress change (Bug #2: prevents same-day duplicates)
       // and roll the value up into the parent. A check-in `note` without a progress change
@@ -207,9 +226,13 @@ class GoalService {
       } else if (note) {
         await this.writeProgressSnapshot(tx, goal.id, existing.parentGoalId, existing.progress, userId, note, publishAfterCommit);
       }
+      if (existing.parentGoalId && (parentId !== existing.parentGoalId || incomingMetadata !== undefined)) {
+        await this.recalculateParentRollup(existing.parentGoalId, userId, tx, publishAfterCommit);
+      }
+      if (parentId && parentId !== existing.parentGoalId) await this.recalculateParentRollup(parentId, userId, tx, publishAfterCommit);
 
       publishAfterCommit('GOAL_UPDATED', { goalId: goal.id, workspaceId: goal.workspaceId });
-      return { goal, isAuto: toRecord(mergedMetadata).progressMode === 'auto' && metadataChanged };
+      return { goal, isAuto: isAutomatic };
     });
 
     await this.invalidateGoalCache(goal.workspaceId);
@@ -289,7 +312,8 @@ class GoalService {
         where: {
           deletedAt: null,
           status: { not: 'CANCELED' },
-          project: { goalId: goal.id, deletedAt: null },
+          workspaceId: goal.workspaceId,
+          project: { goalId: goal.id, workspaceId: goal.workspaceId, deletedAt: null },
         },
         select: { status: true },
       });
@@ -318,22 +342,17 @@ class GoalService {
     userId: string,
     tx: TxClient,
     publishAfterCommit?: (event: string, payload: any) => void,
+    visited = new Set<string>(),
   ) {
+    if (visited.has(parentGoalId)) return;
+    visited.add(parentGoalId);
+    const parent = await tx.goal.findUnique({ where: { id: parentGoalId }, select: { workspaceId: true, deletedAt: true } });
+    if (!parent || parent.deletedAt) return;
     const siblings = await tx.goal.findMany({
-      where: { parentGoalId, deletedAt: null },
+      where: { parentGoalId, workspaceId: parent.workspaceId, deletedAt: null },
       select: { progress: true, metadata: true }
     });
 
-    if (siblings.length === 0) {
-      const parent = await tx.goal.findUnique({
-        where: { id: parentGoalId },
-        select: { parentGoalId: true },
-      });
-      if (parent?.parentGoalId) {
-        await this.recalculateParentRollup(parent.parentGoalId, userId, tx, publishAfterCommit);
-      }
-      return;
-    }
 
     // Weighted average by KR `metadata.weight` (default 1 → equal weights, matching the
     // previous plain average). Lets an Objective weight its Key Results.
@@ -375,64 +394,45 @@ class GoalService {
     // Roll further up the hierarchy: an Objective can itself be a child of a
     // higher Objective (the UI supports 3 levels), so recompute grandparents too.
     if (updatedParent.parentGoalId) {
-      await this.recalculateParentRollup(updatedParent.parentGoalId, userId, tx, publishAfterCommit);
+      await this.recalculateParentRollup(updatedParent.parentGoalId, userId, tx, publishAfterCommit, visited);
     }
   }
 
   async deleteGoal(id: string, workspaceId: string, userId: string) {
     const goal = await runInTransaction(async (tx, publishAfterCommit) => {
+      await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
       const existing = await goalRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
         throw new Error('Goal not found');
       }
 
-      // Bug #4 fix: recursively soft-delete all child goals in the same transaction
-      await tx.goal.updateMany({
-        where: { parentGoalId: id, deletedAt: null },
-        data: { deletedAt: new Date(), updatedBy: userId },
-      });
-
-      // Also cascade one level deeper (grandchildren)
-      const childIds = (await tx.goal.findMany({
-        where: { parentGoalId: id },
-        select: { id: true }
-      })).map((c: { id: string }) => c.id);
-
-      let grandchildIds: string[] = [];
-      if (childIds.length > 0) {
-        grandchildIds = (await tx.goal.findMany({
-          where: { parentGoalId: { in: childIds } },
-          select: { id: true },
-        })).map((c: { id: string }) => c.id);
-
-        await tx.goal.updateMany({
-          where: { parentGoalId: { in: childIds }, deletedAt: null },
-          data: { deletedAt: new Date(), updatedBy: userId },
-        });
+      const deletionTime = new Date();
+      const allDeletedGoalIds = [id];
+      let frontier = [id];
+      while (frontier.length) {
+        const children = await tx.goal.findMany({ where: { workspaceId, parentGoalId: { in: frontier }, deletedAt: null }, select: { id: true } });
+        frontier = children.map(c => c.id).filter(childId => !allDeletedGoalIds.includes(childId));
+        allDeletedGoalIds.push(...frontier);
       }
+      await tx.goal.updateMany({ where: { id: { in: allDeletedGoalIds }, workspaceId, deletedAt: null }, data: { deletedAt: deletionTime, updatedBy: userId, version: { increment: 1 } } });
 
-      // GOL-01: Unlink Project.goalId and Habit.linkedGoalId on goal soft delete
-      const allDeletedGoalIds = [id, ...childIds, ...grandchildIds];
-      const projectWhere = allDeletedGoalIds.length === 1 
-        ? { goalId: id } 
-        : { goalId: { in: allDeletedGoalIds } };
-      await tx.project.updateMany({
-        where: projectWhere,
-        data: { goalId: null, updatedBy: userId },
-      });
-
-      const habitWhere = allDeletedGoalIds.length === 1 
-        ? { linkedGoalId: id } 
-        : { linkedGoalId: { in: allDeletedGoalIds } };
-      await tx.habit.updateMany({
-        where: habitWhere,
-        data: { linkedGoalId: null },
-      });
+      // Remember only associations removed by this deletion; later explicit
+      // relinking clears the marker and must take precedence over Undo.
+      for (const project of await tx.project.findMany({ where: { workspaceId, goalId: { in: allDeletedGoalIds } } })) {
+        const metadata = { ...(project.metadata as any), goalUndo: { rootId: id, goalId: project.goalId, deletedAt: deletionTime.toISOString() } };
+        await tx.project.update({ where: { id: project.id }, data: { goalId: null, metadata, updatedBy: userId, version: { increment: 1 } } });
+        publishAfterCommit('PROJECT_UPDATED', { projectId: project.id, workspaceId });
+      }
+      for (const habit of await tx.habit.findMany({ where: { workspaceId, linkedGoalId: { in: allDeletedGoalIds } } })) {
+        const metadata = { ...(habit.metadata as any), goalUndo: { rootId: id, goalId: habit.linkedGoalId, deletedAt: deletionTime.toISOString() } };
+        await tx.habit.update({ where: { id: habit.id }, data: { linkedGoalId: null, metadata, updatedBy: userId, version: { increment: 1 } } });
+        publishAfterCommit('HABIT_UPDATED', { habitId: habit.id, workspaceId });
+      }
 
       const updated = await tx.goal.update({
         where: { id },
         data: {
-          deletedAt: new Date(),
+          deletedAt: deletionTime,
           updatedBy: userId,
         },
         select: { id: true, parentGoalId: true, workspaceId: true },
@@ -451,27 +451,36 @@ class GoalService {
   }
 
   async restoreGoal(id: string, workspaceId: string, userId: string) {
+    const restoredGoalIds: string[] = [];
     const goal = await runInTransaction(async (tx, publishAfterCommit) => {
+      await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
       const existing = await goalRepository.findById(id, tx);
       if (!existing) throw new Error('Goal not found');
       if (!existing.deletedAt || existing.workspaceId !== workspaceId) throw new Error('Conflict: nothing to restore');
 
-      // Recursively restore child goals
-      await tx.goal.updateMany({
-        where: { parentGoalId: id, deletedAt: { not: null } },
-        data: { deletedAt: null, updatedBy: userId },
-      });
+      if (existing.parentGoalId) await this.validateParent(existing.parentGoalId, workspaceId, tx, id);
+      // Restore only descendants removed by this deletion, leaving earlier deletions alone.
+      const restoreIds = [id];
+      let frontier = [id];
+      while (frontier.length) {
+        const children = await tx.goal.findMany({ where: { workspaceId, parentGoalId: { in: frontier }, deletedAt: existing.deletedAt }, select: { id: true } });
+        frontier = children.map(c => c.id).filter(childId => !restoreIds.includes(childId));
+        restoreIds.push(...frontier);
+      }
+      restoredGoalIds.push(...restoreIds);
+      await tx.goal.updateMany({ where: { id: { in: restoreIds }, workspaceId, deletedAt: existing.deletedAt }, data: { deletedAt: null, updatedBy: userId, version: { increment: 1 } } });
 
-      const childIds = (await tx.goal.findMany({
-        where: { parentGoalId: id },
-        select: { id: true },
-      })).map((c: { id: string }) => c.id);
-
-      if (childIds.length > 0) {
-        await tx.goal.updateMany({
-          where: { parentGoalId: { in: childIds }, deletedAt: { not: null } },
-          data: { deletedAt: null, updatedBy: userId },
-        });
+      for (const project of await tx.project.findMany({ where: { workspaceId, deletedAt: null, goalId: null, metadata: { path: ['goalUndo', 'rootId'], equals: id } } })) {
+        const { goalUndo, ...metadata } = project.metadata as any;
+        if (goalUndo.deletedAt !== existing.deletedAt.toISOString() || !restoreIds.includes(goalUndo.goalId)) continue;
+        await tx.project.update({ where: { id: project.id }, data: { goalId: goalUndo.goalId, metadata, version: { increment: 1 }, updatedBy: userId } });
+        publishAfterCommit('PROJECT_UPDATED', { projectId: project.id, workspaceId });
+      }
+      for (const habit of await tx.habit.findMany({ where: { workspaceId, deletedAt: null, linkedGoalId: null, metadata: { path: ['goalUndo', 'rootId'], equals: id } } })) {
+        const { goalUndo, ...metadata } = habit.metadata as any;
+        if (goalUndo.deletedAt !== existing.deletedAt.toISOString() || !restoreIds.includes(goalUndo.goalId)) continue;
+        await tx.habit.update({ where: { id: habit.id }, data: { linkedGoalId: goalUndo.goalId, metadata, version: { increment: 1 }, updatedBy: userId } });
+        publishAfterCommit('HABIT_UPDATED', { habitId: habit.id, workspaceId });
       }
 
       const updated = await goalRepository.update(id, {
@@ -487,6 +496,7 @@ class GoalService {
       return updated;
     });
 
+    for (const restoredId of restoredGoalIds) await this.recomputeAutoProgress(restoredId, userId);
     await this.invalidateGoalCache(workspaceId);
     return goal;
   }

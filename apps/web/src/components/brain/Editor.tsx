@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -31,6 +31,8 @@ import { VersionHistoryModal } from './modals/VersionHistoryModal';
 import { AddEntityLinkModal } from './modals/AddEntityLinkModal';
 import { TAG_COLORS, getTagColor } from './helpers';
 import { api } from '../../api/client';
+import { DocumentSaveQueue, acquireDocumentSaveQueue, retainDocumentSaveQueue } from '../../lib/documentSaveQueue';
+import { useAuth } from '../../contexts/AuthContext';
 
 export interface EditorProps {
   page: DocumentWithRelations;
@@ -64,17 +66,13 @@ export function Editor({
   const [isAddingTag, setIsAddingTag] = useState(false);
 
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSaveErrorToastRef = useRef<number>(0);
-  const currentDocIdRef = useRef(page.id);
-  const latestJsonRef = useRef<any>(page.contentJson);
-  const latestTitleRef = useRef(title);
-  latestTitleRef.current = title;
-  // Revision token for optimistic concurrency on content autosave. Document has
-  // no `version` column, so its `updatedAt` stands in as the token: we send the
-  // last value we saw and the server 409s if another writer moved it since.
-  const latestUpdatedAtRef = useRef<string | undefined>(page.updatedAt as any);
+  const { user, workspaceId } = useAuth();
+  const draftKey = `krama:document-draft:v1:${user?.id}:${workspaceId}:${page.id}`;
+  const [save] = useState(() => acquireDocumentSaveQueue(draftKey, () => new DocumentSaveQueue(page.id,
+    { content: page.contentJson || { type: 'doc', content: [] }, title: page.title || '', revision: page.updatedAt instanceof Date ? page.updatedAt.toISOString() : String(page.updatedAt) },
+    api.documents, draftKey, localStorage,
+    () => { void queryClient.invalidateQueries({ queryKey: ['documents'] }); })));
+  const saveState = useSyncExternalStore(save.subscribe, save.getSnapshot);
 
   // Fetch workspace tasks for entity linking and references
   const { data: tasks = [] } = useQuery({
@@ -109,13 +107,12 @@ export function Editor({
   const mentionEntitiesRef = useRef(mentionEntities);
   mentionEntitiesRef.current = mentionEntities;
 
-  // Sync title when the active document switches. Deliberately keyed on page.id
-  // only — depending on page.title too would let a background ['documents']
-  // refetch (fired by every content autosave) overwrite an in-progress title edit.
   useEffect(() => {
-    setTitle(page.title || '');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page.id]);
+    setTitle(save.title);
+    if (save.recovered) {
+      toast.info('Recovered your unsaved draft. Review it and choose Retry save.');
+    }
+  }, [save]);
 
   // Fetch links for current document
   const { data: linksData, refetch: refetchLinks } = useQuery({
@@ -158,7 +155,7 @@ export function Editor({
 
   const handleToggleFavorite = async () => {
     try {
-      await api.documents.favorite(page.id);
+      await save.updateMetadata({ isFavorite: !page.isFavorite });
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast.success(page.isFavorite ? 'Removed from favorites' : 'Marked as favorite');
     } catch {
@@ -168,6 +165,7 @@ export function Editor({
 
   const handleDuplicate = async () => {
     try {
+      await save.flush();
       const copy = await api.documents.duplicate(page.id);
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       if (copy?.id) onSelectDoc(copy.id);
@@ -179,34 +177,13 @@ export function Editor({
 
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle);
-    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
-    titleDebounceRef.current = setTimeout(() => {
-      api.documents.update(page.id, { title: newTitle })
-        .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
-        .catch((err: any) => {
-          toast.error('Failed to update page title: ' + (err?.message || 'Unknown error'));
-        });
-    }, 500);
+    save.setTitle(newTitle);
   };
-
-  const handleTitleBlur = () => {
-    if (titleDebounceRef.current) {
-      clearTimeout(titleDebounceRef.current);
-      titleDebounceRef.current = null;
-    }
-    const clean = title.trim();
-    if (clean && clean !== page.title) {
-      api.documents.update(page.id, { title: clean })
-        .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
-        .catch((err: any) => {
-          toast.error('Failed to update page title: ' + (err?.message || 'Unknown error'));
-        });
-    }
-  };
+  const handleTitleBlur = () => { void save.flush().catch(() => {}); };
 
   const handleLinkProject = async (projectId: string | null) => {
     try {
-      await api.documents.update(page.id, { projectId: projectId || null, linkedProjectId: projectId || null });
+      await save.updateMetadata({ projectId: projectId || null, linkedProjectId: projectId || null });
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast.success(projectId ? 'Document linked to project' : 'Document unlinked from project');
     } catch (err: any) {
@@ -216,7 +193,7 @@ export function Editor({
 
   const handleDocumentTypeChange = async (type: string) => {
     try {
-      await api.documents.update(page.id, { documentType: type });
+      await save.updateMetadata({ documentType: type });
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast.success(`Document type updated to ${type}`);
     } catch {
@@ -226,7 +203,7 @@ export function Editor({
 
   const handleStatusChange = async (status: string) => {
     try {
-      await api.documents.update(page.id, { statusBadges: [status] });
+      await save.updateMetadata({ statusBadges: [status] });
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast.success(`Lifecycle status set to ${status}`);
     } catch {
@@ -268,7 +245,8 @@ export function Editor({
     }
   };
 
-  const handleExport = (format: 'md' | 'spec') => {
+  const handleExport = async (format: 'md' | 'spec') => {
+    try { await save.flush(); } catch { toast.error('Save your changes before exporting.'); return; }
     const filename = `${page.title || 'document'}.${format === 'spec' ? 'spec.md' : 'md'}`;
     api.documents.export(page.id, format, filename)
       .then(() => toast.success(`Exported as ${format === 'spec' ? 'Architecture Spec' : 'Markdown'}`))
@@ -298,44 +276,8 @@ export function Editor({
         getEntities: () => mentionEntitiesRef.current,
       }),
     ] as any,
-    content: (page.contentJson ? page.contentJson as Content : ''),
-    onUpdate: ({ editor }) => {
-      const json = editor.getJSON();
-      latestJsonRef.current = json;
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        api.documents.updateContent(page.id, json, latestUpdatedAtRef.current)
-          .then((res: any) => {
-            // Advance our revision token to the value the server just wrote, so
-            // the next autosave carries the current revision.
-            if (res?.updatedAt) latestUpdatedAtRef.current = res.updatedAt;
-            // Refresh the ['documents'] cache so switching to another doc and
-            // back reads the freshly saved content instead of the 5-min-stale
-            // snapshot. The content-sync effect only calls setContent on an id
-            // change, so a same-id refetch here can't jump the cursor.
-            queryClient.invalidateQueries({ queryKey: ['documents'] });
-          })
-          .catch((err: any) => {
-            if (err?.status === 409) {
-              // Another writer (other tab/user, or a queued snapshot) moved the
-              // document. The conflict toast is raised globally in fetchApi; here
-              // we just re-sync the token from the server's current revision so the
-              // user's next edit can save, and refresh the tree. We keep their
-              // in-editor text rather than clobbering it with a forced reload.
-              api.documents.get(page.id)
-                .then((fresh: any) => { if (fresh?.updatedAt) latestUpdatedAtRef.current = fresh.updatedAt; })
-                .catch(() => {});
-              queryClient.invalidateQueries({ queryKey: ['documents'] });
-              return;
-            }
-            const now = Date.now();
-            if (now - lastSaveErrorToastRef.current > 4000) {
-              lastSaveErrorToastRef.current = now;
-              toast.error('Failed to save page content: ' + (err?.message || 'Unknown error'));
-            }
-          });
-      }, 500);
-    },
+    content: save.content as Content,
+    onUpdate: ({ editor }) => { save.setContent(editor.getJSON()); },
     editorProps: {
       attributes: {
         class: 'prose prose-zinc dark:prose-invert max-w-none focus:outline-none min-h-[420px] text-primary leading-relaxed font-sans text-body',
@@ -433,73 +375,26 @@ export function Editor({
     refetchLinks();
   };
 
-  // Flush pending auto-save on switch or unmount to guarantee zero data loss
   useEffect(() => {
-    return () => {
-      if (debounceRef.current && currentDocIdRef.current) {
-        clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-        if (latestJsonRef.current) {
-          api.documents.updateContent(currentDocIdRef.current, latestJsonRef.current, latestUpdatedAtRef.current)
-            .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
-            .catch(console.error);
-        }
-      }
-      if (titleDebounceRef.current && currentDocIdRef.current) {
-        clearTimeout(titleDebounceRef.current);
-        titleDebounceRef.current = null;
-        const clean = latestTitleRef.current.trim();
-        if (clean) {
-          api.documents.update(currentDocIdRef.current, { title: clean })
-            .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
-            .catch(console.error);
-        }
-      }
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (save.state !== 'saved') { event.preventDefault(); event.returnValue = ''; }
     };
-    // queryClient is a stable singleton from context; this cleanup must run only
-    // on unmount, so the empty dep array is intentional.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const release = retainDocumentSaveQueue(draftKey, save);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => { window.removeEventListener('beforeunload', onBeforeUnload); release(); };
+  }, [save, draftKey]);
 
-  // Sync content strictly on document ID switch, avoiding cursor jumps during debounced save
-  useEffect(() => {
-    if (currentDocIdRef.current !== page.id) {
-      // Flush previous document if dirty
-      if (debounceRef.current && currentDocIdRef.current) {
-        clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-        if (latestJsonRef.current) {
-          api.documents.updateContent(currentDocIdRef.current, latestJsonRef.current, latestUpdatedAtRef.current)
-            .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
-            .catch(console.error);
-        }
-      }
-      if (titleDebounceRef.current && currentDocIdRef.current) {
-        clearTimeout(titleDebounceRef.current);
-        titleDebounceRef.current = null;
-        const clean = latestTitleRef.current.trim();
-        if (clean) {
-          api.documents.update(currentDocIdRef.current, { title: clean })
-            .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
-            .catch(console.error);
-        }
-      }
-
-      currentDocIdRef.current = page.id;
-      latestJsonRef.current = page.contentJson;
-      latestUpdatedAtRef.current = page.updatedAt as any;
-      if (editor && !editor.isDestroyed) {
-        if (page.contentJson) {
-          editor.commands.setContent(page.contentJson as Content);
-        } else {
-          editor.commands.setContent('');
-        }
-      }
-    }
-    // queryClient is a stable singleton from context; intentionally excluded so
-    // the sync effect only reacts to document id/content/editor changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page.id, page.contentJson, editor]);
+  const reloadSavedDocument = async () => {
+    if (!window.confirm('Discard your unsaved draft and load the latest saved document?')) return;
+    try {
+      await save.whenIdle();
+      const fresh = await api.documents.get(page.id);
+      await save.replaceFromServer({ content: fresh.contentJson, title: fresh.title || '', revision: fresh.updatedAt });
+      setTitle(fresh.title || '');
+      editor?.commands.setContent(fresh.contentJson as Content, { emitUpdate: false });
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+    } catch { toast.error('Could not load the saved document. Your draft is still available.'); }
+  };
 
   // Word count & metrics
   const textContent = editor ? editor.getText() : (page.title || '');
@@ -509,14 +404,21 @@ export function Editor({
 
   return (
     <div className="flex-1 flex h-full overflow-hidden relative">
-      <div className="flex-1 overflow-y-auto py-5 px-4 md:px-8 max-w-5xl mx-auto flex flex-col font-sans w-full">
+      <div className="flex-1 min-w-0 overflow-y-auto py-5 px-4 md:px-8 max-w-5xl mx-auto flex flex-col font-sans w-full">
+        <div className="flex flex-wrap items-center gap-2 mb-3 text-caption">
+          <span role="status" aria-live="polite" className={saveState === 'error' || saveState === 'conflict' ? 'text-danger-fg' : 'text-secondary'}>
+            {saveState === 'saved' ? 'Saved' : saveState === 'saving' ? 'Saving…' : saveState === 'conflict' ? 'Conflict — your changes are unsaved.' : saveState === 'error' ? 'Save failed — your changes are unsaved.' : 'Unsaved changes'}
+          </span>
+          {(saveState === 'error' || saveState === 'unsaved') && <button className="min-h-11 px-3 text-accent-fg underline" onClick={() => { void save.flush().catch(() => {}); }}>Retry save</button>}
+          {saveState === 'conflict' && <><button className="min-h-11 px-3 text-accent-fg underline" onClick={reloadSavedDocument}>Load saved version</button><button className="min-h-11 px-3 text-accent-fg underline" onClick={() => { const blob = new Blob([JSON.stringify({ title, content: editor?.getJSON() }, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'document-draft.json'; link.click(); URL.revokeObjectURL(url); }}>Download my draft</button></>}
+        </div>
         {/* Top Control Bar: Breadcrumbs on Left, Utility Actions on Right */}
-        <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-border">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-border">
           <div className="min-w-0 flex-1">
             <Breadcrumbs page={page} pages={pages} onSelect={onSelectDoc} />
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
             {/* Favorite Star Button */}
             <button
               onClick={handleToggleFavorite}
@@ -534,9 +436,10 @@ export function Editor({
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-border bg-surface text-caption font-mono">
               <FolderKanban className="w-3.5 h-3.5 text-accent-fg shrink-0" />
               <select
+                aria-label="Linked project"
                 value={page.projectId || page.linkedProjectId || ''}
                 onChange={(e) => handleLinkProject(e.target.value || null)}
-                className="bg-transparent text-primary text-[11px] font-medium outline-none cursor-pointer max-w-[110px] truncate pr-1"
+                className="bg-transparent text-primary text-caption font-medium outline-none cursor-pointer max-w-[110px] truncate pr-1"
                 title="Link to project"
               >
                 <option value="" className="bg-surface text-secondary">No Project</option>
@@ -549,7 +452,7 @@ export function Editor({
             {/* Convert to Task Button */}
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('krama:open-task-modal'))}
-              className="px-2.5 py-1 rounded-lg border border-border bg-surface hover:bg-success-bg hover:border-success-border hover:text-success-fg text-secondary transition-all cursor-pointer text-[11px] font-mono font-bold flex items-center gap-1.5 shadow-2xs"
+              className="px-2.5 py-1 rounded-lg border border-border bg-surface hover:bg-success-bg hover:border-success-border hover:text-success-fg text-secondary transition-all cursor-pointer text-caption font-mono font-bold flex items-center gap-1.5 shadow-2xs"
               title="Convert Selection or Idea to Task (Ctrl+Shift+T)"
             >
               <CheckSquare className="w-3.5 h-3.5 text-success-fg" />
@@ -558,8 +461,9 @@ export function Editor({
 
             {/* Outline Button */}
             <button
+              aria-expanded={isOutlineOpen}
               onClick={() => setIsOutlineOpen(!isOutlineOpen)}
-              className={cn("px-2.5 py-1 rounded-lg border text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer text-[11px]",
+              className={cn("px-2.5 py-1 rounded-lg border text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer text-caption",
                 isOutlineOpen
                   ? "bg-surface-hover text-accent-fg border-accent/30"
                   : "border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary"
@@ -572,8 +476,10 @@ export function Editor({
 
             {/* AI Assistant Button */}
             <button
+              aria-label="AI Assist"
+              aria-expanded={isAiOpen}
               onClick={() => setIsAiOpen(!isAiOpen)}
-              className={cn("px-2.5 py-1 rounded-lg text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer text-[11px]",
+              className={cn("px-2.5 py-1 rounded-lg text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer text-caption",
                 isAiOpen
                   ? "bg-accent text-on-accent"
                   : "bg-accent-subtle hover:bg-accent/20 text-accent-fg border border-accent/30"
@@ -593,6 +499,8 @@ export function Editor({
                     ? "border-accent/40 bg-surface-hover text-primary"
                     : "border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary"
                 )}
+                aria-label="More actions (Move, Duplicate, History, Export)"
+                aria-expanded={isMoreMenuOpen}
                 title="More actions (Move, Duplicate, History, Export)"
               >
                 <MoreHorizontal className="w-3.5 h-3.5 stroke-[1.5]" />
@@ -603,7 +511,7 @@ export function Editor({
                   <button
                     onClick={() => {
                       setIsMoreMenuOpen(false);
-                      onMoveDoc?.(page);
+                      void save.flush().then(() => onMoveDoc?.(page)).catch(() => toast.error('Save your changes before moving this document.'));
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-primary flex items-center gap-2 cursor-pointer"
                   >
@@ -631,7 +539,7 @@ export function Editor({
                     <span>Version History</span>
                   </button>
                   <div className="my-1 border-t border-border" />
-                  <div className="px-3 py-1 text-[10px] text-muted uppercase font-bold tracking-wider">Export</div>
+                  <div className="px-3 py-1 text-badge text-muted uppercase font-bold tracking-wider">Export</div>
                   <button
                     onClick={() => {
                       setIsMoreMenuOpen(false);
@@ -658,6 +566,7 @@ export function Editor({
                       setIsMoreMenuOpen(false);
                       if (!window.confirm(`Move "${page.title || 'Untitled'}" to Trash?`)) return;
                       try {
+                        await save.flush();
                         await api.documents.delete(page.id);
                         queryClient.invalidateQueries({ queryKey: ['documents'] });
                         toast.success(`Moved "${page.title || 'Untitled'}" to Trash`, {
@@ -695,7 +604,7 @@ export function Editor({
               <IconPicker
                 value={page.icon}
                 onChange={(newIcon) => {
-                  api.documents.update(page.id, { icon: newIcon })
+                  save.updateMetadata({ icon: newIcon })
                     .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
                     .catch(() => toast.error('Failed to update icon'));
                 }}
@@ -707,7 +616,7 @@ export function Editor({
             <select
               value={page.documentType || 'GENERAL'}
               onChange={(e) => handleDocumentTypeChange(e.target.value)}
-              className="bg-surface-hover text-secondary hover:text-primary px-2.5 py-1 rounded-lg border border-border text-[11px] font-mono font-bold outline-none cursor-pointer"
+              className="bg-surface-hover text-secondary hover:text-primary px-2.5 py-1 rounded-lg border border-border text-caption font-mono font-bold outline-none cursor-pointer"
             >
               <option value="GENERAL">GENERAL</option>
               <option value="SPEC">SPEC</option>
@@ -722,7 +631,7 @@ export function Editor({
               value={page.statusBadges?.[0] || 'DRAFT'}
               onChange={(e) => handleStatusChange(e.target.value)}
               className={cn(
-                "px-2 py-1 rounded-lg border text-[11px] font-mono font-bold outline-none cursor-pointer transition-colors",
+                "px-2 py-1 rounded-lg border text-caption font-mono font-bold outline-none cursor-pointer transition-colors",
                 (page.statusBadges?.[0] === 'DRAFT' || !page.statusBadges?.[0]) && "bg-warning-bg text-warning-fg border-warning-border",
                 page.statusBadges?.[0] === 'IN_REVIEW' && "bg-accent-subtle text-accent-fg border-accent/30",
                 page.statusBadges?.[0] === 'ACCEPTED' && "bg-success-bg text-success-fg border-success-border",
@@ -736,7 +645,7 @@ export function Editor({
             </select>
 
             {/* Simple, clean word count & reading time */}
-            <span className="text-muted font-mono text-[11px] select-none">
+            <span className="text-muted font-mono text-caption select-none">
               {wordCount} words · {readTimeMins} min read
             </span>
           </div>
@@ -749,7 +658,7 @@ export function Editor({
               return (
                 <span
                   key={tag.id}
-                  className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono border", colorClass.bg, colorClass.text, colorClass.border)}
+                  className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-caption font-mono border", colorClass.bg, colorClass.text, colorClass.border)}
                 >
                   <span>#{tag.name}</span>
                   <button
@@ -763,7 +672,7 @@ export function Editor({
             })}
 
             {isAddingTag ? (
-              <div className="inline-flex items-center gap-1 bg-surface border border-border rounded-md px-2 py-0.5 text-[11px] font-mono">
+              <div className="inline-flex items-center gap-1 bg-surface border border-border rounded-md px-2 py-0.5 text-caption font-mono">
                 <span>#</span>
                 <input
                   autoFocus
@@ -775,7 +684,7 @@ export function Editor({
                     if (e.key === 'Escape') setIsAddingTag(false);
                   }}
                   placeholder="tag name..."
-                  className="bg-transparent border-none outline-none text-primary w-24 text-[11px]"
+                  className="bg-transparent border-none outline-none text-primary w-24 text-caption"
                 />
                 <button onClick={handleAddTag} className="text-accent-fg hover:text-accent">
                   <Check className="w-3 h-3" />
@@ -784,7 +693,7 @@ export function Editor({
             ) : (
               <button
                 onClick={() => setIsAddingTag(true)}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono text-muted hover:text-primary hover:bg-surface-hover border border-dashed border-border"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-caption font-mono text-muted hover:text-primary hover:bg-surface-hover border border-dashed border-border"
               >
                 <Plus className="w-3 h-3" />
                 <span>Tag</span>
@@ -862,9 +771,6 @@ export function Editor({
                 </button>
               </div>
 
-              <span className="text-[11px] font-mono text-muted flex items-center gap-1">
-                <Check className="w-3 h-3 text-success-fg" /> Auto-saved
-              </span>
             </div>
           )}
 
@@ -873,6 +779,7 @@ export function Editor({
             <div>
               <input
                 type="text"
+                aria-label="Document title"
                 value={title}
                 onChange={(e) => handleTitleChange(e.target.value)}
                 onBlur={handleTitleBlur}
@@ -904,7 +811,7 @@ export function Editor({
                 >
                   <Link2 className="w-4 h-4 text-accent-fg stroke-[1.75]" />
                   <span>References & Backlinks</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-hover border border-border text-muted font-mono font-bold">
+                  <span className="text-badge px-1.5 py-0.5 rounded-full bg-surface-hover border border-border text-muted font-mono font-bold">
                     {totalReferences}
                   </span>
                   <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200 text-muted", !isReferencesOpen && "-rotate-90")} />
@@ -918,12 +825,12 @@ export function Editor({
                 <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-accent-subtle border border-accent/20 mb-3 text-[12px] font-sans">
                   <div className="flex items-center gap-2">
                     <FolderKanban className="w-3.5 h-3.5 text-accent-fg shrink-0" />
-                    <span className="text-secondary text-[11px] font-mono">LINKED PROJECT:</span>
+                    <span className="text-secondary text-caption font-mono">LINKED PROJECT:</span>
                     <span className="font-semibold text-primary">{page.linkedProject.name}</span>
                   </div>
                   <button
                     onClick={() => navigate(`/app/projects/${page.linkedProject?.id}`)}
-                    className="text-accent-fg hover:text-accent font-bold flex items-center gap-1 text-[11px] cursor-pointer"
+                    className="text-accent-fg hover:text-accent font-bold flex items-center gap-1 text-caption cursor-pointer"
                   >
                     View Project <ArrowUpRight className="w-3 h-3" />
                   </button>
@@ -934,7 +841,7 @@ export function Editor({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-150">
                   {/* Incoming Backlinks */}
                   <div className="p-4 rounded-xl border border-border bg-surface">
-                    <span className="text-[11px] font-bold text-secondary uppercase tracking-wider block mb-2">
+                    <span className="text-caption font-bold text-secondary uppercase tracking-wider block mb-2">
                       Incoming Backlinks ({linksData?.incoming?.length || 0})
                     </span>
                     {(!linksData?.incoming || linksData.incoming.length === 0) ? (
@@ -952,7 +859,7 @@ export function Editor({
                               <span className="font-sans font-medium text-primary text-[13px] truncate">
                                 {sourceDoc?.title || `Doc #${link.sourceId.slice(0, 8)}`}
                               </span>
-                              <span className="text-[10px] font-mono text-accent-fg uppercase bg-accent-subtle px-1.5 py-0.5 rounded font-bold">
+                              <span className="text-badge font-mono text-accent-fg uppercase bg-accent-subtle px-1.5 py-0.5 rounded font-bold">
                                 {link.linkType}
                               </span>
                             </div>
@@ -964,7 +871,7 @@ export function Editor({
 
                   {/* Outgoing References */}
                   <div className="p-4 rounded-xl border border-border bg-surface">
-                    <span className="text-[11px] font-bold text-secondary uppercase tracking-wider block mb-2">
+                    <span className="text-caption font-bold text-secondary uppercase tracking-wider block mb-2">
                       Outgoing References ({linksData?.outgoing?.length || 0})
                     </span>
                     {(!linksData?.outgoing || linksData.outgoing.length === 0) ? (
@@ -1010,11 +917,11 @@ export function Editor({
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0 ml-2">
                                 {statusBadge && (
-                                  <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-surface border border-border text-secondary">
+                                  <span className="text-badge font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-surface border border-border text-secondary">
                                     {statusBadge}
                                   </span>
                                 )}
-                                <span className={cn("text-[10px] font-mono uppercase px-1.5 py-0.5 rounded font-bold",
+                                <span className={cn("text-badge font-mono uppercase px-1.5 py-0.5 rounded font-bold",
                                   link.targetType === 'DOCUMENT' && "text-accent-fg bg-accent-subtle",
                                   link.targetType === 'PROJECT' && "text-cat-timeblocks bg-cat-timeblocks-bg",
                                   link.targetType === 'TASK' && "text-warning-fg bg-warning-bg"
@@ -1058,10 +965,12 @@ export function Editor({
       <VersionHistoryModal
         documentId={page.id}
         isOpen={isVersionModalOpen}
-        onRestoreSuccess={(restoredDoc) => {
+        onClose={() => setIsVersionModalOpen(false)}
+        beforeAction={() => save.flush()}
+        onRestoreSuccess={async (restoredDoc) => {
           if (restoredDoc?.contentJson && editor && !editor.isDestroyed) {
-            if (restoredDoc.updatedAt) latestUpdatedAtRef.current = restoredDoc.updatedAt;
-            editor.commands.setContent(restoredDoc.contentJson as Content);
+            await save.replaceFromServer({ content: restoredDoc.contentJson, title: title, revision: restoredDoc.updatedAt });
+            editor.commands.setContent(restoredDoc.contentJson as Content, { emitUpdate: false });
           }
           queryClient.invalidateQueries({ queryKey: ['documents'] });
         }}

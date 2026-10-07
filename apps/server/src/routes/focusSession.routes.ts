@@ -9,7 +9,7 @@ const router: Router = Router();
 router.use(requireAuth);
 router.get('/wallpaper', getWallpaper);
 
-const ensureFocusWorkspace = async (req: any, res: any, next: any) => {
+const ensureFocusWorkspace = async (req: any, _res: any, next: any) => {
   let workspaceId = req.headers['x-workspace-id'] || req.query.workspaceId || req.body?.workspaceId;
   if (!workspaceId && req.user?.id) {
     const membership = await prisma.workspaceMember.findFirst({

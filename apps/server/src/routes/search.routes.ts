@@ -37,7 +37,7 @@ router.get('/', async (req: Request, res: Response) => {
       }),
       prisma.document.findMany({
         where: {
-          space: { workspaceId },
+          space: { workspaceId, deletedAt: null },
           deletedAt: null,
           OR: [
             { title: { contains: q, mode: 'insensitive' } },
@@ -79,7 +79,7 @@ router.get('/', async (req: Request, res: Response) => {
         title: t.title,
         type: 'issue' as const,
         badge: t.status,
-        url: '/app/board',
+        url: `/app/board?task=${encodeURIComponent(t.id)}`,
         snippet: t.description || 'Task Directive',
         updatedAt: t.updatedAt,
       })),
@@ -97,7 +97,7 @@ router.get('/', async (req: Request, res: Response) => {
         title: g.title,
         type: 'goal' as const,
         badge: `${g.progress}%`,
-        url: '/app/goals',
+        url: `/app/goals?goal=${encodeURIComponent(g.id)}`,
         snippet: `Strategic Goal • ${g.progress}% complete`,
         updatedAt: g.updatedAt,
       })),

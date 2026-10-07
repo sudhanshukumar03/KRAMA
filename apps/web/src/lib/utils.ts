@@ -12,9 +12,13 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function parseLocalDate(dateString: string | null | undefined): Date | null {
   if (!dateString) return null;
-  const parts = dateString.split('T')[0].split('-');
-  if (parts.length !== 3) return null;
-  return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  const key = dateString.split('T')[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return null;
+  const [year, month, day] = key.split('-').map(Number);
+  const date = new Date(0);
+  date.setFullYear(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
 }
 
 /**

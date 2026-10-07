@@ -152,21 +152,21 @@ export const TimerLayoutPicker: React.FC<TimerLayoutPickerProps> = ({
 }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl bg-neutral-900/95 backdrop-blur-2xl border border-white/15 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] text-white">
+      <div className="w-full max-w-2xl krama-dialog rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] text-primary">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 shrink-0">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border/80 shrink-0">
           <div className="flex items-center gap-2.5">
-            <LayoutGrid className="w-5 h-5 text-teal-400" />
+            <LayoutGrid className="w-5 h-5 text-accent-fg" />
             <div>
-              <h2 className="text-base font-semibold">Timer Layout</h2>
-              <p className="text-[11px] text-white/50">
+              <h2 className="text-base font-semibold text-primary">Timer Layout</h2>
+              <p className="text-[11px] text-muted">
                 Choose your focus screen presentation & layout design
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-full hover:bg-surface-hover text-muted hover:text-primary transition-colors cursor-pointer"
             title="Close"
           >
             <X className="w-5 h-5" />
@@ -185,23 +185,23 @@ export const TimerLayoutPicker: React.FC<TimerLayoutPickerProps> = ({
                   onClick={() => onSelectLayout(item.id)}
                   className={`group relative rounded-2xl border p-3.5 text-left transition-all duration-200 flex flex-col justify-between cursor-pointer ${
                     isSelected
-                      ? 'bg-teal-500/10 border-teal-400/80 ring-2 ring-teal-400/30 shadow-lg'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
+                      ? 'bg-accent/10 border-accent ring-2 ring-accent/30 shadow-lg'
+                      : 'bg-surface-2/60 border-border hover:bg-surface-hover hover:border-border-strong'
                   }`}
                 >
                   {/* Top: Name & Badge */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-white tracking-wide">
+                      <span className="text-xs font-semibold text-primary tracking-wide">
                         {item.name}
                       </span>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-white/60 uppercase">
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-surface-3 text-secondary border border-border/60 uppercase">
                           {item.tag}
                         </span>
                         {isSelected && (
-                          <div className="w-4 h-4 rounded-full bg-teal-400 flex items-center justify-center shrink-0">
-                            <Check className="w-2.5 h-2.5 text-black stroke-[3]" />
+                          <div className="w-4 h-4 rounded-full bg-accent flex items-center justify-center shrink-0">
+                            <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
                           </div>
                         )}
                       </div>
@@ -213,7 +213,7 @@ export const TimerLayoutPicker: React.FC<TimerLayoutPickerProps> = ({
                     </div>
 
                     {/* Description */}
-                    <p className="text-[11px] text-white/60 line-clamp-2 leading-relaxed mt-1">
+                    <p className="text-[11px] text-muted line-clamp-2 leading-relaxed mt-1">
                       {item.description}
                     </p>
                   </div>
@@ -224,10 +224,10 @@ export const TimerLayoutPicker: React.FC<TimerLayoutPickerProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-white/10 bg-black/30 flex items-center justify-end shrink-0">
+        <div className="p-4 border-t border-border/80 bg-surface-2/40 flex items-center justify-end shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-white text-black font-semibold text-xs rounded-xl hover:bg-white/90 transition-colors cursor-pointer"
+            className="px-4 py-1.5 bg-accent text-white font-semibold text-xs rounded-xl hover:bg-accent-hover transition-colors cursor-pointer shadow-sm"
           >
             Done
           </button>

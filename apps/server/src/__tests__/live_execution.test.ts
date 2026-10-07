@@ -2,6 +2,8 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { prisma } from '../prisma';
 import { goalService } from '../services/goal.service';
+import { deleteProject } from '../controllers/project.controller';
+import { createIntegrationFixture, cleanupIntegrationFixture } from '../testing/integrationFixture';
 
 describe('Live PostgreSQL Integration Verification', () => {
   let userId: string;
@@ -13,22 +15,16 @@ describe('Live PostgreSQL Integration Verification', () => {
   let milestoneId: string;
   let unlinkedProjectId: string;
   let unlinkedHabitId: string;
+  let fixture: Awaited<ReturnType<typeof createIntegrationFixture>>;
 
   before(async () => {
-    let user = await prisma.user.findFirst({ where: { email: 'admin@krama.app' } });
-    if (!user) user = await prisma.user.findFirst();
-    if (!user) throw new Error('No user found');
-    userId = user.id;
-
-    let workspace = await prisma.workspace.findFirst({
-      where: { members: { some: { userId } } },
-    });
-    if (!workspace) workspace = await prisma.workspace.findFirst();
-    if (!workspace) throw new Error('No workspace found');
-    workspaceId = workspace.id;
+    fixture = await createIntegrationFixture('execution');
+    userId = fixture.user.id;
+    workspaceId = fixture.workspace.id;
   });
 
   after(async () => {
+    await cleanupIntegrationFixture(fixture);
     // Cleanup any records created during test
     if (taskId1 || taskId2) {
       await prisma.task.deleteMany({ where: { id: { in: [taskId1, taskId2].filter(Boolean) } } }).catch(() => {});
@@ -108,7 +104,7 @@ describe('Live PostgreSQL Integration Verification', () => {
     assert.equal(updatedGoal?.progress, 50, 'Goal progress should be 50% for 1/2 tasks DONE');
   });
 
-  it('PRJ-01: cascade deletes milestones and soft-deletes tasks when project is soft-deleted', async () => {
+  it('PRJ-01: production deletion retains milestones for Undo and soft-deletes tasks', async () => {
     const milestone = await prisma.milestone.create({
       data: {
         title: 'TEST_LIVE_MILESTONE_' + Date.now(),
@@ -119,26 +115,17 @@ describe('Live PostgreSQL Integration Verification', () => {
     });
     milestoneId = milestone.id;
 
-    const now = new Date();
-    await prisma.$transaction(async (tx) => {
-      await tx.project.update({
-        where: { id: projectId },
-        data: { deletedAt: now, updatedBy: userId },
-      });
+    const response = {
+      code: 200,
+      status(code: number) { this.code = code; return this; },
+      json(body: unknown) { return body; },
+    };
+    await deleteProject({ params: { id: projectId }, headers: { 'x-workspace-id': workspaceId }, user: { id: userId } } as any, response as any);
+    assert.equal(response.code, 200);
 
-      await tx.task.updateMany({
-        where: { projectId, deletedAt: null },
-        data: { deletedAt: now, updatedBy: userId },
-      });
-
-      await tx.milestone.deleteMany({
-        where: { projectId },
-      });
-    });
-
-    // Milestone should be completely deleted from DB
+    // Production deletion keeps milestones so restoring the project can recover them.
     const fetchedMilestone = await prisma.milestone.findUnique({ where: { id: milestone.id } });
-    assert.equal(fetchedMilestone, null, 'Milestone must be deleted from DB');
+    assert.ok(fetchedMilestone, 'Milestone must remain attached for Undo');
 
     // Tasks should be soft-deleted
     const tasks = await prisma.task.findMany({ where: { projectId } });

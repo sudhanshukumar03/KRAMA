@@ -1,6 +1,6 @@
 import { prisma } from '../prisma';
 import { calculateCapacity } from './capacity.service';
-import { resolveUserTimeZone, getUserLocalDateStr } from './habitStreak.service';
+import { reportingClock, shiftDay } from './reportingTime';
 import { localDayBoundsUtc } from './plannerTime';
 
 export interface TimerPreferences {
@@ -20,7 +20,7 @@ interface SessionSlot {
   projectName: string | null;
   label: string;
   timeBlockId: string | null;
-  scheduledStart?: string;
+
 }
 
 export interface FocusScheduleResult {
@@ -37,7 +37,9 @@ export interface FocusScheduleResult {
 export async function buildFocusSchedule(
   userId: string,
   workspaceId: string,
-  userPrefs?: Partial<TimerPreferences>
+  userPrefs?: Partial<TimerPreferences>,
+  requestedZone?: string,
+  requestedOffset?: string
 ): Promise<FocusScheduleResult> {
   const prefs: Required<TimerPreferences> = {
     focusDuration: userPrefs?.focusDuration && userPrefs.focusDuration > 0 ? userPrefs.focusDuration : 25,
@@ -50,14 +52,14 @@ export async function buildFocusSchedule(
   // "Today" is the user's LOCAL calendar day, not the server's — a server
   // deployed in another timezone would otherwise build the wrong day's
   // schedule. Resolve the user's timezone, derive their local date key, and
-  // build UTC day-bounds from it (matching how /week keys blocks and tasks at
-  // UTC noon), and use the same window for the completed-sessions query.
+  // keep canonical UTC calendar bounds for task/block dates. Completed session
+  // timestamps use local instant boundaries, matching Analytics.
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { weeklyCapacityMinutes: true, metadata: true, countryCode: true }
   });
-  const timeZone = resolveUserTimeZone(user);
-  const localDateKey = getUserLocalDateStr(new Date(), timeZone);
+  const clock = reportingClock(user, requestedZone, requestedOffset);
+  const localDateKey = clock.dateKey(new Date());
   const { start: startOfDay, end: endOfDay } = localDayBoundsUtc(localDateKey);
 
   const [timeBlocks, tasks, completedSessions, projects] = await Promise.all([
@@ -72,7 +74,8 @@ export async function buildFocusSchedule(
         status: { notIn: ['DONE', 'CANCELED'] },
         OR: [
           { scheduledDate: { gte: startOfDay, lte: endOfDay } },
-          { dueDate: { gte: startOfDay, lte: endOfDay } }
+          { dueDate: { gte: startOfDay, lte: endOfDay } },
+          { timeBlocks: { some: { userId, workspaceId, date: { gte: startOfDay, lte: endOfDay } } } }
         ]
       },
       orderBy: [{ priority: 'desc' }, { dueDate: 'asc' }]
@@ -81,7 +84,7 @@ export async function buildFocusSchedule(
       where: {
         userId,
         workspaceId,
-        startTime: { gte: startOfDay, lte: endOfDay },
+        startTime: { gte: clock.dayStart(localDateKey), lt: clock.dayStart(shiftDay(localDateKey, 1)) },
         completed: true
       }
     }),
@@ -103,7 +106,7 @@ export async function buildFocusSchedule(
   // Break/clock sessions must not consume the daily work cap.
   const alreadyLoggedMinutes = completedSessions
     .filter(s => s.type === 'pomodoro' || s.type === 'custom')
-    .reduce((sum, s) => sum + Math.round(s.duration / 60), 0);
+    .reduce((sum, s) => sum + s.duration, 0) / 60;
   const remainingMinutes = Math.max(0, effectiveDailyCapMinutes - alreadyLoggedMinutes);
 
   // STEP 3: Build work slots from TimeBlocks
@@ -117,7 +120,7 @@ export async function buildFocusSchedule(
     taskTitle: string | null;
     projectId: string | null;
     projectName: string | null;
-    scheduledStart: string;
+
   }
 
   const taskMap = new Map(tasks.map(t => [t.id, t]));
@@ -128,20 +131,22 @@ export async function buildFocusSchedule(
       (new Date(block.endTime).getTime() - new Date(block.startTime).getTime()) / 60000
     ));
     const linkedTask = block.taskId ? taskMap.get(block.taskId) : null;
-    const projId = block.projectId ?? linkedTask?.projectId ?? null;
+    if (block.taskId && !linkedTask) continue;
+    const candidateProject = block.projectId ?? linkedTask?.projectId ?? null;
+    const projId = candidateProject && projectMap.has(candidateProject) ? candidateProject : null;
     workSlots.push({
       blockId: block.id,
       durationMin: blockDuration,
-      taskId: linkedTask?.id ?? block.taskId ?? null,
+      taskId: linkedTask?.id ?? null,
       taskTitle: linkedTask?.title ?? block.title,
       projectId: projId,
       projectName: projId ? projectMap.get(projId) ?? null : null,
-      scheduledStart: new Date(block.startTime).toISOString()
+
     });
   }
 
   // If no time blocks, create synthetic slots from high-priority tasks
-  if (workSlots.length === 0 && tasks.length > 0) {
+  if (workSlots.length === 0 && workBlocks.length === 0 && tasks.length > 0) {
     for (const task of tasks.slice(0, 5)) {
       const estimate = task.estimateMinutes ?? prefs.focusDuration;
       const projId = task.projectId ?? null;
@@ -152,12 +157,12 @@ export async function buildFocusSchedule(
         taskTitle: task.title,
         projectId: projId,
         projectName: projId ? projectMap.get(projId) ?? null : null,
-        scheduledStart: new Date().toISOString()
+
       });
     }
   }
 
-  if (workSlots.length === 0) {
+  if (workSlots.length === 0 || remainingMinutes <= 0) {
     return {
       mode: 'empty',
       plan: [],
@@ -179,35 +184,22 @@ export async function buildFocusSchedule(
   for (let sIdx = 0; sIdx < workSlots.length; sIdx++) {
     const slot = workSlots[sIdx];
     if (!slot) continue;
-    const linkedTask = slot.taskId ? taskMap.get(slot.taskId) : null;
-    const effectiveDuration = linkedTask?.estimateMinutes ?? slot.durationMin;
-    const pomodoroCount = Math.max(1, Math.ceil(effectiveDuration / prefs.focusDuration));
-
-    if (slot.taskId) {
-      const existing = taskBreakdownMap.get(slot.taskId);
-      if (existing) {
-        existing.pomodoroCount += pomodoroCount;
-      } else {
-        taskBreakdownMap.set(slot.taskId, {
-          taskId: slot.taskId,
-          title: slot.taskTitle ?? 'Focus Session',
-          pomodoroCount
-        });
-      }
-    }
+    const effectiveDuration = slot.durationMin;
+    if (effectiveDuration <= 0) continue;
+    const pomodoroCount = Math.ceil(effectiveDuration / prefs.focusDuration);
 
     for (let p = 0; p < pomodoroCount; p++) {
       plan.push({
         index: globalIndex++,
         type: 'pomodoro',
-        durationMin: prefs.focusDuration,
+        durationMin: Math.min(prefs.focusDuration, effectiveDuration - p * prefs.focusDuration),
         taskId: slot.taskId,
         taskTitle: slot.taskTitle,
         projectId: slot.projectId,
         projectName: slot.projectName,
         label: slot.taskTitle ? `${slot.taskTitle} (${p + 1}/${pomodoroCount})` : 'Focus',
         timeBlockId: slot.blockId.startsWith('synthetic') ? null : slot.blockId,
-        scheduledStart: slot.scheduledStart
+
       });
       globalPomodoroCount++;
 
@@ -233,13 +225,13 @@ export async function buildFocusSchedule(
   // STEP 5: Enforce daily cap
   let plannedFocus = 0;
   const cappedPlan: SessionSlot[] = [];
-  const maxAllowedFocus = remainingMinutes > 0 ? remainingMinutes : prefs.focusDuration;
+  const maxAllowedFocus = remainingMinutes;
 
   for (const slot of plan) {
     if (slot.type === 'pomodoro') {
-      if (plannedFocus + slot.durationMin > maxAllowedFocus && cappedPlan.some(s => s.type === 'pomodoro')) {
-        break; // Cap reached and we have at least one pomodoro
-      }
+      const available = maxAllowedFocus - plannedFocus;
+      if (available <= 0) break;
+      slot.durationMin = Math.min(slot.durationMin, available);
       plannedFocus += slot.durationMin;
     }
     cappedPlan.push(slot);
@@ -257,6 +249,12 @@ export async function buildFocusSchedule(
 
   // Re-index
   cappedPlan.forEach((s, idx) => { s.index = idx; });
+  taskBreakdownMap.clear();
+  for (const slot of cappedPlan) if (slot.type === 'pomodoro' && slot.taskId) {
+    const entry = taskBreakdownMap.get(slot.taskId) || { taskId: slot.taskId, title: slot.taskTitle || 'Focus Session', pomodoroCount: 0 };
+    entry.pomodoroCount++;
+    taskBreakdownMap.set(slot.taskId, entry);
+  }
 
   const result: FocusScheduleResult = {
     mode: 'planner',

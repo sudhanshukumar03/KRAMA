@@ -7,19 +7,13 @@ import { prisma } from '../prisma';
 export const analyticsWorker = new Worker(
   QUEUE_NAMES.ANALYTICS,
   async (_job) => {
-    console.log(`[Worker:Analytics] Running analytics aggregation...`);
-
-    const workspaces = await prisma.workspace.findMany({
-      where: { deletedAt: null },
-    });
-
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
 
     // AI Prompt Retention: Clear prompts older than 30 days
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    await prisma.aiRequest.updateMany({
+    const result = await prisma.aiRequest.updateMany({
       where: {
         createdAt: { lt: thirtyDaysAgo },
         prompt: { not: null }
@@ -29,87 +23,16 @@ export const analyticsWorker = new Worker(
       }
     });
 
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-    let generatedCount = 0;
-
-    for (const workspace of workspaces) {
-      // 1. Weekly Velocity (Tasks completed in last 7 days)
-      const weeklyVelocity = await prisma.task.count({
-        where: {
-          workspaceId: workspace.id,
-          status: 'DONE',
-          updatedAt: { gte: sevenDaysAgo },
-          deletedAt: null,
-        },
-      });
-
-      // 2. Active Streaks
-      const activeStreaks = await prisma.habit.count({
-        where: {
-          workspaceId: workspace.id,
-          streak: { gt: 0 },
-          deletedAt: null,
-        },
-      });
-
-      // 3. OKR Pace (Avg goal progress)
-      const goals = await prisma.goal.findMany({
-        where: { workspaceId: workspace.id, deletedAt: null },
-        select: { progress: true },
-      });
-      const okrPace = goals.length > 0 
-        ? goals.reduce((sum, g) => sum + g.progress, 0) / goals.length 
-        : 0;
-
-      // 4. Deep Work Logged Today (from completed focus sessions)
-      const focusSessionsToday = await prisma.focusSession.findMany({
-        where: {
-          workspaceId: workspace.id,
-          completed: true,
-          startTime: { gte: today },
-        },
-      });
-      const deepWorkLogged = focusSessionsToday.reduce((sum, s) => sum + Math.round(s.duration / 60), 0);
-
-      // Upsert Analytics row for today
-      await prisma.workspaceAnalytics.upsert({
-        where: {
-          workspaceId_date: {
-            workspaceId: workspace.id,
-            date: today,
-          },
-        },
-        update: {
-          weeklyVelocity,
-          activeStreaks,
-          okrPace,
-          deepWorkLogged,
-        },
-        create: {
-          workspaceId: workspace.id,
-          date: today,
-          weeklyVelocity,
-          activeStreaks,
-          okrPace,
-          deepWorkLogged,
-        },
-      });
-
-      generatedCount++;
-    }
-
-    return { generatedAnalytics: generatedCount };
+    return { clearedPrompts: result.count };
   },
   { connection }
 );
 
-analyticsWorker.on('completed', (job, result) => {
-  console.log(`[Worker:Analytics] Generated analytics for ${result.generatedAnalytics} workspaces.`);
+analyticsWorker.on('completed', (_job, result) => {
+  console.log(`[Worker:Analytics] Cleared ${result.clearedPrompts} expired AI prompts.`);
 });
 
-analyticsWorker.on('failed', (job, err) => {
+analyticsWorker.on('failed', (_job, err) => {
   console.error(`[Worker:Analytics] Failed:`, err);
 });
 

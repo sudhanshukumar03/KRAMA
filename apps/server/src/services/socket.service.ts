@@ -12,12 +12,13 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 // process with no initialized Socket.IO server, so they cannot emit directly.
 // They publish here instead; the server process (which owns `io`) subscribes
 // and performs the actual emit.
-const EMIT_CHANNEL = 'socket:emit';
+const EMIT_CHANNEL = process.env.KRAMA_TEST_RUN_ID ? `socket:emit:test:${process.env.KRAMA_TEST_RUN_ID}` : 'socket:emit';
 
 class SocketService {
   private io: SocketIOServer | null = null;
   private publisher: Redis | null = null;
   private subscriber: Redis | null = null;
+  private adapterClients: Redis[] = [];
 
   public init(httpServer: HttpServer) {
     if (!process.env.JWT_SECRET) {
@@ -59,6 +60,7 @@ class SocketService {
 
     const pubClient = new Redis(REDIS_URL);
     const subClient = pubClient.duplicate();
+    this.adapterClients = [pubClient, subClient];
     this.io.adapter(createAdapter(pubClient, subClient));
 
     this.io.use(async (socket: Socket, next) => {
@@ -75,6 +77,7 @@ class SocketService {
         }
 
         const sessionId = decoded.sessionId;
+        if (!sessionId) return next(new Error('Authentication error: Session missing'));
         if (sessionId) {
           const cacheKey = `session_revoked:${sessionId}`;
           const cachedStatus = await redisService.get(cacheKey);
@@ -102,6 +105,20 @@ class SocketService {
 
     this.io.on('connection', async (socket: Socket) => {
       const userId = (socket as any).user.id || (socket as any).user.sub;
+      const { sessionId, exp } = (socket as any).user;
+      await socket.join(`session:${sessionId}`);
+      const expires = setTimeout(() => {
+        socket.emit('session:ended', { reason: 'expired' });
+        socket.disconnect(true);
+      }, Math.max(0, exp * 1000 - Date.now()));
+      socket.on('disconnect', () => clearTimeout(expires));
+      // A logout may have committed between the handshake check and room join.
+      const session = await prisma.session.findUnique({ where: { id: sessionId }, select: { revokedAt: true } });
+      if (!session || session.revokedAt || !socket.connected) {
+        socket.emit('session:ended', { reason: 'revoked' });
+        socket.disconnect(true);
+        return;
+      }
       if (userId) {
         socket.join(userId);
         // Join a room per workspace the user belongs to, so task/collaboration
@@ -109,11 +126,11 @@ class SocketService {
         // the actor. Memberships rarely change mid-session; reconnect refreshes.
         try {
           const memberships = await prisma.workspaceMember.findMany({
-            where: { userId },
+            where: { userId, workspace: { deletedAt: null } },
             select: { workspaceId: true },
           });
           for (const m of memberships) {
-            socket.join(`workspace:${m.workspaceId}`);
+            if (socket.connected) await socket.join(`workspace:${m.workspaceId}`);
           }
         } catch (err) {
           console.warn('[Socket] Could not join workspace rooms:', (err as any)?.message || err);
@@ -122,6 +139,7 @@ class SocketService {
       console.log(`[Socket] User ${userId} connected (${socket.id})`);
 
       socket.on('disconnect', () => {
+        clearTimeout(expires);
         console.log(`[Socket] User ${userId} disconnected (${socket.id})`);
       });
     });
@@ -146,6 +164,27 @@ class SocketService {
       throw new Error('Socket.io not initialized!');
     }
     return this.io;
+  }
+
+  public revokeSessionConnections(sessionId: string, reason: 'revoked' | 'rotated' = 'revoked') {
+    const room = `session:${sessionId}`;
+    this.io?.to(room).emit('session:ended', { reason });
+    // The Redis adapter distributes this disconnect across all server instances.
+    this.io?.in(room).disconnectSockets(true);
+  }
+
+  public disconnectWorkspace(workspaceId: string) {
+    this.io?.in(`workspace:${workspaceId}`).socketsLeave(`workspace:${workspaceId}`);
+  }
+
+  public async shutdown() {
+    if (this.io) await new Promise<void>(resolve => this.io!.close(() => resolve()));
+    await Promise.all([this.publisher?.quit(), this.subscriber?.quit()]);
+    await Promise.all(this.adapterClients.map(client => client.quit()));
+    this.adapterClients = [];
+    this.io = null;
+    this.publisher = null;
+    this.subscriber = null;
   }
 
   // Emit to a Socket.IO room. In the server process, emit directly. In a worker

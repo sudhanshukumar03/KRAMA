@@ -1,27 +1,46 @@
-
+# Stage 1: Build and isolate production dependencies
 FROM node:24-alpine AS builder
+
 WORKDIR /app
+
+# Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy the entire monorepo
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages ./packages
 COPY apps/server ./apps/server
 COPY apps/web/package.json ./apps/web/package.json 
-ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/krama?schema=public"
-ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
+
+# Install dependencies (ignoring scripts initially)
 RUN pnpm install --frozen-lockfile
+
+# Generate Prisma Client
 RUN cd apps/server && npx prisma generate
-RUN pnpm --filter "./packages/*" run build
-RUN cd apps/server && pnpm exec esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.js --external:@prisma/client --external:bcrypt --external:express --external:cors --external:jwt-simple --external:socket.io --external:@socket.io/redis-adapter --external:multer --external:ioredis --external:groq-sdk --external:@google/genai
-RUN cd apps/server && pnpm exec esbuild src/worker.ts --bundle --platform=node --format=cjs --outfile=dist/worker.js --external:@prisma/client --external:bcrypt --external:bullmq --external:ioredis --external:@xenova/transformers --external:groq-sdk --external:@google/genai
+
+# Build TypeScript
+RUN cd apps/server && npx tsc
+
+# Deploy the server package into an isolated directory (/app/out)
 RUN pnpm --filter server deploy --legacy --prod /app/out
+
+# Stage 2: Production runtime
 FROM node:24-alpine AS runner
+
 WORKDIR /app
+
+# Install openssl for Prisma engine
 RUN apk add --no-cache openssl
+
 ENV NODE_ENV=production
+
+# Copy the isolated production build from stage 1
 COPY --from=builder /app/out ./
+
+# Copy the built dist and prisma schema
 COPY --from=builder /app/apps/server/dist ./dist
 COPY --from=builder /app/apps/server/prisma ./prisma
-COPY --from=builder /app/apps/server/prisma.config.ts ./prisma.config.ts
-EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
 
+EXPOSE 3000
+
+CMD ["node", "dist/index.js"]

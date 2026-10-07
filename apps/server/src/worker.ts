@@ -17,10 +17,11 @@ const scheduleJobs = async () => {
     });
 
     // Nightly at 1 AM UTC
-    await analyticsQueue.upsertJobScheduler('aggregate-analytics-job', {
+    await analyticsQueue.removeJobScheduler('aggregate-analytics-job');
+    await analyticsQueue.upsertJobScheduler('ai-prompt-retention-job', {
       pattern: '0 1 * * *'
     }, {
-      name: 'aggregate-analytics'
+      name: 'ai-prompt-retention'
     });
 
     console.log('[Worker] Repeatable jobs scheduled.');

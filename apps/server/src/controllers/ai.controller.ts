@@ -1,6 +1,6 @@
 import { kramaAiService } from '../services/krama-ai.service';
 import type { Request, Response } from 'express';
-import { aiService } from '../services/ai.service';
+import { aiService, getTextConfiguration } from '../services/ai.service';
 import { prisma } from '../prisma';
 import { logger } from '../utils/logger';
 import { redisService } from '../services/redis.service';
@@ -19,10 +19,10 @@ export const kramaChat = async (req: any, res: any) => {
       return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Workspace ID is required' });
     }
 
-    // Groq is the sole text-generation engine (Gemini is retained for embeddings
-    // only), so all chat routes through the rich askKrama path: intent routing,
-    // hybrid retrieval, and structured output. There is no longer a per-request
-    // provider override for text.
+    if (!getTextConfiguration().available) {
+      return res.status(503).json({ success: false, message: 'AI text generation is not configured.' });
+    }
+    // Match the reported deployment provider; the gateway handles fallback.
     const response = await kramaAiService.askKrama(message, workspaceId, userId, ragEnabled);
     return res.json(response);
   } catch (error) {
@@ -60,21 +60,10 @@ export const getUsage = async (req: Request, res: Response) => {
   }
 };
 
-export const getConfig = async (req: Request, res: Response) => {
-  // Groq is the active text-generation provider. GEMINI_API_KEY may still be
-  // set (it powers embeddings), so it must not flip the reported text provider.
-  let provider = 'groq';
-  let model = 'openai/gpt-oss-20b';
-
-  if (!process.env.GROQ_API_KEY && process.env.GEMINI_API_KEY) {
-    provider = 'gemini';
-    model = 'gemini-3.8-flash';
-  }
-
+export const getConfig = async (_req: Request, res: Response) => {
   return res.status(200).json({
-    provider,
-    model,
-    ragEnabled: true,
+    ...getTextConfiguration(),
+    ragEnabled: Boolean(process.env.GEMINI_API_KEY),
     memoryEnabled: false
   });
 };

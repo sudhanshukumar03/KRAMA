@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Target, X, Zap, Star, FolderKanban, Activity } from 'lucide-react';
+import { useModalA11y } from '../../hooks/useModalA11y';
 import { BaseButton } from '../ui/BaseButton';
 import { IconPicker } from '../ui/IconPicker';
 import { cn } from '../../lib/utils';
@@ -64,8 +65,15 @@ export function GoalFormModal({
   });
 
   const isEditMode = Boolean(initialData);
+  const dismiss = () => { if (!isSubmitting) onClose(); };
+  const dialogRef = useModalA11y(open, dismiss);
+  const initialId = initialData?.id;
+  const parentId = parentGoal?.id;
+  const initialization = useRef({ initialData, parentGoal, defaultPillar, projects, allHabits });
+  initialization.current = { initialData, parentGoal, defaultPillar, projects, allHabits };
 
   useEffect(() => {
+    const { initialData, parentGoal, defaultPillar, projects, allHabits } = initialization.current;
     if (open) {
       if (initialData) {
         setTitle(initialData.title);
@@ -125,7 +133,7 @@ export function GoalFormModal({
         setTargetDate(d.toISOString().split('T')[0]);
       }
     }
-  }, [open, initialData, parentGoal, defaultPillar, projects, allHabits]);
+  }, [open, initialId, parentId]);
 
   if (!open) return null;
 
@@ -138,7 +146,7 @@ export function GoalFormModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (isSubmitting || !title.trim()) return;
 
     const w = Number(weight);
     const existingMeta = ((initialData as any)?.metadata || {}) as Record<string, any>;
@@ -188,12 +196,14 @@ export function GoalFormModal({
 
   return (
     <div
-      onClick={onClose}
+      onClick={dismiss}
       className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
     >
       <div
+        ref={dialogRef}
+        role="dialog" aria-modal="true" aria-labelledby="goal-form-heading"
         onClick={(e) => e.stopPropagation()}
-        className="krama-dialog w-full max-w-lg animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+        className="krama-dialog w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
       >
         {/* Header */}
         <div className="relative flex items-center justify-between px-6 py-4 border-b border-border bg-gradient-to-b from-surface/80 to-surface/40 overflow-hidden">
@@ -205,7 +215,7 @@ export function GoalFormModal({
               <Target className="w-4 h-4 stroke-[2]" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-primary tracking-tight">
+              <h3 id="goal-form-heading" className="text-sm font-bold text-primary tracking-tight">
                 {isEditMode ? 'Edit Goal' : parentGoal ? 'Add Key Result / Milestone' : 'New Life Aspiration'}
               </h3>
               {parentGoal && (
@@ -216,9 +226,10 @@ export function GoalFormModal({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={dismiss}
+            aria-label="Close goal form"
             type="button"
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
+            className="w-11 h-11 shrink-0 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -253,7 +264,6 @@ export function GoalFormModal({
                     : 'e.g. Scale Krama OS to 10,000 Users'
                 }
                 required
-                autoFocus
                 className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-shadow"
               />
             </div>
@@ -308,7 +318,8 @@ export function GoalFormModal({
               type="text"
               id="goal-why-input"
               name="whyStatement"
-              value={whyStatement}
+              aria-label="Why this matters"
+                value={whyStatement}
               onChange={(e) => setWhyStatement(e.target.value)}
               placeholder="e.g. To achieve creative autonomy and financial freedom..."
               className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs text-primary placeholder:text-secondary/50 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
@@ -316,7 +327,7 @@ export function GoalFormModal({
           </div>
 
           {/* Timeline & Cadence */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label
                 htmlFor="goal-horizon-select"
@@ -327,6 +338,7 @@ export function GoalFormModal({
               <select
                 id="goal-horizon-select"
                 name="type"
+                aria-label="Goal horizon"
                 value={type}
                 onChange={(e) => handleTypeChange(e.target.value)}
                 className="w-full px-3 py-2 border border-border rounded-lg text-xs text-primary bg-surface focus:outline-none focus:border-accent cursor-pointer"
@@ -347,6 +359,7 @@ export function GoalFormModal({
                 type="date"
                 id="goal-target-date-input"
                 name="targetDate"
+                aria-label="Target date"
                 value={targetDate}
                 onChange={(e) => setTargetDate(e.target.value)}
                 className="w-full px-3 py-2 border border-border rounded-lg text-xs text-primary bg-surface focus:outline-none focus:border-accent font-mono"
@@ -381,7 +394,8 @@ export function GoalFormModal({
                   </span>
                   <input
                     type="number"
-                    value={currentValue}
+                    aria-label="Current value"
+                value={currentValue}
                     onChange={(e) => setCurrentValue(e.target.value)}
                     placeholder="0"
                     className="w-full bg-surface border border-border rounded-md px-2.5 py-1.5 text-xs font-mono text-primary focus:outline-none focus:border-accent"
@@ -393,7 +407,8 @@ export function GoalFormModal({
                   </span>
                   <input
                     type="number"
-                    value={targetValue}
+                    aria-label="Target value"
+                value={targetValue}
                     onChange={(e) => setTargetValue(e.target.value)}
                     placeholder="100"
                     className="w-full bg-surface border border-border rounded-md px-2.5 py-1.5 text-xs font-mono text-primary focus:outline-none focus:border-accent"
@@ -405,7 +420,8 @@ export function GoalFormModal({
                   </span>
                   <input
                     type="text"
-                    value={unit}
+                    aria-label="Unit"
+                value={unit}
                     onChange={(e) => setUnit(e.target.value)}
                     placeholder="users, km, $"
                     className="w-full bg-surface border border-border rounded-md px-2.5 py-1.5 text-xs font-mono text-primary focus:outline-none focus:border-accent"
@@ -463,7 +479,8 @@ export function GoalFormModal({
                     type="number"
                     min="1"
                     max="10"
-                    value={weight}
+                    aria-label="Weight"
+                value={weight}
                     onChange={(e) => setWeight(e.target.value)}
                     className="w-16 bg-surface border border-border rounded-md px-2 py-1 text-xs font-mono text-primary text-center focus:outline-none focus:border-accent"
                   />
@@ -565,7 +582,7 @@ export function GoalFormModal({
           {/* Edit-only fields: Status & Manual Progress */}
           {isEditMode && (
             <div className="pt-3 border-t border-border/70 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label
                     htmlFor="modal-status"
@@ -604,7 +621,8 @@ export function GoalFormModal({
                       id="modal-slider-prog"
                       min="0"
                       max="100"
-                      value={progress}
+                      aria-label="Progress"
+                value={progress}
                       onChange={(e) => setProgress(Number(e.target.value))}
                       className="w-full accent-accent cursor-pointer mt-1"
                     />
@@ -619,7 +637,7 @@ export function GoalFormModal({
             <BaseButton
               type="button"
               variant="secondary"
-              onClick={onClose}
+              onClick={dismiss}
               disabled={isSubmitting}
             >
               Cancel

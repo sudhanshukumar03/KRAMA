@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 export interface CreateDocumentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  target: { parentId?: string; parentTitle?: string } | null;
+  target: { parentId?: string; parentTitle?: string; projectId?: string } | null;
   projects: any[];
   spaces: any[];
   activeWorkspaceId: string;
@@ -38,6 +38,8 @@ export function CreateDocumentModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const initialSpacesRef = useRef(spaces);
+  initialSpacesRef.current = spaces;
 
   const modalRef = useModalA11y(isOpen, onClose);
 
@@ -46,12 +48,12 @@ export function CreateDocumentModal({
       setTitle('');
       setDocumentType('SPEC');
       setSelectedTemplateId('blank');
-      setSelectedProjectId('');
-      setSelectedSpaceId(defaultSpaceId && defaultSpaceId !== 'ALL' ? defaultSpaceId : (spaces[0]?.id || ''));
+      setSelectedProjectId(target?.projectId || '');
+      setSelectedSpaceId(defaultSpaceId && defaultSpaceId !== 'ALL' ? defaultSpaceId : (initialSpacesRef.current[0]?.id || ''));
       const t = setTimeout(() => inputRef.current?.focus(), 60);
       return () => clearTimeout(t);
     }
-  }, [isOpen, defaultSpaceId, spaces]);
+  }, [isOpen, target?.projectId, defaultSpaceId]);
 
   if (!isOpen) return null;
 
@@ -89,6 +91,8 @@ export function CreateDocumentModal({
         documentType: documentType || 'SPEC',
         contentJson: contentJson || undefined,
       });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      if (selectedProjectId) queryClient.invalidateQueries({ queryKey: ['project', selectedProjectId] });
 
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       queryClient.invalidateQueries({ queryKey: ['spaces'] });
@@ -116,7 +120,7 @@ export function CreateDocumentModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-doc-title"
-        className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
+        className="krama-dialog w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
       >
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
@@ -129,7 +133,7 @@ export function CreateDocumentModal({
                 {target?.parentTitle ? 'New Sub-document' : 'Create New Document'}
               </h3>
               {target?.parentTitle && (
-                <p className="text-[11px] font-mono text-secondary truncate max-w-[260px]">
+                <p className="text-caption font-mono text-secondary truncate max-w-[260px]">
                   Inside: <span className="text-primary font-medium">{target.parentTitle}</span>
                 </p>
               )}
@@ -147,7 +151,7 @@ export function CreateDocumentModal({
         {/* Form Body */}
         <form onSubmit={handleCreate} className="p-5 space-y-4">
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
+            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
               Document Name <span className="text-accent-fg">*</span>
             </label>
             <input
@@ -163,7 +167,7 @@ export function CreateDocumentModal({
 
           {/* Engineering Template Selector */}
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
+            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
               Template
             </label>
             <div className="grid grid-cols-3 gap-1.5">
@@ -171,7 +175,7 @@ export function CreateDocumentModal({
                 type="button"
                 onClick={() => setSelectedTemplateId('blank')}
                 className={cn(
-                  "py-1.5 px-2 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer text-center border truncate",
+                  "py-1.5 px-2 rounded-lg text-caption font-mono font-bold transition-all cursor-pointer text-center border truncate",
                   selectedTemplateId === 'blank'
                     ? "bg-accent text-on-accent border-accent shadow-xs"
                     : "bg-surface hover:bg-surface-hover text-secondary border-border"
@@ -192,7 +196,7 @@ export function CreateDocumentModal({
                     }
                   }}
                   className={cn(
-                    "py-1.5 px-2 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer text-center border truncate",
+                    "py-1.5 px-2 rounded-lg text-caption font-mono font-bold transition-all cursor-pointer text-center border truncate",
                     selectedTemplateId === tmpl.id
                       ? "bg-accent text-on-accent border-accent shadow-xs"
                       : "bg-surface hover:bg-surface-hover text-secondary border-border"
@@ -207,7 +211,7 @@ export function CreateDocumentModal({
 
           {/* Document Type Selector */}
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
+            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
               Document Type
             </label>
             <div className="grid grid-cols-3 gap-1.5">
@@ -224,7 +228,7 @@ export function CreateDocumentModal({
                   type="button"
                   onClick={() => setDocumentType(t.id)}
                   className={cn(
-                    "py-1.5 px-2 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer text-center border",
+                    "py-1.5 px-2 rounded-lg text-caption font-mono font-bold transition-all cursor-pointer text-center border",
                     documentType === t.id
                       ? "bg-accent text-on-accent border-accent shadow-xs"
                       : "bg-surface hover:bg-surface-hover text-secondary border-border"
@@ -239,7 +243,7 @@ export function CreateDocumentModal({
           {/* Knowledge Space Selector */}
           {spaces.length > 0 && (
             <div>
-              <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
+              <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
                 Knowledge Space
               </label>
               <select
@@ -257,10 +261,10 @@ export function CreateDocumentModal({
           {/* Optional Project Link */}
           {projects.length > 0 && (
             <div>
-              <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
+              <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
                 Link to Project (Optional)
               </label>
-              <select
+              <select aria-label="Link to Project (Optional)"
                 value={selectedProjectId}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
                 className="w-full p-2 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent font-sans text-caption"
@@ -275,8 +279,8 @@ export function CreateDocumentModal({
 
           {/* Footer Actions */}
           <div className="pt-3 border-t border-border flex items-center justify-between">
-            <span className="text-[11px] font-mono text-muted flex items-center gap-1">
-              <kbd className="bg-surface-hover px-1.5 py-0.5 rounded border border-border text-[10px]">Enter ↵</kbd> to create
+            <span className="text-caption font-mono text-muted flex items-center gap-1">
+              <kbd className="bg-surface-hover px-1.5 py-0.5 rounded border border-border text-badge">Enter ↵</kbd> to create
             </span>
             <div className="flex items-center gap-2">
               <button

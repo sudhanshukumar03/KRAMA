@@ -14,14 +14,18 @@ import { DATE_KEY_RE } from './dateKey';
 // of flowing through as an Invalid Date and surfacing as a 500 later.
 const dateKeyString = z
   .string()
-  .regex(DATE_KEY_RE, 'date must be in YYYY-MM-DD format');
+  .regex(DATE_KEY_RE, 'date must be in YYYY-MM-DD format')
+  .refine(key => {
+    const date = new Date(`${key}T12:00:00.000Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === key;
+  }, 'date must be a real calendar day');
 
 // A date the client may send either as a bare day key or as a full ISO instant
 // (TimeBlock/milestone dates ride as `${key}T12:00:00.000Z`). z.coerce.date()
 // accepts both and rejects anything that parses to an Invalid Date.
-const flexibleDate = z.coerce.date();
+const flexibleDate = z.union([z.date(), z.string().refine(value => dateKeyString.safeParse(value.split('T')[0]).success, 'date must be a real calendar day')]).pipe(z.coerce.date());
 
-const TIME_RE = /^\d{2}:\d{2}$/;
+const TIME_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 // Must stay in sync with the TimeBlockType enum in schema.prisma (no automated
 // enforcement — this is a manual mirror).
@@ -75,11 +79,11 @@ export const WeekQuerySchema = z.object({
   start: dateKeyString,
   end: dateKeyString,
   workspaceId: z.string().optional(),
-});
+}).refine(({ start, end }) => end >= start && new Date(end).getTime() - new Date(start).getTime() <= 366 * 86400000, 'range must be ordered and no longer than 366 days');
 
 export const HolidayQuerySchema = z.object({
   country: z.string().min(1),
   region: z.string().optional(),
   start: dateKeyString,
   end: dateKeyString,
-});
+}).refine(({ start, end }) => end >= start && new Date(end).getTime() - new Date(start).getTime() <= 366 * 86400000, 'range must be ordered and no longer than 366 days');

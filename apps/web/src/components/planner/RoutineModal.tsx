@@ -1,5 +1,6 @@
 import { X, Pin } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../api/client';
 import { toast } from 'sonner';
 import { useModalA11y } from '../../hooks/useModalA11y';
@@ -11,9 +12,10 @@ interface Props {
 
 export function RoutineModal({ open, onClose }: Props) {
  const queryClient = useQueryClient();
+ const { workspaceId } = useAuth();
 
- const { data: habits = [], isLoading } = useQuery({
- queryKey: ['habits'],
+ const { data: habits = [], isLoading, isError, refetch } = useQuery({
+ queryKey: ['habits', workspaceId],
  queryFn: api.habits.list,
  enabled: open,
  });
@@ -50,6 +52,8 @@ export function RoutineModal({ open, onClose }: Props) {
  <div className="p-4 overflow-y-auto">
  {isLoading ? (
  <div className="text-center text-sm text-muted py-4">Loading routines...</div>
+ ) : isError ? (
+ <div role="alert" className="text-sm text-danger-fg">Unable to load routines. <button type="button" onClick={() => refetch()} className="underline">Retry routines</button></div>
  ) : unpinnedHabits.length === 0 ? (
  <div className="text-center py-6 px-4">
  <p className="text-sm text-primary font-medium mb-2">No available routines to pin.</p>

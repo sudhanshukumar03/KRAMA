@@ -21,11 +21,11 @@ import {
   XCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { format, isSameDay, parseISO } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuth } from "../../contexts/AuthContext";
-import { cn, blockMinutesOfDay, formatBlockTime } from "../../lib/utils";
+import { parseLocalDate, cn, blockMinutesOfDay, formatBlockTime } from "../../lib/utils";
 import { blockTypeStyle } from "../../lib/blockTypeStyles";
 import { toast } from "sonner";
 
@@ -100,8 +100,13 @@ export function TodayView({
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
     },
     onError: (err: any) => {
       toast.error('Failed to update task: ' + (err?.message || 'Unknown error'));
@@ -114,9 +119,14 @@ export function TodayView({
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      toast.success('Task added for today');
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      toast.success(`Task added for ${isViewingToday ? 'today' : format(day, 'MMM d')}`);
       setInlineTaskTitle('');
     },
     onError: (err: any) => {
@@ -130,8 +140,13 @@ export function TodayView({
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
       toast.success('Task deleted');
     },
     onError: (err: any) => {
@@ -156,8 +171,8 @@ export function TodayView({
       .filter((b: any) => !b.isExternal)
       .filter((b: any) => {
         try {
-          if (b.date) return isSameDay(parseISO(b.date), day);
-          if (b.startTime) return isSameDay(parseISO(b.startTime), day);
+          if (b.date) return isSameDay((parseLocalDate(b.date) ?? new Date(NaN)), day);
+          if (b.startTime) return isSameDay((parseLocalDate(b.startTime) ?? new Date(NaN)), day);
           return false;
         } catch {
           return false;
@@ -185,7 +200,7 @@ export function TodayView({
       }
 
       try {
-        const parsed = parseISO(tDateStr);
+        const parsed = (parseLocalDate(tDateStr) ?? new Date(NaN));
         const isToday = isSameDay(parsed, day);
         const isPast = parsed.getTime() < targetStart.getTime() && !isToday;
 
@@ -345,7 +360,7 @@ export function TodayView({
 
   const handleCreateInlineTask = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inlineTaskTitle.trim()) return;
+    if (!inlineTaskTitle.trim() || createTaskMutation.isPending) return;
     createTaskMutation.mutate({
       title: inlineTaskTitle.trim(),
       scheduledDate: targetDateIso,
@@ -374,7 +389,7 @@ export function TodayView({
     const source = dayPlannerData?.milestones ?? data?.milestones ?? [];
     return source.filter((m: any) => {
       try {
-        return m.date && isSameDay(parseISO(m.date), day);
+        return m.date && isSameDay((parseLocalDate(m.date) ?? new Date(NaN)), day);
       } catch {
         return false;
       }
@@ -387,7 +402,7 @@ export function TodayView({
     const source = dayPlannerData?.goalDeadlines ?? data?.goalDeadlines ?? [];
     return source.filter((g: any) => {
       try {
-        return g.targetDate && isSameDay(parseISO(g.targetDate), day);
+        return g.targetDate && isSameDay((parseLocalDate(g.targetDate) ?? new Date(NaN)), day);
       } catch {
         return false;
       }
@@ -413,7 +428,7 @@ export function TodayView({
                 {format(day, 'EEEE, MMMM d, yyyy')}
               </h2>
               {isViewingToday && (
-                <span className="px-2 py-0.5 rounded-full bg-accent-subtle text-accent-fg text-[10px] font-bold font-mono uppercase tracking-wider border border-accent/20">
+                <span className="px-2 py-0.5 rounded-full bg-accent-subtle text-accent-fg text-badge font-bold font-mono uppercase tracking-wider border border-accent/20">
                   Today
                 </span>
               )}
@@ -427,7 +442,7 @@ export function TodayView({
         {/* Live Horizon Clock & Primary Action */}
         <div className="flex items-center flex-wrap gap-2.5">
           <div className="px-3 py-1.5 bg-surface border border-border/80 rounded-xl flex items-center gap-2.5 shadow-2xs">
-            <div className="text-[11px] font-semibold text-accent flex items-center gap-1.5">
+            <div className="text-caption font-semibold text-accent flex items-center gap-1.5">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
@@ -474,7 +489,7 @@ export function TodayView({
               <span className="text-xs font-bold text-warning-fg">
                 {carriedOverTasks.length} overdue task{carriedOverTasks.length > 1 ? 's' : ''} carried over from previous days
               </span>
-              <p className="text-[11px] text-secondary mt-0.5">
+              <p className="text-caption text-secondary mt-0.5">
                 Keep your plan current by rescheduling incomplete tasks into today's agenda.
               </p>
             </div>
@@ -503,14 +518,14 @@ export function TodayView({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-primary">Day Schedule</h3>
-                  <p className="text-[11px] text-secondary">
+                  <p className="text-caption text-secondary">
                     Sequential chronological schedule for {format(day, 'MMM d, yyyy')}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-1 rounded-lg bg-surface-hover border border-border text-[11px] font-mono font-medium text-secondary">
+                <span className="px-2.5 py-1 rounded-lg bg-surface-hover border border-border text-caption font-mono font-medium text-secondary">
                   {timeBlocks.length} Blocks • {focusTimeString}
                 </span>
               </div>
@@ -578,7 +593,7 @@ export function TodayView({
                         tabIndex={0}
                         onClick={() => onClickTimeBlock && onClickTimeBlock(tb)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
+                          if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
                             e.preventDefault();
                             if (onClickTimeBlock) onClickTimeBlock(tb);
                           }
@@ -598,11 +613,11 @@ export function TodayView({
                           )}>
                             {formatTime(tb.startTime)}
                           </span>
-                          <span className="text-[10px] font-mono text-secondary">
+                          <span className="text-badge font-mono text-secondary">
                             {formatTime(tb.endTime)}
                           </span>
                           {durationStr && (
-                            <span className="text-[9px] font-mono text-muted mt-0.5">
+                            <span className="text-badge font-mono text-muted mt-0.5">
                               {durationStr}
                             </span>
                           )}
@@ -612,7 +627,7 @@ export function TodayView({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className={cn(
-                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider font-mono",
+                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-badge font-semibold uppercase tracking-wider font-mono",
                               typeCfg.bg,
                               typeCfg.color
                             )}>
@@ -621,7 +636,7 @@ export function TodayView({
                             </span>
 
                             {isCurrent && (
-                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success-bg text-success-fg text-[9px] font-bold uppercase tracking-wider border border-success-border">
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success-bg text-success-fg text-badge font-bold uppercase tracking-wider border border-success-border">
                                 <span className="w-1.5 h-1.5 rounded-full bg-success-fg animate-ping" />
                                 Active Now • {minutesRemaining}m remaining
                               </span>
@@ -645,13 +660,13 @@ export function TodayView({
                                 if (onClickTask) onClickTask(linkedTask);
                               }}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
+                                if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   if (onClickTask) onClickTask(linkedTask);
                                 }
                               }}
-                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-hover border border-border text-[11px] font-medium text-secondary hover:text-primary max-w-full truncate mt-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface-hover border border-border text-caption font-medium text-secondary hover:text-primary max-w-full truncate mt-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                             >
                               <button
                                 type="button"
@@ -673,7 +688,7 @@ export function TodayView({
                           )}
 
                           {tb.notes && (
-                            <p className="text-[11px] text-muted line-clamp-1 mt-1 font-sans">
+                            <p className="text-caption text-muted line-clamp-1 mt-1 font-sans">
                               {tb.notes}
                             </p>
                           )}
@@ -728,13 +743,13 @@ export function TodayView({
                             endTime: getHHMM(nextTb.startTime),
                             type: 'WORK'
                           })}
-                          className="w-full my-1 py-1.5 px-3 rounded-lg border border-dashed border-border/80 hover:border-accent/50 hover:bg-accent/5 text-[11px] font-medium text-secondary hover:text-accent flex items-center justify-between cursor-pointer transition-colors group/gap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                          className="w-full my-1 py-1.5 px-3 rounded-lg border border-dashed border-border/80 hover:border-accent/50 hover:bg-accent/5 text-caption font-medium text-secondary hover:text-accent flex items-center justify-between cursor-pointer transition-colors group/gap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                         >
                           <span className="flex items-center gap-1.5">
                             <Plus className="w-3 h-3 text-muted group-hover/gap:text-accent" />
                             Free window: {formatTime(tb.endTime)} - {formatTime(nextTb.startTime)} ({gapMinutes >= 60 ? `${Math.floor(gapMinutes/60)}h ${gapMinutes%60 > 0 ? `${gapMinutes%60}m` : ''}` : `${gapMinutes}m`})
                           </span>
-                          <span className="text-[10px] font-mono text-muted group-hover/gap:text-accent">
+                          <span className="text-badge font-mono text-muted group-hover/gap:text-accent">
                             + Fill Slot
                           </span>
                         </button>
@@ -755,7 +770,7 @@ export function TodayView({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-primary">Milestones</h3>
-                  <p className="text-[11px] text-secondary">
+                  <p className="text-caption text-secondary">
                     Project checkpoints due {format(day, 'MMM d')}
                   </p>
                 </div>
@@ -780,7 +795,7 @@ export function TodayView({
                   <button
                     type="button"
                     onClick={() => onAddMilestone(day)}
-                    className="mt-2 text-[11px] font-semibold text-accent hover:underline cursor-pointer"
+                    className="mt-2 text-caption font-semibold text-accent hover:underline cursor-pointer"
                   >
                     + Add a milestone
                   </button>
@@ -824,7 +839,7 @@ export function TodayView({
             {/* Goal deadlines due this day (read-only) */}
             {dayGoalDeadlines.length > 0 && (
               <div className="mt-3 pt-3 border-t border-border">
-                <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-secondary mb-2 flex items-center gap-1.5">
+                <p className="text-badge font-mono font-bold uppercase tracking-wider text-secondary mb-2 flex items-center gap-1.5">
                   <Flag className="w-3 h-3 text-accent" />
                   Goal Deadlines
                 </p>
@@ -848,7 +863,7 @@ export function TodayView({
                         )}>
                           {g.title}
                         </span>
-                        <span className="text-[10px] font-mono font-bold text-accent shrink-0">
+                        <span className="text-badge font-mono font-bold text-accent shrink-0">
                           {g.progress}%
                         </span>
                       </div>
@@ -880,7 +895,7 @@ export function TodayView({
                   <CalendarCheck className="w-3.5 h-3.5 text-accent" />
                   <span>Today's Tasks</span>
                   <span className={cn(
-                    "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
+                    "px-1.5 py-0.2 rounded-full text-badge font-mono",
                     activeTaskTab === 'today' ? "bg-accent/10 text-accent font-bold" : "bg-surface text-muted"
                   )}>
                     {todayTasks.length}
@@ -900,7 +915,7 @@ export function TodayView({
                   <Layers className="w-3.5 h-3.5 text-cat-tasks" />
                   <span>Backlog</span>
                   <span className={cn(
-                    "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
+                    "px-1.5 py-0.2 rounded-full text-badge font-mono",
                     activeTaskTab === 'backlog' ? "bg-cat-tasks-bg text-cat-tasks font-bold" : "bg-surface text-muted"
                   )}>
                     {backlogTasks.length}
@@ -916,15 +931,17 @@ export function TodayView({
                 <form onSubmit={handleCreateInlineTask} className="relative">
                   <input
                     type="text"
+                    aria-label="Add task for selected day"
+                    maxLength={200}
                     value={inlineTaskTitle}
                     onChange={(e) => setInlineTaskTitle(e.target.value)}
-                    placeholder="+ Add a task for today... (Press Enter)"
+                    placeholder={`+ Add a task for ${isViewingToday ? "today" : format(day, "MMM d")}... (Press Enter)`}
                     className="w-full pl-3.5 pr-20 py-2 bg-surface-hover/50 border border-border rounded-xl text-xs text-primary placeholder:text-muted focus:outline-hidden focus:border-accent focus:bg-surface transition-colors"
                   />
                   <button
                     type="submit"
                     disabled={!inlineTaskTitle.trim() || createTaskMutation.isPending}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-accent text-white text-[11px] font-semibold disabled:opacity-40 hover:bg-accent-hover transition-colors cursor-pointer"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-accent text-white text-caption font-semibold disabled:opacity-40 hover:bg-accent-hover transition-colors cursor-pointer"
                   >
                     Add
                   </button>
@@ -939,14 +956,14 @@ export function TodayView({
                         <span className="text-xs font-bold text-primary">
                           Carried Over ({carriedOverTasks.length})
                         </span>
-                        <span className="text-[10px] text-muted hidden sm:inline">
+                        <span className="text-badge text-muted hidden sm:inline">
                           Overdue from past days
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={handleRescheduleAllOverdue}
-                        className="text-[11px] font-semibold text-warning-fg hover:underline cursor-pointer"
+                        className="text-caption font-semibold text-warning-fg hover:underline cursor-pointer"
                       >
                         Reschedule all →
                       </button>
@@ -971,19 +988,20 @@ export function TodayView({
                                   });
                                 }
                               }}
+                              aria-label={task.status === "DONE" ? "Mark task incomplete" : "Mark task complete"}
                               className="text-muted hover:text-success-fg transition-colors shrink-0 cursor-pointer"
                               title="Mark done"
                             >
                               <Circle className="w-3.5 h-3.5" />
                             </button>
-                            <span 
+                            <button type="button" aria-label={task.title}
                               className="font-medium text-primary truncate cursor-pointer hover:text-accent"
                               onClick={() => onClickTask && onClickTask(task)}
                             >
                               {task.title}
-                            </span>
+                            </button>
                             {task.project?.name && (
-                              <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border shrink-0">
+                              <span className="text-badge font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border shrink-0">
                                 {task.project.name}
                               </span>
                             )}
@@ -993,7 +1011,7 @@ export function TodayView({
                             <button
                               type="button"
                               onClick={() => handleScheduleForToday(task)}
-                              className="px-2 py-0.5 rounded bg-accent/10 hover:bg-accent hover:text-white text-accent text-[10px] font-semibold transition-colors cursor-pointer"
+                              className="px-2 py-0.5 rounded bg-accent/10 hover:bg-accent hover:text-white text-accent text-badge font-semibold transition-colors cursor-pointer"
                               title={`Schedule for ${isViewingToday ? 'today' : format(day, 'MMM d')}`}
                             >
                               Today
@@ -1020,7 +1038,7 @@ export function TodayView({
                     <h5 className="text-xs font-bold text-primary mb-1">
                       {carriedOverTasks.length > 0 ? "No new tasks scheduled for today" : "No tasks scheduled for today"}
                     </h5>
-                    <p className="text-[11px] text-muted max-w-[240px] mb-3">
+                    <p className="text-caption text-muted max-w-[240px] mb-3">
                       Add a task above, or browse your workspace backlog to pull in pending tasks.
                     </p>
                     <button
@@ -1057,6 +1075,7 @@ export function TodayView({
                                   });
                                 }
                               }}
+                              aria-label={task.status === "DONE" ? "Mark task incomplete" : "Mark task complete"}
                               className="text-muted hover:text-success-fg transition-colors shrink-0 cursor-pointer"
                             >
                               {isDone ? (
@@ -1066,8 +1085,8 @@ export function TodayView({
                               )}
                             </button>
 
-                            <div 
-                              className="min-w-0 flex-1 cursor-pointer"
+                            <button type="button" aria-label={task.title}
+                              className="text-left min-w-0 flex-1 cursor-pointer"
                               onClick={() => onClickTask && onClickTask(task)}
                             >
                               <span className={cn(
@@ -1076,27 +1095,27 @@ export function TodayView({
                               )}>
                                 {task.title}
                               </span>
-                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <span className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 {task.project?.name && (
-                                  <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border">
+                                  <span className="text-badge font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border">
                                     {task.project.name}
                                   </span>
                                 )}
                                 {task.priority && task.priority !== 'MEDIUM' && (
                                   <span className={cn(
-                                    "text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded",
+                                    "text-badge font-bold font-mono uppercase px-1.5 py-0.2 rounded",
                                     task.priority === 'URGENT' ? "bg-danger-bg text-danger-fg" : "bg-warning-bg text-warning-fg"
                                   )}>
                                     {task.priority}
                                   </span>
                                 )}
                                 {task.estimateMinutes && (
-                                  <span className="text-[9px] font-mono text-muted">
+                                  <span className="text-badge font-mono text-muted">
                                     {task.estimateMinutes}m
                                   </span>
                                 )}
-                              </div>
-                            </div>
+                              </span>
+                            </button>
                           </div>
 
                           {/* Quick Task Actions: Time Block, Unschedule, Delete */}
@@ -1105,7 +1124,7 @@ export function TodayView({
                               <button
                                 type="button"
                                 onClick={() => handleTimeBlockFromTask(task)}
-                                className="px-2 py-1 rounded-lg bg-accent/10 hover:bg-accent hover:text-white text-accent text-[10px] font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                                className="px-2 py-1 rounded-lg bg-accent/10 hover:bg-accent hover:text-white text-accent text-badge font-semibold transition-colors flex items-center gap-1 cursor-pointer"
                                 title="Schedule into a time block on your day timeline"
                               >
                                 <Clock className="w-3 h-3" />
@@ -1147,6 +1166,7 @@ export function TodayView({
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
                   <input
                     type="text"
+                    aria-label="Search backlog tasks"
                     value={backlogSearch}
                     onChange={(e) => setBacklogSearch(e.target.value)}
                     placeholder="Search backlog tasks..."
@@ -1161,7 +1181,7 @@ export function TodayView({
                     <h5 className="text-xs font-bold text-primary mb-1">
                       {backlogSearch ? "No matching backlog tasks" : "Workspace backlog is clear!"}
                     </h5>
-                    <p className="text-[11px] text-muted max-w-[240px]">
+                    <p className="text-caption text-muted max-w-[240px]">
                       {backlogSearch ? "Try a different search term." : "All open tasks are scheduled or completed."}
                     </p>
                   </div>
@@ -1172,36 +1192,36 @@ export function TodayView({
                         key={task.id}
                         className="flex items-center justify-between p-2.5 rounded-xl border border-border hover:border-accent/40 bg-surface shadow-2xs hover:shadow-xs transition-all group"
                       >
-                        <div 
-                          className="min-w-0 flex-1 cursor-pointer pr-2"
+                        <button type="button" aria-label={task.title}
+                          className="text-left min-w-0 flex-1 cursor-pointer pr-2"
                           onClick={() => onClickTask && onClickTask(task)}
                         >
                           <span className="text-xs font-semibold text-primary block truncate">
                             {task.title}
                           </span>
-                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          <span className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                             {task.project?.name && (
-                              <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border">
+                              <span className="text-badge font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border">
                                 {task.project.name}
                               </span>
                             )}
                             {task.priority && task.priority !== 'MEDIUM' && (
                               <span className={cn(
-                                "text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded",
+                                "text-badge font-bold font-mono uppercase px-1.5 py-0.2 rounded",
                                 task.priority === 'URGENT' ? "bg-danger-bg text-danger-fg" : "bg-warning-bg text-warning-fg"
                               )}>
                                 {task.priority}
                               </span>
                             )}
-                          </div>
-                        </div>
+                          </span>
+                        </button>
 
                         {/* Actions to schedule into day */}
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             type="button"
                             onClick={() => handleScheduleForToday(task)}
-                            className="px-2.5 py-1 rounded-lg bg-surface-hover hover:bg-accent hover:text-white text-secondary text-[11px] font-semibold transition-colors border border-border cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-surface-hover hover:bg-accent hover:text-white text-secondary text-caption font-semibold transition-colors border border-border cursor-pointer"
                             title="Schedule for today"
                           >
                             + Today
@@ -1211,7 +1231,7 @@ export function TodayView({
                             <button
                               type="button"
                               onClick={() => handleTimeBlockFromTask(task)}
-                              className="px-2 py-1 rounded-lg bg-accent/10 hover:bg-accent hover:text-white text-accent text-[11px] font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                              className="px-2 py-1 rounded-lg bg-accent/10 hover:bg-accent hover:text-white text-accent text-caption font-semibold transition-colors flex items-center gap-1 cursor-pointer"
                               title="Time block this task on your day timeline"
                             >
                               <Clock className="w-3 h-3" />

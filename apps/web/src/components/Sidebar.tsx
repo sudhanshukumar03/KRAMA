@@ -12,6 +12,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
+import { useModalA11y } from '../hooks/useModalA11y';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { KramaLogo } from './ui/KramaLogo';
@@ -61,8 +62,10 @@ export function Sidebar({
   onToggleCollapse?: () => void;
 }) {
  const location = useLocation();
+ const mobileDialogRef = useModalA11y(mobileOpen, () => onMobileClose?.());
  const { toggleTheme, resolvedTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, workspaceId } = useAuth();
+  const canExport = user?.memberships.some(member => member.workspaceId === workspaceId && member.role === 'OWNER');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
 
@@ -73,7 +76,19 @@ export function Sidebar({
       }
     };
     if (settingsOpen) {
+      const handleEscape = (event: KeyboardEvent) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        setSettingsOpen(false);
+        settingsRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+      };
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('keydown', handleEscape);
+      };
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -100,8 +115,9 @@ export function Sidebar({
   };
 
  const handleExport = async () => {
- try {
  const toastId = toast.loading('Exporting workspace backup...');
+ try {
+
  const data = await api.workspaces.export();
  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
  const url = URL.createObjectURL(blob);
@@ -112,11 +128,11 @@ export function Sidebar({
  a.click();
  document.body.removeChild(a);
  URL.revokeObjectURL(url);
- toast.dismiss(toastId);
+
  toast.success('Workspace backup exported successfully');
  } catch (err: any) {
  toast.error('Failed to export backup: ' + err.message);
- }
+ } finally { toast.dismiss(toastId); }
  };
 
   const renderLink = (item: NavItem) => {
@@ -286,7 +302,8 @@ export function Sidebar({
                 handleExport();
               }}
               className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption text-secondary hover:text-primary hover:bg-surface-hover transition-colors group cursor-pointer"
-              title="Export all workspace data as JSON"
+              disabled={!canExport}
+              title={canExport ? "Export all workspace data as JSON" : "Workspace owner access is required for a full backup"}
             >
               <span className="flex items-center gap-2">
                 <Download className="w-3.5 h-3.5 text-muted group-hover:text-primary transition-colors" />
@@ -393,11 +410,12 @@ export function Sidebar({
       </div>
 
  {mobileOpen && (
- <div className="fixed inset-0 z-[60] md:hidden flex animate-in fade-in duration-150">
+ <div ref={mobileDialogRef} role="dialog" aria-modal="true" aria-label="Workspace navigation" className="fixed inset-0 z-[60] md:hidden flex animate-in fade-in duration-150">
  <div onClick={onMobileClose} className="fixed inset-0 bg-black/50 backdrop-blur-2xs" />
  <div className="relative h-full z-10 animate-in slide-in-from-left duration-200">
  <button
  onClick={onMobileClose}
+ aria-label="Close navigation"
  className="absolute top-3 right-3 p-1.5 rounded-md text-secondary hover:text-primary hover:bg-surface-hover z-20"
  >
  <X className="w-4 h-4" />

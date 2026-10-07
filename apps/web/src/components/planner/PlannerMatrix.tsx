@@ -3,11 +3,11 @@
 // =============================================================================
 // The core 7-day grid with: Routines, Tasks, Schedule, Projects
 
-import { format, isSameDay, parseISO } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { Plus, CheckCircle2, Circle, ChevronDown, ChevronUp, CircleDot, Target, Clock, Trash2, PinOff, Flag } from "lucide-react";
 import { useState, useMemo, memo } from "react";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
-import { cn, formatBlockTime } from "../../lib/utils";
+import { parseLocalDate, cn, formatBlockTime } from "../../lib/utils";
 import { blockTypeStyle } from "../../lib/blockTypeStyles";
 import type { PlannerData } from "../../types/planner";
 
@@ -98,7 +98,7 @@ const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, onClickTas
           if (onClickTask) onClickTask(task);
         }}
       >
-        <span className={"text-[10px] font-medium leading-snug block " + (isDone ? "text-muted line-through" : "text-primary group-hover:text-primary")}>
+        <span className={"text-badge font-medium leading-snug block " + (isDone ? "text-muted line-through" : "text-primary group-hover:text-primary")}>
           {task.title}
         </span>
       </div>
@@ -146,7 +146,7 @@ function DroppableTaskCell({ day, tasks, dateKeyFn, onClickTask, onToggleTask, o
         <button
           onClick={() => onAddTask(day)}
           aria-label="New task"
-          className="absolute bottom-1 left-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center gap-1 py-1 rounded hover:bg-surface-hover text-muted hover:text-accent transition-all text-[9px] font-bold"
+          className="absolute bottom-1 left-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center gap-1 py-1 rounded hover:bg-surface-hover text-muted hover:text-accent transition-all text-badge font-bold"
         >
           <Plus size={10} strokeWidth={3} /> New Task
         </button>
@@ -188,7 +188,7 @@ const DroppableTimeBlock = memo(function DroppableTimeBlock({ block, tasks, onCl
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();
           if (onClickTimeBlock) onClickTimeBlock(block);
         }
@@ -205,7 +205,7 @@ const DroppableTimeBlock = memo(function DroppableTimeBlock({ block, tasks, onCl
       <div className="flex items-center justify-between w-full">
         <div className="flex items-center gap-1">
           <Icon size={10} className={cfg.color} />
-          <span className="text-[9px] font-bold tracking-tight text-secondary">
+          <span className="text-badge font-bold tracking-tight text-secondary">
             {safeTimeFormat(block.startTime)} - {safeTimeFormat(block.endTime)}
           </span>
         </div>
@@ -224,18 +224,18 @@ const DroppableTimeBlock = memo(function DroppableTimeBlock({ block, tasks, onCl
               e.preventDefault();
               onDeleteTimeBlock(block);
             }}
-            className="opacity-0 group-hover/timeblock:opacity-100 p-0.5 hover:bg-danger-bg text-danger-fg rounded transition-opacity shrink-0"
+            className="opacity-100 md:opacity-0 md:group-hover/timeblock:opacity-100 focus:opacity-100 group-focus-within/timeblock:opacity-100 p-0.5 hover:bg-danger-bg text-danger-fg rounded transition-opacity shrink-0"
             title="Delete time block"
           >
             <Trash2 size={10} />
           </button>
         )}
       </div>
-      <div className="text-[10px] font-semibold leading-tight text-primary line-clamp-2">
+      <div className="text-badge font-semibold leading-tight text-primary line-clamp-2">
         {block.title}
       </div>
       {block.taskId && (
-        <div className="mt-1 bg-surface-hover rounded px-1.5 py-0.5 text-[8.5px] font-medium text-secondary truncate flex items-center gap-1 border border-border">
+        <div className="mt-1 bg-surface-hover rounded px-1.5 py-0.5 text-badge font-medium text-secondary truncate flex items-center gap-1 border border-border">
           <CheckCircle2 size={8} className="text-accent" />
           {linkedTask ? linkedTask.title : "Linked Task"}
         </div>
@@ -262,7 +262,7 @@ function TimeBlockCell({ day, blocks, tasks, onClickTimeBlock, onAddTimeBlock, o
         <button
           onClick={() => onAddTimeBlock(day)}
           aria-label="Add time block"
-          className="absolute bottom-1 left-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center gap-1 py-1 rounded hover:bg-surface-hover text-muted hover:text-accent transition-all text-[9px] font-bold"
+          className="absolute bottom-1 left-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center gap-1 py-1 rounded hover:bg-surface-hover text-muted hover:text-accent transition-all text-badge font-bold"
         >
           <Plus size={10} strokeWidth={3} /> Add Block
         </button>
@@ -297,7 +297,7 @@ function MilestoneCell({ day, milestones, goalDeadlines = [], onClickMilestone, 
             className="flex-1 min-w-0 flex items-center gap-1 text-left"
           >
             <Target size={9} className="shrink-0 text-cat-projects" />
-            <span className={cn("text-[10px] font-semibold leading-tight truncate", m.completed ? "text-muted line-through" : "text-primary")}>
+            <span className={cn("text-badge font-semibold leading-tight truncate", m.completed ? "text-muted line-through" : "text-primary")}>
               {m.title}
             </span>
           </button>
@@ -317,10 +317,10 @@ function MilestoneCell({ day, milestones, goalDeadlines = [], onClickMilestone, 
             title={`Strategic Goal due: ${g.title} (${g.progress}%) — Click to open OKRs`}
           >
             <Flag size={9} className={cn("shrink-0", isDone ? "text-muted" : "text-accent")} />
-            <span className={cn("text-[10px] font-semibold leading-tight truncate flex-1 min-w-0", isDone ? "line-through text-muted" : "text-primary")}>
+            <span className={cn("text-badge font-semibold leading-tight truncate flex-1 min-w-0", isDone ? "line-through text-muted" : "text-primary")}>
               {g.title}
             </span>
-            <span className="text-[9px] font-mono font-bold text-accent shrink-0">
+            <span className="text-badge font-mono font-bold text-accent shrink-0">
               {g.progress}%
             </span>
           </button>
@@ -331,7 +331,7 @@ function MilestoneCell({ day, milestones, goalDeadlines = [], onClickMilestone, 
         <button
           onClick={() => onAddMilestone(day)}
           aria-label="Add milestone"
-          className="absolute bottom-1 left-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center gap-1 py-1 rounded hover:bg-surface-hover text-muted hover:text-accent transition-all text-[9px] font-bold"
+          className="absolute bottom-1 left-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center gap-1 py-1 rounded hover:bg-surface-hover text-muted hover:text-accent transition-all text-badge font-bold"
         >
           <Plus size={10} strokeWidth={3} /> Milestone
         </button>
@@ -388,7 +388,7 @@ const BacklogTaskCard = memo(function BacklogTaskCard({
           <h5 className="text-xs font-semibold text-primary truncate group-hover:text-accent transition-colors">
             {task.title}
           </h5>
-          <span className="text-[9px] text-muted truncate block mt-0.5">
+          <span className="text-badge text-muted truncate block mt-0.5">
             {task.project?.name || 'General Task'}
           </span>
         </div>
@@ -398,11 +398,11 @@ const BacklogTaskCard = memo(function BacklogTaskCard({
         className="flex flex-wrap items-center gap-1 pt-1 border-t border-border/50"
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <span className="text-[9px] text-muted font-medium mr-0.5">Place:</span>
+        <span className="text-badge text-muted font-medium mr-0.5">Place:</span>
         <button
           type="button"
           onClick={() => onScheduleTask && onScheduleTask(task.id, format(new Date(), 'yyyy-MM-dd'))}
-          className="px-1.5 py-0.5 rounded bg-accent/10 hover:bg-accent hover:text-white text-accent text-[9px] font-bold transition-colors cursor-pointer"
+          className="px-1.5 py-0.5 rounded bg-accent/10 hover:bg-accent hover:text-white text-accent text-badge font-bold transition-colors cursor-pointer"
           title="Schedule for Today"
         >
           Today
@@ -412,7 +412,7 @@ const BacklogTaskCard = memo(function BacklogTaskCard({
             key={d.toISOString()}
             type="button"
             onClick={() => onScheduleTask && onScheduleTask(task.id, format(d, 'yyyy-MM-dd'))}
-            className="px-1.5 py-0.5 rounded bg-surface-hover hover:bg-surface text-secondary hover:text-primary border border-border/60 text-[8.5px] font-medium transition-colors cursor-pointer"
+            className="px-1.5 py-0.5 rounded bg-surface-hover hover:bg-surface text-secondary hover:text-primary border border-border/60 text-badge font-medium transition-colors cursor-pointer"
             title={`Schedule for ${format(d, 'EEEE, MMM d')}`}
           >
             {format(d, 'EEE')}
@@ -491,10 +491,10 @@ export function PlannerMatrix({
       if (overData?.type === 'BlockColumn') {
         targetDate = overData.date;
       } else if (overData?.type === 'TimeBlock' && overData.block?.date) {
-        targetDate = format(parseISO(overData.block.date), 'yyyy-MM-dd');
+        targetDate = format((parseLocalDate(overData.block.date) ?? new Date(NaN)), 'yyyy-MM-dd');
       }
       if (!targetDate || !block.date) return;
-      const sourceDate = format(parseISO(block.date), 'yyyy-MM-dd');
+      const sourceDate = format((parseLocalDate(block.date) ?? new Date(NaN)), 'yyyy-MM-dd');
       if (targetDate !== sourceDate) {
         onMoveTimeBlock(block.id, targetDate);
       }
@@ -559,7 +559,7 @@ export function PlannerMatrix({
               type="button"
               onClick={handleToggleAll}
               title={allCollapsed ? "Expand all categories" : "Collapse all categories"}
-              className="p-2 flex flex-col justify-start pt-2 text-[10px] font-bold uppercase tracking-wider text-primary border-r border-border sticky left-0 z-40 bg-surface hover:bg-surface-hover transition-colors cursor-pointer text-left select-none group"
+              className="p-2 flex flex-col justify-start pt-2 text-badge font-bold uppercase tracking-wider text-primary border-r border-border sticky left-0 z-40 bg-surface hover:bg-surface-hover transition-colors cursor-pointer text-left select-none group"
             >
               <div className="flex items-center gap-1.5">
                 {allCollapsed ? (
@@ -581,7 +581,7 @@ export function PlannerMatrix({
                   title="Open day view"
                   className={"flex flex-col items-center justify-center p-1.5 border-r border-border last:border-r-0 cursor-pointer select-none transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset " + (isToday ? "bg-transparent" : "")}
                 >
-                  <div className={"text-[10px] font-bold uppercase " + (isToday ? "text-accent" : "text-secondary")}>
+                  <div className={"text-badge font-bold uppercase " + (isToday ? "text-accent" : "text-secondary")}>
                     {format(day, "EEE")}
                   </div>
                   <div className="flex flex-col items-center gap-1 mt-0.5">
@@ -589,7 +589,7 @@ export function PlannerMatrix({
                       {format(day, "MMM d")}
                     </div>
                     {isToday && (
-                      <span className="inline-flex rounded-full bg-accent px-2 py-0.5 text-[8px] font-bold text-white leading-none">
+                      <span className="inline-flex rounded-full bg-accent px-2 py-0.5 text-badge font-bold text-white leading-none">
                         TODAY
                       </span>
                     )}
@@ -621,7 +621,7 @@ export function PlannerMatrix({
                   <div key={routine.id} className="grid grid-cols-[140px_repeat(7,minmax(125px,1fr))] w-full border-t border-border group/routine">
                     <div className="border-r border-border p-2 flex items-center gap-2 relative sticky left-0 z-20 bg-surface">
                       <CircleDot size={12} className={ROUTINE_COLORS[idx % ROUTINE_COLORS.length]} />
-                      <span className="text-[10px] font-bold text-primary truncate pr-4">{routine.name}</span>
+                      <span className="text-badge font-bold text-primary truncate pr-4">{routine.name}</span>
                       {onDeleteRoutine && (
                         <button
                           type="button"
@@ -678,13 +678,13 @@ export function PlannerMatrix({
                   <div className="border-r border-border flex flex-col h-full sticky left-0 z-20 bg-surface">
                     <CategoryHeader icon={<CheckCircle2 size={13} className="text-[var(--cat-routines)]" />} label="Tasks" subtitle="From Daily Schedule" onToggle={() => handleToggle("tasks")} onAdd={onAddTask} />
                     <div className="px-3 pb-2 flex items-center justify-between">
-                      <span className="text-[9px] text-muted font-medium">{data.tasks.length} tasks</span>
+                      <span className="text-badge text-muted font-medium">{data.tasks.length} tasks</span>
                       {unscheduledTasks.length > 0 && (
                         <button
                           type="button"
                           onClick={() => setShowBacklog(prev => !prev)}
                           className={cn(
-                            "text-[9px] font-bold px-1.5 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1",
+                            "text-badge font-bold px-1.5 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1",
                             showBacklog 
                               ? "bg-accent text-on-accent" 
                               : "bg-warning-bg text-warning-fg hover:bg-warning-subtle"
@@ -692,15 +692,15 @@ export function PlannerMatrix({
                           title="Toggle Unscheduled Backlog drawer"
                         >
                           <span>Backlog</span>
-                          <span className="px-1 rounded-full bg-black/10 text-[8px] font-mono">{unscheduledTasks.length}</span>
+                          <span className="px-1 rounded-full bg-black/10 text-badge font-mono">{unscheduledTasks.length}</span>
                         </button>
                       )}
                     </div>
                   </div>
                   {days.map((day) => {
                     const dayTasks = data.tasks.filter(
-                      (t) => (t.scheduledDate && isSameDay(parseISO(t.scheduledDate), day)) ||
-                             (!t.scheduledDate && t.dueDate && isSameDay(parseISO(t.dueDate), day))
+                      (t) => (t.scheduledDate && isSameDay((parseLocalDate(t.scheduledDate) ?? new Date(NaN)), day)) ||
+                             (!t.scheduledDate && t.dueDate && isSameDay((parseLocalDate(t.dueDate) ?? new Date(NaN)), day))
                     );
                     return (
                       <DroppableTaskCell key={dateKey(day)} day={day} tasks={dayTasks} dateKeyFn={dateKey} onClickTask={onClickTask} onToggleTask={onToggleTask} onAddTask={onAddTask} onDeleteTask={onDeleteTask} />
@@ -715,14 +715,14 @@ export function PlannerMatrix({
                       <div className="flex items-center gap-2">
                         <Clock className="w-3.5 h-3.5 text-warning-fg" />
                         <span className="text-xs font-bold text-primary">Unscheduled Backlog ({unscheduledTasks.length})</span>
-                        <span className="text-[10px] text-muted hidden sm:inline">
+                        <span className="text-badge text-muted hidden sm:inline">
                           Place a directive directly into this week's plan:
                         </span>
                       </div>
                       <button 
                         type="button"
                         onClick={() => setShowBacklog(false)}
-                        className="text-[10px] text-muted hover:text-primary transition-colors cursor-pointer"
+                        className="text-badge text-muted hover:text-primary transition-colors cursor-pointer"
                       >
                         Dismiss
                       </button>
@@ -759,7 +759,7 @@ export function PlannerMatrix({
                   <CategoryHeader icon={<Clock size={13} className="text-muted" />} label="Time Blocks" subtitle="Planned time" onToggle={() => handleToggle("timeBlocks")} onAdd={onAddTimeBlock} />
                 </div>
                 {days.map((day) => {
-                  const dayBlocks = normalBlocks.filter(b => isSameDay(parseISO(b.date), day));
+                  const dayBlocks = normalBlocks.filter(b => isSameDay((parseLocalDate(b.date) ?? new Date(NaN)), day));
                   return (
                     <TimeBlockCell key={dateKey(day)} day={day} blocks={dayBlocks} tasks={data.tasks || []} onClickTimeBlock={onClickTimeBlock} onAddTimeBlock={onAddTimeBlock} onDeleteTimeBlock={onDeleteTimeBlock} />
                   );
@@ -781,8 +781,8 @@ export function PlannerMatrix({
                   <CategoryHeader icon={<Target size={13} className="text-cat-projects" />} label="Milestones" subtitle={`${(data.milestones || []).length} milestones${(data.goalDeadlines || []).length > 0 ? ` • ${(data.goalDeadlines || []).length} goals` : ''}`} onToggle={() => handleToggle("milestones")} onAdd={onAddMilestone ? () => onAddMilestone() : undefined} />
                 </div>
                 {days.map((day) => {
-                  const dayMilestones = (data.milestones || []).filter(m => m.date && isSameDay(parseISO(m.date), day));
-                  const dayGoalDeadlines = (data.goalDeadlines || []).filter(g => g.targetDate && isSameDay(parseISO(g.targetDate), day));
+                  const dayMilestones = (data.milestones || []).filter(m => m.date && isSameDay((parseLocalDate(m.date) ?? new Date(NaN)), day));
+                  const dayGoalDeadlines = (data.goalDeadlines || []).filter(g => g.targetDate && isSameDay((parseLocalDate(g.targetDate) ?? new Date(NaN)), day));
                   return (
                     <MilestoneCell key={dateKey(day)} day={day} milestones={dayMilestones} goalDeadlines={dayGoalDeadlines} onClickMilestone={onClickMilestone} onToggleMilestone={onToggleMilestone} onAddMilestone={onAddMilestone} onClickGoalDeadline={onClickGoalDeadline} />
                   );
@@ -808,11 +808,11 @@ export function PlannerMatrix({
               <div className={cn("p-2 rounded-md border-l-2 shadow-2xl text-xs font-semibold max-w-[200px] opacity-95 ring-2 ring-accent/30 flex flex-col gap-0.5 pointer-events-none", cfg.border, cfg.bg)}>
                 <div className="flex items-center gap-1">
                   <Icon size={10} className={cfg.color} />
-                  <span className="text-[9px] font-bold text-secondary">
+                  <span className="text-badge font-bold text-secondary">
                     {safeTimeFormat(activeBlock.startTime)} - {safeTimeFormat(activeBlock.endTime)}
                   </span>
                 </div>
-                <span className="text-[10px] font-semibold text-primary truncate">{activeBlock.title}</span>
+                <span className="text-badge font-semibold text-primary truncate">{activeBlock.title}</span>
               </div>
             );
           })()
@@ -834,11 +834,11 @@ function CategoryHeader({ label, subtitle, icon, onToggle, onAdd }: { label: str
         onClick={onToggle}
         className="flex flex-col text-left flex-1"
       >
-        <div className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+        <div className="text-badge font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
           {icon || <ChevronDown size={13} className="text-secondary" />}
           {label}
         </div>
-        <div className="text-[9px] text-secondary font-medium mt-0.5 ml-5">
+        <div className="text-badge text-secondary font-medium mt-0.5 ml-5">
           {subtitle}
         </div>
       </button>
@@ -883,11 +883,11 @@ function MatrixRow({
           onClick={onToggle}
           className="w-full p-2 flex items-center text-left hover:bg-surface-hover transition-colors"
         >
-          <div className="w-[128px] flex items-center text-[10px] font-bold uppercase tracking-wider text-primary gap-1.5 shrink-0">
+          <div className="w-[128px] flex items-center text-badge font-bold uppercase tracking-wider text-primary gap-1.5 shrink-0">
             {icon || <ChevronDown size={13} className="-rotate-90 text-secondary" />}
             {label}
           </div>
-          <div className="text-[9px] text-secondary font-medium">
+          <div className="text-badge text-secondary font-medium">
             {subtitle}
           </div>
         </button>

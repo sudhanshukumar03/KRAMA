@@ -1,118 +1,51 @@
 import type { Request, Response } from 'express';
 import { prisma } from '../prisma';
-import { logActivity } from '../services/activity.service';
+import { createHash } from 'node:crypto';
 import { buildFocusSchedule } from '../services/focusTimer.service';
-import { redisService } from '../services/redis.service';
 import { socketService } from '../services/socket.service';
 
 export const completeFocusSession = async (req: Request, res: Response) => {
   try {
-    let workspaceId = req.headers['x-workspace-id'] as string;
+    const workspaceId = (req as any).workspaceId || req.headers['x-workspace-id'] || req.body?.workspaceId;
     const userId = req.user!.id;
-
-    if (!workspaceId) {
-      const membership = await prisma.workspaceMember.findFirst({
-        where: { userId },
-        select: { workspaceId: true }
-      });
-      if (membership) {
-        workspaceId = membership.workspaceId;
-      }
-    }
-
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
-
-    const { duration, startTime, endTime, type, projectId, taskId } = req.body;
-    if (duration === undefined || startTime === undefined) {
-      return res.status(400).json({ message: 'duration and startTime are required' });
-    }
-
-    const numDuration = typeof duration === 'number' ? duration : parseInt(duration, 10);
-    if (isNaN(numDuration) || numDuration <= 0 || numDuration > 86400) {
-      return res.status(400).json({ message: 'duration must be a positive number of seconds (up to 86400)' });
-    }
-
+    const { duration, startTime, endTime, type, projectId, taskId, completionId } = req.body;
+    const numDuration = Number(duration);
+    if (!Number.isInteger(numDuration) || numDuration <= 0 || numDuration > 86400) return res.status(400).json({ message: 'duration must be a positive number of seconds (up to 86400)' });
     const parsedStart = new Date(startTime);
-    if (isNaN(parsedStart.getTime())) {
-      return res.status(400).json({ message: 'startTime must be a valid date' });
-    }
-
     const parsedEnd = endTime ? new Date(endTime) : new Date();
-    if (isNaN(parsedEnd.getTime())) {
-      return res.status(400).json({ message: 'endTime must be a valid date' });
-    }
-
-    const ALLOWED_TYPES = ['pomodoro', 'short_break', 'long_break', 'custom', 'clock'];
-    const sessionType = typeof type === 'string' && ALLOWED_TYPES.includes(type) ? type : 'pomodoro';
-    // Only genuine work sessions count toward deep work; breaks and the ambient
-    // clock must not inflate the daily deep-work metric or consume the focus cap.
-    const _isWorkSession = sessionType === 'pomodoro' || sessionType === 'custom';
-
-    // Verify task and project belong to current workspace if provided
-    let validTaskId: string | null = null;
-    let validProjectId: string | null = null;
-
-    if (taskId && typeof taskId === 'string') {
-      const task = await prisma.task.findFirst({
-        where: { id: taskId, workspaceId },
-        select: { id: true }
-      });
-      if (task) validTaskId = task.id;
-    }
-
-    if (projectId && typeof projectId === 'string') {
-      const project = await prisma.project.findFirst({
-        where: { id: projectId, workspaceId },
-        select: { id: true }
-      });
-      if (project) validProjectId = project.id;
-    }
-
-    // 1. Save FocusSession
-    const session = await prisma.focusSession.create({
-      data: {
-        startTime: parsedStart,
-        endTime: parsedEnd,
-        duration: numDuration,
-        completed: true,
-        type: sessionType,
-        projectId: validProjectId,
-        taskId: validTaskId,
-        userId,
-        workspaceId
+    if (!startTime || Number.isNaN(+parsedStart) || Number.isNaN(+parsedEnd) || parsedEnd < parsedStart) return res.status(400).json({ message: 'Provide valid session start and end times.' });
+    const allowed = ['pomodoro', 'short_break', 'long_break', 'custom', 'clock'];
+    const sessionType = typeof type === 'string' && allowed.includes(type) ? type : 'pomodoro';
+    if (completionId !== undefined && (typeof completionId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(completionId))) return res.status(400).json({ message: 'Invalid completion identifier' });
+    // The primary key is the durable idempotency key. Older clients get a stable
+    // key for the exact same session window, without requiring a schema change.
+    const digest = createHash('sha256').update(JSON.stringify([userId, workspaceId, parsedStart.toISOString(), endTime ? parsedEnd.toISOString() : null, sessionType])).digest('hex').slice(0, 32);
+    const id = completionId || `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20)}`;
+    const [task, project] = await Promise.all([
+      taskId ? prisma.task.findFirst({ where: { id: taskId, workspaceId, deletedAt: null }, select: { id: true } }) : null,
+      projectId ? prisma.project.findFirst({ where: { id: projectId, workspaceId, deletedAt: null }, select: { id: true } }) : null,
+    ]);
+    const replay = async () => {
+      const existing = await prisma.focusSession.findUnique({ where: { id } });
+      if (!existing || existing.userId !== userId || existing.workspaceId !== workspaceId || existing.duration !== numDuration || existing.type !== sessionType || (existing.taskId !== (taskId || null) && existing.taskId !== (task?.id || null)) || (existing.projectId !== (projectId || null) && existing.projectId !== (project?.id || null)) || +existing.startTime !== +parsedStart || (endTime && +existing.endTime! !== +parsedEnd)) return null;
+      return existing;
+    };
+    let session = await replay();
+    if (!session) {
+      try {
+        session = await prisma.$transaction(async tx => {
+          const created = await tx.focusSession.create({ data: { id, startTime: parsedStart, endTime: parsedEnd, duration: numDuration, completed: true, type: sessionType, projectId: project?.id || null, taskId: task?.id || null, userId, workspaceId } });
+          await tx.activityLog.create({ data: { userId, workspaceId, action: 'POMODORO_COMPLETED', entityType: 'FocusSession', entityId: created.id, metadata: { duration: numDuration, type: sessionType } } });
+          return created;
+        });
+      } catch (error: any) {
+        if (error.code !== 'P2002') throw error;
+        session = await replay();
+        if (!session) return res.status(409).json({ message: 'This completion identifier was already used for a different session.' });
       }
-    });
-
-    // 2. Log Activity
-    await logActivity({
-      userId,
-      workspaceId,
-      action: 'POMODORO_COMPLETED',
-      entityType: 'FocusSession',
-      entityId: session.id,
-      metadata: { duration, type }
-    });
-
-    // 3. Invalidate Redis schedule cache
-    try {
-      await redisService.del(`focus:schedule:${userId}:${workspaceId}`);
-      await redisService.del(`focus:schedule:${userId}`);
-    } catch (cacheErr) {
-      console.warn('Redis cache invalidation warning:', cacheErr);
     }
-
-    // 4. Emit socket event for cross-tab sync
-    try {
-      socketService.emitToUser(userId, 'focus:session:completed', {
-        sessionId: session.id,
-        duration: session.duration,
-        type: session.type,
-        taskId: session.taskId,
-      });
-    } catch (sockErr) {
-      console.warn('Socket emit warning:', sockErr);
-    }
-
+    socketService.emitToUser(userId, 'focus:session:completed', { sessionId: session.id, workspaceId, duration: session.duration, type: session.type, taskId: session.taskId });
     return res.status(201).json({ session });
   } catch (error) {
     console.error('Error completing focus session:', error);
@@ -122,7 +55,7 @@ export const completeFocusSession = async (req: Request, res: Response) => {
 
 export const getSchedule = async (req: Request, res: Response) => {
   try {
-    let workspaceId = req.headers['x-workspace-id'] as string;
+    let workspaceId = ((req as any).workspaceId || req.headers['x-workspace-id'] || req.body?.workspaceId) as string;
     const userId = req.user!.id;
 
     if (!workspaceId) {
@@ -144,18 +77,12 @@ export const getSchedule = async (req: Request, res: Response) => {
     const metadata = (user?.metadata as Record<string, any>) || {};
     const timerPrefs = metadata.timerPreferences || {};
 
-    const cacheKey = `focus:schedule:${userId}:${workspaceId}`;
-    const cached = await redisService.get(cacheKey);
-    if (cached) {
-      try {
-        return res.json(JSON.parse(cached));
-      } catch {}
-    }
-
-    const schedule = await buildFocusSchedule(userId, workspaceId, timerPrefs);
-    await redisService.set(cacheKey, JSON.stringify(schedule), 300); // 5 min TTL
+    // Read current source records so Planner/task/preference edits are immediately
+    // visible; a five-minute schedule snapshot hid changes even after refetch.
+    const schedule = await buildFocusSchedule(userId, workspaceId, timerPrefs, req.headers['x-timezone'] as string | undefined, req.headers['x-timezone-offset'] as string | undefined);
     return res.json(schedule);
   } catch (error) {
+    if ((error as Error).message?.startsWith('Invalid ')) return res.status(400).json({ message: (error as Error).message });
     console.error('Error fetching focus schedule:', error);
     return res.status(500).json({ message: 'Failed to build focus schedule' });
   }

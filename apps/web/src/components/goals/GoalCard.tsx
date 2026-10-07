@@ -7,7 +7,7 @@ import {
   Plus, MoreHorizontal, Star, Pencil, Trash2, FolderKanban, Flame,
   Trophy, Maximize2, Check, Zap
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, formatLocalDate } from '../../lib/utils';
 import type { GoalWithRelations } from '../../types/schema';
 import { computeGoalPace } from '../../lib/goalUtils';
 import { toast } from 'sonner';
@@ -94,6 +94,11 @@ export const GoalCard = React.memo(function GoalCard({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goal.id] });
       toast.success(`Incremented metric to ${(metadata.currentValue ?? 0) + 1}`);
     },
@@ -105,11 +110,13 @@ export const GoalCard = React.memo(function GoalCard({
   // 1-Click Habit Completion directly on GoalCard
   const logHabitMutation = useMutation({
     mutationFn: async (habitId: string) => {
-      const todayIso = new Date().toISOString().split('T')[0];
-      return api.habits.complete(habitId, todayIso, new Date().toISOString());
+      const localDay = formatLocalDate(new Date()) || '';
+      return api.habits.complete(habitId, localDay, `${localDay}T12:00:00.000Z`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
       toast.success('Habit logged for today! Momentum maintained 🔥');
     },
     onError: (err: any) =>
@@ -128,6 +135,11 @@ export const GoalCard = React.memo(function GoalCard({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       setMenuOpen(false);
       toast.success(isPinned ? 'Removed from Spotlight' : 'Pinned to Spotlight');
     },
@@ -139,12 +151,22 @@ export const GoalCard = React.memo(function GoalCard({
     try {
       await api.goals.delete(goal.id);
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       toast.success(`Deleted "${goal.title}"`, {
         action: {
           label: 'Undo',
           onClick: async () => {
             await api.goals.restore(goal.id);
             queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
             toast.success(`Restored "${goal.title}"`);
           },
         },
@@ -226,7 +248,8 @@ export const GoalCard = React.memo(function GoalCard({
             <div className="min-w-0 flex-1">
               {/* Title & Badges */}
               <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                <h3
+                <button
+                  type="button"
                   onClick={() => onOpenDetail?.(goal)}
                   className={cn(
                     'font-semibold text-primary group-hover/goal:text-accent-fg transition-colors cursor-pointer truncate',
@@ -235,7 +258,7 @@ export const GoalCard = React.memo(function GoalCard({
                   title={goal.title}
                 >
                   {goal.title}
-                </h3>
+                </button>
 
                 {/* Pillar Tag (only on parent or when defined) */}
                 {metadata.category && metadata.category !== 'all' && (
@@ -412,6 +435,8 @@ export const GoalCard = React.memo(function GoalCard({
                 type="button"
                 onClick={() => setMenuOpen(!menuOpen)}
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-hover transition-colors cursor-pointer"
+                aria-label={`Options for ${goal.title}`}
+                aria-expanded={menuOpen}
                 title="Options"
               >
                 <MoreHorizontal className="w-4 h-4 stroke-[1.75]" />

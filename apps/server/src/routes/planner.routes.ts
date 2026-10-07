@@ -3,7 +3,8 @@ import { Router, type Request, type Response } from 'express';
 import { prisma } from '../prisma';
 import { calculateCapacity } from '../services/capacity.service';
 import { habitService } from '../services/habit.service';
-import { requireAuth } from '../middlewares/auth.middleware';
+import { socketService } from '../services/socket.service';
+import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 import {
   TimeBlockSchema,
   TimeBlockUpdateSchema,
@@ -16,12 +17,26 @@ import {
   canonicalDay,
   createDateTime,
   toHHmm,
-  isCapacityWeekday,
+  isCapacityHoliday,
 } from '../services/plannerTime';
 
 const router: Router = Router();
 const holidaySync = new HolidaySyncService();
 router.use(requireAuth);
+router.use(requireWorkspaceRole('VIEWER'));
+router.use(async (req, res, next) => {
+  const workspaceId = getWorkspaceId(req);
+  if (!workspaceId) return next();
+  try {
+    const member = await prisma.workspaceMember.findUnique({
+      where: { userId_workspaceId: { userId: getUserId(req), workspaceId } },
+      select: { id: true },
+    });
+    if (!member) return res.status(403).json({ message: 'Forbidden: Not a member of this workspace' });
+    next();
+  } catch { return res.status(500).json({ message: 'Unable to verify workspace access' }); }
+});
+
 
 function getUserId(req: Request): string {
   return (req as any).user?.id;
@@ -110,7 +125,7 @@ router.get('/week', async (req: Request, res: Response) => {
       timeBlocks,
       projects,
       milestones,
-      holidaysList,
+      holidayData,
       goalDeadlinesRaw,
     ] = await Promise.all([
       prisma.habit.findMany({
@@ -165,15 +180,14 @@ router.get('/week', async (req: Request, res: Response) => {
         const cc = user.countryCode || 'IN';
         const rc = user.regionCode || null;
         const years = [...new Set([weekStart.getUTCFullYear(), weekEnd.getUTCFullYear()])];
-        const jobs: Promise<any[]>[] = [];
-        for (const y of years) {
-          jobs.push(holidaySync.ensureHolidays({ countryCode: cc, regionCode: null, year: y }));
-          if (rc) {
-            jobs.push(holidaySync.ensureHolidays({ countryCode: cc, regionCode: rc, year: y }));
-          }
-        }
-        const perGroup = await Promise.all(jobs);
-        return perGroup.flat();
+        const perYear = await Promise.all(years.map(year => holidaySync.getCalendar({ countryCode: cc, regionCode: rc, year })));
+        return {
+          holidays: perYear.flatMap(group => group.holidays),
+          coverage: {
+            missingNationalYears: perYear.flatMap(group => group.missingNationalYears),
+            missingRegionalYears: perYear.flatMap(group => group.missingRegionalYears),
+          },
+        };
       })(),
       // Goals with a target date inside the week — surfaced as deadline chips in the
       // planner views. Workspace-scoped; no schema change (goals already carry
@@ -194,7 +208,7 @@ router.get('/week', async (req: Request, res: Response) => {
 
     const workDayMinutes = Math.round((user.weeklyCapacityMinutes ?? 2400) / 5);
 
-    const holidayBlocks = (holidaysList || []).filter((h: any) => {
+    const holidayBlocks = holidayData.holidays.filter((h: any) => {
       const hDate = new Date(h.date);
       return hDate >= weekStart && hDate <= weekEnd;
     }).map((h: any) => {
@@ -212,6 +226,8 @@ router.get('/week', async (req: Request, res: Response) => {
         endTime,
         type: 'OTHER',
         isExternal: true,
+        isPublicHoliday: h.isPublicHoliday,
+        isOptional: h.isOptional,
         source: 'Holiday'
       };
     });
@@ -222,7 +238,7 @@ router.get('/week', async (req: Request, res: Response) => {
     // reduce it — a holiday that lands on a Saturday/Sunday deducts nothing.
     // Weekend holidays still appear as blocks in the payload (for display); they
     // just don't feed the capacity calculation.
-    const capacityHolidayBlocks = holidayBlocks.filter((h: any) => isCapacityWeekday(new Date(h.date)));
+    const capacityHolidayBlocks = holidayBlocks.filter((h: any) => isCapacityHoliday({ ...h, date: new Date(h.date) }));
 
     const capacity = calculateCapacity(
       user.weeklyCapacityMinutes ?? 2400,
@@ -341,6 +357,7 @@ router.get('/week', async (req: Request, res: Response) => {
       : Math.round((completedThisWeek.length / scheduledThisWeek.length) * 100);
 
     return res.json({
+      holidayCoverage: holidayData.coverage,
       weekStart: weekStart.toISOString(),
       weekEnd: weekEnd.toISOString(),
       config: {
@@ -391,6 +408,7 @@ router.post('/time-blocks', async (req: Request, res: Response) => {
       if (member) workspaceId = member.workspaceId;
     }
 
+    if (!workspaceId) return res.status(400).json({ message: "workspaceId is required" });
     const body = TimeBlockSchema.parse(req.body);
     // Anchor the stored day at UTC noon so it buckets consistently across
     // timezones and the same-day overlap check compares like-for-like.
@@ -446,6 +464,7 @@ router.post('/time-blocks', async (req: Request, res: Response) => {
       return res.status(409).json({ message: "Time block overlaps with an existing block on this date" });
     }
 
+    socketService.emitToUser(userId, 'planner:changed', { workspaceId });
     return res.status(201).json(result.block);
   } catch (error) {
     console.error('Create time block:', error);
@@ -466,6 +485,13 @@ router.patch('/time-blocks/:id', async (req: Request, res: Response) => {
     if (!existing) {
       return res.status(404).json({ message: 'Time block not found' });
     }
+    if (existing.workspaceId) {
+      const member = await prisma.workspaceMember.findUnique({
+        where: { userId_workspaceId: { userId, workspaceId: existing.workspaceId } }, select: { id: true },
+      });
+      if (!member) return res.status(403).json({ message: 'Forbidden' });
+    }
+
 
     const body = TimeBlockUpdateSchema.parse(req.body);
     // Always rebuild both instants against the effective (canonical) day. A
@@ -488,7 +514,9 @@ router.patch('/time-blocks/:id', async (req: Request, res: Response) => {
     // workspace context. Using `existing.workspaceId || ''` alone let a
     // null-workspace block be re-linked to a task/project in another workspace
     // (the verification is skipped for an empty workspace id) — a soft IDOR.
-    const linkWorkspaceId = existing.workspaceId || workspaceId || '';
+    const fallbackMember = !existing.workspaceId && !workspaceId ? await prisma.workspaceMember.findFirst({ where: { userId }, select: { workspaceId: true } }) : null;
+    const linkWorkspaceId = existing.workspaceId || workspaceId || fallbackMember?.workspaceId || '';
+    if (!linkWorkspaceId && (taskId || projectId)) return res.status(403).json({ message: 'Workspace access required for linked items' });
     const links = await verifyBlockLinks(linkWorkspaceId, taskId ?? null, projectId ?? null);
     if ('status' in links) {
       return res.status(links.status).json({ message: links.message });
@@ -530,6 +558,7 @@ router.patch('/time-blocks/:id', async (req: Request, res: Response) => {
       return res.status(409).json({ message: "Time block overlaps with an existing block on this date" });
     }
 
+    socketService.emitToUser(userId, 'planner:changed', { workspaceId });
     return res.json(result.block);
   } catch (error) {
     console.error('Update time block:', error);
@@ -550,8 +579,16 @@ router.delete('/time-blocks/:id', async (req: Request, res: Response) => {
     if (!block) {
       return res.status(404).json({ message: 'Time block not found' });
     }
+    if (block.workspaceId) {
+      const member = await prisma.workspaceMember.findUnique({
+        where: { userId_workspaceId: { userId, workspaceId: block.workspaceId } }, select: { id: true },
+      });
+      if (!member) return res.status(403).json({ message: 'Forbidden' });
+    }
+
 
     await prisma.timeBlock.delete({ where: { id: block.id } });
+    socketService.emitToUser(userId, 'planner:changed', { workspaceId: block.workspaceId });
     return res.status(204).send();
   } catch (error) {
     console.error('Delete time block:', error);
@@ -559,7 +596,7 @@ router.delete('/time-blocks/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.patch('/routine-occurrences', async (req: Request, res: Response) => {
+router.patch('/routine-occurrences', requireWorkspaceRole('MEMBER'), async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
@@ -664,7 +701,7 @@ router.get('/milestones', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/milestones', async (req: Request, res: Response) => {
+router.post('/milestones', requireWorkspaceRole('MEMBER'), async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
@@ -679,6 +716,7 @@ router.post('/milestones', async (req: Request, res: Response) => {
       select: { workspaceId: true, deletedAt: true },
     });
     if (!project || project.deletedAt) return res.status(404).json({ message: 'Project not found' });
+    if (getWorkspaceId(req) && getWorkspaceId(req) !== project.workspaceId) return res.status(403).json({ message: 'Project belongs to another workspace' });
     const projectMembership = await prisma.workspaceMember.findUnique({
       where: { userId_workspaceId: { userId, workspaceId: project.workspaceId } },
       select: { id: true },
@@ -701,15 +739,22 @@ router.post('/milestones', async (req: Request, res: Response) => {
   }
 });
 
-router.patch('/milestones/:id', async (req: Request, res: Response) => {
+router.patch('/milestones/:id', requireWorkspaceRole('MEMBER'), async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     const existing = await prisma.milestone.findFirst({
       where: { id: req.params.id as string, userId, project: { deletedAt: null } },
+      include: { project: { select: { workspaceId: true } } },
     });
     if (!existing) return res.status(404).json({ message: 'Milestone not found' });
+    if (getWorkspaceId(req) && existing.project.workspaceId !== getWorkspaceId(req)) return res.status(404).json({ message: 'Milestone not found' });
+    const sourceMember = await prisma.workspaceMember.findUnique({
+      where: { userId_workspaceId: { userId, workspaceId: existing.project.workspaceId } }, select: { id: true },
+    });
+    if (!sourceMember) return res.status(403).json({ message: 'Forbidden' });
+
 
     const body = MilestoneUpdateSchema.parse(req.body);
     const dataToUpdate: any = { ...body };
@@ -725,6 +770,7 @@ router.patch('/milestones/:id', async (req: Request, res: Response) => {
         select: { workspaceId: true, deletedAt: true },
       });
       if (!project || project.deletedAt) return res.status(404).json({ message: 'Project not found' });
+    if (getWorkspaceId(req) && getWorkspaceId(req) !== project.workspaceId) return res.status(403).json({ message: 'Project belongs to another workspace' });
       const projectMembership = await prisma.workspaceMember.findUnique({
         where: { userId_workspaceId: { userId, workspaceId: project.workspaceId } },
         select: { id: true },
@@ -744,15 +790,22 @@ router.patch('/milestones/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/milestones/:id', async (req: Request, res: Response) => {
+router.delete('/milestones/:id', requireWorkspaceRole('MEMBER'), async (req: Request, res: Response) => {
   try {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     const existing = await prisma.milestone.findFirst({
-      where: { id: req.params.id as string, userId },
+      where: { id: req.params.id as string, userId, project: { deletedAt: null } },
+      include: { project: { select: { workspaceId: true } } },
     });
     if (!existing) return res.status(404).json({ message: 'Milestone not found' });
+    if (getWorkspaceId(req) && existing.project.workspaceId !== getWorkspaceId(req)) return res.status(404).json({ message: 'Milestone not found' });
+    const sourceMember = await prisma.workspaceMember.findUnique({
+      where: { userId_workspaceId: { userId, workspaceId: existing.project.workspaceId } }, select: { id: true },
+    });
+    if (!sourceMember) return res.status(403).json({ message: 'Forbidden' });
+
 
     await prisma.milestone.delete({
       where: { id: existing.id },

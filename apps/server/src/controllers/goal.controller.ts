@@ -54,6 +54,7 @@ export const createGoal = async (req: Request, res: Response) => {
     return res.status(201).json(goal);
   } catch (error: any) {
     console.error('Goal Create Error:', error);
+    if (error.message?.startsWith('Invalid ')) return res.status(400).json({ message: error.message });
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
     return res.status(500).json({ message: 'Internal server error' });
   }
@@ -75,8 +76,10 @@ export const updateGoal = async (req: Request, res: Response) => {
     const goal = await goalService.updateGoal(req.params.id as string, workspaceId, cleanData, req.user!.id);
     return res.status(200).json(goal);
   } catch (error: any) {
+    if (error.message?.startsWith('Invalid ')) return res.status(400).json({ message: error.message });
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
     if (error.message === 'Goal not found') return res.status(404).json({ message: error.message });
+    if (error.code === 'P2025') return res.status(409).json({ message: 'Conflict: version mismatch' });
     if (error.message.includes('Conflict')) return res.status(409).json({ message: error.message });
     return res.status(500).json({ message: 'Internal server error' });
   }
@@ -101,6 +104,7 @@ export const restoreGoal = async (req: Request, res: Response) => {
     return res.status(200).json(goal);
   } catch (error: any) {
     if (error.message === 'Goal not found') return res.status(404).json({ message: error.message });
+    if (error.code === 'P2025') return res.status(409).json({ message: 'Conflict: version mismatch' });
     if (error.message.includes('Conflict')) return res.status(409).json({ message: error.message });
     return res.status(500).json({ message: 'Internal server error' });
   }

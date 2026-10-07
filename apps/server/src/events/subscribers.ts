@@ -16,7 +16,7 @@ domainEventBus.onEvent<{ taskId: string; workspaceId: string; userId?: string }>
   if (payload.workspaceId) socketService.emitToWorkspace(payload.workspaceId, 'task:deleted', payload);
 });
 
-domainEventBus.onEvent<{ taskId: string; workspaceId: string; userId?: string }>('TASK_COMPLETED', async (payload) => {
+domainEventBus.onEvent<{ taskId: string; workspaceId: string; userId?: string; completionVersion?: number }>('TASK_COMPLETED', async (payload) => {
   let recipientId = payload.userId;
 
   if (!recipientId) {
@@ -49,7 +49,8 @@ domainEventBus.onEvent<{ taskId: string; workspaceId: string; userId?: string }>
     taskId: payload.taskId,
     workspaceId: payload.workspaceId,
     userId: recipientId,
-  });
+    completionVersion: payload.completionVersion,
+  }, payload.completionVersion === undefined ? {} : { jobId: `task-completion-${payload.taskId}-${payload.completionVersion}` });
 });
 
 domainEventBus.onEvent<{ goalId: string; workspaceId: string }>('GOAL_CREATED', (payload) => {
@@ -103,4 +104,3 @@ domainEventBus.onEvent<{ habitId: string; workspaceId: string; streak?: number }
 domainEventBus.onEvent<{ habitId: string; workspaceId: string }>('HABIT_RESTORED', (payload) => {
   if (payload.workspaceId) socketService.emitToWorkspace(payload.workspaceId, 'habit:restored', payload);
 });
-

@@ -162,9 +162,9 @@ export const TimerLayoutSidebar: React.FC<TimerLayoutProps> = ({
                   </>
                 )}
               </div>
-              <span className="text-[10px] font-mono text-white/50 ml-2 shrink-0">
+              {totalSlots > 0 && <span className="text-[10px] font-mono text-white/50 ml-2 shrink-0">
                 ({currentSlotIndex + 1}/{totalSlots})
-              </span>
+              </span>}
             </div>
           )}
         </div>

@@ -22,6 +22,16 @@ const projectInclude = {
   },
 } satisfies Prisma.ProjectInclude;
 
+async function validGoal(goalId: string | null | undefined, workspaceId: string) {
+  return !goalId || !!await prisma.goal.findFirst({ where: { id: goalId, workspaceId, deletedAt: null }, select: { id: true } });
+}
+
+// Older invalid links must not expose another workspace's goal in responses.
+function safeProject<T extends { workspaceId: string; goal: any }>(project: T): T {
+  return project.goal && (project.goal.workspaceId !== project.workspaceId || project.goal.deletedAt)
+    ? { ...project, goal: null } : project;
+}
+
 export const listProjects = async (req: Request, res: Response) => {
   try {
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
@@ -36,7 +46,7 @@ export const listProjects = async (req: Request, res: Response) => {
       orderBy: { position: 'asc' },
     });
     
-    return res.status(200).json(projects);
+    return res.status(200).json(projects.map(safeProject));
   } catch (error) {
     console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
@@ -49,14 +59,14 @@ export const getProject = async (req: Request, res: Response) => {
 
     const project = await prisma.project.findUnique({
       where: { id },
-      include: projectInclude,
+      include: { ...projectInclude, milestones: { where: { userId: req.user!.id }, orderBy: { date: 'asc' } } },
     });
 
     if (!project || project.deletedAt || project.workspaceId !== workspaceId) {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    return res.status(200).json(project);
+    return res.status(200).json(safeProject(project));
   } catch (error) {
     console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
@@ -68,6 +78,7 @@ export const createProject = async (req: Request, res: Response) => {
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
     const data = CreateProjectSchema.parse({ ...req.body, workspaceId });
+    if (!await validGoal(data.goalId, workspaceId)) return res.status(400).json({ message: 'Linked goal must be active in this workspace' });
     
     // Auto-increment position to place at the bottom
     const lastProject = await prisma.project.findFirst({
@@ -103,7 +114,7 @@ export const createProject = async (req: Request, res: Response) => {
       socketService.emitToWorkspace(project.workspaceId, 'project:created', { projectId: project.id, workspaceId: project.workspaceId, goalId: project.goalId });
     }
 
-    return res.status(201).json(project);
+    return res.status(201).json(safeProject(project));
   } catch (error: any) {
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
     console.error(error); return res.status(500).json({ message: 'Internal server error' });
@@ -124,9 +135,14 @@ export const updateProject = async (req: Request, res: Response) => {
       return res.status(409).json({ message: 'Conflict: version mismatch' });
     }
 
+    if (!await validGoal(data.goalId === undefined ? existing.goalId : data.goalId, workspaceId)) return res.status(400).json({ message: 'Linked goal must be active in this workspace' });
+
     const { version: _version, workspaceId: _bodyWorkspaceId, targetDate, progress: _progress, skillIds: _skillIds, description, color, ...updateData } = data as any;
 
-    let metadata = updateData.metadata !== undefined ? updateData.metadata : (existing.metadata as any || {});
+    let metadata = { ...(existing.metadata as any), ...updateData.metadata };
+    // This marker is server-owned. A deliberate goal choice cancels Undo recovery.
+    delete metadata.goalUndo;
+    if (data.goalId === undefined && (existing.metadata as any)?.goalUndo) metadata.goalUndo = (existing.metadata as any).goalUndo;
     if (targetDate !== undefined) {
       metadata = { ...metadata, targetDate: targetDate || null };
     }
@@ -138,7 +154,7 @@ export const updateProject = async (req: Request, res: Response) => {
     }
 
     const project = await prisma.project.update({
-      where: { id },
+      where: { id, workspaceId, deletedAt: null, version: data.version },
       data: {
         ...updateData,
         metadata,
@@ -152,7 +168,7 @@ export const updateProject = async (req: Request, res: Response) => {
     // refresh both the old and new goal (recompute no-ops on manual goals).
     if (existing.goalId !== project.goalId) {
       for (const gid of [existing.goalId, project.goalId]) {
-        if (gid) await goalService.recomputeAutoProgress(gid, req.user!.id).catch(() => {});
+        if (gid && await validGoal(gid, workspaceId)) await goalService.recomputeAutoProgress(gid, req.user!.id).catch(() => {});
       }
     }
 
@@ -160,8 +176,9 @@ export const updateProject = async (req: Request, res: Response) => {
       socketService.emitToWorkspace(project.workspaceId, 'project:updated', { projectId: project.id, workspaceId: project.workspaceId, goalId: project.goalId });
     }
 
-    return res.status(200).json(project);
+    return res.status(200).json(safeProject(project));
   } catch (error: any) {
+    if (error.code === 'P2025') return res.status(409).json({ message: 'Conflict: project changed; reload and try again' });
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
     console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
@@ -183,6 +200,7 @@ export const deleteProject = async (req: Request, res: Response) => {
         where: { id },
         data: {
           deletedAt: now,
+          version: { increment: 1 },
           updatedBy: req.user!.id,
         },
       });
@@ -195,14 +213,12 @@ export const deleteProject = async (req: Request, res: Response) => {
         data: { deletedAt: now, updatedBy: req.user!.id },
       });
 
-      // PRJ-01: Cascade delete project milestones when project is deleted
-      await tx.milestone.deleteMany({
-        where: { projectId: id },
-      });
+      // Milestones remain attached for Undo. Planner reads/mutations exclude
+      // deleted projects; a permanent workspace deletion still cascades them.
     });
 
     // Its tasks were just soft-deleted; refresh the linked goal's auto-progress.
-    if (existing.goalId) await goalService.recomputeAutoProgress(existing.goalId, req.user!.id).catch(() => {});
+    if (existing.goalId && await validGoal(existing.goalId, workspaceId)) await goalService.recomputeAutoProgress(existing.goalId, req.user!.id).catch(() => {});
 
     if (workspaceId) {
       socketService.emitToWorkspace(workspaceId, 'project:deleted', { projectId: id, workspaceId, goalId: existing.goalId });
@@ -217,10 +233,11 @@ export const deleteProject = async (req: Request, res: Response) => {
 export const reorderProject = async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
-    const data = ReorderSchema.parse(req.body);
+    const workspaceId = req.headers['x-workspace-id'] as string;
+    const data = ReorderSchema.parse({ ...req.body, workspaceId });
 
     const existing = await prisma.project.findUnique({ where: { id } });
-    if (!existing || existing.deletedAt || existing.workspaceId !== data.workspaceId) {
+    if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
       return res.status(404).json({ message: 'Project not found' });
     }
 
@@ -229,7 +246,7 @@ export const reorderProject = async (req: Request, res: Response) => {
     }
 
     const project = await prisma.project.update({
-      where: { id },
+      where: { id, workspaceId, deletedAt: null, version: data.version },
       data: {
         position: data.position,
         version: { increment: 1 },
@@ -238,8 +255,9 @@ export const reorderProject = async (req: Request, res: Response) => {
       include: projectInclude,
     });
 
-    return res.status(200).json(project);
+    return res.status(200).json(safeProject(project));
   } catch (error: any) {
+    if (error.code === 'P2025') return res.status(409).json({ message: 'Conflict: project changed; reload and try again' });
     if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.errors });
     console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }
@@ -263,6 +281,7 @@ export const restoreProject = async (req: Request, res: Response) => {
         where: { id },
         data: {
           deletedAt: null,
+          version: { increment: 1 },
           updatedBy: req.user!.id,
         },
         include: projectInclude,
@@ -280,13 +299,13 @@ export const restoreProject = async (req: Request, res: Response) => {
     });
 
     // Its tasks were just restored; refresh the linked goal's auto-progress.
-    if (existing.goalId) await goalService.recomputeAutoProgress(existing.goalId, req.user!.id).catch(() => {});
+    if (existing.goalId && await validGoal(existing.goalId, workspaceId)) await goalService.recomputeAutoProgress(existing.goalId, req.user!.id).catch(() => {});
 
     if (project.workspaceId) {
       socketService.emitToWorkspace(project.workspaceId, 'project:restored', { projectId: project.id, workspaceId: project.workspaceId, goalId: project.goalId });
     }
 
-    return res.status(200).json(project);
+    return res.status(200).json(safeProject(project));
   } catch (error) {
     console.error(error); return res.status(500).json({ message: 'Internal server error' });
   }

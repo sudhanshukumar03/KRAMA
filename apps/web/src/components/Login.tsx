@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../api/client';
-import { Hexagon, Loader2 } from 'lucide-react';
+import { Hexagon } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 
 export function Login() {
@@ -43,14 +43,18 @@ export function Login() {
 
  <form onSubmit={handleSubmit} className="bg-surface border border-border rounded-[var(--radius-card)] p-6 shadow-[var(--shadow-resting)] space-y-5">
  {error && (
- <div className="text-body text-danger bg-danger/5 border border-danger/20 p-3 rounded-[var(--radius-input)] animate-in fade-in duration-200">
+ <div id="login-error" role="alert" className="text-body text-danger bg-danger/5 border border-danger/20 p-3 rounded-[var(--radius-input)] animate-in fade-in duration-200">
  {error}
  </div>
  )}
  <div>
- <label className="block text-caption font-mono font-bold text-primary uppercase mb-2">Email</label>
+ <label htmlFor="login-email" className="block text-caption font-mono font-bold text-primary uppercase mb-2">Email</label>
  <input
  type="email"
+ id="login-email"
+ name="email"
+ autoComplete="email"
+ aria-describedby={error ? "login-error" : undefined}
  value={email}
  onChange={(e) => setEmail(e.target.value)}
  className="w-full px-4 py-3 border border-border rounded-[var(--radius-input)] bg-background text-primary placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all duration-200 ease-out"
@@ -59,9 +63,13 @@ export function Login() {
  />
  </div>
  <div>
- <label className="block text-caption font-mono font-bold text-primary uppercase mb-2">Password</label>
+ <label htmlFor="login-password" className="block text-caption font-mono font-bold text-primary uppercase mb-2">Password</label>
  <input
  type="password"
+ id="login-password"
+ name="password"
+ autoComplete="current-password"
+ aria-describedby={error ? "login-error" : undefined}
  value={password}
  onChange={(e) => setPassword(e.target.value)}
  className="w-full px-4 py-3 border border-border rounded-[var(--radius-input)] bg-background text-primary placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all duration-200 ease-out"
@@ -69,8 +77,8 @@ export function Login() {
  required
  />
  </div>
- <BaseButton type="submit" variant="primary" className="w-full justify-center mt-2" disabled={loading}>
- {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign In'}
+ <BaseButton type="submit" variant="primary" className="w-full justify-center mt-2" isLoading={loading} aria-busy={loading}>
+ {loading ? 'Signing in...' : 'Sign In'}
  </BaseButton>
  </form>
 

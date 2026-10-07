@@ -91,6 +91,13 @@ class ProviderFactory {
 export const GEMINI_MODEL = 'gemini-3.8-flash';
 export const GROQ_MODEL = 'openai/gpt-oss-20b';
 
+export function getTextConfiguration() {
+  const fallbackAvailable = Boolean(process.env.GROQ_API_KEY && process.env.GEMINI_API_KEY);
+  if (process.env.GROQ_API_KEY) return { available: true, provider: 'groq' as const, model: GROQ_MODEL, fallbackAvailable };
+  if (process.env.GEMINI_API_KEY) return { available: true, provider: 'gemini' as const, model: GEMINI_MODEL, fallbackAvailable };
+  return { available: false, provider: null, model: null, fallbackAvailable };
+}
+
 const COST_MAP: Record<string, { prompt: number, completion: number }> = {
   'openai/gpt-oss-20b': { prompt: 0.05 / 1_000_000, completion: 0.08 / 1_000_000 },
   'llama-3.1-8b-instant': { prompt: 0.05 / 1_000_000, completion: 0.08 / 1_000_000 },
@@ -144,16 +151,10 @@ class AiService {
     // is present for embeddings (Groq has no embeddings API), so it must not be
     // preferred here or all text would route to Gemini.
     if (!activeProvider || !activeModel) {
-      if (process.env.GROQ_API_KEY) {
-        activeProvider = 'groq';
-        activeModel = GROQ_MODEL;
-      } else if (process.env.GEMINI_API_KEY) {
-        activeProvider = 'gemini';
-        activeModel = GEMINI_MODEL;
-      } else {
-        activeProvider = 'groq';
-        activeModel = GROQ_MODEL;
-      }
+      const config = getTextConfiguration();
+      if (!config.available || !config.provider || !config.model) throw new Error('AI text generation is not configured.');
+      activeProvider = config.provider;
+      activeModel = config.model;
     }
 
     let response: ProviderResponse;

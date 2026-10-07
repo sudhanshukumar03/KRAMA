@@ -1,14 +1,16 @@
+import { randomUUID } from 'node:crypto';
 import { Request, Response } from 'express';
 import { prisma } from '../prisma';
 import { Prisma } from '@prisma/client';
 
+import { saveDocumentContent, queueDocumentEmbedding, snapshotDocument } from '../services/documentContent.service';
 import { DocumentService } from '../services/document.service';
-import { extractMarkdown, extractPlainText, calculateCounts, extractEntityLinks } from '../utils/tiptap';
-import { documentVersionQueue, embeddingQueue } from '../queues';
+import { documentVersionQueue } from '../queues';
 import { redisService } from '../services/redis.service';
 import Groq from 'groq-sdk';
 import { GoogleGenAI } from '@google/genai';
 import { GROQ_MODEL, GEMINI_MODEL } from '../services/ai.service';
+import { streamWithFallback, type TextStreamProvider } from '../lib/providerStream';
 
 /**
  * Helper to ensure the target document belongs to the active workspace.
@@ -148,16 +150,9 @@ export const createWorkspaceDocument = async (req: Request, res: Response) => {
       contentJson,
     });
 
-    if (doc.contentMarkdown) {
-      embeddingQueue.add('embed-document', {
-        documentId: doc.id,
-        content: doc.contentMarkdown,
-      }).catch(console.error);
-    }
-
     res.status(201).json(doc);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -187,7 +182,7 @@ export const updateDocumentMetadata = async (req: Request, res: Response) => {
     const { ok, doc } = await verifyDocWorkspace(id, req);
     if (!ok || !doc || doc.deletedAt) return res.status(404).json({ message: 'Document not found' });
 
-    const { title, subtitle, statusBadges, documentType, isFavorite, icon, projectId, linkedProjectId } = req.body;
+    const { title, subtitle, statusBadges, documentType, isFavorite, icon, projectId, linkedProjectId, expectedUpdatedAt } = req.body;
     const project = projectId !== undefined ? projectId : linkedProjectId;
 
     if (project) {
@@ -199,22 +194,26 @@ export const updateDocumentMetadata = async (req: Request, res: Response) => {
       }
     }
 
-    const updated = await prisma.document.update({
-      where: { id },
-      data: {
-        title,
-        subtitle,
-        statusBadges,
-        documentType,
-        isFavorite,
-        icon,
-        ...(project !== undefined ? { projectId: project } : {})
-      },
-    });
+    const data = {
+      title, subtitle, statusBadges, documentType, isFavorite, icon,
+      ...(project !== undefined ? { projectId: project } : {})
+    };
+    let updated;
+    if (expectedUpdatedAt) {
+      // Return the revision from this exact write, not a subsequent read that
+      // could observe another writer's newer revision.
+      const rows = await prisma.document.updateManyAndReturn({
+        where: { id, updatedAt: new Date(expectedUpdatedAt), deletedAt: null }, data,
+      });
+      if (!rows.length) return res.status(409).json({ message: 'Document was modified elsewhere. Your draft has not been saved.' });
+      updated = rows[0]!;
+    } else {
+      updated = await prisma.document.update({ where: { id }, data });
+    }
 
     res.status(200).json(updated);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -232,7 +231,7 @@ export const moveDocument = async (req: Request, res: Response) => {
     const doc = await DocumentService.moveDocument(id, targetFolderId, targetParentId);
     res.status(200).json(doc);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -255,7 +254,7 @@ export const duplicateDocument = async (req: Request, res: Response) => {
     
     res.status(201).json(duplicated);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -275,7 +274,7 @@ export const toggleFavorite = async (req: Request, res: Response) => {
 
     res.status(200).json(updated);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -369,56 +368,16 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
     const { contentJson, expectedUpdatedAt } = req.body;
     const userId = (req as any).user?.id || 'system';
 
-    const plainText = extractPlainText(contentJson);
-    const contentMarkdown = extractMarkdown(contentJson);
-    const { wordCount, charCount } = calculateCounts(plainText);
-
-    const data = {
-      contentJson,
-      contentMarkdown,
-      wordCount,
-      charCount,
-      lastEditedById: userId,
-    };
-
-    // Optimistic concurrency: when the client sends the `updatedAt` it last saw,
-    // scope the write to that revision. A zero-row result means another writer
-    // (another tab/user, or a queued autosave) moved the document on since — 409
-    // so the client surfaces the "modified elsewhere" toast instead of silently
-    // clobbering the newer content. Document has no `version` column, so its
-    // @updatedAt token stands in as the revision marker.
-    let updated: { updatedAt: Date } | null;
-    if (expectedUpdatedAt) {
-      const result = await prisma.document.updateMany({
-        where: { id, updatedAt: new Date(expectedUpdatedAt) },
-        data,
-      });
-      if (result.count === 0) {
-        return res.status(409).json({ message: 'Document was modified elsewhere. Refresh to load the latest version.' });
-      }
-      updated = await prisma.document.findUnique({ where: { id }, select: { updatedAt: true } });
-    } else {
-      updated = await prisma.document.update({
-        where: { id },
-        data,
-        select: { updatedAt: true },
-      });
-    }
-
-    if (contentMarkdown) {
-      embeddingQueue.add('embed-document', {
-        documentId: id,
-        content: contentMarkdown,
-      }, {
-        jobId: `embed-doc-${id}`,
-        delay: 2000,
-      }).catch(console.error);
-    }
+    const updated = await saveDocumentContent(id, contentJson, userId, expectedUpdatedAt);
+    const { wordCount, charCount } = updated;
+    queueDocumentEmbedding(updated).catch(console.error);
 
     // Handle autosave versioning: 50 mutations or 5 min idle (safe against Redis errors)
     try {
       const mutations = await redisService.incr(`doc:${id}:mutations`);
-      const idleJobId = `idle-snapshot-${id}`;
+      const idleKey = `doc:${id}:idle-job`;
+      const pendingJobId = await redisService.get(idleKey);
+      const idleJobId = `idle-snapshot-${id}-${randomUUID()}`;
       
       if (mutations >= 50) {
         await documentVersionQueue.add('snapshot', {
@@ -429,13 +388,13 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
         await redisService.del(`doc:${id}:mutations`);
         
         // Clear any pending idle snapshot since we just took one
-        const pendingIdleJob = await documentVersionQueue.getJob(idleJobId);
+        const pendingIdleJob = pendingJobId ? await documentVersionQueue.getJob(pendingJobId) : null;
         if (pendingIdleJob) {
           await pendingIdleJob.remove();
         }
       } else {
         // Debounce a 5-minute idle snapshot
-        const pendingIdleJob = await documentVersionQueue.getJob(idleJobId);
+        const pendingIdleJob = pendingJobId ? await documentVersionQueue.getJob(pendingJobId) : null;
         if (pendingIdleJob) {
           await pendingIdleJob.remove().catch(() => {});
         }
@@ -447,44 +406,10 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
           jobId: idleJobId,
           delay: 5 * 60 * 1000 // 5 minutes
         });
+        await redisService.set(idleKey, idleJobId, 10 * 60);
       }
     } catch (redisErr) {
       console.warn('[updateDocumentContent] Redis versioning skipped:', redisErr);
-    }
-
-    // Reconcile EntityLink references from document content
-    try {
-      const extractedLinks = extractEntityLinks(contentJson);
-      const currentLinks = await prisma.entityLink.findMany({
-        where: { sourceType: 'DOCUMENT', sourceId: id }
-      });
-
-      const extractedKeys = new Set(extractedLinks.map(l => `${l.targetType}:${l.targetId}`));
-      const toDelete = currentLinks.filter(l => !extractedKeys.has(`${l.targetType}:${l.targetId}`));
-      const currentKeys = new Set(currentLinks.map(l => `${l.targetType}:${l.targetId}`));
-      const toAdd = extractedLinks.filter(l => !currentKeys.has(`${l.targetType}:${l.targetId}`));
-
-      if (toDelete.length > 0) {
-        await prisma.entityLink.deleteMany({
-          where: { id: { in: toDelete.map(l => l.id) } }
-        });
-      }
-
-      if (toAdd.length > 0) {
-        await prisma.entityLink.createMany({
-          data: toAdd.map(l => ({
-            sourceType: 'DOCUMENT',
-            sourceId: id,
-            targetType: l.targetType,
-            targetId: l.targetId,
-            linkType: 'REFERENCE',
-            createdById: userId
-          })),
-          skipDuplicates: true
-        });
-      }
-    } catch (linkErr) {
-      console.warn('[updateDocumentContent] Link reconciliation skipped:', linkErr);
     }
 
     res.status(200).json({
@@ -493,7 +418,7 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
       charCount
     });
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -510,7 +435,7 @@ export const getVersions = async (req: Request, res: Response) => {
     });
     res.status(200).json(versions);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -523,30 +448,12 @@ export const createVersion = async (req: Request, res: Response) => {
 
     const userId = (req as any).user?.id || 'system';
 
-    // Cancel any pending idle snapshot
-    const idleJobId = `idle-snapshot-${id}`;
-    try {
-      const pendingIdleJob = await documentVersionQueue.getJob(idleJobId);
-      if (pendingIdleJob) {
-        await pendingIdleJob.remove().catch(() => {});
-      }
-
-      // Create snapshot immediately via queue
-      await documentVersionQueue.add('snapshot', {
-        documentId: id,
-        userId,
-        contentJson: doc.contentJson
-      });
-
-      // Reset mutation counter
-      await redisService.del(`doc:${id}:mutations`);
-    } catch (qErr) {
-      console.warn('[createVersion] Queue error:', qErr);
-    }
-
-    res.status(201).json({ message: 'Version snapshot created' });
+    const version = await prisma.$transaction(tx => snapshotDocument(tx, id, userId));
+    // The successful response means the row is persisted, even if Redis is down.
+    redisService.del(`doc:${id}:mutations`).catch(() => {});
+    res.status(201).json(version);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -564,7 +471,7 @@ export const getVersion = async (req: Request, res: Response) => {
     }
     res.status(200).json(version);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -584,36 +491,12 @@ export const restoreVersion = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Version not found' });
     }
 
-    // Snapshot current state first
-    try {
-      await documentVersionQueue.add('snapshot', {
-        documentId: id,
-        userId,
-        contentJson: currentDoc.contentJson
-      });
-    } catch (qErr) {
-      console.warn('[restoreVersion] Snapshot queue error:', qErr);
-    }
-
-    // Restore
-    const plainText = extractPlainText(versionToRestore.contentJson);
-    const contentMarkdown = extractMarkdown(versionToRestore.contentJson);
-    const { wordCount, charCount } = calculateCounts(plainText);
-
-    const updated = await prisma.document.update({
-      where: { id },
-      data: {
-        contentJson: versionToRestore.contentJson as any,
-        contentMarkdown,
-        wordCount,
-        charCount,
-        lastEditedById: userId,
-      }
-    });
+    const updated = await saveDocumentContent(id, versionToRestore.contentJson, userId, currentDoc.updatedAt.toISOString(), true);
+    queueDocumentEmbedding(updated).catch(console.error);
 
     res.status(200).json(updated);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -646,7 +529,7 @@ export const getWorkspaceTags = async (req: Request, res: Response) => {
     });
     res.status(200).json(tags);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -687,7 +570,7 @@ export const addDocumentTag = async (req: Request, res: Response) => {
 
     res.status(200).json(tag);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -703,7 +586,7 @@ export const removeDocumentTag = async (req: Request, res: Response) => {
     });
     res.status(200).json({ message: 'Removed' });
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -721,7 +604,7 @@ export const getDocumentLinks = async (req: Request, res: Response) => {
     });
     res.status(200).json({ outgoing, incoming });
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -783,7 +666,7 @@ export const addDocumentLink = async (req: Request, res: Response) => {
     });
     res.status(201).json(link);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -804,7 +687,7 @@ export const removeLink = async (req: Request, res: Response) => {
     await prisma.entityLink.delete({ where: { id: linkId } });
     res.status(200).json({ message: 'Removed' });
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -836,7 +719,7 @@ export const createTaskFromDocument = async (req: Request, res: Response) => {
 
     res.status(201).json(result);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -915,7 +798,7 @@ export const searchDocuments = async (req: Request, res: Response) => {
 
     res.status(200).json(results);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -980,7 +863,7 @@ wordCount: ${doc.wordCount}
 
     res.status(400).json({ message: 'Unsupported format' });
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -1007,20 +890,59 @@ function annotateHeadingsWithAnchors(markdown: string): { annotatedMd: string; a
   return { annotatedMd: annotatedLines.join('\n'), anchors };
 }
 
+async function sendBrainAiStream(res: Response, systemPrompt: string, prompt: string) {
+  const controller = new AbortController();
+  const onDisconnect = () => { if (!res.writableEnded) controller.abort(); };
+  res.on('close', onDisconnect);
+  const providers: TextStreamProvider[] = [];
+  if (process.env.GROQ_API_KEY) providers.push(async signal => {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const stream = await groq.chat.completions.create({
+      model: GROQ_MODEL,
+      messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }],
+      stream: true,
+    }, { signal, timeout: 30000, maxRetries: 0 });
+    return (async function* () { for await (const chunk of stream) yield chunk.choices[0]?.delta?.content || ''; })();
+  });
+  if (process.env.GEMINI_API_KEY) providers.push(async signal => {
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const stream = await ai.models.generateContentStream({
+      model: GEMINI_MODEL, contents: prompt,
+      config: { systemInstruction: systemPrompt, abortSignal: signal, httpOptions: { timeout: 60000 }, maxOutputTokens: 2048 },
+    });
+    return (async function* () { for await (const chunk of stream) yield chunk.text || ''; })();
+  });
+  const headers = () => {
+    if (res.headersSent) return;
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+  };
+  try {
+    for await (const text of streamWithFallback(providers, controller.signal)) {
+      if (res.destroyed || res.writableEnded) return;
+      headers(); res.write(`data: ${JSON.stringify({ text })}\n\n`);
+    }
+    if (!res.destroyed && !res.writableEnded) { headers(); res.write('data: [DONE]\n\n'); res.end(); }
+  } catch (error) {
+    if (!controller.signal.aborted) throw error;
+  } finally { res.off('close', onDisconnect); }
+}
+
 export const aiAsk = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const { question } = req.body;
     const { ok, doc } = await verifyDocWorkspace(id, req);
-    if (!ok || !doc) return res.status(404).json({ message: 'Document not found' });
+    if (!ok || !doc || doc.deletedAt || doc.space.deletedAt) return res.status(404).json({ message: 'Document not found' });
 
     // Fetch 1-hop reference links
     const outgoing = await prisma.entityLink.findMany({ where: { sourceType: 'DOCUMENT', sourceId: id, linkType: 'REFERENCE' }});
     const incoming = await prisma.entityLink.findMany({ where: { targetType: 'DOCUMENT', targetId: id, linkType: 'REFERENCE' }});
-    const refIds = [...outgoing.map(l => l.targetId), ...incoming.map(l => l.sourceId)];
+    const refIds = [...outgoing.filter(l => l.targetType === 'DOCUMENT').map(l => l.targetId), ...incoming.filter(l => l.sourceType === 'DOCUMENT').map(l => l.sourceId)];
     
     const references = await prisma.document.findMany({
-      where: { id: { in: refIds }, deletedAt: null },
+      where: { id: { in: refIds }, deletedAt: null, space: { workspaceId: doc.space.workspaceId, deletedAt: null, workspace: { deletedAt: null } } },
       select: { title: true, contentMarkdown: true }
     });
 
@@ -1041,74 +963,7 @@ export const aiAsk = async (req: Request, res: Response) => {
     const availableAnchorsList = allAnchors.length > 0 ? `Available section anchor citations: ${allAnchors.slice(0, 25).join(', ')}` : '';
     const systemPrompt = `You are an AI assistant grounded ONLY in the following knowledge base content:\n\n${contextText}\n\n${availableAnchorsList}\n\nAnswer the user's question accurately. When citing information, you MUST cite the specific document section using its anchor slug like [#section-title] where applicable.`;
 
-    // Groq is the primary generation provider. GEMINI_API_KEY is present for
-    // embeddings (Groq has no embeddings API), so it must NOT be checked first
-    // here or text generation would always route to Gemini; Groq leads, Gemini
-    // stays only as a fallback when Groq isn't configured.
-    if (process.env.GROQ_API_KEY) {
-      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-      const stream = await groq.chat.completions.create({
-        model: GROQ_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: question }
-        ],
-        stream: true
-      });
-
-      let isAborted = false;
-      req.on('close', () => { isAborted = true; });
-
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      for await (const chunk of stream) {
-        if (isAborted || res.writableEnded) break;
-        const text = chunk.choices[0]?.delta?.content || '';
-        if (text && !res.writableEnded) {
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
-        }
-      }
-      if (!isAborted && !res.writableEnded) {
-        res.write('data: [DONE]\n\n');
-        res.end();
-      }
-      return;
-    }
-
-    if (process.env.GEMINI_API_KEY) {
-      let isAborted = false;
-      req.on('close', () => { isAborted = true; });
-
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const responseStream = await ai.models.generateContentStream({
-        model: GEMINI_MODEL,
-        contents: question,
-        config: {
-          systemInstruction: systemPrompt
-        }
-      });
-
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      for await (const chunk of responseStream) {
-        if (isAborted || res.writableEnded) break;
-        const text = chunk.text || '';
-        if (text && !res.writableEnded) {
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
-        }
-      }
-      if (!isAborted && !res.writableEnded) {
-        res.write('data: [DONE]\n\n');
-        res.end();
-      }
-      return;
-    }
-
-    throw new Error('Neither GROQ_API_KEY nor GEMINI_API_KEY is configured.');
+    await sendBrainAiStream(res, systemPrompt, question);
   } catch (error: any) {
     if (!res.headersSent) {
       res.status(500).json({ message: error.message });
@@ -1134,71 +989,7 @@ export const aiCompose = async (req: Request, res: Response) => {
 
     const userPrompt = selection ? `Selection: ${selection}\n\nInstruction: ${instruction}` : instruction;
 
-    // Groq primary; Gemini fallback only (GEMINI_API_KEY stays set for embeddings).
-    if (process.env.GROQ_API_KEY) {
-      let isAborted = false;
-      req.on('close', () => { isAborted = true; });
-
-      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-      const stream = await groq.chat.completions.create({
-        model: GROQ_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        stream: true
-      });
-
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      for await (const chunk of stream) {
-        if (isAborted || res.writableEnded) break;
-        const text = chunk.choices[0]?.delta?.content || '';
-        if (text && !res.writableEnded) {
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
-        }
-      }
-      if (!isAborted && !res.writableEnded) {
-        res.write('data: [DONE]\n\n');
-        res.end();
-      }
-      return;
-    }
-
-    if (process.env.GEMINI_API_KEY) {
-      let isAborted = false;
-      req.on('close', () => { isAborted = true; });
-
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const responseStream = await ai.models.generateContentStream({
-        model: GEMINI_MODEL,
-        contents: userPrompt,
-        config: {
-          systemInstruction: systemPrompt
-        }
-      });
-
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      for await (const chunk of responseStream) {
-        if (isAborted || res.writableEnded) break;
-        const text = chunk.text || '';
-        if (text && !res.writableEnded) {
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
-        }
-      }
-      if (!isAborted && !res.writableEnded) {
-        res.write('data: [DONE]\n\n');
-        res.end();
-      }
-      return;
-    }
-
-    throw new Error('Neither GROQ_API_KEY nor GEMINI_API_KEY is configured.');
+    await sendBrainAiStream(res, systemPrompt, userPrompt);
   } catch (error: any) {
     if (!res.headersSent) {
       res.status(500).json({ message: error.message });
@@ -1417,7 +1208,7 @@ export const importDocumentSpec = async (req: Request, res: Response) => {
       message: `Successfully imported spec "${title}" with ${totalImported} documents.`
     });
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };
 
@@ -1577,6 +1368,6 @@ export const getWorkspaceGraph = async (req: Request, res: Response) => {
       links
     });
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(error.statusCode || 400).json({ message: error.message });
   }
 };

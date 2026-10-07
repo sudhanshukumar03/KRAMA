@@ -2,29 +2,17 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { prisma } from '../prisma';
 import { DocumentService } from '../services/document.service';
+import { createIntegrationFixture, cleanupIntegrationFixture } from '../testing/integrationFixture';
 
 describe('Brain Workspace - Step 1: Tree + CRUD', () => {
   let workspace: any;
   let user: any;
   let space: any;
+  let fixture: Awaited<ReturnType<typeof createIntegrationFixture>>;
 
   before(async () => {
-    user = await prisma.user.findFirst();
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          email: `test-doc-${Date.now()}@example.com`,
-          passwordHash: 'dummyhash',
-        },
-      });
-    }
-
-    workspace = await prisma.workspace.findFirst();
-    if (!workspace) {
-      workspace = await prisma.workspace.create({
-        data: { name: 'Test Doc Workspace', createdBy: user.id },
-      });
-    }
+    fixture = await createIntegrationFixture('documents');
+    ({ user, workspace } = fixture);
 
     space = await prisma.space.create({
       data: { name: 'Test Space', workspaceId: workspace.id },
@@ -32,9 +20,7 @@ describe('Brain Workspace - Step 1: Tree + CRUD', () => {
   });
 
   after(async () => {
-    if (space) {
-      await prisma.space.delete({ where: { id: space.id } }).catch(() => {});
-    }
+    await cleanupIntegrationFixture(fixture);
     await prisma.$disconnect().catch(() => {});
     await (globalThis as any).pool?.end?.().catch(() => {});
     try {

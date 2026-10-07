@@ -1,7 +1,40 @@
 import { prisma } from '../prisma';
 import { taskRepository } from '../repositories/task.repository';
 import { TaskStatus } from '@prisma/client';
-import { runInTransaction } from '../prisma';
+import { runInTransaction, type TxClient, type PostCommitPublisher } from '../prisma';
+
+function completionMetadata(data: any, existing?: any) {
+  const old = typeof existing?.metadata === 'object' && existing.metadata && !Array.isArray(existing.metadata) ? existing.metadata : {};
+  const incoming = typeof data.metadata === 'object' && data.metadata && !Array.isArray(data.metadata) ? data.metadata : {};
+  const status = data.status ?? existing?.status;
+  return { ...old, ...incoming, completedAt: status === 'DONE' ? (existing?.status === 'DONE' ? old.completedAt || existing.updatedAt.toISOString() : new Date().toISOString()) : null };
+}
+
+async function validateTaskLinks(tx: any, workspaceId: string, data: any, taskId?: string) {
+  const invalid = (message: string) => { throw Object.assign(new Error(message), { statusCode: 400, code: 'INVALID_TASK_LINK' }); };
+  if (data.projectId) {
+    const project = await tx.project.findFirst({ where: { id: data.projectId, workspaceId, deletedAt: null }, select: { id: true } });
+    if (!project) invalid('Choose an active project in this workspace.');
+  }
+  if (data.assigneeId) {
+    const member = await tx.workspaceMember.findFirst({ where: { workspaceId, userId: data.assigneeId } });
+    if (!member) invalid('Assignee must be a member of this workspace.');
+  }
+  if (data.blockedById !== undefined || data.parentTaskId !== undefined) {
+    // Serialize graph edits so two simultaneous changes cannot introduce a cycle.
+    await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
+    for (const field of ['blockedById', 'parentTaskId']) {
+      let next = data[field]; const seen = new Set<string>();
+      while (next) {
+        if (next === taskId || seen.has(next)) invalid('Task links cannot create a cycle.');
+        seen.add(next);
+        const linked = await tx.task.findFirst({ where: { id: next, workspaceId, deletedAt: null }, select: { id: true, blockedById: true, parentTaskId: true } });
+        if (!linked) invalid('Choose an active task in this workspace.');
+        next = linked[field];
+      }
+    }
+  }
+}
 
 class TaskService {
   
@@ -49,26 +82,27 @@ class TaskService {
   }
 
   async createTask(data: any, userId: string) {
-    return runInTransaction(async (tx, publishAfterCommit) => {
+    return runInTransaction((tx, publishAfterCommit) => this.createTaskWithinTransaction(tx, publishAfterCommit, data, userId));
+  }
+
+  async createTaskWithinTransaction(tx: TxClient, publishAfterCommit: PostCommitPublisher, data: any, userId: string) {
       const maxPos = await taskRepository.findMaxPosition(data.workspaceId, tx);
       const position = maxPos + 1.0;
 
 
-      if (data.projectId) {
-        const project = await tx.project.findUnique({ where: { id: data.projectId } });
-        if (!project || project.workspaceId !== data.workspaceId) throw new Error('Conflict: invalid project scoping');
-      }
+      await validateTaskLinks(tx, data.workspaceId, data);
 
       const task = await taskRepository.create({
         ...data,
+        metadata: completionMetadata(data),
         position,
         createdBy: userId,
         updatedBy: userId,
       }, tx);
 
+      await tx.activityLog.create({ data: { workspaceId: task.workspaceId, userId, action: 'TASK_CREATED', entityType: 'Task', entityId: task.id, metadata: { title: task.title } } });
       publishAfterCommit('TASK_CREATED', { taskId: task.id, workspaceId: task.workspaceId, userId, task });
       return task;
-    });
   }
 
   async updateTask(id: string, workspaceId: string, data: any, userId: string) {
@@ -85,21 +119,20 @@ class TaskService {
       const { version: _version, workspaceId: _, ...updateData } = data;
 
 
-      if (updateData.projectId) {
-        const project = await tx.project.findUnique({ where: { id: updateData.projectId } });
-        if (!project || project.workspaceId !== workspaceId) throw new Error('Conflict: invalid project scoping');
-      }
+      await validateTaskLinks(tx, workspaceId, updateData, id);
 
       const task = await taskRepository.update(id, {
         ...updateData,
+        metadata: completionMetadata(updateData, existing),
         version: { increment: 1 },
         updatedBy: userId,
-      }, tx);
+      }, tx, { id, workspaceId, deletedAt: null, version: existing.version }).catch(error => { if (error.code === 'P2025') throw new Error('Conflict: version mismatch'); throw error; });
 
-      publishAfterCommit('TASK_UPDATED', { taskId: task.id, workspaceId: task.workspaceId, userId, task });
+      await tx.activityLog.create({ data: { workspaceId, userId, action: existing.status !== 'DONE' && task.status === 'DONE' ? 'TASK_COMPLETED' : 'TASK_UPDATED', entityType: 'Task', entityId: task.id, metadata: { title: task.title } } });
+      publishAfterCommit('TASK_UPDATED', { previousProjectId: existing.projectId, taskId: task.id, workspaceId: task.workspaceId, userId, task });
       
       if (existing.status !== 'DONE' && updateData.status === 'DONE') {
-        publishAfterCommit('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId, userId });
+        publishAfterCommit('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId, userId, completionVersion: task.version });
       }
       return task;
     });
@@ -114,8 +147,9 @@ class TaskService {
 
       const task = await taskRepository.update(id, {
         deletedAt: new Date(),
+        version: { increment: 1 },
         updatedBy: userId,
-      }, tx);
+      }, tx, { id, workspaceId, deletedAt: null, version: existing.version }).catch(error => { if (error.code === 'P2025') throw new Error('Conflict: version mismatch'); throw error; });
 
       publishAfterCommit('TASK_DELETED', { taskId: task.id, workspaceId: task.workspaceId, userId, task });
       return task;
@@ -137,7 +171,7 @@ class TaskService {
         position: data.position,
         version: { increment: 1 },
         updatedBy: userId,
-      }, tx);
+      }, tx, { id, workspaceId, deletedAt: null, version: existing.version }).catch(error => { if (error.code === 'P2025') throw new Error('Conflict: version mismatch'); throw error; });
 
       publishAfterCommit('TASK_UPDATED', { taskId: task.id, workspaceId: task.workspaceId, userId, task });
       return task;
@@ -155,13 +189,15 @@ class TaskService {
 
       const task = await taskRepository.update(id, {
         status: TaskStatus.DONE,
+        metadata: completionMetadata({ status: TaskStatus.DONE }, existing),
         version: { increment: 1 },
         updatedBy: userId,
-      }, tx);
+      }, tx, { id, workspaceId, deletedAt: null, version: existing.version }).catch(error => { if (error.code === 'P2025') throw new Error('Conflict: version mismatch'); throw error; });
 
+      if (isNewlyCompleted) await tx.activityLog.create({ data: { workspaceId, userId, action: 'TASK_COMPLETED', entityType: 'Task', entityId: id, metadata: { title: task.title } } });
       publishAfterCommit('TASK_UPDATED', { taskId: task.id, workspaceId: task.workspaceId, userId, task });
       if (isNewlyCompleted) {
-        publishAfterCommit('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId, userId });
+        publishAfterCommit('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId, userId, completionVersion: task.version });
       }
       return task;
     });
@@ -175,9 +211,11 @@ class TaskService {
 
       const task = await taskRepository.update(id, {
         deletedAt: null,
+        version: { increment: 1 },
         updatedBy: userId
-      }, tx);
+      }, tx, { id, workspaceId, deletedAt: existing.deletedAt, version: existing.version }).catch(error => { if (error.code === 'P2025') throw new Error('Conflict: version mismatch'); throw error; });
 
+      await tx.activityLog.create({ data: { workspaceId: task.workspaceId, userId, action: 'TASK_RESTORED', entityType: 'Task', entityId: task.id, metadata: { title: task.title } } });
       publishAfterCommit('TASK_CREATED', { taskId: task.id, workspaceId: task.workspaceId, userId, task });
       publishAfterCommit('TASK_RESTORED', { taskId: task.id, workspaceId: task.workspaceId, userId });
       return task;

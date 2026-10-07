@@ -77,7 +77,7 @@ export const TimerLayoutZen: React.FC<TimerLayoutProps> = ({
               {mode === 'pomodoro' ? 'FLOW' : mode === 'short_break' ? 'REST' : mode === 'long_break' ? 'RECOVERY' : 'BREAK'}
             </span>
             {taskTitle && (<><span className="text-white/20 text-xs">•</span><span className="text-[11px] font-mono text-white/70 max-w-[220px] truncate">{taskTitle}</span></>)}
-            <span className="text-[10px] font-mono text-white/40 ml-1">({currentSlotIndex + 1}/{totalSlots})</span>
+            {totalSlots > 0 && <span className="text-[10px] font-mono text-white/40 ml-1">({currentSlotIndex + 1}/{totalSlots})</span>}
           </div>
         )}
 

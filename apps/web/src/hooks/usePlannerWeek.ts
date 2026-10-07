@@ -3,8 +3,9 @@
 // =============================================================================
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useMemo, useCallback } from 'react';
-import { format, startOfWeek, addDays, isSameDay, parseISO, getISOWeek } from 'date-fns';
+import { useMemo, useCallback } from 'react';
+import { format, startOfWeek, addDays, isSameDay, getISOWeek } from 'date-fns';
+import { parseLocalDate } from '../lib/utils';
 import { plannerApi } from '../api/plannerApi';
 import { api } from '../api/client';
 import type { RoutineOccurrence } from '../types/planner';
@@ -15,9 +16,8 @@ function getWeekDays(referenceDate: Date): Date[] {
   const monday = startOfWeek(referenceDate, { weekStartsOn: 1 });
   return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 }
-export function usePlannerWeek() {
+export function usePlannerWeek(currentDate: Date) {
   const queryClient = useQueryClient();
-  const [currentDate, setCurrentDate] = useState(new Date());
 
   const days = useMemo(() => getWeekDays(currentDate), [currentDate]);
   const weekStart = format(days[0], 'yyyy-MM-dd');
@@ -41,29 +41,12 @@ export function usePlannerWeek() {
 
   const isLoading = authLoading || (queryLoading && !data);
 
-  // Navigation
-  const navigateWeek = useCallback((direction: 'prev' | 'next' | 'today') => {
-    if (direction === 'today') {
-      setCurrentDate(new Date());
-    } else {
-      setCurrentDate(prev => {
-        const next = new Date(prev);
-        next.setDate(prev.getDate() + (direction === 'next' ? 7 : -7));
-        return next;
-      });
-    }
-  }, []);
-
-  const navigateToDate = useCallback((date: Date) => {
-    setCurrentDate(date);
-  }, []);
-
   // Lookup helper for routine occurrences
   const occurrenceFor = useCallback(
     (routineId: string, day: Date): RoutineOccurrence | undefined => {
       if (!data?.occurrences) return undefined;
       return data.occurrences.find(
-        (occ: RoutineOccurrence) => occ.habitId === routineId && isSameDay(parseISO(occ.date), day)
+        (occ: RoutineOccurrence) => occ.habitId === routineId && isSameDay(parseLocalDate(occ.date) ?? new Date(NaN), day)
       );
     },
     [data?.occurrences]
@@ -134,6 +117,7 @@ export function usePlannerWeek() {
       toast.error('Failed to update routine: ' + (err?.message || 'Unknown error'));
     },
     onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
     },
@@ -142,6 +126,7 @@ export function usePlannerWeek() {
   const createTimeBlockMutation = useMutation({
     mutationFn: plannerApi.createTimeBlock,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['planner', 'day'] });
     },
@@ -172,6 +157,7 @@ export function usePlannerWeek() {
       toast.error('Failed to update time block: ' + (err?.message || 'Unknown error'));
     },
     onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['planner', 'day'] });
     },
@@ -198,6 +184,7 @@ export function usePlannerWeek() {
       toast.success('Time block deleted');
     },
     onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['planner', 'day'] });
     },
@@ -209,7 +196,9 @@ export function usePlannerWeek() {
   const createMilestoneMutation = useMutation({
     mutationFn: (data: any) => api.planner.createMilestone(data),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
       toast.success('Milestone added');
     },
     onError: (err: any) => {
@@ -235,7 +224,9 @@ export function usePlannerWeek() {
       toast.error('Failed to update milestone: ' + (err?.message || 'Unknown error'));
     },
     onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
     },
   });
 
@@ -260,7 +251,9 @@ export function usePlannerWeek() {
       toast.success('Milestone deleted');
     },
     onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
     },
   });
 
@@ -273,8 +266,6 @@ export function usePlannerWeek() {
     weekRangeLabel,
     weekNumber,
     currentDate,
-    navigateWeek,
-    navigateToDate,
     occurrenceFor,
     toggleRoutineMutation,
     createTimeBlockMutation,

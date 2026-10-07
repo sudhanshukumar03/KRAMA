@@ -28,7 +28,7 @@ test.describe.serial('Critical Path E2E Scenarios', () => {
     // 3. Create a Task (Issue)
     await page.goto('/app/board');
     await page.getByText('Quick Add').first().click();
-    await page.locator('h3:has-text("Create New Task")').waitFor({ state: 'visible' });
+    await page.locator('h3:has-text("Create New Directive")').waitFor({ state: 'visible' });
     await page.locator('input[type="text"]').last().fill('E2E Task');
     await page.locator('button[type="submit"]', { hasText: 'Create Task' }).click();
     await expect(page.locator('text=E2E Task').first()).toBeVisible();
@@ -64,7 +64,7 @@ test.describe.serial('Critical Path E2E Scenarios', () => {
     await expect(page).toHaveURL(/\/login/);
     
     // Explicit 401 unauthenticated check
-    const res = await page.request.get('http://localhost:3000/api/v1/workspaces');
+    const res = await page.request.get(new URL('/api/v1/workspaces', process.env.KRAMA_API_TARGET || 'http://127.0.0.1:3000').href);
     expect(res.status()).toBe(401);
 
     // Log back in

@@ -4,35 +4,20 @@ import { prisma } from '../prisma';
 import { goalService } from '../services/goal.service';
 import { habitService } from '../services/habit.service';
 import { taskService } from '../services/task.service';
+import { createIntegrationFixture, cleanupIntegrationFixture } from '../testing/integrationFixture';
 
 describe('P0 Concurrency & Version Increment Suite', () => {
   let workspace: any;
   let user: any;
+  let fixture: Awaited<ReturnType<typeof createIntegrationFixture>>;
 
   before(async () => {
-    // Ensure we have a valid test workspace and user in the database
-    user = await prisma.user.findFirst();
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          email: `test-concurrency-${Date.now()}@example.com`,
-          passwordHash: 'dummyhash',
-        },
-      });
-    }
-
-    workspace = await prisma.workspace.findFirst();
-    if (!workspace) {
-      workspace = await prisma.workspace.create({
-        data: {
-          name: 'Test Concurrency Workspace',
-          createdBy: user.id,
-        },
-      });
-    }
+    fixture = await createIntegrationFixture('concurrency');
+    ({ user, workspace } = fixture);
   });
 
   after(async () => {
+    await cleanupIntegrationFixture(fixture);
     await prisma.$disconnect().catch(() => {});
     await (globalThis as any).pool?.end?.().catch(() => {});
     try {

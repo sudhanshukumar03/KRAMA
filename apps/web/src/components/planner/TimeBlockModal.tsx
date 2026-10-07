@@ -37,12 +37,15 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  const [notes, setNotes] = useState('');
  const [error, setError] = useState('');
  const prevOpenRef = useRef(false);
+ const editingIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const justOpened = open && !prevOpenRef.current;
     prevOpenRef.current = open;
+    const changedDocument = editingIdRef.current !== editingBlock?.id;
+    editingIdRef.current = editingBlock?.id;
 
-    if (justOpened || (open && editingBlock?.id)) {
+    if (justOpened || (open && changedDocument)) {
       if (editingBlock) {
         setTitle(editingBlock.title || '');
         if (editingBlock.date) {
@@ -80,7 +83,7 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
 
  const handleSubmit = (e: React.FormEvent) => {
  e.preventDefault();
- if (!title.trim()) return;
+ if (isSubmitting || !title.trim()) return;
 
  if (startTime >= endTime) {
  setError('End time must be after start time');
@@ -88,7 +91,7 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  }
 
  const data: any = {
- title,
+ title: title.trim(),
  // Canonical UTC noon so the day bucket is stable regardless of timezone.
  date: new Date(`${dateStr}T12:00:00.000Z`).toISOString(),
  startTime,
@@ -110,7 +113,7 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
 
  return (
  <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150" onClick={onClose}>
- <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="timeblock-modal-title" tabIndex={-1} className="krama-dialog w-full max-w-md animate-in slide-in-from-bottom-4 duration-200 outline-none overflow-hidden" onClick={e => e.stopPropagation()}>
+ <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="timeblock-modal-title" tabIndex={-1} className="krama-dialog w-full max-w-md animate-in slide-in-from-bottom-4 duration-200 outline-none max-h-[calc(100dvh-2rem)] overflow-y-auto" onClick={e => e.stopPropagation()}>
 
  {/* Header */}
  <div className="flex items-center justify-between p-4 border-b border-border bg-surface-hover/50">
@@ -129,7 +132,7 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
 
  <form onSubmit={handleSubmit} className="p-4 space-y-4">
  {error && (
- <div className="p-3 text-xs font-medium text-danger-fg bg-danger-bg rounded-lg border border-danger-border">
+ <div role="alert" className="p-3 text-xs font-medium text-danger-fg bg-danger-bg rounded-lg border border-danger-border">
  {error}
  </div>
  )}
@@ -137,6 +140,9 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  <div>
  <input
  autoFocus
+ aria-label="Time block title"
+ required
+ maxLength={200}
  type="text"
  placeholder="What are you working on?"
  value={title}
@@ -150,8 +156,9 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  <button
  key={t.value}
  type="button"
+ aria-pressed={type === t.value}
  onClick={() => setType(t.value)}
- className={`px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wide uppercase transition-all flex items-center gap-1.5 ${type === t.value ? t.color + ' ring-2 ring-offset-1 ring-current' : 'bg-surface-2 text-muted hover:bg-surface-hover border border-border'}`}
+ className={`px-3 py-1.5 rounded-full text-label font-bold tracking-wide uppercase transition-all flex items-center gap-1.5 ${type === t.value ? t.color + ' ring-2 ring-offset-1 ring-current' : 'bg-surface-2 text-muted hover:bg-surface-hover border border-border'}`}
  >
  {t.icon}
  {t.label}
@@ -159,50 +166,54 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  ))}
  </div>
 
- <div className="grid grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
  <div>
- <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
+ <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
  <CalendarIcon size={12} /> Date
  </label>
  <input
  type="date"
  required
+ aria-label="Date"
  value={dateStr}
  onChange={e => setDateStr(e.target.value)}
- className="w-full px-3 py-2 rounded-lg border border-border bg-surface-hover text-sm font-mono font-medium text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+ className="w-full min-w-0 px-3 py-2 rounded-lg border border-border bg-surface-hover text-sm font-mono font-medium text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
  />
  </div>
  <div>
- <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
+ <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
  <Clock size={12} /> Time
  </label>
  <div className="flex items-center gap-2">
  <input
  type="time"
  required
+ aria-label="Start time"
  value={startTime}
  onChange={e => setStartTime(e.target.value)}
- className="w-full px-2 py-2 rounded-lg border border-border bg-surface-hover text-sm font-mono font-medium text-primary text-center focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+ className="w-full min-w-0 px-2 py-2 rounded-lg border border-border bg-surface-hover text-sm font-mono font-medium text-primary text-center focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
  />
  <span className="text-muted font-medium">-</span>
  <input
  type="time"
  required
+ aria-label="End time"
  value={endTime}
  onChange={e => setEndTime(e.target.value)}
- className="w-full px-2 py-2 rounded-lg border border-border bg-surface-hover text-sm font-mono font-medium text-primary text-center focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+ className="w-full min-w-0 px-2 py-2 rounded-lg border border-border bg-surface-hover text-sm font-mono font-medium text-primary text-center focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
  />
  </div>
  </div>
  </div>
 
- <div className="grid grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
  <div>
- <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">Task</label>
+ <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">Task</label>
  <select
+ aria-label="Task"
  value={taskId}
  onChange={e => setTaskId(e.target.value)}
- className="w-full px-3 py-2 rounded-lg border border-border bg-surface-hover text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm"
+ className="w-full min-w-0 px-3 py-2 rounded-lg border border-border bg-surface-hover text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm"
  >
  <option value="">None</option>
  {tasks?.map(t => (
@@ -211,11 +222,12 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  </select>
  </div>
  <div>
- <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">Project</label>
+ <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">Project</label>
  <select
+ aria-label="Project"
  value={projectId}
  onChange={e => setProjectId(e.target.value)}
- className="w-full px-3 py-2 rounded-lg border border-border bg-surface-hover text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm"
+ className="w-full min-w-0 px-3 py-2 rounded-lg border border-border bg-surface-hover text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm"
  >
  <option value="">None</option>
  {projects?.map(p => (
@@ -226,15 +238,16 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
         </div>
 
         <div>
-          <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
+          <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
             Notes
           </label>
           <textarea
-            value={notes}
+            aria-label="Notes"
+ value={notes}
             onChange={e => setNotes(e.target.value)}
             placeholder="Add optional notes or context..."
             rows={2}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-surface-hover text-primary placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm resize-none"
+            className="w-full min-w-0 px-3 py-2 rounded-lg border border-border bg-surface-hover text-primary placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm resize-none"
           />
         </div>
  <div className="pt-2">

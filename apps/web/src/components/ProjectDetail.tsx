@@ -46,13 +46,14 @@ import { cn } from '../lib/utils';
 import { computeGoalPace } from '../lib/goalUtils';
 import type { GoalWithRelations } from '../types/schema';
 
+import { useModalA11y } from '../hooks/useModalA11y';
 import { resolveIcon } from '../lib/iconResolver';
 import { KanbanBoard, IssueCreateModal } from './KanbanBoard';
 
 interface ProjectEditModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon?: string | null; goalId?: string | null }) => void;
+  onSubmit: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon?: string | null; goalId?: string | null; version?: number }) => void;
   isSubmitting: boolean;
   initialData: any;
   goals?: any[];
@@ -75,9 +76,15 @@ function ProjectEditModal({
     return '';
   });
   const [icon, setIcon] = useState(initialData?.icon || 'FolderKanban');
+  const [initialVersion, setInitialVersion] = useState(initialData?.version);
 
+  const modalRef = useModalA11y(open, () => { if (!isSubmitting) onClose(); });
+  const initialRef = useRef(initialData);
+  initialRef.current = initialData;
+  const initialId = initialData?.id;
   useEffect(() => {
-    if (initialData) {
+    const initialData = initialRef.current;
+    if (open && initialData) {
       setName(initialData.name || '');
       setProblemStatement(initialData.problemStatement || '');
       setStatus(initialData.status || 'active');
@@ -85,14 +92,15 @@ function ProjectEditModal({
       const tDate = initialData.targetDate || (initialData.metadata as any)?.targetDate;
       setTargetDate(tDate ? new Date(tDate).toISOString().split('T')[0] : '');
       setIcon(initialData.icon || 'FolderKanban');
+      setInitialVersion(initialData.version);
     }
-  }, [initialData]);
+  }, [open, initialId]);
 
   if (!open) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (isSubmitting || !name.trim()) return;
     onSubmit({
       name: name.trim(),
       problemStatement: problemStatement.trim(),
@@ -100,28 +108,30 @@ function ProjectEditModal({
       targetDate,
       icon,
       goalId: goalId || null,
+      version: initialVersion,
     });
   };
 
   return (
     <div
-      onClick={onClose}
+      onClick={() => { if (!isSubmitting) onClose(); }}
       className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150 font-sans"
     >
       <div
+        ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="edit-project-title"
         onClick={e => e.stopPropagation()}
-        className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+        className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 max-h-[calc(100dvh-2rem)] overflow-y-auto text-left"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/80 backdrop-blur-md">
           <div className="flex items-center gap-2.5">
             <IconPicker value={icon} onChange={setIcon} />
             <div>
-              <h3 className="text-title text-primary mb-1 font-bold">Edit Initiative Settings</h3>
+              <h3 id="edit-project-title" className="text-title text-primary mb-1 font-bold">Edit Initiative Settings</h3>
               <p className="text-caption text-secondary font-mono">Configure roadmap alignment and technical scope</p>
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={onClose} disabled={isSubmitting} aria-label="Close project settings"
             type="button"
             className="w-8 h-8 rounded-xl flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
           >
@@ -130,12 +140,13 @@ function ProjectEditModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {initialData?.version !== initialVersion && <p role="alert" className="text-caption text-warning-fg">This project changed elsewhere. Your draft is preserved. Close and reopen the editor to load the latest values before saving.</p>}
           <div>
             <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
               Initiative Name <span className="text-danger-fg">*</span>
             </label>
             <input
-              type="text"
+              type="text" aria-label="Initiative Name"
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="e.g., Krama OS Core"
@@ -148,7 +159,7 @@ function ProjectEditModal({
             <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
               Problem Statement / Technical Scope
             </label>
-            <textarea
+            <textarea aria-label="Problem Statement / Technical Scope"
               value={problemStatement}
               onChange={e => setProblemStatement(e.target.value)}
               placeholder="Describe the objective, architectural constraints, and target outcomes..."
@@ -161,7 +172,7 @@ function ProjectEditModal({
             <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
               Strategic OKR / Linked Goal
             </label>
-            <select
+            <select aria-label="Strategic OKR / Linked Goal"
               value={goalId}
               onChange={e => setGoalId(e.target.value)}
               className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-sans cursor-pointer"
@@ -175,12 +186,12 @@ function ProjectEditModal({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
                 Status
               </label>
-              <select
+              <select aria-label="Status"
                 value={status}
                 onChange={e => setStatus(e.target.value)}
                 className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono font-bold cursor-pointer"
@@ -199,7 +210,7 @@ function ProjectEditModal({
                 Target Date
               </label>
               <input
-                type="date"
+                type="date" aria-label="Target Date"
                 value={targetDate}
                 onChange={e => setTargetDate(e.target.value)}
                 className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono font-bold"
@@ -236,25 +247,27 @@ function DeleteInitiativeModal({
   isDeleting,
   initiativeName
 }: DeleteInitiativeModalProps) {
+  const modalRef = useModalA11y(open, () => { if (!isDeleting) onClose(); });
   if (!open) return null;
 
   return (
     <div
-      onClick={onClose}
+      onClick={() => { if (!isDeleting) onClose(); }}
       className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150 font-sans"
     >
       <div
+        ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="delete-project-title"
         onClick={e => e.stopPropagation()}
-        className="bg-card border border-border-strong rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-150 overflow-hidden text-left p-6 space-y-4"
+        className="bg-card border border-border-strong rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-150 max-h-[calc(100dvh-2rem)] overflow-y-auto text-left p-6 space-y-4"
       >
         <div className="flex items-start gap-3.5">
           <div className="w-10 h-10 rounded-xl bg-danger-bg text-danger-fg border border-danger-border flex items-center justify-center shrink-0">
             <Trash2 className="w-5 h-5 stroke-[1.75]" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-section font-bold text-primary">Delete Initiative?</h3>
+            <h3 id="delete-project-title" className="text-section font-bold text-primary">Delete Initiative?</h3>
             <p className="text-caption text-secondary leading-relaxed">
-              Are you sure you want to permanently delete <strong className="text-primary font-mono font-bold">"{initiativeName}"</strong>? This will remove the initiative roadmap, dissociate linked directives, and cannot be undone.
+              Are you sure you want to delete <strong className="text-primary font-mono font-bold">"{initiativeName}"</strong>? Its tasks and milestones will be hidden. You can restore them with Undo after deletion.
             </p>
           </div>
         </div>
@@ -363,26 +376,24 @@ export function ProjectDetail() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [editModalOpen, deleteModalOpen, createDirectiveModalOpen]);
 
-  const { data: projects = [], isLoading: pLoading, isError: pError } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
-  const { data: issues = [], isLoading: iLoading, isError: iError } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
-  const { data: pages = [], isLoading: docsLoading } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
-  const { data: goals = [], isLoading: goalsLoading } = useQuery({ queryKey: ['goals', 'lite'], queryFn: api.goals.listLite });
+  const { data: projects = [], isLoading: pLoading, isError: pError, refetch: retryProjects } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+  const { data: issues = [], isLoading: iLoading, isError: iError, refetch: retryIssues } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
+  const { data: pages = [], isLoading: docsLoading, isError: docsError, refetch: retryDocs } = useQuery({ queryKey: ['documents'], queryFn: () => api.documents.list() });
+  const { data: goals = [], isLoading: goalsLoading, isError: goalsError, refetch: retryGoals } = useQuery({ queryKey: ['goals', 'lite'], queryFn: api.goals.listLite });
 
-  // Load this initiative directly via GET /projects/:id (authoritative, workspace-scoped),
-  // falling back to the cached list so the header renders instantly from an existing
-  // ['projects'] cache while the single fetch resolves. A 404 here (wrong workspace /
-  // deleted) leaves both empty → the "not found" state below.
-  const { data: fetchedProject } = useQuery({
+  // The workspace-scoped detail request is authoritative, including milestones.
+  // Its loading, error and not-found states must not be masked by an older list.
+  const { data: fetchedProject, isLoading: projectLoading, error: projectError, refetch: retryProject } = useQuery({
     queryKey: ['project', id],
     queryFn: () => api.projects.get(id!),
     enabled: !!id,
     retry: false,
   });
 
-  const project = fetchedProject || projects.find(p => p.id === id);
+  const project = fetchedProject;
 
   const editProjectMutation = useMutation({
-    mutationFn: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon?: string | null; goalId?: string | null; tags?: string[] }) => {
+    mutationFn: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon?: string | null; goalId?: string | null; tags?: string[]; version?: number }) => {
       if (!project) throw new Error('Project not loaded');
       return api.projects.update(project.id, {
         name: data.name,
@@ -391,7 +402,7 @@ export function ProjectDetail() {
         icon: data.icon,
         goalId: data.goalId || null,
         targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : null,
-        version: project.version,
+        version: data.version ?? project.version,
         metadata: {
           ...((project.metadata as any) || {}),
           tags: data.tags !== undefined ? data.tags : ((project.metadata as any)?.tags || [])
@@ -422,7 +433,16 @@ export function ProjectDetail() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       setDeleteModalOpen(false);
-      toast.success(`Deleted initiative "${project?.name}"`);
+      const deletedProjectId = project!.id;
+      toast.success(`Deleted initiative "${project?.name}"`, {
+        action: { label: 'Undo', onClick: async () => {
+          try {
+            await api.projects.restore(deletedProjectId);
+            for (const queryKey of [['projects'], ['project', deletedProjectId], ['issues'], ['tasks'], ['planner'], ['goals']]) queryClient.invalidateQueries({ queryKey });
+            toast.success('Initiative restored');
+          } catch { toast.error('Could not restore initiative'); }
+        } },
+      });
       navigate('/app/projects');
     },
     onError: (err: any) => {
@@ -459,14 +479,15 @@ export function ProjectDetail() {
     }
   });
 
-  if (pLoading || iLoading || docsLoading || goalsLoading) {
+  if (pLoading || iLoading || docsLoading || goalsLoading || projectLoading) {
     return <LoadingState variant="project-detail" title="Loading Strategic Initiative..." description="Aggregating roadmap milestones, execution tickets, and engineering documentation..." />;
   }
 
-  if (pError || iError) {
+  if (pError || iError || docsError || goalsError || (projectError && (projectError as any).status !== 404)) {
     return (
       <div className="p-8 font-sans">
         <ErrorState
+          onRetry={() => { retryProjects(); retryIssues(); retryDocs(); retryGoals(); retryProject(); }}
           title="Failed to Load Initiative Telemetry"
           message="Could not retrieve initiative data from the server. Please verify network connectivity."
         />
@@ -483,6 +504,7 @@ export function ProjectDetail() {
     </div>
   );
 
+  const projectMilestones = project.milestones || [];
   const projectIssues = project.tasks || issues.filter(i => i.projectId === project.id);
   const projectDocs = pages.filter(p => p.linkedProjectId === project.id || p.projectId === project.id);
   const projectGoal = project.goal || (project.goalId ? goals.find(g => g.id === project.goalId) : null);
@@ -1471,7 +1493,15 @@ export function ProjectDetail() {
               </div>
 
               <div className="space-y-3 pt-3 border-t border-border/60">
-                <h4 className="text-caption font-mono font-bold uppercase text-secondary">Milestone Directives ({projectIssues.length})</h4>
+                <h4 className="text-caption font-mono font-bold uppercase text-secondary">Project Milestones ({projectMilestones.length})</h4>
+                {projectMilestones.map(milestone => (
+                  <div key={milestone.id} className="p-3.5 rounded-xl border border-border bg-surface-hover/30 flex flex-wrap items-center justify-between gap-3">
+                    <span className="text-caption font-semibold text-primary">{milestone.title}</span>
+                    <span className="text-caption text-secondary">{new Date(milestone.date).toLocaleDateString()} · {milestone.completed ? 'Completed' : 'Upcoming'}</span>
+                  </div>
+                ))}
+                {projectMilestones.length === 0 && <p className="text-caption text-muted py-3">No project milestones yet. Add a milestone in Planner and link it to this project.</p>}
+                <h4 className="text-caption font-mono font-bold uppercase text-secondary">Task Deadlines ({projectIssues.length})</h4>
                 {projectIssues.map((issue: any) => (
                   <div key={issue.id} className="p-3.5 rounded-xl border border-border bg-surface-hover/30 hover:bg-surface-hover flex items-center justify-between transition-colors">
                     <div className="flex items-center gap-3">
@@ -1520,7 +1550,7 @@ export function ProjectDetail() {
 
                 <div className="p-4 rounded-xl border border-danger-border bg-danger-bg/20 space-y-2">
                   <span className="font-bold text-danger-fg">Danger Zone</span>
-                  <p className="text-secondary text-caption leading-relaxed">Permanently remove this initiative and unassign associated execution tickets.</p>
+                  <p className="text-secondary text-caption leading-relaxed">Hide this initiative and its tasks and milestones. Undo restores the deleted project.</p>
                   <BaseButton
                     variant="danger"
                     size="sm"

@@ -10,10 +10,13 @@
     "build": "tsc",
     "lint": "oxlint src",
     "test": "tsx src/scripts/run-all-tests.ts",
+    "test:integration": "tsx src/scripts/prepare-integration.ts && tsx src/scripts/run-all-tests.ts --integration",
+    "test:startup": "tsx src/scripts/startup-smoke.ts",
     "seed": "tsx src/seed.ts",
     "db:deploy": "prisma migrate deploy",
     "db:status": "prisma migrate status",
-    "holidays:sync": "tsx src/scripts/sync-holidays.ts"
+    "holidays:sync": "tsx src/scripts/sync-holidays.ts",
+    "holidays:data:refresh": "tsx src/scripts/refresh-india-holidays.ts"
   },
   "keywords": [],
   "author": "",
@@ -40,6 +43,7 @@
     "multer": "^2.3.0",
     "pg": "^8.23.0",
     "rate-limit-redis": "^6.0.0",
+    "sharp": "^0.35.5",
     "socket.io": "^4.8.3",
     "tsx": "^4.19.0",
     "uuid": "^14.0.2",

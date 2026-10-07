@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useModalA11y } from '../../hooks/useModalA11y';
+import { ErrorState } from '../ui/ErrorState';
 import { api } from '../../api/client';
 import {
   Calendar, CheckCircle2, Plus,
@@ -35,6 +37,9 @@ export function GoalDetailDrawer({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const goalId = goal.id;
+  const dialogRef = useModalA11y(true, onClose);
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [draftVersion, setDraftVersion] = useState(goal.version);
   const [activeTab, setActiveTab] = useState<'cockpit' | 'edit'>('cockpit');
   const [note, setNote] = useState('');
   const [progressInput, setProgressInput] = useState<number>(goal.progress ?? 0);
@@ -53,17 +58,17 @@ export function GoalDetailDrawer({
   );
   const [editProgressMode, setEditProgressMode] = useState<'manual' | 'auto'>('manual');
 
-  const { data: detail, isLoading } = useQuery({
+  const { data: detail, isLoading, isError: detailError, refetch: retryDetail } = useQuery({
     queryKey: ['goal', goalId],
     queryFn: () => api.goals.get(goalId),
   });
 
-  const { data: allGoals = [] } = useQuery({
+  const { data: allGoals = [], isError: goalsError, refetch: retryGoals } = useQuery({
     queryKey: ['goals'],
     queryFn: api.goals.list,
   });
 
-  const { data: allHabits = [] } = useQuery({
+  const { data: allHabits = [], isError: habitsError, refetch: retryHabits } = useQuery({
     queryKey: ['habits'],
     queryFn: api.habits.list,
   });
@@ -80,6 +85,8 @@ export function GoalDetailDrawer({
   );
 
   useEffect(() => {
+    if (draftDirty) return;
+    setDraftVersion(current.version);
     setProgressInput(current.progress ?? 0);
     setMeasurableInput(metadata.currentValue != null ? String(metadata.currentValue) : '');
     setEditTitle(current.title);
@@ -87,10 +94,9 @@ export function GoalDetailDrawer({
     setEditWhy(metadata.whyStatement || metadata.description || '');
     setEditCategory(metadata.category || 'health');
     setEditProgressMode(metadata.progressMode === 'auto' ? 'auto' : 'manual');
-    if (current.targetDate) {
-      setEditTargetDate(new Date(current.targetDate).toISOString().split('T')[0]);
-    }
+    setEditTargetDate(current.targetDate ? new Date(current.targetDate).toISOString().split('T')[0] : '');
   }, [
+    draftDirty, current.version,
     current.progress,
     metadata.currentValue,
     metadata.progressMode,
@@ -153,7 +159,7 @@ export function GoalDetailDrawer({
       const hasChildren = childGoals.length > 0;
       const payload: Record<string, any> = {
         progress: isAuto || hasChildren ? current.progress ?? 0 : derivedProgress,
-        version: (current as any)?.version,
+        version: draftVersion,
         ...(note.trim() ? { note: note.trim() } : {}),
       };
 
@@ -167,7 +173,10 @@ export function GoalDetailDrawer({
       return api.goals.update(goalId, payload);
     },
     onSuccess: () => {
+      setDraftDirty(false);
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       setNote('');
       toast.success('Check-in and reflection saved');
@@ -182,7 +191,7 @@ export function GoalDetailDrawer({
         title: editTitle.trim(),
         icon: editIcon,
         targetDate: editTargetDate ? new Date(editTargetDate).toISOString() : null,
-        version: (current as any)?.version,
+        version: draftVersion,
         metadata: {
           ...metadata,
           whyStatement: editWhy.trim() || null,
@@ -192,7 +201,10 @@ export function GoalDetailDrawer({
       });
     },
     onSuccess: () => {
+      setDraftDirty(false);
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       setActiveTab('cockpit');
       toast.success('Goal settings updated');
@@ -210,6 +222,8 @@ export function GoalDetailDrawer({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       toast.success('Goal status updated');
     },
@@ -229,6 +243,8 @@ export function GoalDetailDrawer({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       toast.success(isPinned ? 'Removed from Spotlight' : 'Pinned to Spotlight');
     },
@@ -244,6 +260,8 @@ export function GoalDetailDrawer({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       setSelectedProjectIdToLink('');
       toast.success('Project connected to goal');
@@ -261,6 +279,8 @@ export function GoalDetailDrawer({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       toast.success('Project unlinked');
     },
@@ -271,11 +291,13 @@ export function GoalDetailDrawer({
   // Link / Unlink Habit
   const linkHabitMutation = useMutation({
     mutationFn: async (habitId: string) => {
-      return api.habits.update(habitId, { linkedGoalId: goalId });
+      return api.habits.update(habitId, { linkedGoalId: goalId, version: allHabits.find(h => h.id === habitId)?.version });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       setSelectedHabitIdToLink('');
       toast.success('Habit connected to goal');
@@ -286,11 +308,13 @@ export function GoalDetailDrawer({
 
   const unlinkHabitMutation = useMutation({
     mutationFn: async (habitId: string) => {
-      return api.habits.update(habitId, { linkedGoalId: null });
+      return api.habits.update(habitId, { linkedGoalId: null, version: allHabits.find(h => h.id === habitId)?.version });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       toast.success('Habit unlinked');
     },
@@ -309,6 +333,8 @@ export function GoalDetailDrawer({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       toast.success('Habit logged for today! Momentum maintained 🔥');
     },
     onError: (err: any) =>
@@ -319,6 +345,8 @@ export function GoalDetailDrawer({
     try {
       await api.goals.delete(goalId);
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       onClose();
@@ -328,6 +356,8 @@ export function GoalDetailDrawer({
           onClick: async () => {
             await api.goals.restore(goalId);
             queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
             queryClient.invalidateQueries({ queryKey: ['projects'] });
             queryClient.invalidateQueries({ queryKey: ['habits'] });
             toast.success(`Restored "${current.title}"`);
@@ -343,13 +373,25 @@ export function GoalDetailDrawer({
   const rawStatus = (metadata.status || (current as any).status || 'ACTIVE') as GoalStatus;
   const isCompleted = rawStatus === 'COMPLETED' || current.progress >= 100;
 
+  if (isLoading || detailError || goalsError || habitsError) return (
+    <div className="fixed inset-0 z-[100] flex justify-end bg-black/40">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Goal details" className="relative w-full max-w-lg h-full bg-card p-6 overflow-y-auto">
+        <button onClick={onClose} aria-label="Close goal details">Close</button>
+        {isLoading ? <p role="status">Loading goal details...</p> : <ErrorState title="Could not load goal details" onRetry={() => { void Promise.all([retryDetail(), retryGoals(), retryHabits()]); }} />}
+      </div>
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 z-[100] flex justify-end animate-in fade-in duration-150">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
       <div
+        ref={dialogRef} role="dialog" aria-modal="true" aria-label="Goal details"
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-lg h-full bg-card border-l border-border shadow-2xl flex flex-col animate-in slide-in-from-right duration-200"
       >
+        {(detailError || goalsError || habitsError) && <ErrorState title="Could not load goal details" onRetry={() => { void Promise.all([retryDetail(), retryGoals(), retryHabits()]); }} />}
+        {draftDirty && current.version !== draftVersion && <p role="alert" className="p-3 text-warning-fg">This goal changed elsewhere. Your draft is retained. Close and reopen to load the latest values before saving.</p>}
         {/* Drawer Header */}
         <div className="relative flex items-start justify-between px-6 py-5 border-b border-border bg-gradient-to-b from-surface/80 to-surface/40 shrink-0 overflow-hidden">
           {/* Ambient Top Glow Line */}
@@ -469,6 +511,7 @@ export function GoalDetailDrawer({
             />
 
             <button
+              aria-label="Close goal details"
               onClick={onClose}
               type="button"
               className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
@@ -517,7 +560,7 @@ export function GoalDetailDrawer({
                 </label>
                 <IconPicker
                   value={editIcon}
-                  onChange={setEditIcon}
+                  onChange={(icon) => { setDraftDirty(true); setEditIcon(icon); }}
                   triggerClassName="w-10 h-10 px-0 py-0"
                 />
               </div>
@@ -527,8 +570,9 @@ export function GoalDetailDrawer({
                 </label>
                 <input
                   type="text"
+                  aria-label="Goal title"
                   value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
+                  onChange={(e) => { setDraftDirty(true); setEditTitle(e.target.value); }}
                   className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-primary focus:outline-none focus:border-accent"
                 />
               </div>
@@ -572,8 +616,9 @@ export function GoalDetailDrawer({
                 Why This Matters (Motivation)
               </label>
               <textarea
-                value={editWhy}
-                onChange={(e) => setEditWhy(e.target.value)}
+                aria-label="Why this matters"
+                  value={editWhy}
+                onChange={(e) => { setDraftDirty(true); setEditWhy(e.target.value); }}
                 rows={3}
                 placeholder="What will achieving this unlock for your life?..."
                 className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-primary placeholder:text-secondary/50 focus:outline-none focus:border-accent resize-none"
@@ -586,8 +631,9 @@ export function GoalDetailDrawer({
               </label>
               <input
                 type="date"
-                value={editTargetDate}
-                onChange={(e) => setEditTargetDate(e.target.value)}
+                aria-label="Target date"
+                  value={editTargetDate}
+                onChange={(e) => { setDraftDirty(true); setEditTargetDate(e.target.value); }}
                 className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent"
               />
             </div>
@@ -603,7 +649,7 @@ export function GoalDetailDrawer({
                     name="editProgressMode"
                     value="manual"
                     checked={editProgressMode === 'manual'}
-                    onChange={() => setEditProgressMode('manual')}
+                    onChange={() => { setDraftDirty(true); setEditProgressMode('manual'); }}
                     className="accent-accent"
                   />
                   <span>Manual Progress</span>
@@ -617,7 +663,7 @@ export function GoalDetailDrawer({
                     name="editProgressMode"
                     value="auto"
                     checked={editProgressMode === 'auto'}
-                    onChange={() => setEditProgressMode('auto')}
+                    onChange={() => { setDraftDirty(true); setEditProgressMode('auto'); }}
                     className="accent-accent"
                   />
                   <span className="flex items-center gap-1 text-accent-fg font-semibold">
@@ -829,7 +875,8 @@ export function GoalDetailDrawer({
               {unlinkedProjects.length > 0 && (
                 <div className="mb-2 flex items-center gap-2">
                   <select
-                    value={selectedProjectIdToLink}
+                    aria-label="Project to connect"
+                  value={selectedProjectIdToLink}
                     onChange={(e) => setSelectedProjectIdToLink(e.target.value)}
                     className="flex-1 text-xs border border-border rounded-lg px-2.5 py-1.5 bg-surface text-primary focus:outline-none focus:border-accent cursor-pointer"
                   >
@@ -904,7 +951,8 @@ export function GoalDetailDrawer({
               {unlinkedHabits.length > 0 && (
                 <div className="mb-2 flex items-center gap-2">
                   <select
-                    value={selectedHabitIdToLink}
+                    aria-label="Habit to connect"
+                  value={selectedHabitIdToLink}
                     onChange={(e) => setSelectedHabitIdToLink(e.target.value)}
                     className="flex-1 text-xs border border-border rounded-lg px-2.5 py-1.5 bg-surface text-primary focus:outline-none focus:border-accent cursor-pointer"
                   >
@@ -1035,8 +1083,9 @@ export function GoalDetailDrawer({
                 <input
                   type="number"
                   id="drawer-checkin-current"
+                  aria-label="Current value"
                   value={measurableInput}
-                  onChange={(e) => setMeasurableInput(e.target.value)}
+                  onChange={(e) => { setDraftDirty(true); setMeasurableInput(e.target.value); }}
                   placeholder={`Current: ${metadata.currentValue ?? 0}`}
                   className="w-full bg-card border border-border rounded-lg px-3 py-1.5 text-sm font-mono text-primary focus:outline-none focus:border-accent"
                 />
@@ -1056,8 +1105,9 @@ export function GoalDetailDrawer({
                   type="range"
                   min={0}
                   max={100}
+                  aria-label="Check-in progress"
                   value={progressInput}
-                  onChange={(e) => setProgressInput(Number(e.target.value))}
+                  onChange={(e) => { setDraftDirty(true); setProgressInput(Number(e.target.value)); }}
                   className="flex-1 accent-accent cursor-pointer"
                 />
                 <span className="text-sm font-bold font-mono text-primary w-10 text-right">
@@ -1067,8 +1117,9 @@ export function GoalDetailDrawer({
             )}
 
             <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
+              aria-label="Check-in note"
+                  value={note}
+              onChange={(e) => { setDraftDirty(true); setNote(e.target.value); }}
               placeholder="What moved this week? What gave you momentum? (recorded in history)"
               rows={2}
               className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-xs text-primary placeholder:text-secondary/60 focus:outline-none focus:border-accent"

@@ -68,6 +68,7 @@ export function AppShell() {
  let timeoutId: ReturnType<typeof setTimeout>;
 
  const handleKeyDown = (e: KeyboardEvent) => {
+ if (e.defaultPrevented) return;
  // Notion-style Sidebar toggle with Ctrl+\ or Cmd+\
  if ((e.metaKey || e.ctrlKey) && (e.key === '\\' || e.code === 'Backslash')) {
  e.preventDefault();
@@ -185,7 +186,6 @@ export function AppShell() {
           </button>
           <span className="text-muted text-xs">/</span>
           <WorkspaceSwitcher compact />
- <NotificationCenter />
           <span className="text-muted text-xs">/</span>
           <span className="text-caption font-mono font-medium text-secondary capitalize">
             {location.pathname.replace('/app', '').replace('/', '') || 'Dashboard'}
@@ -234,6 +234,7 @@ export function AppShell() {
  <div className="md:hidden flex items-center justify-between p-3 bg-sidebar backdrop-blur-2xl border-b border-border z-40 shrink-0">
  <div className="flex items-center gap-2">
  <button
+ aria-label="Open navigation"
  onClick={() => setMobileMenuOpen(true)}
  className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover transition-colors"
  >

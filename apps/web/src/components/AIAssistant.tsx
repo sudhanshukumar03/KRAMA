@@ -109,7 +109,6 @@ export function AIAssistant() {
  const [isLoading, setIsLoading] = useState(false);
  const [error, setError] = useState<string | null>(null);
  const [useRag, setUseRag] = useState(false);
- const [provider, setProvider] = useState<'gemini' | 'groq'>('gemini');
  const [config, setConfig] = useState<any>(null);
  const bottomRef = useRef<HTMLDivElement>(null);
  const inputRef = useRef<HTMLInputElement>(null);
@@ -150,17 +149,11 @@ export function AIAssistant() {
  useEffect(() => {
  api.ai.config().then((cfg) => {
  setConfig(cfg);
- // Seed the provider from the server's active provider so the first message
- // doesn't hit a provider the deployment has no API key for (e.g. defaulting
- // to 'gemini' on a Groq-only deploy 500s until the user flips the dropdown).
- if (cfg?.provider === 'gemini' || cfg?.provider === 'groq') {
- setProvider(cfg.provider);
- }
  }).catch(console.error);
  }, []);
 
  const handleSend = async () => {
- if (!input.trim() || isLoading) return;
+ if (!input.trim() || isLoading || config?.available === false) return;
  
  const userMessage = input.trim();
  setInput('');
@@ -169,7 +162,7 @@ export function AIAssistant() {
  setError(null);
 
  try {
- const payload = { message: userMessage, provider, ragEnabled: useRag };
+ const payload = { message: userMessage, ragEnabled: useRag && Boolean(config?.ragEnabled) };
  const response = useRag 
  ? await api.ai.ragQuery(payload)
  : await api.ai.complete(payload);
@@ -218,15 +211,9 @@ export function AIAssistant() {
  KRAMA AI
  </h1>
  <div className="flex items-center gap-2 mt-1.5">
- <select
- value={provider}
- onChange={(e) => setProvider(e.target.value as 'gemini' | 'groq')}
- className="text-[10px] bg-surface border border-border px-1.5 py-0.5 rounded text-secondary outline-none cursor-pointer font-medium"
- title="Select AI Agent"
- >
- <option value="gemini">Gemini</option>
- <option value="groq">Groq</option>
- </select>
+ <span className="text-[10px] bg-surface border border-border px-1.5 py-0.5 rounded text-secondary font-medium">
+ {config?.available === false ? 'AI unavailable' : config?.provider === 'gemini' ? 'Gemini' : 'Groq'}{config?.fallbackAvailable ? ' · automatic fallback' : ''}
+ </span>
  {config?.ragEnabled && (
  <button 
  onClick={() => setUseRag(!useRag)}
@@ -311,7 +298,7 @@ export function AIAssistant() {
  />
  <button
  onClick={handleSend}
- disabled={!input.trim() || isLoading}
+ disabled={!input.trim() || isLoading || config?.available === false}
  className="absolute right-2 p-2 bg-primary text-surface rounded-lg disabled:opacity-50 transition-colors shadow-sm hover:opacity-90 disabled:hover:opacity-50"
  >
  <Send className="w-4 h-4" />

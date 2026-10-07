@@ -251,9 +251,15 @@ export const GoalKpiStrip = React.memo(function GoalKpiStrip({
               </span>
               <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-warning-bg text-warning-fg border border-warning-border flex items-center gap-1">
                 <Clock className="w-2.5 h-2.5" />
-                {spotlightPace && spotlightPace.daysRemaining > 0
-                  ? `${spotlightPace.daysRemaining}d left`
-                  : 'Overdue'}
+                {!spotlightGoal.targetDate
+                  ? 'No deadline'
+                  : spotlightPace?.status === 'completed'
+                    ? 'Completed'
+                    : spotlightPace?.isDueToday
+                      ? 'Due today'
+                      : spotlightPace && spotlightPace.daysRemaining > 0
+                        ? `${spotlightPace.daysRemaining}d left`
+                        : spotlightPace?.status === 'past_due' ? 'Overdue' : spotlightPace?.badge}
               </span>
             </div>
 

@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { 
-  format, 
-  parseISO, 
+  format,
   eachDayOfInterval, 
   isSameMonth, 
   isSameDay, 
@@ -22,7 +21,7 @@ import {
   Target,
   Flag
 } from "lucide-react";
-import { cn } from "../../lib/utils";
+import { parseLocalDate, cn } from "../../lib/utils";
 
 function getHolidayDateKey(dateVal: any): string {
   if (!dateVal) return '';
@@ -78,7 +77,7 @@ export function CalendarMode({
   // `['planner', ...]` prefix the week/day views use so optimistic writes propagate.
   const gridStartKey = format(startDate, 'yyyy-MM-dd');
   const gridEndKey = format(endDate, 'yyyy-MM-dd');
-  const { data: gridPlannerData } = useQuery({
+  const { data: gridPlannerData, isError: milestonesError, refetch: retryMilestones } = useQuery({
     queryKey: ['planner', 'milestones', gridStartKey, gridEndKey, workspaceId],
     queryFn: () => api.planner.getMilestones(gridStartKey, gridEndKey, workspaceId),
     staleTime: 15_000,
@@ -86,7 +85,7 @@ export function CalendarMode({
   const milestones = gridPlannerData?.milestones || [];
   const goalDeadlines = gridPlannerData?.goalDeadlines || [];
 
-  const { data: monthData, isLoading: isHolidaysLoading } = useHolidays(currentCountry, currentRegion, calendarDate);
+  const { data: monthData, isLoading: isHolidaysLoading, isError: holidaysError, refetch: retryHolidays } = useHolidays(currentCountry, currentRegion, calendarDate);
 
   const holidays = useMemo(() => {
     const raw = monthData?.holidays || [];
@@ -113,7 +112,7 @@ export function CalendarMode({
       const dStr = t.scheduledDate || t.dueDate;
       if (!dStr) return false;
       try {
-        const d = parseISO(dStr);
+        const d = (parseLocalDate(dStr) ?? new Date(NaN));
         return isSameMonth(d, calendarDate);
       } catch {
         return false;
@@ -137,7 +136,7 @@ export function CalendarMode({
         const dStr = t.scheduledDate || t.dueDate;
         if (!dStr) return false;
         try {
-          return parseISO(dStr).getTime() >= todayZero.getTime() && t.status !== 'DONE';
+          return (parseLocalDate(dStr) ?? new Date(NaN)).getTime() >= todayZero.getTime() && t.status !== 'DONE';
         } catch {
           return false;
         }
@@ -153,8 +152,18 @@ export function CalendarMode({
   return (
     <div className="flex-1 flex flex-col lg:flex-row gap-5 min-h-0 overflow-hidden">
 
+      {(milestonesError || holidaysError) && <div role="alert" className="shrink-0 text-sm text-warning-fg">
+        Some calendar events could not be loaded. <button type="button" className="underline" onClick={() => { retryMilestones(); retryHolidays(); }}>Retry calendar events</button>
+      </div>}
       {/* CALENDAR GRID */}
       <div className="flex-1 flex flex-col min-h-0 pb-1">
+        {(monthData?.coverage?.missingNationalYears?.length > 0 || monthData?.coverage?.missingRegionalYears?.length > 0) && (
+          <p role="status" className="mb-2 text-sm text-warning-fg">
+            {monthData.coverage.missingNationalYears.length > 0
+              ? 'Holiday dates are unavailable for part of this period.'
+              : 'State holiday dates are unavailable for this period. Showing national dates only.'}
+          </p>
+        )}
         {/* Day-of-week headers */}
         <div className="grid grid-cols-7 gap-0 text-center text-[11px] mb-2 flex-shrink-0">
           {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => (
@@ -176,7 +185,7 @@ export function CalendarMode({
               const dStr = t.scheduledDate || t.dueDate;
               if (!dStr) return false;
               try {
-                return isSameDay(parseISO(dStr), day);
+                return isSameDay((parseLocalDate(dStr) ?? new Date(NaN)), day);
               } catch {
                 return false;
               }
@@ -184,7 +193,7 @@ export function CalendarMode({
 
             const dayMilestones = milestones.filter((m: any) => {
               try {
-                return m.date && isSameDay(parseISO(m.date), day);
+                return m.date && isSameDay((parseLocalDate(m.date) ?? new Date(NaN)), day);
               } catch {
                 return false;
               }
@@ -192,7 +201,7 @@ export function CalendarMode({
 
             const dayGoalDeadlines = goalDeadlines.filter((g: any) => {
               try {
-                return g.targetDate && isSameDay(parseISO(g.targetDate), day);
+                return g.targetDate && isSameDay((parseLocalDate(g.targetDate) ?? new Date(NaN)), day);
               } catch {
                 return false;
               }
@@ -221,7 +230,7 @@ export function CalendarMode({
                 aria-label={`Open schedule for ${format(day, 'EEEE, MMMM d')}`}
                 onClick={() => onOpenDayView?.(day)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
+                  if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
                     e.preventDefault();
                     onOpenDayView?.(day);
                   }
@@ -422,7 +431,7 @@ export function CalendarMode({
           ) : (
             <div className="flex flex-col gap-2">
               {upcomingMonthTasks.map((t: any) => {
-                const d = parseISO(t.scheduledDate || t.dueDate);
+                const d = (parseLocalDate(t.scheduledDate || t.dueDate) ?? new Date(NaN));
                 return (
                   <button
                     type="button"

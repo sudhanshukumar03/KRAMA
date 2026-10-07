@@ -35,9 +35,6 @@ export const createTask = async (req: Request, res: Response) => {
     if (!workspaceId) return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'workspaceId is required' });
 
     const data = CreateTaskSchema.parse({ ...req.body, workspaceId });
-    if (req.body.parentTaskId !== undefined) {
-      (data as any).parentTaskId = req.body.parentTaskId;
-    }
     const { skillIds: _skillIds, ...cleanData } = data as any;
     const task = await taskService.createTask(cleanData, req.user!.id);
     return res.status(201).json(task);
@@ -49,9 +46,6 @@ export const createTask = async (req: Request, res: Response) => {
 export const updateTask = async (req: Request, res: Response) => {
   try {
     const data = UpdateTaskSchema.parse(req.body);
-    if (req.body.metadata !== undefined) {
-      (data as any).metadata = req.body.metadata;
-    }
     const { skillIds: _skillIds, ...cleanData } = data as any;
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || (cleanData.workspaceId as string);
     const task = await taskService.updateTask((req.params.id as string), workspaceId, cleanData, req.user!.id);
@@ -130,7 +124,7 @@ export const addComment = async (req: Request, res: Response) => {
     const { prisma } = await import('../prisma');
 
     // Check task exists
-    const task = await prisma.task.findUnique({ where: { id, workspaceId } });
+    const task = await prisma.task.findUnique({ where: { id, workspaceId, deletedAt: null } });
     if (!task) return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Task not found' });
 
     const comment = await prisma.comment.create({

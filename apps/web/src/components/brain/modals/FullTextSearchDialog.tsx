@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, RefreshCw, X, FileText } from 'lucide-react';
 import { api } from '../../../api/client';
 import { useModalA11y } from '../../../hooks/useModalA11y';
@@ -39,7 +39,8 @@ export function FullTextSearchDialog({
   const [tags, setTags] = useState<{ id: string; name: string; color?: string }[]>([]);
   const [results, setResults] = useState<DocumentSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [searchError, setSearchError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
 
   const modalRef = useModalA11y(isOpen, onClose);
 
@@ -63,30 +64,27 @@ export function FullTextSearchDialog({
   }, [isOpen, workspaceId]);
 
   useEffect(() => {
-    if (!query.trim()) {
-      setResults([]);
-      return;
-    }
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(async () => {
-      setIsSearching(true);
+    const controller = new AbortController();
+    setResults([]);
+    setSearchError('');
+    setIsSearching(isOpen && !!query.trim());
+    if (!isOpen || !query.trim()) return () => controller.abort();
+    const timer = setTimeout(async () => {
       try {
-        const targetWid = workspaceId || (typeof window !== 'undefined' ? localStorage.getItem('krama_active_workspace') : '');
-        if (!targetWid) return;
+        const targetWid = workspaceId || localStorage.getItem('krama_active_workspace');
+        if (!targetWid) throw new Error('Choose a workspace before searching.');
         const res = await api.documents.search(targetWid, query, {
-          type: selectedType,
-          projectId: selectedProject,
-          status: selectedStatus,
-          tag: selectedTag,
-        });
-        setResults(res || []);
-      } catch (err) {
-        console.error(err);
+          type: selectedType, projectId: selectedProject, status: selectedStatus, tag: selectedTag,
+        }, controller.signal);
+        if (!controller.signal.aborted) setResults(res || []);
+      } catch (error: any) {
+        if (!controller.signal.aborted) setSearchError(error?.message || 'Could not search documents.');
       } finally {
-        setIsSearching(false);
+        if (!controller.signal.aborted) setIsSearching(false);
       }
     }, 250);
-  }, [query, selectedType, selectedProject, selectedStatus, selectedTag, workspaceId]);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [isOpen, query, selectedType, selectedProject, selectedStatus, selectedTag, workspaceId, retryCount]);
 
   if (!isOpen) return null;
 
@@ -102,20 +100,22 @@ export function FullTextSearchDialog({
         role="dialog"
         aria-modal="true"
         aria-label="Search Workspace Documents"
-        className="bg-surface border border-border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
+        className="krama-dialog w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
       >
         <div className="p-4 border-b border-border flex items-center gap-3 bg-surface">
           <Search className="w-5 h-5 text-accent-fg shrink-0" />
           <input
+            aria-label="Search documents"
             autoFocus
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search specs, notes, architecture docs with ranked tsvector..."
+            placeholder="Search document titles and content…"
             className="flex-1 bg-transparent border-none outline-none text-primary placeholder:text-muted text-body"
           />
           {isSearching && <RefreshCw className="w-4 h-4 text-muted animate-spin shrink-0" />}
           <button
+            aria-label="Close document search"
             onClick={onClose}
             className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-surface-hover transition-colors"
           >
@@ -124,9 +124,10 @@ export function FullTextSearchDialog({
         </div>
 
         {/* Multi-Dimensional Search Filters */}
-        <div className="px-4 py-2 border-b border-border/60 bg-surface-hover/30 flex items-center gap-2 overflow-x-auto text-[11px] font-mono">
+        <div className="px-4 py-2 border-b border-border/60 bg-surface-hover/30 flex items-center gap-2 overflow-x-auto text-caption font-mono">
           {/* Type Filter */}
           <select
+            aria-label="Document type"
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
             className="bg-surface text-secondary hover:text-primary px-2 py-1 rounded-lg border border-border outline-none cursor-pointer font-bold"
@@ -143,7 +144,8 @@ export function FullTextSearchDialog({
           {/* Project Filter */}
           {projects.length > 0 && (
             <select
-              value={selectedProject}
+              aria-label="Project"
+            value={selectedProject}
               onChange={(e) => setSelectedProject(e.target.value)}
               className="bg-surface text-secondary hover:text-primary px-2 py-1 rounded-lg border border-border outline-none cursor-pointer font-medium max-w-[150px] truncate"
             >
@@ -156,6 +158,7 @@ export function FullTextSearchDialog({
 
           {/* Lifecycle Status Filter */}
           <select
+            aria-label="Lifecycle status"
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
             className="bg-surface text-secondary hover:text-primary px-2 py-1 rounded-lg border border-border outline-none cursor-pointer font-bold"
@@ -170,7 +173,8 @@ export function FullTextSearchDialog({
           {/* Tag Filter */}
           {tags.length > 0 && (
             <select
-              value={selectedTag}
+              aria-label="Tag"
+            value={selectedTag}
               onChange={(e) => setSelectedTag(e.target.value)}
               className="bg-surface text-secondary hover:text-primary px-2 py-1 rounded-lg border border-border outline-none cursor-pointer font-bold max-w-[130px] truncate"
             >
@@ -189,7 +193,7 @@ export function FullTextSearchDialog({
                 setSelectedStatus('ALL');
                 setSelectedTag('ALL');
               }}
-              className="text-accent-fg hover:underline px-1 py-0.5 ml-auto text-[10px] cursor-pointer"
+              className="text-accent-fg hover:underline px-1 py-0.5 ml-auto text-badge cursor-pointer"
             >
               Reset Filters
             </button>
@@ -197,7 +201,8 @@ export function FullTextSearchDialog({
         </div>
 
         <div className="max-h-96 overflow-y-auto p-3 divide-y divide-border/40">
-          {query.trim() && results.length === 0 && !isSearching && (
+          {searchError && <div role="alert" className="p-3 text-danger-fg text-caption">{searchError}<button className="min-h-11 px-3 underline" onClick={() => setRetryCount(n => n + 1)}>Retry search</button></div>}
+          {query.trim() && results.length === 0 && !isSearching && !searchError && (
             <div className="py-12 text-center text-secondary font-mono text-caption">
               No matching documents found for "{query}".
             </div>
@@ -210,13 +215,14 @@ export function FullTextSearchDialog({
           )}
 
           {results.map((item) => (
-            <div
+            <button
+              type="button"
               key={item.id}
               onClick={() => {
                 onSelectDoc(item.id);
                 onClose();
               }}
-              className="py-3 px-3 hover:bg-surface-hover rounded-xl cursor-pointer transition-colors group"
+              className="w-full text-left py-3 px-3 hover:bg-surface-hover rounded-xl cursor-pointer transition-colors group"
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="font-semibold text-primary group-hover:text-accent-fg flex items-center gap-2">
@@ -226,7 +232,7 @@ export function FullTextSearchDialog({
                 <div className="flex items-center gap-1.5">
                   {item.statusBadges?.[0] && (
                     <span className={cn(
-                      "text-[9px] font-mono uppercase px-1.5 py-0.2 rounded font-bold border",
+                      "text-badge font-mono uppercase px-1.5 py-0.2 rounded font-bold border",
                       item.statusBadges[0] === 'DRAFT' && "bg-warning-bg text-warning-fg border-warning-border",
                       item.statusBadges[0] === 'IN_REVIEW' && "bg-accent-subtle text-accent-fg border-accent/30",
                       item.statusBadges[0] === 'ACCEPTED' && "bg-success-bg text-success-fg border-success-border",
@@ -235,18 +241,21 @@ export function FullTextSearchDialog({
                       {item.statusBadges[0]}
                     </span>
                   )}
-                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-surface-hover text-secondary border border-border">
+                  <span className="text-badge font-mono uppercase px-2 py-0.5 rounded bg-surface-hover text-secondary border border-border">
                     {item.documentType || 'DOC'}
                   </span>
                 </div>
               </div>
               {item.snippet && (
-                <p
+                <span
                   className="text-secondary text-[12px] line-clamp-2 font-mono leading-relaxed pl-6"
-                  dangerouslySetInnerHTML={{ __html: item.snippet }}
-                />
+                >{item.snippet.split(/(<b>.*?<\/b>)/gi).map((part, i) => {
+                  const highlighted = /^<b>/i.test(part);
+                  const text = part.replace(/<[^>]*>/g, '');
+                  return highlighted ? <mark key={i} className="bg-accent-subtle text-accent-fg">{text}</mark> : text;
+                })}</span>
               )}
-            </div>
+            </button>
           ))}
         </div>
       </div>

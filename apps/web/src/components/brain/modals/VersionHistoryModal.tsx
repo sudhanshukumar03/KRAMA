@@ -11,44 +11,50 @@ export interface VersionHistoryModalProps {
   documentId: string;
   isOpen: boolean;
   onClose: () => void;
-  onRestoreSuccess: (restoredDoc?: any) => void;
+  onRestoreSuccess: (restoredDoc?: any) => void | Promise<void>;
+  beforeAction?: () => Promise<unknown>;
 }
 
 export function VersionHistoryModal({
   documentId,
   isOpen,
   onClose,
-  onRestoreSuccess
+  onRestoreSuccess,
+  beforeAction
 }: VersionHistoryModalProps) {
   const queryClient = useQueryClient();
-  const { data: versions = [], isLoading } = useQuery({
+  const { data: versions = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['document-versions', documentId],
     queryFn: () => api.documents.getVersions(documentId),
     enabled: isOpen
   });
 
   const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [isSavingSnapshot, setIsSavingSnapshot] = useState(false);
 
   const modalRef = useModalA11y(isOpen, onClose);
 
   const handleManualSave = async () => {
+    setIsSavingSnapshot(true);
     try {
+      await beforeAction?.();
       await api.documents.createVersion(documentId);
       queryClient.invalidateQueries({ queryKey: ['document-versions', documentId] });
       toast.success('Snapshot created manually');
     } catch {
       toast.error('Failed to create version snapshot');
-    }
+    } finally { setIsSavingSnapshot(false); }
   };
 
   const handleRestore = async (versionId: string) => {
     setRestoringId(versionId);
     try {
+      await beforeAction?.();
       const restoredDoc = await api.documents.restoreVersion(documentId, versionId);
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       queryClient.invalidateQueries({ queryKey: ['document-versions', documentId] });
       toast.success('Restored document to selected snapshot');
-      onRestoreSuccess(restoredDoc);
+      await onRestoreSuccess(restoredDoc);
       onClose();
     } catch {
       toast.error('Failed to restore version snapshot');
@@ -71,7 +77,7 @@ export function VersionHistoryModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="version-history-title"
-        className="bg-surface border border-border w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
+        className="krama-dialog w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
       >
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
           <div className="flex items-center gap-2">
@@ -79,10 +85,10 @@ export function VersionHistoryModal({
             <span id="version-history-title" className="font-bold text-primary text-body">Version Snapshots</span>
           </div>
           <div className="flex items-center gap-2">
-            <BaseButton onClick={handleManualSave} className="text-caption py-1 px-2.5">
+            <BaseButton disabled={isSavingSnapshot || restoringId !== null} isLoading={isSavingSnapshot} onClick={handleManualSave} className="text-caption py-1 px-2.5">
               Snapshot Now
             </BaseButton>
-            <button onClick={onClose} className="p-1 text-muted hover:text-primary">
+            <button aria-label="Close version history" onClick={onClose} className="p-1 text-muted hover:text-primary">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -90,11 +96,15 @@ export function VersionHistoryModal({
 
         <div className="p-4 max-h-96 overflow-y-auto space-y-2">
           {isLoading && <div className="py-8 text-center text-muted font-mono text-caption">Loading snapshots...</div>}
-          {!isLoading && versions.length === 0 && (
+          {!isLoading && !isError && versions.length === 0 && (
             <div className="py-8 text-center text-secondary font-mono text-caption">
               No version snapshots recorded yet. Auto-snapshots fire after 50 mutations or 5 minutes of idle writing.
             </div>
           )}
+
+          {isError && <div role="alert" className="py-4 text-center text-secondary text-caption">
+            Could not load version history. <BaseButton onClick={() => void refetch()}>Try again</BaseButton>
+          </div>}
 
           {versions.map((v: DocumentVersion) => (
             <div
@@ -105,12 +115,12 @@ export function VersionHistoryModal({
                 <span className="font-bold font-mono text-primary text-caption block">
                   Version #{v.versionNumber}
                 </span>
-                <span className="text-[11px] text-secondary font-mono">
+                <span className="text-caption text-secondary font-mono">
                   {new Date(v.createdAt).toLocaleString()}
                 </span>
               </div>
               <BaseButton
-                disabled={restoringId === v.id}
+                disabled={restoringId !== null || isSavingSnapshot}
                 onClick={() => handleRestore(v.id)}
                 className="text-caption py-1 px-2.5 bg-accent-subtle hover:bg-accent/20 text-accent-fg border border-accent/20"
               >

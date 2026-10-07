@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { BaseButton } from '../ui/BaseButton';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 export interface GroundedAIPanelProps {
   documentId: string;
@@ -20,6 +21,14 @@ export function GroundedAIPanel({
   isOpen,
   onClose
 }: GroundedAIPanelProps) {
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobile(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  const panelRef = useModalA11y(isOpen && isMobile, onClose);
   const [tab, setTab] = useState<'ask' | 'compose'>('ask');
   const [question, setQuestion] = useState('');
   const [askOutput, setAskOutput] = useState('');
@@ -128,14 +137,14 @@ export function GroundedAIPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="w-96 border-l border-border bg-surface flex flex-col h-full shrink-0 shadow-xl z-20 font-sans animate-in slide-in-from-right duration-200">
+    <div ref={panelRef} role={isMobile ? "dialog" : "complementary"} aria-modal={isMobile ? true : undefined} aria-label="AI Assist" className="absolute inset-0 w-full max-w-full md:static md:w-96 border-l border-border bg-surface flex flex-col h-full shrink-0 shadow-xl z-40 font-sans animate-in slide-in-from-right duration-200">
       {/* Panel Header */}
       <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-accent-fg" />
           <span className="font-bold text-primary text-body">Grounded AI Assist</span>
         </div>
-        <button onClick={onClose} className="p-1 rounded-lg text-muted hover:text-primary hover:bg-surface-hover">
+        <button aria-label="Close AI Assist" onClick={onClose} className="min-h-11 min-w-11 p-2 rounded-lg text-muted hover:text-primary hover:bg-surface-hover">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -174,6 +183,7 @@ export function GroundedAIPanel({
 
           <div className="flex gap-2">
             <input
+              aria-label="Question about this document"
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
@@ -198,7 +208,7 @@ export function GroundedAIPanel({
       {tab === 'compose' && (
         <div className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4">
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5">Task Mode</label>
+            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5">Task Mode</label>
             <div className="grid grid-cols-3 gap-1.5">
               {(['write', 'improve', 'explain'] as const).map(m => (
                 <button
@@ -219,15 +229,16 @@ export function GroundedAIPanel({
 
           {selectionText && composeMode !== 'write' && (
             <div className="p-2.5 rounded-xl border border-border bg-surface-hover/40 text-caption">
-              <span className="font-bold text-secondary font-mono text-[10px] uppercase block mb-1">Target Selection:</span>
-              <p className="line-clamp-3 italic text-secondary font-mono text-[11px]">{selectionText}</p>
+              <span className="font-bold text-secondary font-mono text-badge uppercase block mb-1">Target Selection:</span>
+              <p className="line-clamp-3 italic text-secondary font-mono text-caption">{selectionText}</p>
             </div>
           )}
 
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5">Instruction</label>
+            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5">Instruction</label>
             <textarea
               rows={3}
+              aria-label="Writing instruction"
               value={composeInstruction}
               onChange={(e) => setComposeInstruction(e.target.value)}
               placeholder={composeMode === 'write' ? 'e.g. Outline deployment architecture checklist...' : 'e.g. Make it more concise and formal...'}

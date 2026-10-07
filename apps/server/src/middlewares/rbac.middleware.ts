@@ -18,7 +18,7 @@ export const requireWorkspaceRole = (minRole: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VI
 
     if (!finalWorkspaceId) {
       const member = await prisma.workspaceMember.findFirst({
-        where: { userId },
+        where: { userId, workspace: { deletedAt: null } },
         select: { workspaceId: true },
       });
       if (member) {
@@ -36,6 +36,7 @@ export const requireWorkspaceRole = (minRole: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VI
           userId,
           workspaceId: finalWorkspaceId,
         },
+        workspace: { deletedAt: null },
       },
       select: { role: true },
     });

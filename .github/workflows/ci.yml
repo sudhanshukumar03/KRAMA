@@ -37,8 +37,9 @@ jobs:
     env:
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/krama?schema=public"
       REDIS_URL: "redis://localhost:6379"
-      JWT_ACCESS_SECRET: "test-jwt-access-secret-32-chars-long!!"
-      JWT_REFRESH_SECRET: "test-jwt-refresh-secret-32-chars-long!!"
+      JWT_SECRET: "test-jwt-secret-32-chars-long!!"
+      TEST_DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/krama_integration_test?schema=public"
+      TEST_REDIS_URL: "redis://localhost:6379/15"
 
     steps:
     - name: Checkout Code
@@ -65,13 +66,16 @@ jobs:
       run: pnpm --filter server exec prisma generate
 
     - name: Push Database Schema
-      run: pnpm --filter server exec prisma db push --skip-generate
+      run: pnpm --filter server exec prisma db push
 
     - name: Build Monorepo Packages
       run: pnpm -r build
 
     - name: Run Validation Unit Tests
-      run: pnpm --filter validation test
+      run: pnpm --filter @krama/validation test
 
     - name: Run Backend Integration & Unit Tests
-      run: pnpm --filter server test
+      run: |
+        pnpm --filter server test
+        pnpm --filter server test:integration
+        pnpm --filter server test:startup

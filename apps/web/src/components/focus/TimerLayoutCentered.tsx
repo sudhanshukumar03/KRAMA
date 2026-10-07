@@ -90,7 +90,7 @@ export const TimerLayoutCentered: React.FC<TimerLayoutProps> = ({
                 <><span className="text-white/20 text-xs">•</span>
                 <span className="text-[11px] font-mono text-white/70 max-w-[200px] truncate">{taskTitle}</span></>
               )}
-              <span className="text-[10px] font-mono text-white/40 ml-1">({currentSlotIndex + 1}/{totalSlots})</span>
+              {totalSlots > 0 && <span className="text-[10px] font-mono text-white/40 ml-1">({currentSlotIndex + 1}/{totalSlots})</span>}
             </div>
           )}
         </div>

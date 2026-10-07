@@ -10,6 +10,8 @@ import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { ErrorState } from './ui/ErrorState';
+import { useModalA11y } from '../hooks/useModalA11y';
 import { IconPicker } from './ui/IconPicker';
 import { resolveIcon } from '../lib/iconResolver';
 
@@ -37,33 +39,35 @@ function ProjectCreateModal({
  });
  const [icon, setIcon] = useState('FolderKanban');
 
+ const modalRef = useModalA11y(open, () => { if (!isSubmitting) onClose(); });
  if (!open) return null;
 
  const handleSubmit = (e: React.FormEvent) => {
  e.preventDefault();
- if (!name.trim()) return;
+ if (isSubmitting || !name.trim()) return;
  onSubmit({ name: name.trim(), problemStatement: problemStatement.trim(), status, targetDate, icon, goalId: goalId || null });
  };
 
  return (
  <div
- onClick={onClose}
+ onClick={() => { if (!isSubmitting) onClose(); }}
  className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150 font-sans"
  >
  <div
+ ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="new-project-title"
  onClick={e => e.stopPropagation()}
- className="krama-dialog w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+ className="krama-dialog w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 max-h-[calc(100dvh-2rem)] overflow-y-auto text-left"
  >
  <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/80 backdrop-blur-md">
  <div className="flex items-center gap-2.5">
  <IconPicker value={icon} onChange={setIcon} />
  <div>
- <h3 className="text-card text-primary mb-2 ">New Project</h3>
+ <h3 id="new-project-title" className="text-card text-primary mb-2 ">New Project</h3>
  <p className="text-caption text-secondary font-mono">Engineering portfolio tracking</p>
  </div>
  </div>
  <button
- onClick={onClose}
+ onClick={onClose} disabled={isSubmitting} aria-label="Close new project"
  type="button"
  className="w-8 h-8 rounded-xl flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
  >
@@ -78,12 +82,11 @@ function ProjectCreateModal({
               Initiative Name <span className="text-danger-fg">*</span>
             </label>
             <input
-              type="text"
+              type="text" aria-label="Initiative Name"
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="e.g., Autonomous Decision Engine v2"
               required
-              autoFocus
               className="w-full px-3.5 py-2.5 border border-border rounded-xl text-body text-primary placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all bg-surface"
             />
           </div>
@@ -92,7 +95,7 @@ function ProjectCreateModal({
             <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
               Problem Statement / Technical Scope
             </label>
-            <textarea
+            <textarea aria-label="Problem Statement / Technical Scope"
               value={problemStatement}
               onChange={e => setProblemStatement(e.target.value)}
               placeholder="Briefly describe the objective, architectural constraints, and target outcomes..."
@@ -101,12 +104,12 @@ function ProjectCreateModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
                 Status
               </label>
-              <select
+              <select aria-label="Status"
                 value={status}
                 onChange={e => setStatus(e.target.value)}
                 className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono font-bold cursor-pointer"
@@ -125,7 +128,7 @@ function ProjectCreateModal({
                 Target Date
               </label>
               <input
-                type="date"
+                type="date" aria-label="Target Date"
                 value={targetDate}
                 onChange={e => setTargetDate(e.target.value)}
                 className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono font-bold"
@@ -141,7 +144,7 @@ function ProjectCreateModal({
               </span>
               <span className="text-secondary font-normal lowercase">(Optional)</span>
             </label>
-            <select
+            <select aria-label="Linked Strategic Goal / OKR"
               value={goalId}
               onChange={e => setGoalId(e.target.value)}
               className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono cursor-pointer"
@@ -174,25 +177,25 @@ function ProjectCreateModal({
 export function Projects() {
  const navigate = useNavigate();
  const queryClient = useQueryClient();
- const { data: projects = [], isLoading: pLoading } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
- const { data: issues = [], isLoading: iLoading } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
- const { data: pages = [], isLoading: docLoading } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
- const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
+ const { data: projects = [], isLoading: pLoading, isError: pError, refetch: retryProjects } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+ const { data: issues = [], isLoading: iLoading, isError: iError, refetch: retryIssues } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
+ const { data: pages = [], isLoading: docLoading, isError: docError, refetch: retryDocs } = useQuery({ queryKey: ['documents'], queryFn: () => api.documents.list() });
+ const { data: goals = [], isLoading: goalsLoading, isError: goalsError, refetch: retryGoals } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
 
  const handleDeleteProject = async (e: React.MouseEvent, project: any) => {
  e.stopPropagation();
  try {
  await api.projects.delete(project.id);
- queryClient.invalidateQueries({ queryKey: ['projects'] });
- queryClient.invalidateQueries({ queryKey: ['goals'] });
+ for (const queryKey of [['projects'], ['project', project.id], ['goals'], ['issues'], ['tasks'], ['planner']]) queryClient.invalidateQueries({ queryKey });
  toast.success(`Deleted initiative "${project.name}"`, {
  action: {
  label: 'Undo',
  onClick: async () => {
+ try {
  await api.projects.restore(project.id);
- queryClient.invalidateQueries({ queryKey: ['projects'] });
- queryClient.invalidateQueries({ queryKey: ['goals'] });
+ for (const queryKey of [['projects'], ['project', project.id], ['goals'], ['issues'], ['tasks'], ['planner']]) queryClient.invalidateQueries({ queryKey });
  toast.success(`Restored initiative "${project.name}"`);
+ } catch { toast.error('Could not restore initiative'); }
  }
  }
  });
@@ -298,8 +301,9 @@ export function Projects() {
  });
  }, [projects, searchQuery, statusFilter]);
 
- if (pLoading || iLoading || docLoading) return <LoadingState title="Loading Strategic Portfolio..." description="Aggregating initiative milestones, engineering telemetry, and AI risk analysis..." />;
+ if (pLoading || iLoading || docLoading || goalsLoading) return <LoadingState title="Loading Projects..." description="Loading projects, tasks and linked documents..." />;
 
+ if (pError || iError || docError || goalsError) return <div className="p-6"><ErrorState title="Could not load projects" onRetry={() => { retryProjects(); retryIssues(); retryDocs(); retryGoals(); }} /></div>;
  const statuses = statusFilter === 'all' ? ['active', 'idea', 'paused', 'shipped', 'completed', 'archived'] : [statusFilter];
 
  return (
@@ -322,7 +326,7 @@ export function Projects() {
           <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 stroke-[1.75]" />
           <input
             type="text"
-            placeholder="Search initiatives by title or technical scope..."
+            aria-label="Search projects" placeholder="Search initiatives by title or technical scope..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface-hover/80 border border-border/70 rounded-lg focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent focus:bg-surface transition-all placeholder:text-muted text-primary font-medium"
@@ -401,7 +405,7 @@ export function Projects() {
             className="v4-card p-6 hover:shadow-md transition-all duration-300 hover:translate-y-[-2px] hover:border-accent cursor-pointer group/card flex flex-col justify-between gap-5 relative overflow-hidden"
           >
             {/* Left color glow bar on hover */}
-            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-accent opacity-0 group-hover/card:opacity-100 transition-opacity duration-300" />
+            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-accent opacity-100 transition-opacity duration-300" />
 
             {/* Top Row: Title, Problem Statement & Actions */}
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -463,7 +467,7 @@ export function Projects() {
                 </div>
                 <ConfirmDeleteButton
                   onConfirm={(e) => handleDeleteProject(e, project)}
-                  className="opacity-0 group-hover/card:opacity-100 p-2"
+                  className="p-2"
                   iconClassName="w-4 h-4 stroke-[1.5]"
                 />
                 <button
@@ -516,17 +520,17 @@ export function Projects() {
               <div className="opacity-0 group-hover/card:opacity-100 max-h-0 group-hover/card:max-h-16 transition-all duration-300 overflow-hidden pt-1">
                 <div className="text-badge font-mono bg-accent-subtle border border-accent/20 text-primary px-3 py-1.5 rounded-lg flex items-center justify-between gap-2">
                   <span className="flex items-center gap-1.5 font-bold text-accent-fg">
-                    <Sparkles className="w-3.5 h-3.5 stroke-[1.5] shrink-0" /> AI Risk Sentinel:
+                    <Sparkles className="w-3.5 h-3.5 stroke-[1.5] shrink-0" /> Progress guidance:
                   </span>
                   <span className="truncate flex-1 text-secondary">
                     {progressPct === 100 
                       ? "Initiative completed. Ready for quarterly archive and post-mortem review." 
                       : progressPct > 60 
-                      ? "Velocity nominal (94% probability of achieving target horizon on schedule)."
-                      : "Early execution phase. AI recommends scheduling deep-work focus sessions."}
+                      ? "More than 60% of tracked tasks are complete. Review the remaining work against the target date."
+                      : "Early execution phase. Consider scheduling focus sessions for the remaining tasks."}
                   </span>
                   <span className="font-bold text-primary flex items-center gap-1 shrink-0">
-                    <ShieldCheck className="w-3.5 h-3.5 text-success-fg stroke-[1.5]" /> Nominal
+                    <ShieldCheck className="w-3.5 h-3.5 text-success-fg stroke-[1.5]" /> Tracked
                   </span>
                 </div>
               </div>
@@ -539,13 +543,13 @@ export function Projects() {
  })}
  </div>
 
- <ProjectCreateModal
+ {createModalOpen && <ProjectCreateModal
  open={createModalOpen}
  onClose={() => setCreateModalOpen(false)}
  onSubmit={(data) => createProjectMutation.mutate(data)}
  isSubmitting={createProjectMutation.isPending}
  goals={goals}
- />
+ />}
  </div>
  );
 }

@@ -71,6 +71,7 @@ export type ProjectWithRelations = Project & {
   targetDate?: string | Date | null;
   tasks?: Issue[];
   documents?: Document[];
+  milestones?: { id: string; title: string; date: string; completed: boolean }[];
   roadmapItems?: RoadmapItem[];
   goal?: GoalWithRelations | null;
   space?: Space | null;

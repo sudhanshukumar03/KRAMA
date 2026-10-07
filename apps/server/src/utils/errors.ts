@@ -18,8 +18,11 @@ class AppError extends Error {
 }
 
 export function handleControllerError(res: Response, error: any, defaultMessage = 'Internal server error') {
+  if (error?.message?.startsWith('Conflict:')) {
+    return res.status(409).json({ success: false, code: 'CONFLICT', message: error.message });
+  }
   // 1. Zod validation error
-  if (error instanceof ZodError) {
+  if (error instanceof ZodError || (error?.name === 'ZodError' && Array.isArray(error.issues))) {
     const primaryMessage = error.issues[0]?.message || 'Validation failed';
     return res.status(400).json({
       success: false,

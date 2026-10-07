@@ -25,14 +25,14 @@ test.describe.serial('Kanban Phase 3 Verification', () => {
 
     // Create Task 1
     await page.getByText('Quick Add').first().click();
-    await page.locator('h3:has-text("Create New Task")').waitFor({ state: 'visible' });
+    await page.locator('h3:has-text("Create New Directive")').waitFor({ state: 'visible' });
     await page.locator('input[type="text"]').last().fill('Task 1');
     await page.locator('button[type="submit"]', { hasText: 'Create Task' }).click();
     await expect(page.locator('text=Task 1').first()).toBeVisible();
 
     // Create Task 2
     await page.getByText('Quick Add').first().click();
-    await page.locator('h3:has-text("Create New Task")').waitFor({ state: 'visible' });
+    await page.locator('h3:has-text("Create New Directive")').waitFor({ state: 'visible' });
     await page.locator('input[type="text"]').last().fill('Task 2');
     await page.locator('button[type="submit"]', { hasText: 'Create Task' }).click();
     await expect(page.locator('text=Task 2').first()).toBeVisible();

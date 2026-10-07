@@ -11,6 +11,8 @@
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
     "test": "pnpm --filter server test",
+    "test:ui": "playwright test",
+    "test:e2e": "playwright test --config playwright.integration.config.ts",
     "holidays:sync": "pnpm --filter server holidays:sync"
   },
   "devDependencies": {

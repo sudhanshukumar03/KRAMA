@@ -8,11 +8,18 @@ const API_BASE = '/api/v1';
 let currentAccessToken: string | null = null;
 let currentWorkspaceId: string | null = typeof window !== 'undefined' ? localStorage.getItem('krama_active_workspace') : null;
 let globalLogoutHandler: (() => void) | null = null;
+const tokenListeners = new Set<(token: string | null) => void>();
+
+function setAccessToken(token: string | null) {
+  currentAccessToken = token;
+  tokenListeners.forEach(listener => listener(token));
+}
 
 // The single in-flight refresh promise to prevent race conditions during concurrent 401s
 let refreshPromise: Promise<string | null> | null = null;
 
 async function doRefresh(): Promise<string | null> {
+  const previousToken = currentAccessToken;
   try {
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
@@ -21,28 +28,59 @@ async function doRefresh(): Promise<string | null> {
     });
     if (!res.ok) throw new Error('Refresh failed');
     const data = await res.json();
-    currentAccessToken = data.accessToken;
+    if (currentAccessToken !== previousToken) return currentAccessToken;
+    setAccessToken(data.accessToken);
     return data.accessToken;
   } catch (error) {
-    currentAccessToken = null;
-    if (globalLogoutHandler) globalLogoutHandler();
+    if (currentAccessToken === previousToken) setAccessToken(null);
     throw error;
   } finally {
     refreshPromise = null;
   }
 }
 
-async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const executeRequest = async (token: string | null) => {
-    const headers = new Headers(options.headers || {});
+// Bootstrap and expired-request recovery share one rotation, including React's
+// development remount. Competing rotations can invalidate the just-issued JWT.
+async function refreshAccessToken() {
+  if (!refreshPromise) refreshPromise = doRefresh();
+  return refreshPromise;
+}
+
+// One recovery path for JSON, streams, downloads and multipart uploads.
+async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {
+  const execute = (token: string | null) => {
+    const headers = new Headers(options.headers);
     if (token) headers.set('Authorization', `Bearer ${token}`);
     if (currentWorkspaceId) headers.set('x-workspace-id', currentWorkspaceId);
     headers.set('x-timezone-offset', String(new Date().getTimezoneOffset()));
+    headers.set('x-timezone', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    return fetch(`${API_BASE}${endpoint}`, { ...options, headers, credentials: 'include' });
+  };
+  const requestedToken = currentAccessToken;
+  const response = await execute(requestedToken);
+  if (response.status !== 401 || endpoint.startsWith('/auth/')) return response;
+  if (options.signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
+  let token: string | null;
+  try {
+    token = currentAccessToken !== requestedToken && currentAccessToken
+      ? currentAccessToken : await refreshAccessToken();
+  } catch (error) {
+    if (!currentAccessToken) globalLogoutHandler?.();
+    throw error;
+  }
+  if (!token) return response;
+  if (options.signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
+  return execute(token);
+}
+
+async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const executeRequest = async () => {
+    const headers = new Headers(options.headers || {});
     if (!(options.body instanceof FormData)) {
       headers.set('Content-Type', 'application/json');
     }
 
-    const res = await fetch(`${API_BASE}${endpoint}`, { 
+    const res = await authenticatedFetch(endpoint, {
       ...options, 
       headers,
       credentials: 'include'
@@ -58,6 +96,10 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
       try {
         const json = JSON.parse(errorText);
         errorMessage = json.message || errorText;
+        const issues = Array.isArray(json.errors) ? json.errors : [];
+        if (issues.length) {
+          errorMessage = issues.map((issue: { message?: string }) => issue.message).filter(Boolean).join(' ');
+        }
       } catch {}
 
       if (res.status === 403) {
@@ -83,21 +125,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     return res.json();
   };
 
-  try {
-    return await executeRequest(currentAccessToken);
-  } catch (error: any) {
-    // If we get a 401 and we aren't already hitting an auth route, attempt a refresh
-    if (error.status === 401 && !endpoint.startsWith('/auth/')) {
-      if (!refreshPromise) {
-        refreshPromise = doRefresh();
-      }
-      const newToken = await refreshPromise;
-      if (newToken) {
-        return await executeRequest(newToken);
-      }
-    }
-    throw error;
-  }
+  return executeRequest();
 }
 
 async function streamDocumentAi(
@@ -115,7 +143,7 @@ async function streamDocumentAi(
     if (currentAccessToken) headers['Authorization'] = `Bearer ${currentAccessToken}`;
     if (currentWorkspaceId) headers['x-workspace-id'] = currentWorkspaceId;
 
-    const res = await fetch(`${API_BASE}${url}`, {
+    const res = await authenticatedFetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -174,7 +202,7 @@ async function downloadDocumentExport(id: string, format: 'md' | 'spec', filenam
   if (currentAccessToken) headers['Authorization'] = `Bearer ${currentAccessToken}`;
   if (currentWorkspaceId) headers['x-workspace-id'] = currentWorkspaceId;
 
-  const res = await fetch(`${API_BASE}/documents/${id}/export?format=${format}`, {
+  const res = await authenticatedFetch(`/documents/${id}/export?format=${format}`, {
     headers,
     credentials: 'include',
   });
@@ -191,16 +219,21 @@ async function downloadDocumentExport(id: string, format: 'md' | 'spec', filenam
 }
 
 export const api = {
-  setAccessToken: (token: string | null) => { currentAccessToken = token; },
+  setAccessToken,
+  subscribeAccessToken: (listener: (token: string | null) => void) => {
+    tokenListeners.add(listener);
+    return () => { tokenListeners.delete(listener); };
+  },
   setWorkspaceId: (wid: string | null) => { currentWorkspaceId = wid; },
   setGlobalLogoutHandler: (handler: () => void) => { globalLogoutHandler = handler; },
 
   upload: {
+    capabilities: () => fetchApi<{ uploadAvailable: boolean; unsplashAvailable: boolean }>('/upload/capabilities'),
     file: async (file: File): Promise<{ success: boolean; url: string; key: string }> => {
       const formData = new FormData();
       formData.append('file', file);
       
-      const res = await fetch(`${API_BASE}/upload`, {
+      const res = await authenticatedFetch('/upload', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${currentAccessToken}`,
@@ -208,7 +241,10 @@ export const api = {
         },
         body: formData,
       });
-      if (!res.ok) throw new Error('Failed to upload file');
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.message || 'Failed to upload file');
+      }
       return res.json();
     }
   },
@@ -216,7 +252,7 @@ export const api = {
     signup: (data: Record<string, any>) => fetchApi<any>('/auth/signup', { method: 'POST', body: JSON.stringify(data) }),
     login: (data: Record<string, any>) => fetchApi<any>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
     logout: () => fetchApi<any>('/auth/logout', { method: 'POST' }),
-    refresh: () => fetchApi<any>('/auth/refresh', { method: 'POST' }),
+    refresh: async () => ({ accessToken: await refreshAccessToken() }),
     me: () => fetchApi<any>('/auth/me', { method: 'GET' }),
     updatePreferences: (body: Record<string, any>) => fetchApi<any>('/auth/me/preferences', { method: 'PATCH', body: JSON.stringify(body) }),
   },
@@ -261,13 +297,13 @@ export const api = {
     removeLink: (linkId: string) => fetchApi<any>(`/links/${linkId}`, { method: 'DELETE' }),
     createTask: (id: string, data: { title: string; priority?: string; status?: string; description?: string }) =>
       fetchApi<{ task: any; link: any }>(`/documents/${id}/tasks`, { method: 'POST', body: JSON.stringify(data) }),
-    search: (workspaceId: string, q: string, filters?: { type?: string; projectId?: string; status?: string; tag?: string }) => {
+    search: (workspaceId: string, q: string, filters?: { type?: string; projectId?: string; status?: string; tag?: string }, signal?: AbortSignal) => {
       const params = new URLSearchParams({ q });
       if (filters?.type && filters.type !== 'ALL') params.append('type', filters.type);
       if (filters?.projectId && filters.projectId !== 'ALL') params.append('projectId', filters.projectId);
       if (filters?.status && filters.status !== 'ALL') params.append('status', filters.status);
       if (filters?.tag && filters.tag !== 'ALL') params.append('tag', filters.tag);
-      return fetchApi<any[]>(`/workspaces/${workspaceId}/search?${params.toString()}`);
+      return fetchApi<any[]>(`/workspaces/${workspaceId}/search?${params.toString()}`, { signal });
     },
 
 
@@ -351,7 +387,7 @@ export const api = {
   },
   analytics: {
     overview: (range: string) => fetchApi<any[]>(`/analytics/overview?range=${range}`, { method: 'GET' }),
-    focusHistory: (range: string) => fetchApi<any[]>(`/analytics/focus-history?range=${range}`, { method: 'GET' })
+    focusHistory: (range: string, cursor?: string) => fetchApi<{ sessions: any[]; total: number; nextCursor: string | null }>(`/analytics/focus-history?range=${range}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { method: 'GET' })
   },
   planner: {
     getWeek: (start: string, end: string, workspaceId?: string | null) => {

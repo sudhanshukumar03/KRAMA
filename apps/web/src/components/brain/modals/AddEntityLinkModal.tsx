@@ -97,7 +97,7 @@ export function AddEntityLinkModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-entity-link-title"
-        className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
+        className="krama-dialog w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
       >
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
           <div className="flex items-center gap-2">
@@ -111,7 +111,7 @@ export function AddEntityLinkModal({
 
         <div className="p-5 space-y-4 font-sans text-caption">
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5">Target Type</label>
+            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5">Target Type</label>
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
@@ -150,7 +150,7 @@ export function AddEntityLinkModal({
           </div>
 
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5">Relation Type</label>
+            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5">Relation Type</label>
             <select
               value={linkType}
               onChange={(e) => setLinkType(e.target.value as any)}
@@ -162,7 +162,7 @@ export function AddEntityLinkModal({
           </div>
 
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5">Select Target</label>
+            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5">Select Target</label>
             <select
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}

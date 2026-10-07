@@ -8,7 +8,7 @@ export class NagerDateHolidayProvider implements HolidayProvider {
     const { countryCode, year } = input;
 
     try {
-      const response = await fetch(`${this.baseUrl}/PublicHolidays/${year}/${encodeURIComponent(countryCode)}`);
+      const response = await fetch(`${this.baseUrl}/PublicHolidays/${year}/${encodeURIComponent(countryCode)}`, { signal: AbortSignal.timeout(15000) });
       if (!response.ok) {
         if (response.status === 404) return [];
         throw new Error(`Nager.Date API HTTP ${response.status}`);
@@ -17,7 +17,12 @@ export class NagerDateHolidayProvider implements HolidayProvider {
       const holidays = (await response.json()) as any[];
       if (!Array.isArray(holidays)) return [];
 
-      return holidays.map((h: any): ExternalHoliday => {
+      return holidays.filter((h: any) => {
+        const nationwide = h.global === true || !Array.isArray(h.counties) || h.counties.length === 0;
+        if (!input.regionCode) return nationwide;
+        const code = input.regionCode.includes('-') ? input.regionCode : `${countryCode}-${input.regionCode}`;
+        return !nationwide && h.counties.some((county: string) => county.toUpperCase() === code.toUpperCase());
+      }).map((h: any): ExternalHoliday => {
         const typeString = Array.isArray(h.types) ? h.types.join(", ") : (h.type || "Public");
         const { type, isPublicHoliday } = HolidayNormalizer.normalizeType(typeString);
 
@@ -30,7 +35,7 @@ export class NagerDateHolidayProvider implements HolidayProvider {
           type,
           isOptional: false,
           isPublicHoliday,
-          source: "nager.date",
+          source: "nager.date-v2",
         };
       });
     } catch (error) {

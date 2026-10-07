@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jwt-simple';
 import crypto from 'crypto';
 import { redisService } from './redis.service';
+import { socketService } from './socket.service';
 import { userRepository } from '../repositories/user.repository';
 import { sessionRepository } from '../repositories/session.repository';
 import { workspaceRepository } from '../repositories/workspace.repository';
@@ -125,29 +126,25 @@ class AuthService {
 
   async revokeSession(refreshToken: string): Promise<void> {
     const hash = this.hashRefreshToken(refreshToken);
-    await redisService.del(`session:${hash}`);
-    await sessionRepository.updateByHash(hash, { revokedAt: new Date() }).catch(() => {});
+    const session = await sessionRepository.findByHash(hash);
+    if (!session) return;
+    await sessionRepository.updateByHash(hash, { revokedAt: new Date() });
+    await this.invalidateSession(session);
+  }
+
+  private async invalidateSession(session: { id: string; refreshTokenHash: string }, disconnect = true): Promise<void> {
+    // Both HTTP and Socket.IO authorization consult this key. Overwrite the
+    // positive cache rather than leaving a revoked session valid for its TTL.
+    await redisService.set(`session_revoked:${session.id}`, 'true', ACCESS_TOKEN_EXPIRY_S);
+    await redisService.del(`session:${session.refreshTokenHash}`);
+    await redisService.del(`grace:${session.refreshTokenHash}`);
+    if (disconnect) socketService.revokeSessionConnections(session.id);
   }
 
   async revokeAllSessions(userId: string): Promise<void> {
     const sessions = await sessionRepository.findActiveByUserId(userId);
-
-    if (redisService.isConnected) {
-      try {
-        const pipeline = redisService.client.multi();
-        for (const s of sessions) {
-          pipeline.del(`session:${s.refreshTokenHash}`);
-        }
-        await pipeline.exec();
-      } catch {
-        // Ignore pipeline error
-      }
-    }
-    for (const s of sessions) {
-      await redisService.del(`session:${s.refreshTokenHash}`);
-    }
-
     await sessionRepository.updateManyActiveByUserId(userId, { revokedAt: new Date() });
+    await Promise.all(sessions.map((session) => this.invalidateSession(session)));
   }
 
   private inFlightRefreshes = new Map<string, Promise<{ accessToken: string; refreshToken: string }>>();
@@ -231,8 +228,9 @@ class AuthService {
 
     // Ensure it's revoked in DB if we consumed it from Redis
     if (deletedCount === 1) {
-      await sessionRepository.updateByHash(hash, { revokedAt: new Date() }).catch(() => {});
+      await sessionRepository.updateByHash(hash, { revokedAt: new Date() });
     }
+    await this.invalidateSession({ id: sessionData.sessionId, refreshTokenHash: hash }, false);
 
     // Create new
     const newPair = await this.createSession(sessionData.userId, ip, userAgent, sessionData.familyId);
@@ -241,21 +239,15 @@ class AuthService {
       await redisService.set(`grace:${hash}`, JSON.stringify(newPair), 10);
     }
     
+    // Publish rotation only after its replacement/grace pair can be recovered.
+    socketService.revokeSessionConnections(sessionData.sessionId, 'rotated');
     return newPair;
   }
 
   async revokeFamily(familyId: string): Promise<void> {
     const sessions = await sessionRepository.findActiveByFamilyId(familyId);
-    if (redisService.isConnected) {
-      try {
-        const pipeline = redisService.client.multi();
-        for (const s of sessions) {
-          pipeline.del(`session:${s.refreshTokenHash}`);
-        }
-        await pipeline.exec();
-      } catch {}
-    }
     await sessionRepository.updateManyActiveByFamilyId(familyId, { revokedAt: new Date() });
+    await Promise.all(sessions.map((session) => this.invalidateSession(session)));
   }
 }
 

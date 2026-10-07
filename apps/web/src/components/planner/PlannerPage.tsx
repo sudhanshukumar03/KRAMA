@@ -3,7 +3,7 @@
 // =============================================================================
 // Top-level page component orchestrating the planner system
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { format, subMonths, addMonths, addDays } from 'date-fns';
 import { INDIAN_STATES, COUNTRIES } from './locationConstants';
@@ -32,31 +32,20 @@ export function PlannerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const urlMode = searchParams.get('mode');
-  const initialMode = (urlMode === 'day' || urlMode === 'schedule') ? 'day' : urlMode === 'calendar' ? 'calendar' : 'plan';
-  const [mode, setMode] = useState<'plan' | 'calendar' | 'day'>(initialMode);
+  const mode = (urlMode === 'day' || urlMode === 'schedule') ? 'day' : urlMode === 'calendar' ? 'calendar' : 'plan';
   const [previousMode, setPreviousMode] = useState<'plan' | 'calendar'>('plan');
   const [isDrilldown, setIsDrilldown] = useState(false);
   const dateParam = searchParams.get('date');
-  const [viewDay, setViewDay] = useState<Date>(() => parseLocalDate(dateParam) ?? new Date());
-  const [calendarDate, setCalendarDate] = useState(new Date());
+  const viewDay = useMemo(() => parseLocalDate(dateParam) ?? new Date(), [dateParam]);
+  const calendarDate = viewDay;
+  const showDate = (date: Date, nextMode: 'plan' | 'calendar' | 'day' = mode) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('mode', nextMode);
+    params.set('date', format(date, 'yyyy-MM-dd'));
+    setSearchParams(params);
+  };
   const queryClient = useQueryClient();
 
-  // Sync mode and viewDay on browser back / forward navigation
-  useEffect(() => {
-    const currentUrlMode = searchParams.get('mode');
-    const targetMode = (currentUrlMode === 'day' || currentUrlMode === 'schedule') 
-      ? 'day' 
-      : currentUrlMode === 'calendar' 
-      ? 'calendar' 
-      : 'plan';
-    setMode(targetMode);
-
-    const currentDateParam = searchParams.get('date');
-    if (currentDateParam) {
-      const parsed = parseLocalDate(currentDateParam);
-      if (parsed) setViewDay(parsed);
-    }
-  }, [searchParams]);
   const { workspaceId } = useAuth();
 
 
@@ -69,8 +58,6 @@ export function PlannerPage() {
     days,
     weekRangeLabel,
     weekNumber,
-    navigateWeek,
-    navigateToDate,
     occurrenceFor,
     toggleRoutineMutation,
     createTimeBlockMutation,
@@ -79,7 +66,7 @@ export function PlannerPage() {
     createMilestoneMutation,
     updateMilestoneMutation,
     deleteMilestoneMutation,
-  } = usePlannerWeek();
+  } = usePlannerWeek(viewDay);
 
   const [timeBlockModalOpen, setTimeBlockModalOpen] = useState(false);
   const [editingTimeBlock, setEditingTimeBlock] = useState<any | null>(null);
@@ -93,6 +80,9 @@ export function PlannerPage() {
   const [capacityModalOpen, setCapacityModalOpen] = useState(false);
   const [captureDate, setCaptureDate] = useState<Date | undefined>(undefined);
   const [editingTask, setEditingTask] = useState<any | null>(null);
+  const taskRequest = useRef(0);
+  const activeWorkspace = useRef(workspaceId);
+  activeWorkspace.current = workspaceId;
 
  // Calendar lifted states
   const [localOnly, setLocalOnly] = useState(false);
@@ -100,7 +90,7 @@ export function PlannerPage() {
   const indiaRegion = data?.config?.countryCode === 'IN' ? (data?.config?.regionCode || '') : '';
   const worldCountry = data?.config?.countryCode !== 'IN' ? data?.config?.countryCode : 'US';
 
-  const { data: allIssues = [], isError: issuesError } = useQuery({
+  const { data: allIssues = [], isError: issuesError, refetch: refetchIssues } = useQuery({
     queryKey: ['issues', workspaceId],
     queryFn: api.tasks.list,
     staleTime: 10_000,
@@ -110,7 +100,7 @@ export function PlannerPage() {
     if (!data) return data;
     const taskMap = new Map<string, any>();
     allIssues.forEach((task: any) => taskMap.set(task.id, task));
-    (data.tasks || []).forEach((task: any) => taskMap.set(task.id, task));
+    (data.tasks || []).forEach((task: any) => taskMap.set(task.id, { ...taskMap.get(task.id), ...task }));
     return {
       ...data,
       tasks: Array.from(taskMap.values()),
@@ -120,11 +110,16 @@ export function PlannerPage() {
  const updateTaskMutation = useMutation({
  mutationFn: ({ id, data }: { id: string; data: any }) => api.tasks.update(id, data),
  onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['planner'] });
+ queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
  queryClient.invalidateQueries({ queryKey: ['issues'] });
  queryClient.invalidateQueries({ queryKey: ['tasks'] });
  queryClient.invalidateQueries({ queryKey: ['projects'] });
  queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
  },
  onError: (err: any) => {
  toast.error('Failed to update task: ' + (err?.message || 'Unknown error'));
@@ -134,11 +129,16 @@ export function PlannerPage() {
  const deleteTaskMutation = useMutation({
  mutationFn: (id: string) => api.tasks.delete(id),
  onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['planner'] });
+ queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
  queryClient.invalidateQueries({ queryKey: ['issues'] });
  queryClient.invalidateQueries({ queryKey: ['tasks'] });
  queryClient.invalidateQueries({ queryKey: ['projects'] });
  queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
  toast.success('Task deleted');
  },
  onError: (err: any) => {
@@ -149,6 +149,7 @@ export function PlannerPage() {
   const deleteRoutineMutation = useMutation({
     mutationFn: (id: string) => api.habits.update(id, { pinnedToPlanner: false }),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       toast.success('Routine unpinned from planner');
@@ -247,8 +248,14 @@ export function PlannerPage() {
     });
   };
 
-  const handleClickTask = (task: any) => {
-    setEditingTask(task);
+  const handleClickTask = async (task: any) => {
+    const request = ++taskRequest.current;
+    try {
+      const fullTask = await api.tasks.get(task.id);
+      if (request === taskRequest.current && workspaceId === activeWorkspace.current) setEditingTask(fullTask);
+    } catch {
+      toast.error('Unable to load task details. Please try again.');
+    }
   };
 
   const handleAddMilestone = (day?: Date) => {
@@ -276,18 +283,14 @@ export function PlannerPage() {
   };
 
   const handleOpenDayView = (day: Date) => {
-    setViewDay(day);
-    navigateToDate(day);
     setPreviousMode(mode === 'calendar' ? 'calendar' : 'plan');
     setIsDrilldown(true);
-    setMode('day');
-    setSearchParams({ mode: 'day', date: format(day, 'yyyy-MM-dd') });
+    showDate(day, 'day');
   };
 
   const handleBackFromDayView = () => {
     setIsDrilldown(false);
-    setMode(previousMode);
-    setSearchParams(previousMode === 'plan' ? {} : { mode: previousMode });
+    showDate(viewDay, previousMode);
   };
 
   const headerTitle = mode === 'plan' 
@@ -299,16 +302,12 @@ export function PlannerPage() {
 
   const handleNavigate = (dir: 'prev' | 'next' | 'today') => {
     if (mode === 'plan') {
-      navigateWeek(dir);
+      showDate(dir === 'today' ? new Date() : addDays(viewDay, dir === 'prev' ? -7 : 7));
     } else if (mode === 'calendar') {
-      if (dir === 'today') setCalendarDate(new Date());
-      else if (dir === 'prev') setCalendarDate(prev => subMonths(prev, 1));
-      else setCalendarDate(prev => addMonths(prev, 1));
+      showDate(dir === 'today' ? new Date() : dir === 'prev' ? subMonths(calendarDate, 1) : addMonths(calendarDate, 1));
     } else {
       const targetDate = dir === 'today' ? new Date() : dir === 'prev' ? addDays(viewDay, -1) : addDays(viewDay, 1);
-      setViewDay(targetDate);
-      navigateToDate(targetDate);
-      setSearchParams({ mode: 'day', date: format(targetDate, 'yyyy-MM-dd') });
+      showDate(targetDate);
     }
   };
 
@@ -326,6 +325,11 @@ export function PlannerPage() {
   return (
     <div className="flex flex-col h-full w-full min-h-0 overflow-hidden bg-canvas">
       <div className="flex flex-col h-full w-full max-w-[1700px] mx-auto px-4 md:px-6 py-2.5 min-h-0 gap-2.5">
+        {mode !== 'calendar' && (data.holidayCoverage?.missingNationalYears?.length > 0 || data.holidayCoverage?.missingRegionalYears?.length > 0) && (
+          <p role="status" className="shrink-0 text-sm text-warning-fg">
+            Holiday coverage is incomplete. Available capacity may exclude missing holidays.
+          </p>
+        )}
         <LocationSettingsModal 
           open={locationModalOpen} 
           onClose={() => setLocationModalOpen(false)} 
@@ -383,7 +387,7 @@ export function PlannerPage() {
           }}
           defaultDate={selectedDay}
           editingBlock={editingTimeBlock}
-          tasks={data?.tasks || []}
+          tasks={mergedData?.tasks || []}
           projects={data?.projects || []}
           onDelete={editingTimeBlock ? () => {
             deleteTimeBlockMutation.mutate(editingTimeBlock.id, {
@@ -425,7 +429,8 @@ export function PlannerPage() {
           <IssueEditModal
             open={!!editingTask}
             issue={editingTask}
-            allIssues={data.tasks}
+            allIssues={mergedData?.tasks || []}
+            projects={data.projects}
             onClose={() => setEditingTask(null)}
             isSubmitting={updateTaskMutation.isPending}
             onSubmit={(id, updatedData) => {
@@ -444,9 +449,8 @@ export function PlannerPage() {
           mode={mode}
           onModeChange={(m) => {
             setIsDrilldown(false);
-            setMode(m);
             if (m !== 'day') setPreviousMode(m);
-            setSearchParams(m === 'plan' ? {} : m === 'day' ? { mode: 'day', date: format(viewDay, 'yyyy-MM-dd') } : { mode: m });
+            showDate(viewDay, m);
           }}
           title={headerTitle}
           subtitle={headerSubtitle}
@@ -462,7 +466,7 @@ export function PlannerPage() {
             <div className="flex-1 min-h-0 flex flex-col gap-2.5">
               {issuesError && (
                 <div className="shrink-0 rounded-lg border border-warning-border bg-warning-bg px-3 py-2 text-[11px] font-medium text-warning-fg">
-                  Some tasks couldn't be loaded. Scheduling reflects the last known data — retry from the header to refresh.
+                  Some tasks couldn’t be loaded. <button type="button" onClick={() => refetchIssues()} className="underline font-semibold">Retry tasks</button>
                 </div>
               )}
               <CapacitySummary capacity={data.capacity} onEdit={() => setCapacityModalOpen(true)} />

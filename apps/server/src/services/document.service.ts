@@ -1,7 +1,8 @@
-import { prisma } from '../prisma';
+import { prisma, runInTransaction } from '../prisma';
+import { taskService } from './task.service';
 import { Prisma, DocumentType, TaskPriority, TaskStatus } from '@prisma/client';
 import { extractMarkdown, extractPlainText, calculateCounts } from '../utils/tiptap';
-import { embeddingQueue } from '../queues';
+import { documentLinkExists, reconcileDocumentLinks, queueDocumentEmbedding } from './documentContent.service';
 
 export class DocumentService {
   /**
@@ -67,7 +68,10 @@ export class DocumentService {
     const contentMarkdown = data.contentMarkdown || extractMarkdown(contentJson);
     const { wordCount, charCount } = calculateCounts(plainText);
 
-    return prisma.document.create({
+    const doc = await prisma.$transaction(async tx => {
+      const space = await tx.space.findFirst({ where: { id: data.spaceId, deletedAt: null, workspace: { deletedAt: null } } });
+      if (!space) throw new Error('Space not found');
+      const created = await tx.document.create({
       data: {
         spaceId: data.spaceId,
         folderId: data.folderId || null,
@@ -84,7 +88,12 @@ export class DocumentService {
         lastEditedById: data.createdById,
         documentType: data.documentType || 'GENERAL',
       },
+      });
+      await reconcileDocumentLinks(tx, created.id, space.workspaceId, null, contentJson, data.createdById);
+      return created;
     });
+    queueDocumentEmbedding(doc).catch(console.error);
+    return doc;
   }
 
   static async moveDocument(id: string, targetFolderId?: string, targetParentId?: string) {
@@ -217,15 +226,7 @@ export class DocumentService {
           select: { id: true, contentMarkdown: true }
         });
         for (const doc of docs) {
-          if (doc.contentMarkdown) {
-            embeddingQueue.add('embed-document', {
-              documentId: doc.id,
-              content: doc.contentMarkdown,
-            }, {
-              jobId: `embed-doc-restore-${doc.id}-${Date.now()}`,
-              delay: 500,
-            }).catch(() => {});
-          }
+          queueDocumentEmbedding(doc).catch(console.error);
         }
       } catch (err) {
         console.error('[DocumentService] Failed to dispatch re-embedding for restored docs:', err);
@@ -248,7 +249,7 @@ export class DocumentService {
     }
   }
 
-  static async duplicateSubtree(id: string, createdById: string, newParentId: string | null = null, externalTx?: Prisma.TransactionClient): Promise<string> {
+  static async duplicateSubtree(id: string, createdById: string, newParentId: string | null = null, externalTx?: Prisma.TransactionClient, duplicatedIds: string[] = []): Promise<string> {
     if (!externalTx) {
       const originalDoc = await prisma.document.findUnique({ where: { id }, select: { parentId: true, deletedAt: true } });
       if (!originalDoc || originalDoc.deletedAt) throw new Error("Document not found");
@@ -269,6 +270,8 @@ export class DocumentService {
       });
       if (!original || original.deletedAt) throw new Error("Document not found");
 
+      const space = await tx.space.findFirst({ where: { id: original.spaceId, deletedAt: null, workspace: { deletedAt: null } } });
+      if (!space) throw new Error('Space not found');
       const duplicated = await tx.document.create({
         data: {
           spaceId: original.spaceId,
@@ -280,6 +283,8 @@ export class DocumentService {
           icon: original.icon,
           contentJson: (original.contentJson ?? {}) as Prisma.InputJsonValue,
           contentMarkdown: original.contentMarkdown,
+          wordCount: original.wordCount,
+          charCount: original.charCount,
           statusBadges: original.statusBadges,
           documentType: original.documentType,
           createdById,
@@ -290,13 +295,18 @@ export class DocumentService {
         }
       });
 
+      duplicatedIds.push(duplicated.id);
+      await reconcileDocumentLinks(tx, duplicated.id, space.workspaceId, null, original.contentJson, createdById);
       // Copy outgoing links
       const outgoingLinks = await tx.entityLink.findMany({
         where: { sourceType: 'DOCUMENT', sourceId: id }
       });
-      if (outgoingLinks.length > 0) {
+      const allowedLinks = [];
+      for (const link of outgoingLinks) if (await documentLinkExists(tx, space.workspaceId, link)) allowedLinks.push(link);
+      if (allowedLinks.length > 0) {
         await tx.entityLink.createMany({
-          data: outgoingLinks.map((l) => ({
+          skipDuplicates: true,
+          data: allowedLinks.map((l) => ({
             sourceType: 'DOCUMENT',
             sourceId: duplicated.id,
             targetType: l.targetType,
@@ -310,7 +320,7 @@ export class DocumentService {
       // Recursively duplicate children
       const children = await tx.document.findMany({ where: { parentId: id, deletedAt: null }});
       for (const child of children) {
-        await this.duplicateSubtree(child.id, createdById, duplicated.id, tx);
+        await this.duplicateSubtree(child.id, createdById, duplicated.id, tx, duplicatedIds);
       }
 
       return duplicated.id;
@@ -319,7 +329,10 @@ export class DocumentService {
     if (externalTx) {
       return run(externalTx);
     } else {
-      return prisma.$transaction(run);
+      const duplicatedId = await prisma.$transaction(run);
+      const docs = await prisma.document.findMany({ where: { id: { in: duplicatedIds }, deletedAt: null } });
+      for (const doc of docs) queueDocumentEmbedding(doc).catch(console.error);
+      return duplicatedId;
     }
   }
 
@@ -343,18 +356,14 @@ export class DocumentService {
     const resolvedWorkspaceId = workspaceId || document.space?.workspaceId;
     if (!resolvedWorkspaceId) throw new Error("Workspace ID is required to create a task");
 
-    return prisma.$transaction(async (tx) => {
-      const task = await tx.task.create({
-        data: {
-          title: data.title.trim(),
-          description: data.description || `Created from document "${document.title}"`,
-          priority: data.priority || 'MEDIUM',
-          status: data.status || 'TODO',
-          workspaceId: resolvedWorkspaceId,
-          projectId: document.projectId || null,
-          createdBy: userId,
-        }
-      });
+    if (document.space?.workspaceId !== resolvedWorkspaceId) throw new Error('Document not found');
+    return runInTransaction(async (tx, publishAfterCommit) => {
+      const task = await taskService.createTaskWithinTransaction(tx, publishAfterCommit, {
+        title: data.title.trim(),
+        description: data.description || `Created from document "${document.title}"`,
+        priority: data.priority || 'MEDIUM', status: data.status || 'TODO',
+        workspaceId: resolvedWorkspaceId, projectId: document.projectId || null,
+      }, userId);
 
       const link = await tx.entityLink.create({
         data: {

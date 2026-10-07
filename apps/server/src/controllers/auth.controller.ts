@@ -1,3 +1,4 @@
+import { socketService } from '../services/socket.service';
 import type { Request, Response } from 'express';
 import { SignupSchema, LoginSchema } from '@krama/validation';
 import { authService } from '../services/auth.service';
@@ -189,6 +190,9 @@ export const updatePreferences = async (req: Request, res: Response) => {
       updateData.regionCode = locationConfig.regionCode ? locationConfig.regionCode : null;
     }
     if (weeklyCapacityMinutes !== undefined) {
+      if (!Number.isInteger(weeklyCapacityMinutes) || weeklyCapacityMinutes < 0 || weeklyCapacityMinutes > 10080) {
+        return res.status(400).json({ message: 'Weekly capacity must be whole minutes between 0 and 10080' });
+      }
       updateData.weeklyCapacityMinutes = weeklyCapacityMinutes;
     }
 
@@ -198,6 +202,7 @@ export const updatePreferences = async (req: Request, res: Response) => {
       select: userAuthSelect
     });
 
+    socketService.emitToUser(userId, 'preferences:updated', {});
     return res.status(200).json({ user: updatedUser });
   } catch (error) {
     console.error('Error updating user preferences', error);

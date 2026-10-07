@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Target, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useModalA11y } from '../../hooks/useModalA11y';
@@ -15,6 +15,7 @@ interface Props {
 }
 
 export function MilestoneModal({ open, onClose, onSubmit, onDelete, defaultDate, editingMilestone, projects, isSubmitting }: Props) {
+  const initialized = useRef({ open: false, id: undefined as string | undefined });
   const [title, setTitle] = useState('');
   const [dateStr, setDateStr] = useState('');
   const [projectId, setProjectId] = useState('');
@@ -22,7 +23,9 @@ export function MilestoneModal({ open, onClose, onSubmit, onDelete, defaultDate,
   const dialogRef = useModalA11y(open, onClose);
 
   useEffect(() => {
-    if (!open) return;
+    const shouldInitialize = open && (!initialized.current.open || initialized.current.id !== editingMilestone?.id);
+    initialized.current = { open, id: editingMilestone?.id };
+    if (!shouldInitialize) return;
     if (editingMilestone) {
       setTitle(editingMilestone.title || '');
       setDateStr((editingMilestone.date || '').split('T')[0] || format(defaultDate, 'yyyy-MM-dd'));
@@ -41,7 +44,7 @@ export function MilestoneModal({ open, onClose, onSubmit, onDelete, defaultDate,
   const canSubmit = title.trim().length > 0 && !!projectId && !!dateStr;
 
   const handleSubmit = () => {
-    if (!canSubmit) return;
+    if (!canSubmit || isSubmitting) return;
     onSubmit({
       title: title.trim(),
       date: `${dateStr}T12:00:00.000Z`,
@@ -76,6 +79,7 @@ export function MilestoneModal({ open, onClose, onSubmit, onDelete, defaultDate,
             <label htmlFor="milestone-title" className="block text-xs font-bold text-muted mb-1.5">Title</label>
             <input
               id="milestone-title"
+              maxLength={200}
               autoFocus
               value={title}
               onChange={e => setTitle(e.target.value)}

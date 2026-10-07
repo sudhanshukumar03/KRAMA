@@ -1,3 +1,4 @@
+import { useModalA11y } from '../hooks/useModalA11y';
 // UI-only refactor — no data/logic changes
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "../api/client";
@@ -33,12 +34,12 @@ function RadialProgress({ pct = 0, size = 76, strokeWidth = 6 }: { pct: number; 
 
   return (
     <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90 filter drop-shadow-[0_2px_8px_rgba(249,115,22,0.2)]">
+      <svg width={size} height={size} className="-rotate-90 filter drop-shadow-[0_2px_8px_var(--cat-projects-bg)]">
         <defs>
           <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#F97316" />
-            <stop offset="50%" stopColor="#FB923C" />
-            <stop offset="100%" stopColor="#E11D48" />
+            <stop offset="0%" stopColor="var(--cat-projects)" />
+            <stop offset="50%" stopColor="var(--warning-fg)" />
+            <stop offset="100%" stopColor="var(--danger-fg)" />
           </linearGradient>
         </defs>
         <circle
@@ -284,6 +285,8 @@ function HabitFormModal({
   initialData?: any;
   defaultTimeOfDay?: string;
 }) {
+  const dismiss = () => { if (!isSubmitting) onClose(); };
+  const dialogRef = useModalA11y(open, dismiss);
   const [name, setName] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
   const [linkedGoalId, setLinkedGoalId] = useState<string>("");
@@ -331,7 +334,7 @@ function HabitFormModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (isSubmitting || !name.trim() || (cadence === "daily" && scheduledDays.length === 0)) return;
     // Weekly habits are loggable on any day (target is N/week), so persist all
     // 7 days. This keeps the data coherent if the habit is later switched back
     // to daily, and prevents off-day weekly logs from being dropped server-side.
@@ -349,7 +352,6 @@ function HabitFormModal({
       ...(cadence === "weekly" ? { weeklyTarget } : {}),
       ...(mode === "edit" ? { version: initialData?.version || 1 } : {}),
     });
-    if (mode === "create") resetForm();
   };
 
  const daysOfWeek = [
@@ -358,6 +360,7 @@ function HabitFormModal({
  ];
 
  const toggleDay = (day: number) => {
+ if (scheduledDays.length === 1 && scheduledDays.includes(day)) return;
  setScheduledDays(prev =>
  prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
  );
@@ -365,26 +368,29 @@ function HabitFormModal({
 
  return (
  <div
- onClick={onClose}
+ onClick={dismiss}
  className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
  >
  <div
+ ref={dialogRef}
+ role="dialog" aria-modal="true" aria-labelledby="habit-form-heading"
  onClick={(e) => e.stopPropagation()}
- className="v4-card w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+ className="v4-card w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
  >
  <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/50">
  <div className="flex items-center gap-2.5">
  <div className="w-8 h-8 rounded-lg bg-accent-subtle text-accent-fg border border-accent/20 flex items-center justify-center">
  <Flame className="w-4 h-4 stroke-[2]" />
  </div>
- <h3 className="text-card text-primary mb-2 ">
+ <h3 id="habit-form-heading" className="text-card text-primary mb-2 ">
  {mode === "edit" ? "Edit Routine / Habit" : "Create New Routine / Habit"}
  </h3>
  </div>
  <button
- onClick={onClose}
+ onClick={dismiss}
+ aria-label="Close habit form"
  type="button"
- className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors"
+ className="w-11 h-11 shrink-0 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors"
  >
  <X className="w-4 h-4" />
  </button>
@@ -408,22 +414,23 @@ function HabitFormModal({
  </label>
  <input
  type="text"
+ aria-label="Routine name"
  value={name}
  onChange={(e) => setName(e.target.value)}
  placeholder="e.g., 45m Focused Deep Work"
  required
- autoFocus
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
  />
  </div>
  </div>
 
- <div className="grid grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
  <div>
  <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
  Cadence
  </label>
  <select
+ aria-label="Cadence"
  value={cadence}
  onChange={(e) => setCadence(e.target.value)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
@@ -438,6 +445,7 @@ function HabitFormModal({
  Category
  </label>
  <select
+ aria-label="Category"
  value={category}
  onChange={(e) => setCategory(e.target.value)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
@@ -462,6 +470,7 @@ function HabitFormModal({
  type="number"
  min="1"
  max="7"
+ aria-label="Weekly target"
  value={weeklyTarget}
  onChange={(e) => setWeeklyTarget(Math.min(7, Math.max(1, Number(e.target.value) || 1)))}
  className="w-24 px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
@@ -474,12 +483,14 @@ function HabitFormModal({
  <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
  Scheduled Days
  </label>
- <div className="flex gap-2">
+ <div className="flex flex-wrap gap-2">
  {daysOfWeek.map(day => {
  const isSelected = scheduledDays.includes(day.value);
  return (
  <button
  key={day.value}
+ aria-label={["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][day.value]}
+ aria-pressed={isSelected}
  type="button"
  onClick={() => toggleDay(day.value)}
  className={cn(
@@ -497,12 +508,13 @@ function HabitFormModal({
  </div>
  )}
 
- <div className="grid grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
  <div>
  <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
  Difficulty
  </label>
  <select
+ aria-label="Difficulty"
  value={difficulty}
  onChange={(e) => setDifficulty(e.target.value)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
@@ -520,6 +532,7 @@ function HabitFormModal({
  Linked Goal (Optional)
  </label>
  <select
+ aria-label="Linked goal"
  value={linkedGoalId}
  onChange={(e) => setLinkedGoalId(e.target.value)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
@@ -534,12 +547,13 @@ function HabitFormModal({
  </div>
  </div>
 
- <div className="grid grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
  <div>
  <label className="block text-caption font-mono font-medium text-secondary uppercase mb-1.5">
  Time of Day
  </label>
  <select
+ aria-label="Time of day"
  value={timeOfDay}
  onChange={(e) => setTimeOfDay(e.target.value)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
@@ -559,6 +573,7 @@ function HabitFormModal({
  type="number"
  min="1"
  max="480"
+ aria-label="Duration minutes"
  value={expectedDurationMinutes}
  onChange={(e) => setDuration(Number(e.target.value))}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
@@ -570,7 +585,7 @@ function HabitFormModal({
  <BaseButton
  type="button"
  variant="secondary"
- onClick={onClose}
+ onClick={dismiss}
  disabled={isSubmitting}
  >
  Cancel
@@ -841,7 +856,7 @@ export function HabitTracker() {
  isLoading,
  isError,
  } = useQuery({ queryKey: ["habits"], queryFn: api.habits.list });
- const { data: goals = [] } = useQuery({
+ const { data: goals = [], isError: goalsError, isLoading: goalsLoading, refetch: retryGoals } = useQuery({
  queryKey: ["goals", "lite"],
  queryFn: api.goals.listLite,
  });
@@ -851,6 +866,8 @@ export function HabitTracker() {
  mutationFn: (id: string) => api.habits.restore(id),
  onSuccess: (restoredHabit) => {
  queryClient.invalidateQueries({ queryKey: ["habits"] });
+ queryClient.invalidateQueries({ queryKey: ["planner"] });
+ queryClient.invalidateQueries({ queryKey: ["goal"] });
  queryClient.invalidateQueries({ queryKey: ["snapshots"] });
  queryClient.invalidateQueries({ queryKey: ["goals"] });
  toast.success(`Restored "${restoredHabit?.name || "Routine"}"`);
@@ -862,6 +879,8 @@ export function HabitTracker() {
  mutationFn: (id: string) => api.habits.delete(id),
  onSuccess: (_, deletedId) => {
  queryClient.invalidateQueries({ queryKey: ["habits"] });
+ queryClient.invalidateQueries({ queryKey: ["planner"] });
+ queryClient.invalidateQueries({ queryKey: ["goal"] });
  queryClient.invalidateQueries({ queryKey: ["snapshots"] });
  queryClient.invalidateQueries({ queryKey: ["goals"] });
  const deletedName =
@@ -927,6 +946,8 @@ export function HabitTracker() {
       }),
     onSuccess: (newHabit) => {
       queryClient.invalidateQueries({ queryKey: ["habits"] });
+ queryClient.invalidateQueries({ queryKey: ["planner"] });
+ queryClient.invalidateQueries({ queryKey: ["goal"] });
       queryClient.invalidateQueries({ queryKey: ["goals"] });
       setCreateModalOpen(false);
       toast.success(`Created "${newHabit?.name || "Habit"}"`);
@@ -937,7 +958,7 @@ export function HabitTracker() {
   });
 
   const togglePinHabitMutation = useMutation({
-    mutationFn: (data: { id: string; pinned: boolean }) => api.habits.update(data.id, { pinnedToPlanner: data.pinned }),
+    mutationFn: (data: { id: string; pinned: boolean }) => api.habits.update(data.id, { pinnedToPlanner: data.pinned, version: habits.find(h => h.id === data.id)?.version }),
     onMutate: async ({ id, pinned }) => {
       await queryClient.cancelQueries({ queryKey: ["habits"] });
       const previousHabits = queryClient.getQueryData<any[]>(["habits"]);
@@ -960,6 +981,8 @@ export function HabitTracker() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["habits"] });
+ queryClient.invalidateQueries({ queryKey: ["planner"] });
+ queryClient.invalidateQueries({ queryKey: ["goal"] });
       queryClient.invalidateQueries({ queryKey: ["planner"] });
     },
   });
@@ -971,6 +994,8 @@ export function HabitTracker() {
     }) => api.habits.update(data.id, data.payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["habits"] });
+ queryClient.invalidateQueries({ queryKey: ["planner"] });
+ queryClient.invalidateQueries({ queryKey: ["goal"] });
       queryClient.invalidateQueries({ queryKey: ["goals"] });
       setEditModalOpen(false);
       setEditingHabit(null);
@@ -986,7 +1011,7 @@ export function HabitTracker() {
  setEditModalOpen(true);
  };
 
- if (isLoading)
+ if (isLoading || goalsLoading)
  return (
  <LoadingState
  variant="habit-tracker"
@@ -994,14 +1019,14 @@ export function HabitTracker() {
  description="Syncing streak logs and daily routines..."
  />
  );
- if (isError) {
+ if (isError || goalsError) {
  return (
  <div className="p-8">
  <ErrorState
  title="Failed to load Habits"
  message="Could not retrieve habit and streak logs from the server. Please check your connection."
  onRetry={() =>
- queryClient.invalidateQueries({ queryKey: ["habits"] })
+ Promise.all([queryClient.invalidateQueries({ queryKey: ["habits"] }), retryGoals()])
  }
  />
  </div>

@@ -48,6 +48,10 @@ export function isCapacityWeekday(date: Date): boolean {
   return dow >= 1 && dow <= 5;
 }
 
+export function isCapacityHoliday(holiday: { date: Date; isPublicHoliday: boolean; isOptional: boolean }): boolean {
+  return holiday.isPublicHoliday && !holiday.isOptional && isCapacityWeekday(holiday.date);
+}
+
 /**
  * UTC day-bounds for a 'YYYY-MM-DD' key: [00:00:00.000Z, 23:59:59.999Z]. Used
  * to window a user's local calendar day against UTC-noon-keyed blocks/tasks.

@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useModalA11y } from '../hooks/useModalA11y';
+import React, { useState, useMemo, useEffect, useCallback, useRef, useId } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
@@ -38,7 +39,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { cn } from '../lib/utils';
+import { cn, parseLocalDate } from '../lib/utils';
+import { useReducedMotion } from '../hooks/useReducedMotion';
+
+function taskDay(value: unknown) { return value instanceof Date ? value.toISOString().slice(0, 10) : typeof value === 'string' ? value.slice(0, 10) : ''; }
 
 // Status columns aligned with execution stages
 const STATUS_COLUMNS = [
@@ -76,6 +80,9 @@ const STATUS_COLUMNS = [
     addText: "text-warning-fg hover:bg-warning-bg hover:border-warning-border",
   },
   {
+    id: "REVIEW" as TaskStatus, title: "Review", subtitle: "Ready for checking", icon: Search, iconColor: "text-info-fg", bgLight: "bg-surface border-border/80", topBorder: "border-t-[3px] border-t-info-border", badgeBg: "bg-info-bg text-info-fg border border-info-border", addText: "text-info-fg hover:bg-info-bg",
+  },
+  {
     id: "DONE" as TaskStatus,
     title: "Done",
     subtitle: "Completed and shipped",
@@ -100,7 +107,7 @@ const CANCELED_COLUMN = {
   addText: "text-muted hover:bg-surface-hover",
 };
 
-const STATUS_IDS = ["BACKLOG", "TODO", "IN_PROGRESS", "DONE", "CANCELED"];
+const STATUS_IDS = ["BACKLOG", "TODO", "IN_PROGRESS", "REVIEW", "DONE", "CANCELED"];
 
 // Distinct color per priority so URGENT (red) / HIGH (amber) / MEDIUM (blue) /
 // LOW (green) are visually separable — previously URGENT and HIGH were both red.
@@ -127,12 +134,14 @@ const IssueCard = React.memo(function IssueCard({
   issue,
   isDragging,
   onDelete,
+  onMove,
   onClick
 }: {
   issue: IssueWithRelations;
   index?: number;
   isDragging?: boolean;
   onDelete?: (issue: IssueWithRelations) => void;
+  onMove?: (issue: IssueWithRelations, direction: number) => void;
   onClick?: (issue: IssueWithRelations) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging: isSortableDragging } = useSortable({
@@ -163,20 +172,21 @@ const IssueCard = React.memo(function IssueCard({
   const completedSubtasks = issue.childTasks?.filter((c: { status: string }) => c.status === "DONE").length || 0;
   const totalSubtasks = issue.childTasks?.length || 0;
   const subtaskPct = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
-  const hasDependencies = Boolean(issue.blockedBy) || (issue.blocking && issue.blocking.length > 0);
+  const isBlocked = issue.blockedBy && !issue.blockedBy.deletedAt && !['DONE', 'CANCELED'].includes(issue.blockedBy.status);
+  const hasDependencies = Boolean(isBlocked) || (issue.blocking && issue.blocking.length > 0);
 
   // Format due date e.g. "Sep 15"
   const formattedDate = useMemo(() => {
     if (issue.dueDate) {
       try {
-        return format(new Date(issue.dueDate), 'MMM d');
+        return format(parseLocalDate(taskDay(issue.dueDate))!, 'MMM d');
       } catch {
         return null;
       }
     }
     if (issue.scheduledDate) {
       try {
-        return format(new Date(issue.scheduledDate), 'MMM d');
+        return format(parseLocalDate(taskDay(issue.scheduledDate))!, 'MMM d');
       } catch {
         return null;
       }
@@ -190,6 +200,8 @@ const IssueCard = React.memo(function IssueCard({
       style={style}
       {...(isDragging ? {} : attributes)}
       {...(isDragging ? {} : listeners)}
+      aria-label={`Move directive ${issue.title}`}
+      onKeyDown={event => { if (event.target !== event.currentTarget) return; if (event.key === "Enter") { event.preventDefault(); onClick?.(issue); } else listeners?.onKeyDown?.(event); }}
       onClick={() => {
         if (!menuOpen && onClick) onClick(issue);
       }}
@@ -213,8 +225,8 @@ const IssueCard = React.memo(function IssueCard({
                 setMenuOpen(prev => !prev);
               }}
               title="More options"
-              aria-label="Directive actions"
-              className="p-1 -mr-1 rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors cursor-pointer"
+              aria-label={`Actions for ${issue.title}`} aria-expanded={menuOpen} onPointerDown={e => e.stopPropagation()}
+              className="min-w-11 min-h-11 flex items-center justify-center rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors cursor-pointer"
             >
               <MoreVertical className="w-3.5 h-3.5" />
             </button>
@@ -233,6 +245,7 @@ const IssueCard = React.memo(function IssueCard({
                 >
                   <Edit2 className="w-3.5 h-3.5 text-muted" /> Edit
                 </button>
+                {onMove && <><button type="button" onClick={() => { setMenuOpen(false); onMove(issue, -1); }} className="w-full min-h-11 px-3 text-left text-primary hover:bg-surface-hover">Move up</button><button type="button" onClick={() => { setMenuOpen(false); onMove(issue, 1); }} className="w-full min-h-11 px-3 text-left text-primary hover:bg-surface-hover">Move down</button></>}
                 {onDelete && (
                   <button
                     onClick={() => {
@@ -287,7 +300,7 @@ const IssueCard = React.memo(function IssueCard({
       {/* Blocked Dependencies Pill */}
       {hasDependencies && (
         <div className="flex flex-wrap gap-1.5 pt-0.5">
-          {issue.blockedBy && (
+          {isBlocked && issue.blockedBy && (
             <span
               title={`Blocked by: ${issue.blockedBy.title}`}
               className="px-2 py-0.5 rounded bg-danger-bg text-danger-fg border border-danger-border font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
@@ -352,6 +365,7 @@ const Column = React.memo(function Column({
   issues,
   onDelete,
   onCreate,
+  onMove,
   onClick,
 }: {
   col: {
@@ -367,6 +381,7 @@ const Column = React.memo(function Column({
   };
   issues: IssueWithRelations[];
   onDelete?: (issue: IssueWithRelations) => void;
+  onMove?: (issue: IssueWithRelations, direction: number) => void;
   onCreate?: (status: TaskStatus) => void;
   onClick?: (issue: IssueWithRelations) => void;
 }) {
@@ -382,7 +397,7 @@ const Column = React.memo(function Column({
 
   return (
     <div
-      ref={setNodeRef}
+      ref={setNodeRef} role="region" aria-label={`${col.title} column`}
       className={cn(
         "w-full min-w-[270px] lg:min-w-0 box-border h-full flex flex-col rounded-2xl border transition-all duration-150 overflow-hidden shadow-2xs",
         col.bgLight,
@@ -411,7 +426,7 @@ const Column = React.memo(function Column({
               }}
               title={`Add directive to ${col.title}`}
               aria-label={`Add directive to ${col.title}`}
-              className="w-6 h-6 flex items-center justify-center rounded-full bg-surface border border-border/80 text-secondary hover:text-primary hover:bg-surface-hover shadow-2xs transition-colors cursor-pointer"
+              className="w-11 h-11 flex items-center justify-center rounded-full bg-surface border border-border/80 text-secondary hover:text-primary hover:bg-surface-hover shadow-2xs transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             </button>
@@ -433,7 +448,7 @@ const Column = React.memo(function Column({
           ) : (
             <SortableContext items={issues.map(i => i.id)} strategy={verticalListSortingStrategy}>
               {issues.map((issue, idx) => (
-                <IssueCard key={issue.id} issue={issue} index={idx} onDelete={onDelete} onClick={onClick} />
+                <IssueCard key={issue.id} issue={issue} index={idx} onDelete={onDelete} onMove={onMove} onClick={onClick} />
               ))}
             </SortableContext>
           )}
@@ -451,7 +466,7 @@ export function IssueCreateModal({
   defaultProjectId,
   onClose,
   onSubmit,
-  isSubmitting
+  isSubmitting, error
 }: {
   open: boolean;
   initialStatus: TaskStatus;
@@ -459,29 +474,32 @@ export function IssueCreateModal({
   projects?: { id: string; name: string }[];
   defaultProjectId?: string;
   onClose: () => void;
-  onSubmit: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; projectId?: string }) => void;
+  onSubmit: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; projectId?: string; dueDate?: string | null; scheduledDate?: string | null }) => void;
   isSubmitting: boolean;
+  error?: string;
 }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>(initialStatus || "BACKLOG");
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
   const [estimate, setEstimate] = useState(30);
+  const [dueDay, setDueDay] = useState('');
+  const [scheduledDay, setScheduledDay] = useState('');
   const [blockedById, setBlockedById] = useState<string | null>(null);
   const [selectedProjId, setSelectedProjId] = useState<string>(defaultProjectId || '');
 
-  useEffect(() => {
-    if (open) {
-      if (initialStatus) setStatus(initialStatus);
-      if (defaultProjectId) setSelectedProjId(defaultProjectId);
-    }
-  }, [open, initialStatus, defaultProjectId]);
+  const initialCapture = useRef({ initialStatus, defaultProjectId }); initialCapture.current = { initialStatus, defaultProjectId };
+  useEffect(() => { if (open) { setTitle(''); setDescription(''); setPriority('MEDIUM'); setEstimate(30); setBlockedById(null); setStatus(initialCapture.current.initialStatus || 'BACKLOG'); setSelectedProjId(initialCapture.current.defaultProjectId || ''); setDueDay(''); setScheduledDay(''); } }, [open]);
+
+  const dismiss = () => { if (!isSubmitting) onClose(); };
+  const dialogId = useId();
+  const dialogRef = useModalA11y(open, dismiss);
 
   if (!open) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (isSubmitting || !title.trim()) return;
     onSubmit({
       title: title.trim(),
       description: description.trim(),
@@ -489,16 +507,20 @@ export function IssueCreateModal({
       priority: priority as TaskPriority,
       estimateMinutes: Math.round(Number(estimate)) || 0,
       blockedById,
-      projectId: selectedProjId || undefined
+      projectId: selectedProjId || undefined, dueDate: dueDay ? `${dueDay}T12:00:00.000Z` : null, scheduledDate: scheduledDay ? `${scheduledDay}T12:00:00.000Z` : null
     });
   };
 
   return (
     <div
-      onClick={onClose}
+      onClick={dismiss}
       className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${dialogId}-title`}
         onClick={e => e.stopPropagation()}
         className="v4-card w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
       >
@@ -507,23 +529,25 @@ export function IssueCreateModal({
             <div className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
               <ListChecks className="w-4 h-4 stroke-[2]" />
             </div>
-            <h3 className="text-card text-primary font-bold">Create New Directive</h3>
+            <h3 id={`${dialogId}-title`} className="text-card text-primary font-bold">Create New Directive</h3>
           </div>
           <button
-            onClick={onClose}
+            onClick={dismiss}
+            aria-label="Close task dialog"
             type="button"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
+            className="w-11 h-11 shrink-0 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+          {error && <p role="alert" className="text-sm text-danger-fg">{error} Your draft is retained.</p>}
           <div>
-            <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+            <label htmlFor={`${dialogId}-field-1`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
               Project Scope
             </label>
-            <select
+            <select id={`${dialogId}-field-1`}
               value={selectedProjId}
               onChange={e => setSelectedProjId(e.target.value)}
               className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
@@ -536,12 +560,12 @@ export function IssueCreateModal({
           </div>
 
           <div>
-            <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+            <label htmlFor={`${dialogId}-field-2`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
               Directive Title *
             </label>
-            <input
+            <input id={`${dialogId}-field-2`}
               type="text"
-              required
+              required maxLength={255}
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="e.g., Implement user authentication"
@@ -550,10 +574,10 @@ export function IssueCreateModal({
           </div>
 
           <div>
-            <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+            <label htmlFor={`${dialogId}-field-3`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
               Description
             </label>
-            <textarea
+            <textarea id={`${dialogId}-field-3`}
               rows={3}
               value={description}
               onChange={e => setDescription(e.target.value)}
@@ -562,12 +586,12 @@ export function IssueCreateModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+              <label htmlFor={`${dialogId}-field-4`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
                 Column / Status
               </label>
-              <select
+              <select id={`${dialogId}-field-4`}
                 value={status}
                 onChange={e => setStatus(e.target.value as TaskStatus)}
                 className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
@@ -579,10 +603,10 @@ export function IssueCreateModal({
             </div>
 
             <div>
-              <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+              <label htmlFor={`${dialogId}-field-5`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
                 Priority
               </label>
-              <select
+              <select id={`${dialogId}-field-5`}
                 value={priority}
                 onChange={e => setPriority(e.target.value as TaskPriority)}
                 className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
@@ -596,24 +620,28 @@ export function IssueCreateModal({
           </div>
 
           <div>
-            <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+            <label htmlFor={`${dialogId}-field-6`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
               Estimate (Minutes)
             </label>
-            <input
+            <input id={`${dialogId}-field-6`}
               type="number"
               min="0"
-              step="5"
+              step="1"
               value={estimate}
               onChange={e => setEstimate(Number(e.target.value))}
               className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-accent text-primary"
             />
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="text-sm text-secondary">Scheduled date<input aria-label="Scheduled date" type="date" value={scheduledDay} onChange={e => setScheduledDay(e.target.value)} className="block w-full min-h-11 mt-2 px-3 bg-surface border border-border rounded-lg text-primary" /></label>
+            <label className="text-sm text-secondary">Due date<input aria-label="Due date" type="date" value={dueDay} onChange={e => setDueDay(e.target.value)} className="block w-full min-h-11 mt-2 px-3 bg-surface border border-border rounded-lg text-primary" /></label>
+          </div>
           <div>
-            <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+            <label htmlFor={`${dialogId}-field-7`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
               Blocked By (Dependency)
             </label>
-            <select
+            <select id={`${dialogId}-field-7`}
               value={blockedById || ''}
               onChange={e => setBlockedById(e.target.value || null)}
               className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
@@ -628,7 +656,7 @@ export function IssueCreateModal({
           </div>
 
           <div className="pt-4 border-t border-border flex justify-end gap-3 shrink-0">
-            <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+            <BaseButton type="button" variant="secondary" onClick={dismiss} disabled={isSubmitting}>
               Cancel
             </BaseButton>
             <BaseButton type="submit" disabled={isSubmitting || !title.trim()}>
@@ -648,7 +676,7 @@ export function IssueEditModal({
   projects = [],
   onClose,
   onSubmit,
-  isSubmitting
+  isSubmitting, error, onOpenTask
 }: {
   open: boolean;
   issue: IssueWithRelations | null;
@@ -657,6 +685,8 @@ export function IssueEditModal({
   onClose: () => void;
   onSubmit: (id: string, data: Partial<IssueWithRelations> & { blockedById?: string | null; projectId?: string | null }) => void;
   isSubmitting: boolean;
+  error?: string;
+  onOpenTask?: (task: IssueWithRelations) => void;
 }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
@@ -664,37 +694,41 @@ export function IssueEditModal({
   const [status, setStatus] = useState<TaskStatus>("BACKLOG");
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
   const [estimate, setEstimate] = useState(30);
+  const [dueDay, setDueDay] = useState('');
+  const [scheduledDay, setScheduledDay] = useState('');
   const [blockedById, setBlockedById] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [draftVersion, setDraftVersion] = useState(1);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
   // Comments are lazy-loaded per task (the board list no longer ships every
   // task's thread). Fall back to any comments already on the passed issue.
-  const { data: fullIssue } = useQuery({
+  const { data: fullIssue, isLoading: detailLoading, isError: detailError, refetch: retryDetail } = useQuery({
     queryKey: ['task', issue?.id],
     queryFn: () => api.tasks.get(issue!.id),
     enabled: open && !!issue?.id,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
   const comments = fullIssue?.comments ?? issue?.comments ?? [];
 
-  useEffect(() => {
-    if (issue && open) {
-      setTitle(issue.title || '');
-      setDescription(issue.description || '');
-      setStatus(issue.status as TaskStatus);
-      setPriority(issue.priority as TaskPriority);
-      setEstimate(issue.estimateMinutes || 30);
-      setBlockedById(issue.blockedById || null);
-      setProjectId(issue.projectId || null);
-    }
-  }, [issue, open]);
+  const initialIssue = useRef(issue); initialIssue.current = issue;
+  useEffect(() => { const source = initialIssue.current; if (source && open) {
+    setTitle(source.title || ''); setDescription(source.description || ''); setStatus(source.status); setPriority(source.priority);
+    setEstimate(source.estimateMinutes ?? 0); setBlockedById(source.blockedById || null); setProjectId(source.projectId || null); setDraftVersion(source.version); setNewComment('');
+    setDueDay(taskDay(source.dueDate)); setScheduledDay(taskDay(source.scheduledDate));
+  } }, [issue?.id, open]);
+
+  const dismiss = () => { if (!isSubmitting) onClose(); };
+  const dialogId = useId();
+  const dialogRef = useModalA11y(open && !!issue, dismiss);
 
   if (!open || !issue) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (isSubmitting || !title.trim()) return;
     onSubmit(issue.id, {
       title: title.trim(),
       description: description.trim(),
@@ -702,12 +736,12 @@ export function IssueEditModal({
       priority: priority as TaskPriority,
       estimateMinutes: Math.round(Number(estimate)) || 0,
       blockedById: blockedById || null,
-      projectId: projectId || null
+      projectId: projectId || null, version: draftVersion, dueDate: dueDay ? new Date(`${dueDay}T12:00:00.000Z`) : null, scheduledDate: scheduledDay ? new Date(`${scheduledDay}T12:00:00.000Z`) : null
     });
   };
 
   const handleAddComment = async () => {
-    if (!newComment.trim()) return;
+    if (isSubmittingComment || !newComment.trim()) return;
     try {
       setIsSubmittingComment(true);
       await api.tasks.addComment(issue.id, newComment.trim());
@@ -724,10 +758,14 @@ export function IssueEditModal({
 
   return (
     <div
-      onClick={onClose}
+      onClick={dismiss}
       className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${dialogId}-title`}
         onClick={e => e.stopPropagation()}
         className="v4-card w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
       >
@@ -736,25 +774,27 @@ export function IssueEditModal({
             <div className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center font-bold font-mono text-xs">
               KR
             </div>
-            <h3 className="text-card text-primary font-bold">Directive Details</h3>
+            <h3 id={`${dialogId}-title`} className="text-card text-primary font-bold">Directive Details</h3>
           </div>
           <button
-            onClick={onClose}
+            onClick={dismiss}
+            aria-label="Close task dialog"
             type="button"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
+            className="w-11 h-11 shrink-0 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+          {error && <p role="alert" className="text-sm text-danger-fg">{error} Your draft is retained.</p>}
           <div>
-            <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+            <label htmlFor={`${dialogId}-field-1`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
               Directive Title *
             </label>
-            <input
+            <input id={`${dialogId}-field-1`}
               type="text"
-              required
+              required maxLength={255}
               value={title}
               onChange={e => setTitle(e.target.value)}
               className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-accent text-primary"
@@ -762,10 +802,10 @@ export function IssueEditModal({
           </div>
 
           <div>
-            <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+            <label htmlFor={`${dialogId}-field-2`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
               Description
             </label>
-            <textarea
+            <textarea id={`${dialogId}-field-2`}
               rows={3}
               value={description}
               onChange={e => setDescription(e.target.value)}
@@ -773,12 +813,12 @@ export function IssueEditModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+              <label htmlFor={`${dialogId}-field-3`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
                 Column / Status
               </label>
-              <select
+              <select id={`${dialogId}-field-3`}
                 value={status}
                 onChange={e => setStatus(e.target.value as TaskStatus)}
                 className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
@@ -790,10 +830,10 @@ export function IssueEditModal({
             </div>
 
             <div>
-              <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+              <label htmlFor={`${dialogId}-field-4`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
                 Priority
               </label>
-              <select
+              <select id={`${dialogId}-field-4`}
                 value={priority}
                 onChange={e => setPriority(e.target.value as TaskPriority)}
                 className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
@@ -808,10 +848,10 @@ export function IssueEditModal({
 
           <div>
             <div>
-              <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+              <label htmlFor={`${dialogId}-field-5`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
                 Project Scope
               </label>
-              <select
+              <select id={`${dialogId}-field-5`}
                 value={projectId || ''}
                 onChange={e => setProjectId(e.target.value || null)}
                 className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
@@ -825,24 +865,28 @@ export function IssueEditModal({
           </div>
 
           <div>
-            <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+            <label htmlFor={`${dialogId}-field-6`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
               Estimate (Minutes)
             </label>
-            <input
+            <input id={`${dialogId}-field-6`}
               type="number"
               min="0"
-              step="5"
+              step="1"
               value={estimate}
               onChange={e => setEstimate(Number(e.target.value))}
               className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg focus:outline-none focus:border-accent text-primary"
             />
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="text-sm text-secondary">Scheduled date<input aria-label="Scheduled date" type="date" value={scheduledDay} onChange={e => setScheduledDay(e.target.value)} className="block w-full min-h-11 mt-2 px-3 bg-surface border border-border rounded-lg text-primary" /></label>
+            <label className="text-sm text-secondary">Due date<input aria-label="Due date" type="date" value={dueDay} onChange={e => setDueDay(e.target.value)} className="block w-full min-h-11 mt-2 px-3 bg-surface border border-border rounded-lg text-primary" /></label>
+          </div>
           <div>
-            <label className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
+            <label htmlFor={`${dialogId}-field-7`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
               Blocked By (Dependency)
             </label>
-            <select
+            <select id={`${dialogId}-field-7`}
               value={blockedById || ''}
               onChange={e => setBlockedById(e.target.value || null)}
               className="w-full px-3 py-2 text-sm bg-surface-hover border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
@@ -856,11 +900,13 @@ export function IssueEditModal({
             </select>
           </div>
 
+          {fullIssue && fullIssue.version !== draftVersion && <p role="status" className="text-sm text-warning-fg">This task changed elsewhere. Your draft is retained; saving will check its version.</p>}
+          {onOpenTask && (fullIssue?.childTasks?.length || 0) > 0 && <section><h4 className="text-sm font-semibold text-primary">Subtasks</h4>{fullIssue?.childTasks?.map((child: any) => <button key={child.id} type="button" onClick={() => onOpenTask(child)} className="block w-full min-h-11 text-left text-accent-fg">Open subtask {child.title}</button>)}</section>}
           {/* Activity / Comments Stream */}
           <div className="pt-4 border-t border-border space-y-3">
             <h4 className="text-sm font-semibold text-primary">Activity & Discussion</h4>
             <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-              {comments.length === 0 ? (
+              {detailLoading ? <p role="status" className="text-sm text-secondary">Loading discussion...</p> : detailError ? <ErrorState title="Could not load task details" onRetry={() => retryDetail()} /> : comments.length === 0 ? (
                 <p className="text-xs text-secondary italic">No comments yet.</p>
               ) : (
                 comments.map((c: any) => (
@@ -877,6 +923,7 @@ export function IssueEditModal({
             <div className="flex gap-2">
               <input
                 type="text"
+                aria-label="Add a comment"
                 value={newComment}
                 onChange={e => setNewComment(e.target.value)}
                 placeholder="Add a comment..."
@@ -895,7 +942,7 @@ export function IssueEditModal({
           </div>
 
           <div className="pt-4 mt-6 border-t border-border flex justify-end gap-3 shrink-0">
-            <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+            <BaseButton type="button" variant="secondary" onClick={dismiss} disabled={isSubmitting}>
               Cancel
             </BaseButton>
             <BaseButton type="submit" disabled={isSubmitting || !title.trim()}>
@@ -919,7 +966,7 @@ export function KanbanBoard({
   lockedProjectId,
   hideHeader = false,
 }: KanbanBoardProps = {}) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const urlProject = searchParams.get('project') || searchParams.get('projectId');
   const effectiveInitialProject = lockedProjectId || initialProjectId || urlProject || 'all';
 
@@ -928,16 +975,16 @@ export function KanbanBoard({
   // CANCELED tasks are excluded from the default /tasks response server-side, so
   // fetch them under a sub-key. invalidateQueries(['issues']) prefix-matches this
   // key too, so the archive stays in sync without extra invalidations.
-  const { data: canceledIssues = [] } = useQuery({ queryKey: ['issues', 'canceled'], queryFn: () => api.tasks.list({ status: 'CANCELED' }) });
+  const { data: canceledIssues = [], isError: archiveError, isLoading: archiveLoading, refetch: retryArchive } = useQuery({ queryKey: ['issues', 'canceled'], queryFn: () => api.tasks.list({ status: 'CANCELED' }) });
   const issues = useMemo(() => [...activeIssues, ...canceledIssues], [activeIssues, canceledIssues]);
-  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+  const { data: projects = [], isError: projectsError, refetch: retryProjects } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
 
   const [activeIssue, setActiveIssue] = useState<IssueWithRelations | null>(null);
   const [activeView, setActiveView] = useState<'board' | 'list' | 'calendar'>('board');
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<'all' | "URGENT" | "HIGH" | "MEDIUM" | "LOW">('all');
   const [selectedProjectId, setSelectedProjectId] = useState<string>(effectiveInitialProject);
-  const [sortBy, setSortBy] = useState<'priority' | 'date' | 'title'>('priority');
+  const [sortBy, setSortBy] = useState<'manual' | 'priority' | 'date' | 'title'>('manual');
   const [showCanceledArchive, setShowCanceledArchive] = useState(false);
 
   const canceledCount = useMemo(() => issues.filter(i => i.status === "CANCELED").length, [issues]);
@@ -958,22 +1005,26 @@ export function KanbanBoard({
   const [editingIssue, setEditingIssue] = useState<IssueWithRelations | null>(null);
 
   const createIssueMutation = useMutation({
-    mutationFn: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; projectId?: string }) =>
+    mutationFn: (data: { title: string; description: string; status: TaskStatus; priority: TaskPriority; estimateMinutes?: number; blockedById?: string | null; projectId?: string; dueDate?: string | null; scheduledDate?: string | null }) =>
       api.tasks.create({
         title: data.title,
         description: data.description,
         status: data.status,
         priority: data.priority as any,
         estimateMinutes: data.estimateMinutes,
-        projectId: data.projectId || (selectedProjectId !== 'all' ? selectedProjectId : null),
-        blockedById: data.blockedById
+        projectId: lockedProjectId || data.projectId || null,
+        blockedById: data.blockedById, dueDate: data.dueDate, scheduledDate: data.scheduledDate
       }),
     onSuccess: (newIssue) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       setCreateModalOpen(false);
       toast.success(`Created "${newIssue?.title || 'Directive'}"`, {
         description: `Added to ${(newIssue?.status || createStatus).replace('_', ' ')}.`
@@ -990,11 +1041,16 @@ export function KanbanBoard({
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       setEditModalOpen(false);
       setEditingIssue(null);
+      setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('task'); return next; }, { replace: true });
       toast.success(`Updated "${updated?.title || 'Directive'}"`);
     },
     onError: () => {
@@ -1003,17 +1059,31 @@ export function KanbanBoard({
   });
 
   const handleCreateIssue = useCallback((status: TaskStatus = "BACKLOG") => {
+    createIssueMutation.reset();
     setCreateStatus(status);
     setCreateModalOpen(true);
-  }, []);
+  }, [createIssueMutation]);
 
   const isDraggingRef = useRef(false);
 
   const handleEditIssue = useCallback((issue: IssueWithRelations) => {
     if (isDraggingRef.current) return;
+    updateIssueDetailMutation.reset();
     setEditingIssue(issue);
     setEditModalOpen(true);
-  }, []);
+  }, [updateIssueDetailMutation]);
+
+  const requestedTaskId = searchParams.get('task');
+  const openedTaskId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!requestedTaskId) { openedTaskId.current = null; return; }
+    if (openedTaskId.current === requestedTaskId || isLoadingIssues || archiveLoading) return;
+    const requested = issues.find(issue => issue.id === requestedTaskId);
+    if (!requested && (isError || archiveError)) return;
+    openedTaskId.current = requestedTaskId;
+    if (requested) handleEditIssue(requested);
+    else toast.error('This task is unavailable in this workspace.');
+  }, [requestedTaskId, issues, isLoadingIssues, archiveLoading, isError, archiveError, handleEditIssue]);
 
   const handleDeleteIssue = useCallback(async (issue: IssueWithRelations) => {
     try {
@@ -1025,21 +1095,29 @@ export function KanbanBoard({
       removeFromCache(['issues']);
       removeFromCache(['issues', 'canceled']);
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       toast.success(`Deleted "${issue.title}"`, {
         description: 'Directive removed.',
         action: {
           label: 'Undo',
           onClick: async () => {
-            await api.tasks.restore(issue.id);
+            try { await api.tasks.restore(issue.id);
             queryClient.invalidateQueries({ queryKey: ['issues'] });
             queryClient.invalidateQueries({ queryKey: ['tasks'] });
-            queryClient.invalidateQueries({ queryKey: ['planner'] });
+            queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
             queryClient.invalidateQueries({ queryKey: ['dashboard'] });
             queryClient.invalidateQueries({ queryKey: ['projects'] });
-            toast.success(`Restored "${issue.title}"`);
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+            toast.success(`Restored "${issue.title}"`); } catch { toast.error("Could not restore directive. Please try again."); }
           }
         },
         duration: 5000,
@@ -1057,16 +1135,24 @@ export function KanbanBoard({
       queryClient.setQueryData<IssueWithRelations[]>(['issues'], old =>
         old?.map(issue => issue.id === id ? { ...issue, ...data } : issue)
       );
-      return { previousIssues };
+      const previousCanceled = queryClient.getQueryData<IssueWithRelations[]>(["issues", "canceled"]);
+      queryClient.setQueryData<IssueWithRelations[]>(["issues", "canceled"], old => old?.map(issue => issue.id === id ? { ...issue, ...data } : issue));
+      return { previousIssues, previousCanceled };
     },
     onError: (_err, _variables, context) => {
       queryClient.setQueryData(['issues'], context?.previousIssues);
+      queryClient.setQueryData(['issues', 'canceled'], context?.previousCanceled);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
     }
   });
 
@@ -1075,9 +1161,11 @@ export function KanbanBoard({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  const reducedMotion = useReducedMotion();
+
   const filteredIssues = useMemo(() => {
     return issues.filter(issue => {
-      if (issue.parentTaskId) return false;
+      if (issue.parentTaskId && issues.some(parent => parent.id === issue.parentTaskId)) return false;
       // Keep canceled directives out of every view (board columns, list, calendar)
       // unless the archive toggle is on — matches the board's column visibility.
       if (issue.status === 'CANCELED' && !showCanceledArchive) return false;
@@ -1092,10 +1180,11 @@ export function KanbanBoard({
 
       return matchesSearch && matchesPriority && matchesProject;
     }).sort((a, b) => {
+      if (sortBy === 'manual') return a.position - b.position || a.id.localeCompare(b.id);
       if (sortBy === 'title') return a.title.localeCompare(b.title);
       if (sortBy === 'date') {
-        const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
-        const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+        const dateA = a.dueDate ? Date.parse(taskDay(a.dueDate)) : Number.POSITIVE_INFINITY;
+        const dateB = b.dueDate ? Date.parse(taskDay(b.dueDate)) : Number.POSITIVE_INFINITY;
         return dateA - dateB;
       }
       // Default: priority sort
@@ -1106,6 +1195,14 @@ export function KanbanBoard({
       return a.position - b.position;
     });
   }, [issues, searchQuery, priorityFilter, selectedProjectId, sortBy, showCanceledArchive]);
+
+  const moveRelative = (issue: IssueWithRelations, direction: number) => {
+    const siblings = filteredIssues.filter(item => item.status === issue.status); const from = siblings.findIndex(item => item.id === issue.id); const target = from + direction;
+    if (target < 0 || target >= siblings.length || updateIssueMutation.isPending) return;
+    const rest = siblings.filter(item => item.id !== issue.id); const before = rest[target - 1]; const after = rest[target];
+    const position = before && after ? (before.position + after.position) / 2 : before ? before.position + 1000 : after.position - 1000;
+    updateIssueMutation.mutate({ id: issue.id, data: { position, version: issue.version } }, { onError: () => toast.error('Could not reorder directive. The board has been refreshed.') });
+  };
 
   const collisionDetectionStrategy: CollisionDetection = useCallback((args) => {
     const pointerCollisions = pointerWithin(args);
@@ -1140,8 +1237,9 @@ export function KanbanBoard({
     }, 100);
 
     const { active, over } = event;
-    if (!over) return;
+    if (!over || updateIssueMutation.isPending) return;
 
+    if (sortBy !== 'manual') { toast.info('Choose Manual order to arrange directives.'); return; }
     const activeId = active.id as string;
     const overId = over.id as string;
 
@@ -1204,7 +1302,7 @@ export function KanbanBoard({
       // onMutate applies the optimistic move (and captures rollback state before it),
       // onSettled re-syncs from the server — no manual cache writes needed here.
       updateIssueMutation.mutate(
-        { id: activeId, data: { status: newStatus, position: newPosition } },
+        { id: activeId, data: { status: newStatus, position: newPosition, version: activeIssueData.version } },
         { onError: () => toast.error('Failed to move directive') }
       );
     }
@@ -1233,13 +1331,13 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="h-full flex flex-col min-w-0 w-full bg-canvas select-none overflow-hidden animate-in fade-in duration-150">
+    <div className="h-full min-h-0 flex flex-col min-w-0 w-full bg-canvas select-none overflow-hidden animate-in fade-in duration-150">
       {/* Page Header */}
       {!hideHeader && (
         <PageHeader
           icon={KanbanSquare}
           title="Execution Board"
-          description="Drag and drop directives across execution stages. Bounded mission execution canvas."
+          description="Organize work, move tasks through each stage, and keep dependencies visible."
           className="mx-6 mt-4 mb-2"
         >
           {/* View Switcher */}
@@ -1251,9 +1349,9 @@ export function KanbanBoard({
               return (
                 <button
                   key={view}
-                  onClick={() => setActiveView(view)}
+                  aria-pressed={activeView === view} onClick={() => setActiveView(view)}
                   className={cn(
-                    'px-2.5 py-1 rounded-md flex items-center gap-1.5 text-badge font-mono font-semibold transition-all cursor-pointer',
+                    'min-h-11 px-2.5 py-1 rounded-md flex items-center gap-1.5 text-badge font-mono font-semibold transition-all cursor-pointer',
                     activeView === view
                       ? 'bg-surface text-primary shadow-2xs'
                       : 'text-secondary hover:text-primary',
@@ -1279,13 +1377,13 @@ export function KanbanBoard({
       {/* 3. Filter Bar */}
       <div className={cn("px-6 pb-3 shrink-0", hideHeader ? "pt-3" : "pt-1")}>
       <div className="flex flex-wrap items-center justify-between gap-3 bg-surface border border-border/60 rounded-xl px-3 py-2 shadow-2xs">
-        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
           {/* Search Input */}
-          <div className="relative min-w-[200px] max-w-sm flex-1">
+          <div className="relative min-w-0 max-w-sm flex-1 basis-full sm:basis-auto">
             <Search className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search tasks, directives, or keywords..."
+              aria-label="Search directives" placeholder="Search tasks, directives, or keywords..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-8 py-1.5 text-xs bg-surface border border-border/80 rounded-lg focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all placeholder:text-muted text-primary shadow-2xs"
@@ -1294,7 +1392,7 @@ export function KanbanBoard({
               <button
                 onClick={() => setSearchQuery('')}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-primary transition-colors cursor-pointer"
-                title="Clear search"
+                aria-label="Clear search" title="Clear search"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -1305,7 +1403,7 @@ export function KanbanBoard({
           {!lockedProjectId && (
             <div className="relative">
               <select
-                value={selectedProjectId}
+                aria-label="Filter by project" value={selectedProjectId}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
                 className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
               >
@@ -1323,7 +1421,7 @@ export function KanbanBoard({
           {/* All Priorities Dropdown */}
           <div className="relative">
             <select
-              value={priorityFilter}
+              aria-label="Filter by priority" value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value as any)}
               className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
             >
@@ -1339,14 +1437,15 @@ export function KanbanBoard({
         </div>
 
         {/* Right Sort Dropdown & View Switcher */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Sort Priority */}
           <div className="relative">
             <select
-              value={sortBy}
+              aria-label="Sort directives" value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
               className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
             >
+              <option value="manual">Manual order</option>
               <option value="priority">Sort Priority</option>
               <option value="date">Sort Due Date</option>
               <option value="title">Sort Title</option>
@@ -1364,7 +1463,7 @@ export function KanbanBoard({
                 ? "bg-accent-subtle text-accent-fg border-accent/30 font-semibold"
                 : "bg-surface border border-border/80 text-secondary hover:text-primary"
             )}
-            title="Toggle Canceled Directives Archive"
+            aria-pressed={showCanceledArchive} title="Toggle Canceled Directives Archive"
           >
             <Archive className="w-3.5 h-3.5" />
             <span>Archive{canceledCount > 0 ? ` (${canceledCount})` : ''}</span>
@@ -1425,8 +1524,13 @@ export function KanbanBoard({
       </div>
       </div>
 
+      {projectsError && <div className="mx-4"><ErrorState title="Could not load projects" onRetry={() => retryProjects()} /></div>}
+      {showCanceledArchive && archiveLoading && <p role="status" className="px-4 text-secondary">Loading canceled tasks...</p>}
+      {showCanceledArchive && archiveError && <div className="mx-4"><ErrorState title="Could not load canceled tasks" onRetry={() => retryArchive()} /></div>}
+      {!filteredIssues.length && <p role="status" className="px-4 pb-3 text-sm text-secondary">No directives match this view. Clear the filters or create a directive.</p>}
+      <p className="px-4 pb-2 text-xs text-secondary">Manual order supports dragging and Move up/down actions. Open a directive to change its status or dates.</p>
       {/* 4. Board Viewport - Fluid Notion-style responsive columns */}
-      <div className="flex-1 min-w-0 w-full overflow-x-auto overflow-y-hidden px-4 md:px-6 pb-6 pt-1 select-none custom-scrollbar">
+      <div className="flex-1 min-h-0 min-w-0 w-full overflow-x-auto overflow-y-hidden px-4 md:px-6 pb-6 pt-1 select-none custom-scrollbar">
         {activeView === 'board' ? (
           <div className="h-full min-w-full w-max flex gap-4">
             <DndContext
@@ -1434,6 +1538,7 @@ export function KanbanBoard({
               collisionDetection={collisionDetectionStrategy}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
+              onDragCancel={() => { setActiveIssue(null); isDraggingRef.current = false; }}
             >
               {visibleColumns.map((col) => {
                 const columnIssues = columnIssuesMap[col.id] || [];
@@ -1443,6 +1548,7 @@ export function KanbanBoard({
                       col={col}
                       issues={columnIssues}
                       onDelete={handleDeleteIssue}
+                      onMove={sortBy === "manual" && !updateIssueMutation.isPending ? moveRelative : undefined}
                       onCreate={handleCreateIssue}
                       onClick={handleEditIssue}
                     />
@@ -1451,10 +1557,10 @@ export function KanbanBoard({
               })}
 
               <DragOverlay dropAnimation={{
-                duration: 150,
+                duration: reducedMotion ? 0 : 150,
                 easing: 'ease-out'
               }}>
-                {activeIssue ? <IssueCard issue={activeIssue} isDragging onDelete={handleDeleteIssue} /> : null}
+                {activeIssue ? <div className="p-4 rounded-xl bg-surface border border-accent shadow-xl"><p className="text-primary font-semibold">{activeIssue.title}</p>{getPriorityBadge(activeIssue.priority)}</div> : null}
               </DragOverlay>
             </DndContext>
           </div>
@@ -1478,7 +1584,7 @@ export function KanbanBoard({
                     onClick={() => handleEditIssue(issue)}
                     className="hover:bg-surface-hover/60 cursor-pointer transition-colors"
                   >
-                    <td className="py-3 font-semibold text-primary">{issue.title}</td>
+                    <td className="py-3 font-semibold text-primary"><button type="button" onClick={() => handleEditIssue(issue)} className="min-h-11 text-left break-words">{issue.title}</button></td>
                     <td className="py-3">
                       <span className="font-mono text-[11px] font-bold text-secondary">
                         {issue.status.replace('_', ' ')}
@@ -1486,7 +1592,7 @@ export function KanbanBoard({
                     </td>
                     <td className="py-3">{getPriorityBadge(issue.priority)}</td>
                     <td className="py-3 text-secondary">{issue.project?.name || 'General'}</td>
-                    <td className="py-3 text-muted">{issue.dueDate ? format(new Date(issue.dueDate), 'MMM d') : '-'}</td>
+                    <td className="py-3 text-muted">{issue.dueDate ? format(parseLocalDate(taskDay(issue.dueDate))!, 'MMM d') : '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1498,11 +1604,11 @@ export function KanbanBoard({
             <Calendar className="w-8 h-8 text-accent mx-auto mb-2 stroke-[1.5]" />
             <h3 className="font-bold text-sm text-primary mb-1">Calendar Timeline</h3>
             <p className="text-xs text-secondary max-w-sm mx-auto mb-4">
-              Directives mapped across milestone calendar dates.
+              Dated directives in chronological order; undated work appears last.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-left">
-              {filteredIssues.map((issue) => (
-                <div 
+              {[...filteredIssues].sort((a, b) => (taskDay(a.dueDate || a.scheduledDate) || "9999").localeCompare(taskDay(b.dueDate || b.scheduledDate) || "9999")).map((issue) => (
+                <button type="button"
                   key={issue.id} 
                   onClick={() => handleEditIssue(issue)}
                   className="p-3 rounded-xl border border-border bg-surface-hover/30 hover:bg-surface-hover transition-colors cursor-pointer"
@@ -1512,9 +1618,9 @@ export function KanbanBoard({
                     {getPriorityBadge(issue.priority)}
                   </div>
                   <div className="text-[11px] text-muted flex items-center gap-1 font-mono">
-                    <Clock className="w-3 h-3" /> {issue.dueDate ? format(new Date(issue.dueDate), 'MMM d, yyyy') : 'No target date'}
+                    <Clock className="w-3 h-3" /> {issue.dueDate || issue.scheduledDate ? format(parseLocalDate(taskDay(issue.dueDate || issue.scheduledDate))!, 'MMM d, yyyy') : 'No target date'}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -1523,23 +1629,26 @@ export function KanbanBoard({
 
       {/* Creation Modal */}
       <IssueCreateModal
+        error={createIssueMutation.error?.message}
         open={createModalOpen}
         initialStatus={createStatus}
-        defaultProjectId={selectedProjectId !== 'all' ? selectedProjectId : undefined}
+        defaultProjectId={!['all', 'operations'].includes(selectedProjectId) ? selectedProjectId : undefined}
         allIssues={issues}
         projects={projects}
-        onClose={() => setCreateModalOpen(false)}
+        onClose={() => { if (!createIssueMutation.isPending) setCreateModalOpen(false); }}
         onSubmit={(data) => createIssueMutation.mutate(data)}
         isSubmitting={createIssueMutation.isPending}
       />
 
       {/* Detail / Edit Modal */}
       <IssueEditModal
+        error={updateIssueDetailMutation.error?.message}
         open={editModalOpen}
         issue={editingIssue}
+        onOpenTask={handleEditIssue}
         allIssues={issues}
         projects={projects}
-        onClose={() => { setEditModalOpen(false); setEditingIssue(null); }}
+        onClose={() => { if (!updateIssueDetailMutation.isPending) { setEditModalOpen(false); setEditingIssue(null); setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('task'); return next; }, { replace: true }); } }}
         onSubmit={(id, data) => updateIssueDetailMutation.mutate({ id, data: data as any })}
         isSubmitting={updateIssueDetailMutation.isPending}
       />

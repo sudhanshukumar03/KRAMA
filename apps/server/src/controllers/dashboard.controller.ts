@@ -1,4 +1,6 @@
 import type { Request, Response } from 'express';
+import { reportingClock, shiftDay, validDayKey } from '../services/reportingTime';
+import { habitService } from '../services/habit.service';
 import { prisma } from '../prisma';
 
 export const getDashboardData = async (req: Request, res: Response) => {
@@ -12,34 +14,14 @@ export const getDashboardData = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
-    // Timezone-aware date boundaries for today
-    let startOfToday: Date;
-    let endOfToday: Date;
-
-    const queryDate = req.query.date as string | undefined;
-    const tzOffsetHeader = (req.headers['x-timezone-offset'] as string) || (req.query.tzOffset as string);
-
-    if (queryDate && !isNaN(Date.parse(queryDate))) {
-      const base = new Date(queryDate);
-      startOfToday = new Date(base);
-      startOfToday.setUTCHours(0, 0, 0, 0);
-      endOfToday = new Date(base);
-      endOfToday.setUTCHours(23, 59, 59, 999);
-    } else if (tzOffsetHeader && !isNaN(parseInt(tzOffsetHeader, 10))) {
-      // tzOffset in minutes (e.g. JS Date.getTimezoneOffset(), where UTC+5:30 is -330)
-      const offsetMin = parseInt(tzOffsetHeader, 10);
-      const localNow = new Date(Date.now() - offsetMin * 60 * 1000);
-      const localY = localNow.getUTCFullYear();
-      const localM = localNow.getUTCMonth();
-      const localD = localNow.getUTCDate();
-      startOfToday = new Date(Date.UTC(localY, localM, localD, 0, 0, 0, 0) + offsetMin * 60 * 1000);
-      endOfToday = new Date(Date.UTC(localY, localM, localD, 23, 59, 59, 999) + offsetMin * 60 * 1000);
-    } else {
-      startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-      endOfToday = new Date();
-      endOfToday.setHours(23, 59, 59, 999);
-    }
+    const clock = reportingClock(user, req.headers['x-timezone'] as string | undefined, (req.headers['x-timezone-offset'] || req.query.tzOffset) as string | undefined);
+    const dateKey = typeof req.query.date === 'string' ? req.query.date : clock.dateKey(new Date());
+    if (!validDayKey(dateKey)) return res.status(400).json({ message: 'Invalid date' });
+    // Task dates are calendar keys; focus startTime is a real instant.
+    const startOfToday = new Date(`${dateKey}T00:00:00.000Z`);
+    const endOfToday = new Date(`${dateKey}T23:59:59.999Z`);
+    const focusStart = clock.dayStart(dateKey);
+    const focusEnd = clock.dayStart(shiftDay(dateKey, 1));
 
     const [
       workspace,
@@ -55,7 +37,9 @@ export const getDashboardData = async (req: Request, res: Response) => {
       focusSessionsCompletedCount,
       todayFocusSessions,
       activityLogs,
-      goalsCount
+      goalsCount,
+      goals,
+      todayFocusStats
     ] = await Promise.all([
       prisma.workspace.findUnique({ where: { id: workspaceId } }),
       prisma.project.findMany({ where: { workspaceId, deletedAt: null }, orderBy: { updatedAt: 'desc' }, take: 10 }),
@@ -85,18 +69,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
         ],
         take: 50,
       }),
-prisma.habit.findMany({
-  where: { workspaceId, deletedAt: null },
-  orderBy: { updatedAt: 'desc' },
-  include: {
-    completions: {
-      where: { userId },
-      orderBy: { date: 'desc' },
-      take: 30,
-    },
-  },
-  take: 20
-}),
+      habitService.listHabits(workspaceId, userId),
   prisma.habit.count({ where: { workspaceId, deletedAt: null } }),
   prisma.document.count({
     where: {
@@ -107,9 +80,11 @@ prisma.habit.findMany({
   prisma.focusSession.findMany({ where: { workspaceId, userId }, orderBy: { createdAt: 'desc' }, take: 20 }),
   prisma.focusSession.count({ where: { workspaceId, userId } }),
   prisma.focusSession.count({ where: { workspaceId, userId, completed: true } }),
-  prisma.focusSession.findMany({ where: { workspaceId, userId, startTime: { gte: startOfToday, lte: endOfToday } }, take: 20 }),
-  prisma.activityLog.findMany({ where: { workspaceId }, orderBy: { createdAt: 'desc' }, take: 20 }),
-  prisma.goal.count({ where: { workspaceId, deletedAt: null } })
+  prisma.focusSession.findMany({ where: { workspaceId, userId, startTime: { gte: focusStart, lt: focusEnd }, completed: true, type: { in: ['pomodoro', 'custom'] } }, take: 20 }),
+  prisma.activityLog.findMany({ where: { workspaceId, userId }, orderBy: { createdAt: 'desc' }, take: 20 }),
+  prisma.goal.count({ where: { workspaceId, deletedAt: null } }),
+  prisma.goal.findMany({ where: { workspaceId, deletedAt: null, parentGoalId: null }, select: { id: true, title: true, progress: true, targetDate: true, metadata: true }, orderBy: { updatedAt: 'desc' }, take: 3 }),
+  prisma.focusSession.aggregate({ where: { workspaceId, userId, completed: true, type: { in: ['pomodoro', 'custom'] }, startTime: { gte: focusStart, lt: focusEnd } }, _sum: { duration: true } })
     ]);
 
 // Project progress calculation (fetch stats for the 10 projects we loaded)
@@ -119,7 +94,7 @@ let projectsWithProgress = projects.map(p => ({ ...p, progress: 0 }));
 if (projectIds.length > 0) {
   const projectTasksCount = await prisma.task.groupBy({
     by: ['projectId', 'status'],
-    where: { projectId: { in: projectIds }, deletedAt: null, status: { not: 'CANCELED' } },
+    where: { workspaceId, projectId: { in: projectIds }, deletedAt: null, status: { not: 'CANCELED' } },
     _count: true
   });
 
@@ -155,20 +130,7 @@ const onboardingSteps = [
 
 const completedSteps = onboardingSteps.filter(s => s.completed).length;
 
-// Time-aware Greeting
-let localHour = new Date().getHours();
-if (tzOffsetHeader && !isNaN(parseInt(tzOffsetHeader, 10))) {
-  const offsetMin = parseInt(tzOffsetHeader, 10);
-  const localDate = new Date(Date.now() - offsetMin * 60 * 1000);
-  localHour = localDate.getUTCHours();
-}
-
-let greetingWord = 'Good Evening';
-if (localHour < 12) greetingWord = 'Good Morning';
-else if (localHour < 18) greetingWord = 'Good Afternoon';
-
-const firstName = user?.name ? user.name.split(' ')[0] : 'there';
-const greeting = `${greetingWord}, ${firstName}. Let's make today meaningful.`;
+const greeting = `Welcome back, ${user?.name?.split(' ')[0] || 'there'}.`;
 
 // AI Insights Threshold
 const canUnlockAi = tasksCount >= 15 && focusSessionsCount >= 8;
@@ -185,13 +147,18 @@ res.status(200).json({
     totalProjects: projectCount,
     totalTasks: tasksCount,
     totalHabits: habitCount,
-    totalNotes: noteCount
+    totalNotes: noteCount,
+    totalGoals: goalsCount
   },
   today: {
     tasks: todayTasks,
+    overdueTaskIds: todayTasks.filter(task => task.status !== 'DONE' && ((task.dueDate && task.dueDate < startOfToday) || (task.scheduledDate && task.scheduledDate < startOfToday))).map(task => task.id),
+    focusMinutes: (todayFocusStats._sum.duration || 0) / 60,
     focusSessions: todayFocusSessions
   },
   habits,
+  goals,
+  dateKey,
   projects: projectsWithProgress,
   focus: {
     sessions: focusSessions,
@@ -208,6 +175,7 @@ res.status(200).json({
 });
 
   } catch (error) {
+  if ((error as Error).message?.startsWith('Invalid ')) return res.status(400).json({ message: (error as Error).message });
   console.error('Error fetching dashboard data:', error);
   res.status(500).json({ message: 'Internal server error' });
 }

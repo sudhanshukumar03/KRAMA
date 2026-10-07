@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { HolidayQuerySchema } from '@krama/validation';
 import { HolidaySyncService } from '../services/holidays/HolidaySyncService';
-import { prisma } from '../prisma';
 
 const router: Router = Router();
 const holidaySync = new HolidaySyncService();
@@ -34,33 +33,21 @@ router.get('/', async (req, res) => {
     // Sync national holidays (regionCode null) for every year in range, plus
     // the region's holidays when one was requested. The provider partitions
     // national vs regional so the two caches never duplicate each other.
-    for (const year of years) {
-      await holidaySync.ensureHolidays({ countryCode: country, regionCode: null, year });
-      if (region) {
-        await holidaySync.ensureHolidays({ countryCode: country, regionCode: region, year });
-      }
-    }
+    const synced = await Promise.all(years.map(year => holidaySync.getCalendar({ countryCode: country, regionCode: region, year })));
 
-    // Now query the local DB for the date range and return. Match national
-    // holidays (regionCode null) plus the specific region only when one was
-    // requested — an empty-string region would otherwise match nothing.
-    const holidays = await prisma.holiday.findMany({
-      where: {
-        countryCode: country,
-        OR: region
-          ? [{ regionCode: null }, { regionCode: region }]
-          : [{ regionCode: null }],
-        date: {
-          gte: start,
-          lte: end,
-        }
-      },
-      orderBy: { date: 'asc' }
-    });
+    // Use verified sync results so legacy unpartitioned database rows cannot
+    // bypass the cache checks. Include only dates inside the requested range.
+    const holidays = synced.flatMap(group => group.holidays)
+      .filter(h => h.date >= start && h.date <= end)
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
 
     res.json({
       location: { countryCode: country, regionCode: region || null },
-      holidays
+      holidays,
+      coverage: {
+        missingNationalYears: synced.flatMap(group => group.missingNationalYears),
+        missingRegionalYears: synced.flatMap(group => group.missingRegionalYears),
+      },
     });
   } catch (error) {
     console.error('Holiday fetch error', error);

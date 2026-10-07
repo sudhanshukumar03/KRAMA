@@ -14,7 +14,7 @@ export function isHabitCompletedToday(habit: any): boolean {
     // timestamp and can resolve to the wrong calendar day near midnight.
     const key = c.date ?? c.completedAt;
     if (!key) return false;
-    const completedDateStr = formatLocalDate(new Date(key));
+    const completedDateStr = c.date ? String(c.date).slice(0, 10) : formatLocalDate(new Date(key));
     return completedDateStr === todayStr;
   }) || false;
 }
@@ -32,9 +32,13 @@ export function useHabitCompletion(habit: any) {
       return api.habits.complete(data.id, data.localDate, data.localDateIso);
     },
     onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['snapshots'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       if (!variables.isCurrentlyCompleted) {
         toast.success(`Habit Completed!`, {
           description: `You checked off "${habit?.name || "Routine"}". Keep the streak going!`,

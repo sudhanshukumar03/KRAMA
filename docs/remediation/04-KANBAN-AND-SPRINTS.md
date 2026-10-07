@@ -209,3 +209,13 @@ Replaced sequential client loops with `await api.sprints.complete(activeSprint.i
 - [x] **KAN-05:** Sprint board displays canceled tasks, progress math reaches 100% when active directives are completed, and canceled tasks retain their sprint association.
 - [x] **Sprint Completion Batch Endpoint:** `POST /api/v1/sprints/:id/complete` performs completion and task release in a single server-side transaction.
 - [x] **TypeScript & Linter:** `pnpm --filter server exec tsc --noEmit`, `pnpm --filter client exec tsc -b`, and `pnpm run lint` all pass with 0 errors.
+
+## 9. Execution Board follow-up — 2026-10-07
+
+**Complete: KAN-06–20, fifteen follow-up findings repaired.**
+
+The follow-up covers Review status, General Operations creation, version-safe edits and ordering, drag cancellation and menu ordering, retained drafts and zero estimates, scheduled/due dates, discussion recovery, archive/query feedback, validated task links and cycles, sanitized legacy relations, mobile and keyboard controls, connected-view refresh, safe delete/Undo, subtask navigation and accurate blocked indicators.
+
+Verification: seven Execution Board live checks, thirteen unit checks and six connected live regressions passed. Frontend/backend builds and linters passed. Temporary verification fixtures were removed. Sprint's earlier findings above were not freshly re-audited during this Board pass.
+
+The Board Calendar view remains a chronological timeline. Manual ordering is available in Manual sort mode. Historical invalid relations are sanitized on read, not migrated. See the linked review for the full limits.

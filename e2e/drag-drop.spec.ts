@@ -4,7 +4,7 @@ test('verify drag and drop and dependencies', async ({ page }) => {
   // 1. Sign up a new user
   const uniqueId = Date.now();
   console.log(`Navigating to /signup for user test${uniqueId}@test.com`);
-  await page.goto('http://localhost:5173/signup');
+  await page.goto('/signup');
   await page.waitForLoadState('networkidle');
 
   await page.fill('input[type="text"], input[name="name"]', `Test User`);
@@ -16,7 +16,7 @@ test('verify drag and drop and dependencies', async ({ page }) => {
   
   // 2. We might be on onboarding or dashboard. Let's create a project if needed.
   console.log("Navigating to /app/projects (or trying to create a project)...");
-  await page.goto('http://localhost:5173/app/projects');
+  await page.goto('/app/projects');
   await page.waitForLoadState('networkidle');
   
   // Check if there's a "New Project" button
@@ -29,7 +29,7 @@ test('verify drag and drop and dependencies', async ({ page }) => {
   }
 
   console.log("Navigating to Kanban...");
-  await page.goto('http://localhost:5173/app/board');
+  await page.goto('/app/board');
   await page.waitForLoadState('networkidle');
 
   // Wait for the Kanban board to render cards or columns
@@ -42,7 +42,7 @@ test('verify drag and drop and dependencies', async ({ page }) => {
   if (count < 3) {
     console.log("Creating 3 tasks for testing...");
     for (let i = 1; i <= 3; i++) {
-      const newBtn = page.locator('button:has-text("New Task"), button:has-text("New Issue")');
+      const newBtn = page.locator('button:has-text("New Directive"), button:has-text("New Issue")');
       if (await newBtn.count() > 0) {
         await newBtn.first().click();
         await page.waitForTimeout(500);

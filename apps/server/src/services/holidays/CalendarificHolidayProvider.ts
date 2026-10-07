@@ -1,5 +1,6 @@
 import type { ExternalHoliday, HolidayProvider, HolidayProviderInput } from "./HolidayProvider";
 import { HolidayNormalizer } from "./HolidayNormalizer";
+import { INDIAN_STATES } from '@krama/types';
 
 /**
  * Calendarific (https://calendarific.com/api-documentation) provider.
@@ -42,13 +43,14 @@ export class CalendarificHolidayProvider implements HolidayProvider {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/holidays?${params.toString()}`);
+      const response = await fetch(`${this.baseUrl}/holidays?${params.toString()}`, { signal: AbortSignal.timeout(15000) });
       if (!response.ok) {
         if (response.status === 404) return [];
         throw new Error(`Calendarific API HTTP ${response.status}`);
       }
 
       const json = (await response.json()) as any;
+      if (json?.meta?.code && json.meta.code !== 200) throw new Error(`Calendarific API status ${json.meta.code}`);
       const holidays = json?.response?.holidays;
       if (!Array.isArray(holidays)) return [];
 
@@ -60,6 +62,13 @@ export class CalendarificHolidayProvider implements HolidayProvider {
           // Partition so a holiday lives in exactly one cache.
           if (regionCode) {
             if (isNationwide) return null; // nationwide → belongs to the null cache
+            const requestedCode = regionCode.includes('-') ? regionCode : `${countryCode}-${regionCode}`;
+            const requestedName = countryCode === 'IN' ? INDIAN_STATES.find(state => state.code === regionCode)?.name : undefined;
+            if (!Array.isArray(h.states) || !h.states.some((state: any) => {
+              const iso = typeof state === 'string' ? state : state.iso;
+              return (typeof iso === 'string' && iso.toLowerCase() === requestedCode.toLowerCase())
+                || (requestedName && state.name === requestedName);
+            })) return null;
           } else if (!isNationwide) {
             return null; // region-specific → belongs to a regional cache
           }
@@ -72,9 +81,7 @@ export class CalendarificHolidayProvider implements HolidayProvider {
           const date = new Date(`${dateOnly}T00:00:00.000Z`);
           if (isNaN(date.getTime())) return null;
 
-          const typeString = Array.isArray(h.type)
-            ? h.type.join(", ")
-            : h.primary_type || "Public";
+          const typeString = [Array.isArray(h.type) ? h.type.join(', ') : h.type, h.primary_type].filter(Boolean).join(', ');
           const { type, isPublicHoliday } = HolidayNormalizer.normalizeType(typeString);
 
           return {
@@ -85,15 +92,16 @@ export class CalendarificHolidayProvider implements HolidayProvider {
             countryCode,
             regionCode: regionCode || undefined,
             type,
-            isOptional: typeString.toLowerCase().includes("optional"),
+            isOptional: /optional|restricted/i.test(typeString),
             isPublicHoliday,
-            source: "calendarific",
+            source: "calendarific-v2",
             sourceId: typeof h.canonical_url === "string" ? h.canonical_url : undefined,
           };
         })
         .filter((h): h is ExternalHoliday => h !== null);
-    } catch (error) {
-      console.warn("[CalendarificHolidayProvider] Failed to fetch holidays:", error);
+    } catch {
+      // Request URLs contain credentials. Do not log transport error objects.
+      console.warn("[CalendarificHolidayProvider] Holiday request failed.");
       return [];
     }
   }
