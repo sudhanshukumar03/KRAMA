@@ -167,9 +167,7 @@ socketService.init(httpServer);
 
 httpServer.listen(PORT, async () => {
   try {
-    if (process.env.NODE_ENV !== 'test') {
-      await redisService.ensureConnected();
-    }
+    await redisService.ensureConnected();
     await prisma.$queryRaw`SELECT 1`;
     await ensureLocalUser();
     await ensureVectorIndexes();

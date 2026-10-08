@@ -121,7 +121,7 @@ export const addComment = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Content must be 5000 characters or fewer' });
     }
 
-    const { prisma } = await import('../prisma');
+    const { prisma } = await import('../prisma.js');
 
     // Check task exists
     const task = await prisma.task.findUnique({ where: { id, workspaceId, deletedAt: null } });
