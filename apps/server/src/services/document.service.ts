@@ -105,68 +105,98 @@ export class DocumentService {
   }
 
   static async moveDocument(id: string, targetFolderId?: string, targetParentId?: string) {
-    const moving = await prisma.document.findUnique({
-      where: { id },
-      select: { spaceId: true, space: { select: { workspaceId: true } }, deletedAt: true },
-    });
-    if (!moving || moving.deletedAt) throw new Error('Document not found');
+    const normalizedParentId = targetParentId || null;
+    return prisma.$transaction(async (tx) => {
+      const moving = await tx.document.findFirst({
+        where: { id, deletedAt: null },
+        select: { id: true, spaceId: true, folderId: true, space: { select: { workspaceId: true } } },
+      });
+      if (!moving) throw new Error('Document not found');
 
-    let resolvedSpaceId: string | undefined;
+      let targetParent: { id: string; parentId: string | null; spaceId: string; folderId: string | null; space: { workspaceId: string } } | null = null;
+      let parentDepth = 0;
+      if (normalizedParentId) {
+        targetParent = await tx.document.findFirst({
+          where: { id: normalizedParentId, deletedAt: null },
+          select: { id: true, parentId: true, spaceId: true, folderId: true, space: { select: { workspaceId: true } } },
+        });
+        if (!targetParent) throw new Error('Target parent document not found');
+        if (targetParent.space.workspaceId !== moving.space.workspaceId) {
+          throw new Error('Cannot move a document under a parent in a different workspace.');
+        }
 
-    if (targetParentId) {
-      const isCycle = await this.isDescendant(id, targetParentId);
-      if (isCycle) throw new Error('Cycle detected: cannot move document under its own descendant.');
-
-      const depth = await this.getDepth(targetParentId);
-      if (depth >= 3) throw new Error('Nesting limit reached. Max depth is 3.');
-
-      const maxSubtreeDepth = await this.getMaxSubtreeDepth(id);
-      if (depth + maxSubtreeDepth > 3) {
-         throw new Error(`Moving this document would exceed max depth 3 for its descendants.`);
+        const ancestors = new Set<string>();
+        let ancestorId: string | null = targetParent.id;
+        while (ancestorId) {
+          if (ancestorId === id) throw new Error('Cycle detected: cannot move document under its own descendant.');
+          if (ancestors.has(ancestorId)) throw new Error('The target document tree contains a cycle.');
+          ancestors.add(ancestorId);
+          const ancestor: { parentId: string | null } | null = await tx.document.findUnique({
+            where: { id: ancestorId }, select: { parentId: true },
+          });
+          if (!ancestor) throw new Error('Target parent document not found');
+          parentDepth++;
+          if (parentDepth > 3) throw new Error('Nesting limit reached. Max depth is 3.');
+          ancestorId = ancestor.parentId;
+        }
       }
 
-      // The parent must live in the same workspace, and the child adopts the
-      // parent's space so the tree can't end up straddling two spaces (parent in
-      // space A, child left in space B). Without this the move silently produced
-      // an inconsistent hierarchy and let a document be reparented across
-      // workspaces via a crafted targetParentId.
-      const parent = await prisma.document.findUnique({
-        where: { id: targetParentId },
-        select: { spaceId: true, space: { select: { workspaceId: true } }, deletedAt: true },
-      });
-      if (!parent || parent.deletedAt) throw new Error('Target parent document not found');
-      if (parent.space?.workspaceId !== moving.space?.workspaceId) {
-        throw new Error('Cannot move a document under a parent in a different workspace.');
+      // Collect the complete subtree, including soft-deleted descendants so a later
+      // restore cannot bring back rows that still point at the old space.
+      const subtreeIds = new Set<string>([id]);
+      let frontier = [id];
+      let maxSubtreeDepth = 1;
+      let relativeDepth = 1;
+      while (frontier.length) {
+        const children = await tx.document.findMany({
+          where: { parentId: { in: frontier } },
+          select: { id: true, space: { select: { workspaceId: true } } },
+        });
+        const next: string[] = [];
+        for (const child of children) {
+          if (child.space.workspaceId !== moving.space.workspaceId) {
+            throw new Error('Cannot move a tree containing documents from a different workspace.');
+          }
+          if (subtreeIds.has(child.id)) continue;
+          subtreeIds.add(child.id);
+          next.push(child.id);
+        }
+        if (next.length) maxSubtreeDepth = ++relativeDepth;
+        frontier = next;
       }
-      resolvedSpaceId = parent.spaceId;
-    }
 
-    // Resolve the folder without clobbering it: callers that only reparent
-    // (send targetParentId, not targetFolderId) previously had folderId wiped to
-    // null on every move. When no folder is specified, inherit the new parent's
-    // folder so a child stays in the same folder tree; only a true root move
-    // (no parent, no folder) unfiles the document.
-    let resolvedFolderId: string | null;
-    if (targetFolderId !== undefined) {
-      resolvedFolderId = targetFolderId || null;
-    } else if (targetParentId) {
-      const parent = await prisma.document.findUnique({
-        where: { id: targetParentId },
-        select: { folderId: true },
+      if ((normalizedParentId ? parentDepth + 1 : 1) + maxSubtreeDepth - 1 > 3) {
+        throw new Error('Moving this document would exceed max depth 3 for its descendants.');
+      }
+
+      const resolvedSpaceId = targetParent?.spaceId ?? moving.spaceId;
+      let resolvedFolderId: string | null;
+      if (targetFolderId !== undefined) {
+        resolvedFolderId = targetFolderId || null;
+      } else {
+        resolvedFolderId = targetParent?.folderId ?? null;
+      }
+      if (resolvedFolderId) {
+        const folder = await tx.folder.findFirst({ where: { id: resolvedFolderId, spaceId: resolvedSpaceId }, select: { id: true } });
+        if (!folder) throw new Error('Target folder must belong to the destination space.');
+      }
+
+      await tx.document.update({
+        where: { id },
+        data: { parentId: normalizedParentId, spaceId: resolvedSpaceId, folderId: resolvedFolderId },
       });
-      resolvedFolderId = parent?.folderId ?? null;
-    } else {
-      resolvedFolderId = null;
-    }
-
-    return prisma.document.update({
-      where: { id },
-      data: {
-        folderId: resolvedFolderId,
-        parentId: targetParentId || null,
-        ...(resolvedSpaceId ? { spaceId: resolvedSpaceId } : {}),
-      },
-    });
+      const descendantIds = [...subtreeIds].filter((documentId) => documentId !== id);
+      if (descendantIds.length) {
+        await tx.document.updateMany({
+          where: { id: { in: descendantIds } },
+          data: {
+            spaceId: resolvedSpaceId,
+            ...(resolvedSpaceId !== moving.spaceId ? { folderId: null } : {}),
+          },
+        });
+      }
+      return tx.document.findUniqueOrThrow({ where: { id } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
   
   static async getMaxSubtreeDepth(id: string): Promise<number> {
