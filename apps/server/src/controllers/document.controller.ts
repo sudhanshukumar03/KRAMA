@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Request, Response } from 'express';
 import { prisma } from '../prisma';
+import { UpdateDocumentMetadataSchema } from '@krama/validation';
 import { Prisma } from '@prisma/client';
 
 import { saveDocumentContent, queueDocumentEmbedding, snapshotDocument } from '../services/documentContent.service';
@@ -182,7 +183,8 @@ export const updateDocumentMetadata = async (req: Request, res: Response) => {
     const { ok, doc } = await verifyDocWorkspace(id, req);
     if (!ok || !doc || doc.deletedAt) return res.status(404).json({ message: 'Document not found' });
 
-    const { title, subtitle, statusBadges, documentType, isFavorite, icon, projectId, linkedProjectId, expectedUpdatedAt } = req.body;
+    const metadata = UpdateDocumentMetadataSchema.parse(req.body);
+    const { title, subtitle, statusBadges, documentType, isFavorite, icon, projectId, linkedProjectId, expectedUpdatedAt } = metadata;
     const project = projectId !== undefined ? projectId : linkedProjectId;
 
     if (project) {
@@ -213,7 +215,12 @@ export const updateDocumentMetadata = async (req: Request, res: Response) => {
 
     res.status(200).json(updated);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    if (error?.name === 'ZodError' && Array.isArray(error.issues)) {
+      return res.status(400).json({ message: error.issues[0]?.message || 'Invalid document metadata', errors: error.issues });
+    }
+    const requestId = randomUUID();
+    console.error(`[Document metadata] Unexpected failure ${requestId}`, error);
+    return res.status(500).json({ message: 'Internal server error', requestId });
   }
 };
 

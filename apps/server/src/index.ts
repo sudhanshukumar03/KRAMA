@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import crypto from 'node:crypto';
 
 import { z } from 'zod';
 
@@ -147,12 +148,15 @@ app.use('/api/v1', (_req, res) => {
 
 // Global Error Handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('[Global Error Handler]:', err);
-  const status = err.status || err.statusCode || 500;
+  const requestId = crypto.randomUUID();
+  console.error(`[Global Error Handler] ${requestId}`, err);
+  const requestedStatus = Number(err.status || err.statusCode || 500);
+  const status = requestedStatus >= 400 && requestedStatus < 600 ? requestedStatus : 500;
+  const isDevelopment = process.env.NODE_ENV === 'development';
   res.status(status).json({
-    message: err.message || 'Internal Server Error',
-    errors: err.errors,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    message: status >= 500 && !isDevelopment ? 'Internal server error' : (err.message || 'Internal server error'),
+    ...(isDevelopment ? { errors: err.errors, stack: err.stack } : {}),
+    requestId,
   });
 });
 

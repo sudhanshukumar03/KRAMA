@@ -8,6 +8,7 @@ import {
   UpdateProjectSchema,
 } from '../execution';
 import { SignupSchema } from '../auth';
+import { UpdateDocumentMetadataSchema } from '../documents';
 
 describe('Signup password byte limits', () => {
   const base = { email: 'person@example.com', name: 'Person' };
@@ -23,6 +24,18 @@ describe('Signup password byte limits', () => {
     const overLimit = SignupSchema.safeParse({ ...base, password: '\u20ac'.repeat(25) });
     assert.equal(overLimit.success, false);
     if (!overLimit.success) assert.match(overLimit.error.issues[0].message, /72 UTF-8 bytes/);
+  });
+});
+
+describe('Document metadata request validation', () => {
+  it('rejects wrong field types and malformed revision tokens before Prisma', () => {
+    assert.equal(UpdateDocumentMetadataSchema.safeParse({ isFavorite: 'true' }).success, false);
+    assert.equal(UpdateDocumentMetadataSchema.safeParse({ statusBadges: 'DRAFT' }).success, false);
+    assert.equal(UpdateDocumentMetadataSchema.safeParse({ expectedUpdatedAt: 'not-a-date' }).success, false);
+  });
+
+  it('accepts typed metadata updates and nullable project removal', () => {
+    assert.equal(UpdateDocumentMetadataSchema.safeParse({ title: '  Updated  ', projectId: null, expectedUpdatedAt: '2026-10-08T00:00:00.000Z' }).success, true);
   });
 });
 
