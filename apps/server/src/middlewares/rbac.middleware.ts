@@ -1,6 +1,14 @@
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../prisma';
 
+export const WORKSPACE_ROLE_LEVELS = {
+  OWNER: 4, ADMIN: 3, MEMBER: 2, VIEWER: 1, GUEST: 0,
+} as const;
+
+// Derive the socket read policy from the same hierarchy used by HTTP.
+export const WORKSPACE_READ_ROLES = (Object.keys(WORKSPACE_ROLE_LEVELS) as Array<keyof typeof WORKSPACE_ROLE_LEVELS>)
+  .filter(role => WORKSPACE_ROLE_LEVELS[role] >= WORKSPACE_ROLE_LEVELS.VIEWER);
+
 export const requireWorkspaceRole = (minRole: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER' | 'GUEST') => {
   return async (req: Request, res: Response, next: NextFunction) => {
     const userId = (req as any).user?.id;
@@ -45,15 +53,7 @@ export const requireWorkspaceRole = (minRole: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VI
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const roleHierarchy: Record<string, number> = {
-      OWNER: 4,
-      ADMIN: 3,
-      MEMBER: 2,
-      VIEWER: 1,
-      GUEST: 0,
-    };
-
-    if (roleHierarchy[membership.role]! < roleHierarchy[minRole]!) {
+    if (WORKSPACE_ROLE_LEVELS[membership.role] < WORKSPACE_ROLE_LEVELS[minRole]) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 

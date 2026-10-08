@@ -5,6 +5,7 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
 import { redisService } from './redis.service';
 import { prisma } from '../prisma';
+import { WORKSPACE_READ_ROLES } from '../middlewares/rbac.middleware';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
@@ -121,12 +122,10 @@ class SocketService {
       }
       if (userId) {
         socket.join(userId);
-        // Join a room per workspace the user belongs to, so task/collaboration
-        // events broadcast to the whole workspace reach every member — not just
-        // the actor. Memberships rarely change mid-session; reconnect refreshes.
+        // Join readable workspaces; event delivery rechecks current membership.
         try {
           const memberships = await prisma.workspaceMember.findMany({
-            where: { userId, workspace: { deletedAt: null } },
+            where: { userId, workspace: { deletedAt: null }, role: { in: [...WORKSPACE_READ_ROLES] } },
             select: { workspaceId: true },
           });
           for (const m of memberships) {
@@ -152,7 +151,7 @@ class SocketService {
     this.subscriber.on('message', (_channel, raw) => {
       try {
         const { room, event, data } = JSON.parse(raw);
-        if (room && event) this.io?.to(room).emit(event, data);
+        if (typeof room === 'string' && typeof event === 'string') this.emitToRoom(room, event, data);
       } catch {
         // Ignore malformed cross-process payloads.
       }
@@ -190,9 +189,25 @@ class SocketService {
   // Emit to a Socket.IO room. In the server process, emit directly. In a worker
   // process (no `io`), publish over Redis so the server process delivers it —
   // otherwise the event is silently dropped.
+  private async emitToReadableWorkspace(workspaceId: string, event: string, data: any) {
+    // Resolve recipients for every event, including worker delivery through Redis.
+    // Stale workspace rooms cannot retain access after a membership change.
+    const members = await prisma.workspaceMember.findMany({
+      where: { workspaceId, workspace: { deletedAt: null }, role: { in: [...WORKSPACE_READ_ROLES] } },
+      select: { userId: true },
+    });
+    const rooms = [...new Set(members.map(member => member.userId))];
+    if (rooms.length) this.io?.to(rooms).emit(event, data);
+  }
+
   private emitToRoom(room: string, event: string, data: any) {
     if (this.io) {
-      this.io.to(room).emit(event, data);
+      if (room.startsWith('workspace:')) {
+        void this.emitToReadableWorkspace(room.slice('workspace:'.length), event, data)
+          .catch(err => console.warn('[Socket] Workspace authorization failed; event withheld:', err));
+      } else {
+        this.io.to(room).emit(event, data);
+      }
       return;
     }
     if (!this.publisher) this.publisher = new Redis(REDIS_URL);

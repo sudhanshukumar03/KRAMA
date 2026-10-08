@@ -5,15 +5,15 @@ import { socketService } from '../services/socket.service';
 import { goalService } from '../services/goal.service';
 
 domainEventBus.onEvent<{ taskId: string; workspaceId: string; userId?: string }>('TASK_CREATED', (payload) => {
-  if (payload.workspaceId) socketService.emitToWorkspace(payload.workspaceId, 'task:created', payload);
+  if (payload.workspaceId) socketService.emitToWorkspace(payload.workspaceId, 'task:created', { taskId: payload.taskId, workspaceId: payload.workspaceId });
 });
 
 domainEventBus.onEvent<{ taskId: string; workspaceId: string; userId?: string }>('TASK_UPDATED', (payload) => {
-  if (payload.workspaceId) socketService.emitToWorkspace(payload.workspaceId, 'task:updated', payload);
+  if (payload.workspaceId) socketService.emitToWorkspace(payload.workspaceId, 'task:updated', { taskId: payload.taskId, workspaceId: payload.workspaceId });
 });
 
 domainEventBus.onEvent<{ taskId: string; workspaceId: string; userId?: string }>('TASK_DELETED', (payload) => {
-  if (payload.workspaceId) socketService.emitToWorkspace(payload.workspaceId, 'task:deleted', payload);
+  if (payload.workspaceId) socketService.emitToWorkspace(payload.workspaceId, 'task:deleted', { taskId: payload.taskId, workspaceId: payload.workspaceId });
 });
 
 domainEventBus.onEvent<{ taskId: string; workspaceId: string; userId?: string; completionVersion?: number }>('TASK_COMPLETED', async (payload) => {
