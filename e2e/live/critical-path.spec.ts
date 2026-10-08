@@ -1,101 +1,91 @@
 import { test, expect } from './fixtures';
 
-test.describe.serial('Critical Path E2E Scenarios', () => {
-  const userPassword = 'password123';
-  const userEmail = `e2e_${Date.now()}_${Math.random()}@krama.com`;
+test('Project-linked task survives refresh', async ({ page, account }) => {
+  await account.signIn(page);
+  await page.goto('/app/projects');
+  await page.getByRole('button', { name: 'New Initiative', exact: true }).click();
+  await page.getByPlaceholder('e.g., Autonomous Decision Engine v2').fill('Persistence project');
+  await page.getByRole('button', { name: 'Launch Initiative', exact: true }).click();
+  await expect(page.getByText('Persistence project', { exact: true }).first()).toBeVisible();
+  const project = (await account.call('GET', 'projects')).find((item: any) => item.name === 'Persistence project');
+  await page.goto('/app/board');
+  await page.getByRole('button', { name: 'New Directive', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create New Directive' });
+  await dialog.getByLabel('Directive Title *', { exact: true }).fill('Persistence task');
+  await dialog.getByLabel('Project Scope', { exact: true }).selectOption(project.id);
+  await dialog.getByRole('button', { name: 'Create Directive', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  const task = (await account.call('GET', 'tasks')).find((item: any) => item.title === 'Persistence task');
+  expect(task.projectId).toBe(project.id);
+  await page.reload();
+  await expect(page.getByText('Persistence task', { exact: true }).first()).toBeVisible();
+});
 
-  test.beforeEach(async ({ page }) => {
-    page.on('console', msg => console.log('BROWSER:', msg.text()));
-  });
+test('Task completion persists in Done', async ({ page, account }) => {
+  const task = await account.call('POST', 'tasks', { title: 'Completion task' }, 201);
+  await account.signIn(page); await page.goto('/app/board');
+  await page.getByText(task.title, { exact: true }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Directive Details' });
+  await dialog.getByLabel('Column / Status').selectOption('DONE');
+  await dialog.getByRole('button', { name: 'Save Changes', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  expect((await account.call('GET', `tasks/${task.id}`)).status).toBe('DONE');
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Done column', exact: true }).getByText(task.title, { exact: true })).toBeVisible();
+});
 
-  test('1. Signup -> Create Project -> Create Task -> Refresh Persistence', async ({ page }) => {
-    // 1. Signup
-    await page.goto('/signup');
-    await page.fill('input[type="text"]', 'E2E User');
-    await page.fill('input[type="email"]', userEmail);
-    await page.fill('input[type="password"]', userPassword);
-    await page.click('button[type="submit"]');
+test('Logout and sign-in retain owned data', async ({ page, account }) => {
+  await account.call('POST', 'projects', { name: 'Retained project' }, 201);
+  await account.signIn(page);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign Out', exact: true }).click();
+  await expect(page).toHaveURL(/\/login/);
+  const response = await page.request.get(new URL('/api/v1/workspaces', process.env.KRAMA_API_TARGET).href);
+  expect(response.status()).toBe(401);
+  await account.signIn(page); await page.goto('/app/projects');
+  await expect(page.getByText('Retained project', { exact: true }).first()).toBeVisible();
+});
 
-    await expect(page).toHaveURL(/\/app/);
-
-    // 2. Create a Project
-    await page.goto('/app/projects');
-    await page.click('text=New Initiative');
-    await page.fill('input[placeholder="e.g., Autonomous Decision Engine v2"]', 'E2E Project');
-    await page.click('button:has-text("Launch Initiative")');
-    await expect(page.locator('text=E2E Project').first()).toBeVisible();
-
-    // 3. Create a Task (Issue)
-    await page.goto('/app/board');
-    await page.getByText('Quick Add').first().click();
-    await page.locator('h3:has-text("Create New Directive")').waitFor({ state: 'visible' });
-    await page.locator('input[type="text"]').last().fill('E2E Task');
-    await page.locator('button[type="submit"]', { hasText: 'Create Task' }).click();
-    await expect(page.locator('text=E2E Task').first()).toBeVisible();
-
-    // 4. Refresh persistence
-    await page.reload();
-    await expect(page.locator('text=E2E Task').first()).toBeVisible();
-  });
-
-  test('2. Task Completion & Notification', async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('input[type="email"]', userEmail);
-    await page.fill('input[type="password"]', userPassword);
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/app/);
-    
-    await page.goto('/app/board');
-    await expect(page.locator('text=E2E Task').first()).toBeVisible();
-    
-    // The task exists, we could toggle it here, but checking visibility is enough to confirm auth context.
-    await expect(page.locator('text=E2E Task').first()).toBeVisible();
-  });
-
-  test('3. Logout -> Login Persistence', async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('input[type="email"]', userEmail);
-    await page.fill('input[type="password"]', userPassword);
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/app/);
-
-    // Logout
-    await page.locator('button', { hasText: 'Sign Out' }).click();
+test('Two-tab edits reject stale saves and retain the draft', async ({ page, context, account }) => {
+  const task = await account.call('POST', 'tasks', { title: 'Concurrent task' }, 201);
+  await account.signIn(page);
+  const other = await context.newPage();
+  try {
+    for (const tab of [page, other]) {
+      const connected = tab.waitForEvent('console', { predicate: message => message.text() === 'Real-time connection established' });
+      await tab.goto('/app/board'); await connected;
+      await tab.getByText(task.title, { exact: true }).first().click();
+    }
+    const first = page.getByRole('dialog', { name: 'Directive Details' });
+    const second = other.getByRole('dialog', { name: 'Directive Details' });
+    await first.getByLabel('Directive Title *', { exact: true }).fill('Saved task');
+    await second.getByLabel('Directive Title *', { exact: true }).fill('Retained draft');
+    await first.getByRole('button', { name: 'Save Changes', exact: true }).click(); await expect(first).toBeHidden();
+    await expect(second.getByText(/This task changed elsewhere/)).toBeVisible();
+    const response = other.waitForResponse(r => r.request().method() === 'PATCH' && r.url().endsWith(`/tasks/${task.id}`));
+    await second.getByRole('button', { name: 'Save Changes', exact: true }).click();
+    expect((await response).status()).toBe(409);
+    await expect(second.getByRole('alert')).toContainText('draft is retained');
+    await expect(second.getByLabel('Directive Title *', { exact: true })).toHaveValue('Retained draft');
+    expect((await account.call('GET', `tasks/${task.id}`)).title).toBe('Saved task');
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Sign Out', exact: true }).click();
     await expect(page).toHaveURL(/\/login/);
-    
-    // Explicit 401 unauthenticated check
-    const res = await page.request.get(new URL('/api/v1/workspaces', process.env.KRAMA_API_TARGET || 'http://127.0.0.1:3000').href);
-    expect(res.status()).toBe(401);
+    await expect(other).toHaveURL(/\/login/);
+    await other.reload();
+    await expect(other.getByRole('button', { name: 'Sign In', exact: true })).toBeVisible();
+  } finally { await other.close(); }
+});
 
-    // Log back in
-    await page.goto('/login');
-    await page.fill('input[type="email"]', userEmail);
-    await page.fill('input[type="password"]', userPassword);
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/app/);
-  });
-
-  test('4. Two-tab 409 Conflict Simulation', async ({ page, context }) => {
-    // We simulate conflict by trying to load multiple windows or manually triggering parallel requests
-    await page.goto('/login');
-    await page.fill('input[type="email"]', userEmail);
-    await page.fill('input[type="password"]', userPassword);
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/app/);
-
-    const page2 = await context.newPage();
-    await page2.goto('/app/board');
-    await expect(page2.locator('text=E2E Task').first()).toBeVisible();
-  });
-
-  test('5. Workspace Isolation Data Integrity', async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('input[type="email"]', userEmail);
-    await page.fill('input[type="password"]', userPassword);
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/app/);
-
-    await page.goto('/app/projects');
-    await expect(page.locator('text=E2E Project').first()).toBeVisible();
-  });
+test('Workspace isolation rejects foreign task access', async ({ page, account }) => {
+  const owned = await account.call('POST', 'tasks', { title: 'Owned workspace task' }, 201);
+  const workspace = await account.call('POST', 'workspaces', { name: 'Secondary test workspace' }, 201);
+  const foreign = await account.call('POST', 'tasks', { title: 'Foreign workspace task' }, 201, workspace.id);
+  await account.call('GET', `tasks/${foreign.id}`, undefined, 404);
+  expect((await account.call('GET', `tasks/${foreign.id}`, undefined, 200, workspace.id)).id).toBe(foreign.id);
+  await account.signIn(page);
+  await page.evaluate(id => localStorage.setItem('krama_active_workspace', id), account.workspaceId);
+  await page.goto('/app/board');
+  await expect(page.getByText(owned.title, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(foreign.title, { exact: true })).toHaveCount(0);
 });

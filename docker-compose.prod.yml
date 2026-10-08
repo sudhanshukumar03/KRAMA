@@ -68,7 +68,11 @@ services:
       - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
       - UNSPLASH_ACCESS_KEY=${UNSPLASH_ACCESS_KEY:-}
       - CALENDARIFIC_API_KEY=${CALENDARIFIC_API_KEY:-}
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost}
+      - CORS_ORIGIN=${CORS_ORIGIN:-}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:${WEB_PORT:-80}}
+      - AUTH_RATE_LIMIT_MAX=${AUTH_RATE_LIMIT_MAX:-10}
+      - REFRESH_RATE_LIMIT_MAX=${REFRESH_RATE_LIMIT_MAX:-30}
+      - AI_RATE_LIMIT_PER_MIN=${AI_RATE_LIMIT_PER_MIN:-20}
     depends_on:
       migrate:
         condition: service_completed_successfully

@@ -59,7 +59,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
     socketInstance.on('session:ended', ({ reason }: { reason: string }) => {
       if (reason === 'revoked') window.dispatchEvent(new Event('krama:logout'));
-      else api.auth.refresh().catch(() => window.dispatchEvent(new Event('krama:logout')));
+      else api.auth.refresh({ reuseExisting: reason === 'rotated' }).catch(() => window.dispatchEvent(new Event('krama:logout')));
     });
 
     const invalidateTasksAndGoals = () => {

@@ -11,6 +11,51 @@ let globalLogoutHandler: (() => void) | null = null;
 const tokenListeners = new Set<(token: string | null) => void>();
 let sessionGeneration = 0;
 
+// Same-origin tabs share a refresh cookie, so coordinate its rotation without
+// persisting access tokens in browser storage. Account changes stay local.
+const sessionChannel = typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined'
+  ? new BroadcastChannel('krama.session.v1') : null;
+function tokenIdentity(token: string | null): { sub: string; exp: number } | null {
+  try {
+    if (!token) return null;
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const identity = JSON.parse(atob(payload));
+    return typeof identity.sub === 'string' && typeof identity.exp === 'number' ? identity : null;
+  } catch { return null; }
+}
+sessionChannel?.addEventListener('message', event => {
+  const message = event.data;
+  const identity = tokenIdentity(currentAccessToken);
+  if (message?.type === 'request' && identity && identity.exp * 1000 > Date.now() + 10000) {
+    sessionChannel.postMessage({ type: 'response', id: message.id, token: currentAccessToken });
+  } else if (message?.type === 'rotation' && identity && message.previousToken === currentAccessToken) {
+    const replacement = tokenIdentity(message.token);
+    if (replacement?.sub === identity.sub && replacement.exp * 1000 > Date.now()) publishAccessToken(message.token);
+  } else if (message?.type === 'logout' && identity && message.sub === identity.sub) {
+    sessionGeneration++;
+    publishAccessToken(null);
+    globalLogoutHandler?.();
+  }
+});
+
+function peerAccessToken(accountId?: string): Promise<string | null> {
+  if (!sessionChannel) return Promise.resolve(null);
+  return new Promise(resolve => {
+    const id = crypto.randomUUID();
+    const finish = (token: string | null) => {
+      clearTimeout(timeout); sessionChannel.removeEventListener('message', receive); resolve(token);
+    };
+    const receive = (event: MessageEvent) => {
+      if (event.data?.type !== 'response' || event.data.id !== id) return;
+      const identity = tokenIdentity(event.data.token);
+      if (identity && (!accountId || identity.sub === accountId) && identity.exp * 1000 > Date.now() + 10000) finish(event.data.token);
+    };
+    const timeout = setTimeout(() => finish(null), 100);
+    sessionChannel.addEventListener('message', receive);
+    sessionChannel.postMessage({ type: 'request', id });
+  });
+}
+
 function publishAccessToken(token: string | null) {
   currentAccessToken = token;
   tokenListeners.forEach(listener => listener(token));
@@ -18,8 +63,10 @@ function publishAccessToken(token: string | null) {
 
 function setAccessToken(token: string | null) {
   // Explicit login/logout invalidates pending work even when the value stays null.
+  const previous = tokenIdentity(currentAccessToken);
   sessionGeneration++;
   publishAccessToken(token);
+  if (!token && previous) sessionChannel?.postMessage({ type: 'logout', sub: previous.sub });
 }
 
 // The single in-flight refresh promise to prevent race conditions during concurrent 401s
@@ -27,6 +74,7 @@ let refreshPromise: Promise<string | null> | null = null;
 
 async function doRefresh(): Promise<string | null> {
   const generation = sessionGeneration;
+  const previousToken = currentAccessToken;
   try {
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
@@ -37,20 +85,35 @@ async function doRefresh(): Promise<string | null> {
     const data = await res.json();
     if (sessionGeneration !== generation) return null;
     publishAccessToken(data.accessToken);
+    sessionChannel?.postMessage({ type: 'rotation', previousToken, token: data.accessToken });
     return data.accessToken;
   } catch (error) {
     if (sessionGeneration !== generation) return null;
     publishAccessToken(null);
     throw error;
-  } finally {
-    refreshPromise = null;
   }
 }
 
 // Bootstrap and expired-request recovery share one rotation, including React's
 // development remount. Competing rotations can invalidate the just-issued JWT.
-async function refreshAccessToken() {
-  if (!refreshPromise) refreshPromise = doRefresh();
+async function refreshAccessToken(reuseExisting = false) {
+  if (!refreshPromise) {
+    const generation = sessionGeneration;
+    const requestedToken = currentAccessToken;
+    const rotate = async () => {
+      if (generation !== sessionGeneration) return null;
+      if (currentAccessToken && currentAccessToken !== requestedToken) return currentAccessToken;
+      if (reuseExisting) {
+        const token = await peerAccessToken(tokenIdentity(requestedToken)?.sub);
+        if (generation !== sessionGeneration) return null;
+        if (token) { publishAccessToken(token); return token; }
+      }
+      return doRefresh();
+    };
+    const locks = typeof window !== 'undefined' ? navigator.locks : undefined;
+    refreshPromise = (locks ? locks.request('krama.session.refresh', rotate) : rotate())
+      .finally(() => { refreshPromise = null; });
+  }
   return refreshPromise;
 }
 
@@ -278,7 +341,7 @@ export const api = {
     login: (data: Record<string, any>) => fetchApi<any>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
     changePassword: (data: { currentPassword: string; newPassword: string }) => fetchApi<{ message: string }>('/auth/me/password', { method: 'POST', body: JSON.stringify(data) }),
     logout: () => fetchApi<any>('/auth/logout', { method: 'POST' }),
-    refresh: async () => ({ accessToken: await refreshAccessToken() }),
+    refresh: async (options?: { reuseExisting?: boolean }) => ({ accessToken: await refreshAccessToken(options?.reuseExisting) }),
     me: () => fetchApi<any>('/auth/me', { method: 'GET' }),
     updatePreferences: (body: Record<string, any>) => fetchApi<any>('/auth/me/preferences', { method: 'PATCH', body: JSON.stringify(body) }),
   },

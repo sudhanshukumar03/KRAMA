@@ -47,7 +47,7 @@ test('previous presentation, navigation and Escape behavior remain usable', asyn
   }
   await expect(page.getByRole('button', { name: 'Create New Spec', exact: true })).toBeVisible();
   await page.setViewportSize({ width: 920, height: 700 });
-  await page.screenshot({ path: 'docs/screenshots/brain-restored-2026-10-07.png' });
+  await page.screenshot({ path: test.info().outputPath('brain-restored-2026-10-07.png') });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
   const navigation = page.getByRole('dialog', { name: 'Workspace navigation' });

@@ -115,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isCurrent = () => mounted && actionVersion === authActionVersion.current;
     async function bootstrap() {
       try {
-        const data = await api.auth.refresh();
+        const data = await api.auth.refresh({ reuseExisting: true });
         if (isCurrent() && data.accessToken) {
           api.setAccessToken(data.accessToken);
           const meData = await api.auth.me();

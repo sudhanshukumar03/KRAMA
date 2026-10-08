@@ -1,18 +1,10 @@
 import { test, expect } from './fixtures';
 
+test.skip(process.env.KRAMA_AI_VERIFY !== '1', 'Real provider checks require KRAMA_AI_VERIFY=1');
+
 test.describe('Grounded AI Assist Verification', () => {
-  const userPassword = 'password123';
-  const userEmail = `ai_test_${Date.now()}@krama.com`;
-
-  test('Grounded AI Assist answers questions and composes text via Gemini', async ({ page }) => {
-    // 1. Signup to land on Dashboard
-    await page.goto('/signup');
-    await page.fill('input[type="text"]', 'AI Tester');
-    await page.fill('input[type="email"]', userEmail);
-    await page.fill('input[type="password"]', userPassword);
-    await page.click('button[type="submit"]');
-
-    await expect(page).toHaveURL(/\/app/);
+  test('Grounded AI Assist answers questions and composes text via the configured provider', async ({ page, account }) => {
+    await account.signIn(page);
 
     // 2. Navigate to Brain Workspace
     await page.goto('/app/brain');
@@ -64,7 +56,7 @@ test.describe('Grounded AI Assist Verification', () => {
     console.log('AI Ask Output (full):', outputText);
 
     // Screenshot working Ask Notes
-    await page.screenshot({ path: 'e2e/ai-assist-ask-working.png' });
+    await page.screenshot({ path: test.info().outputPath('ai-assist-ask-working.png') });
 
     // 7. Test Compose & Refine tab
     await page.locator('button:has-text("Compose & Refine")').click();
@@ -91,6 +83,6 @@ test.describe('Grounded AI Assist Verification', () => {
     console.log('AI Compose Output (full):', composeText);
 
     // Screenshot working Compose & Refine
-    await page.screenshot({ path: 'e2e/ai-assist-compose-working.png' });
+    await page.screenshot({ path: test.info().outputPath('ai-assist-compose-working.png') });
   });
 });

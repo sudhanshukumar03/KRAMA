@@ -61,8 +61,6 @@ const corsEnvOrigins = (process.env.CORS_ORIGIN || '')
   .map((s) => s.trim())
   .filter(Boolean);
 const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
   process.env.FRONTEND_URL,
   ...corsEnvOrigins,
 ].filter(Boolean) as string[];
@@ -72,7 +70,8 @@ app.use(helmet());
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Allow any localhost or 127.0.0.1 origin during development
-    if (!origin || /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin) || allowedOrigins.includes(origin)) {
+    const localDevelopmentOrigin = process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin || '');
+    if (!origin || localDevelopmentOrigin || allowedOrigins.includes(origin)) {
       callback(null, true);
       return;
     }

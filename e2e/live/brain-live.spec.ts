@@ -145,6 +145,7 @@ test('live documents: save/reopen, conflicts, tree, links, search, import/export
 });
 
 test('live background idle snapshot and Gemini embeddings', async () => {
+  test.skip(process.env.KRAMA_AI_VERIFY !== '1', 'Real provider checks require KRAMA_AI_VERIFY=1');
   const { documentVersionQueue } = await import('../../apps/server/src/queues');
   const { prisma } = await import('../../apps/server/src/prisma');
   const before = await prisma.documentVersion.count({ where: { documentId: root.id } });
@@ -164,6 +165,7 @@ for (const [mode, body] of [
     ['compose', { instruction: 'Write one short sentence saying the verification is complete.', mode: 'write' }],
   ] as const) {
   test(`live AI ${mode} stream`, async () => {
+    test.skip(process.env.KRAMA_AI_VERIFY !== '1', 'Real provider checks require KRAMA_AI_VERIFY=1');
     const response = await call('POST', `documents/${root.id}/ai/${mode}`, body);
     const text = await response.text(); expect(text).toContain('data: [DONE]');
     const chunks = text.split('\n').filter(line => line.startsWith('data: {')).map(line => JSON.parse(line.slice(6)));

@@ -265,7 +265,7 @@ const AccountFocusPage: React.FC = () => {
     });
     sock.on('session:ended', ({ reason }: { reason: string }) => {
       if (reason === 'revoked') window.dispatchEvent(new Event('krama:logout'));
-      else api.auth.refresh().catch(() => window.dispatchEvent(new Event('krama:logout')));
+      else api.auth.refresh({ reuseExisting: reason === 'rotated' }).catch(() => window.dispatchEvent(new Event('krama:logout')));
     });
 
     const refreshSchedule = () => queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });

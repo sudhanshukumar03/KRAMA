@@ -35,20 +35,19 @@ class SocketService {
       .map((s) => s.trim())
       .filter(Boolean);
     const allowedOrigins = [
-      'http://localhost:5173',
-      'http://localhost:5174',
       process.env.FRONTEND_URL,
       ...corsEnvOrigins,
     ].filter(Boolean) as string[];
+    const isOriginAllowed = (origin: string | undefined) => !origin ||
+      (process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) ||
+      allowedOrigins.includes(origin);
 
     this.io = new SocketIOServer(httpServer, {
+      // Browser CORS covers polling; apply the same rule to WebSocket upgrades.
+      allowRequest: (request, callback) => callback(null, isOriginAllowed(request.headers.origin)),
       cors: {
         origin: (origin, callback) => {
-          if (
-            !origin ||
-            /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin) ||
-            allowedOrigins.includes(origin)
-          ) {
+          if (isOriginAllowed(origin)) {
             callback(null, true);
             return;
           }

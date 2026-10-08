@@ -1,9 +1,8 @@
-import { test } from './fixtures';
+import { test, expect } from './fixtures';
 
-test('Capture Dashboard', async ({ page }) => {
-  page.on('console', msg => console.log('BROWSER_CONSOLE:', msg.text()));
-  page.on('pageerror', err => console.log('BROWSER_ERROR:', err.message));
+test('Unauthenticated dashboard redirects to sign-in', async ({ page }) => {
   await page.goto('/app');
-  await page.waitForTimeout(2000);
-  await page.screenshot({ path: 'C:/Users/sksin/.gemini/antigravity/brain/8e1f5d8e-f1f4-4b09-b83e-db272bf4e796/dashboard_screenshot.png', fullPage: true });
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.getByLabel('Email', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign In', exact: true })).toBeVisible();
 });

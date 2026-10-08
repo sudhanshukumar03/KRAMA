@@ -68,7 +68,8 @@ test('verify repaired related task flows across workspaces without changing real
   const completion = await json('POST', 'focus-sessions', sessionInput, 201);
   const history = await json('GET', 'analytics/focus-history?range=7d'); const focusOverview = await json('GET', 'analytics/overview?range=7d'); dashboard = await json('GET', 'dashboard');
   record('Focus → Dashboard and Analytics task history', history.sessions.some((entry: any) => entry.id === completion.session.id && entry.task?.id === unscheduled.id && entry.project?.id === project.id) && focusOverview.at(-1).deepWorkLogged === 2 && dashboard.today.focusMinutes === 2, 'A completed two-minute work session preserves task/project identity and contributes two minutes to both reports.');
-  await json('POST', 'focus-sessions', { ...sessionInput, type: 'short_break', duration: 600 }, 201);
+  const breakEnd = new Date();
+  await json('POST', 'focus-sessions', { ...sessionInput, type: 'short_break', duration: 600, startTime: new Date(+breakEnd - 600000).toISOString(), endTime: breakEnd.toISOString() }, 201);
   const afterBreak = await json('GET', 'analytics/overview?range=7d'); const afterBreakSchedule = await freshSchedule();
   record('Focus breaks → work totals', afterBreak.at(-1).deepWorkLogged === 2 && afterBreakSchedule.alreadyLoggedMinutes === 2, 'Breaks remain in history but do not inflate work totals or consume the work cap.');
   const morningStart = new Date(`${shiftDay(today, -1)}T20:00:00Z`);
@@ -98,7 +99,7 @@ test('verify repaired related task flows across workspaces without changing real
   await expect(page.getByRole('dialog').getByLabel('Directive Title *', { exact: true })).toHaveValue(task.title);
   record('Dashboard → Board task dialog', true, 'The Dashboard task link opens the correct task details in Execution Board.');
   await json('PATCH', 'auth/me/preferences', { timerPreferences: { focusDuration: 1, shortBreak: 5, longBreak: 15, longBreakAfter: 4 } }); await freshSchedule();
-  await page.evaluate(() => localStorage.setItem('krama.focus.settings', JSON.stringify({ focusDuration: 1, shortBreak: 5, longBreak: 15, longBreakAfter: 4, customDuration: 45, autoStartBreaks: false, autoStartPomodoros: false, soundEnabled: false })));
+  await page.evaluate(id => localStorage.setItem(`krama.focus.${id}.settings`, JSON.stringify({ focusDuration: 1, shortBreak: 5, longBreak: 15, longBreakAfter: 4, customDuration: 45, autoStartBreaks: false, autoStartPomodoros: false, soundEnabled: false })), userId);
   let submittedSeconds: number | undefined;
   await page.route('**/api/v1/focus-sessions', async route => {
     if (route.request().method() !== 'POST') return route.continue();
@@ -114,7 +115,7 @@ test('verify repaired related task flows across workspaces without changing real
   await page.keyboard.press('Space'); await page.clock.runFor(20000); await page.keyboard.press('Space'); await page.clock.runFor(120000); await page.keyboard.press('Space'); await page.clock.runFor(41000);
   await expect.poll(() => submittedSeconds).toBeDefined();
   record('Focus pause/resume → reported work duration', submittedSeconds === 60, `A 60-second timer with a 120-second pause should report 60 seconds of work; observed ${submittedSeconds} seconds. The save was intercepted and did not alter reporting records.`);
-  writeFileSync('docs/cross-section-flow-check-2026-10-07.json', JSON.stringify({ checkedAt: new Date().toISOString(), scope: 'Isolated local fixture audit; no production deployment or real-user data changes', checks }, null, 2));
+  writeFileSync(test.info().outputPath('cross-section-flow.json'), JSON.stringify({ checkedAt: new Date().toISOString(), scope: 'Isolated local fixture audit; no production deployment or real-user data changes', checks }, null, 2));
   expect(checks.length).toBeGreaterThan(10);
   expect(checks.filter(check => check.status !== 'working')).toEqual([]);
 });
@@ -126,7 +127,7 @@ test('completion retries are atomic and reject reused identifiers with changed d
   const { prisma } = await import('../../apps/server/src/prisma');
   expect(await prisma.focusSession.count({ where: { id: input.completionId, userId, workspaceId } })).toBe(1);
   expect(await prisma.activityLog.count({ where: { entityId: input.completionId, userId, workspaceId } })).toBe(1);
-  await json('POST', 'focus-sessions', { ...input, duration: 31 }, 409);
+  await json('POST', 'focus-sessions', { ...input, duration: 29 }, 409);
   await json('POST', 'focus-sessions', { ...input, taskId: task.id }, 409);
   await json('POST', 'focus-sessions', input, 409, secondaryId);
   record('Concurrent Focus retries → one session and activity', true, 'Four concurrent requests create one session and one activity; changes to duration, task or workspace return conflict.');
@@ -134,16 +135,16 @@ test('completion retries are atomic and reject reused identifiers with changed d
 
 test('mounted Focus refreshes Planner changes and preserves a failed save across reload', async ({ page }) => {
   await login(page);
-  await page.evaluate(() => {
-    localStorage.setItem('krama.focus.mode', 'planner');
-    localStorage.setItem('krama.focus.layout', 'sidebar');
-    localStorage.setItem('krama.focus.settings', JSON.stringify({ focusDuration: 1, shortBreak: 5, longBreak: 15, longBreakAfter: 4, customDuration: 45, autoStartBreaks: false, autoStartPomodoros: false, soundEnabled: false }));
-  });
+  await page.evaluate(id => {
+    localStorage.setItem(`krama.focus.${id}.mode`, 'planner');
+    localStorage.setItem(`krama.focus.${id}.layout`, 'sidebar');
+    localStorage.setItem(`krama.focus.${id}.settings`, JSON.stringify({ focusDuration: 1, shortBreak: 5, longBreak: 15, longBreakAfter: 4, customDuration: 45, autoStartBreaks: false, autoStartPomodoros: false, soundEnabled: false }));
+  }, userId);
   await page.goto('/focus');
   await expect.poll(async () => page.title()).toContain('(01:00)');
-  const liveBlock = await json('POST', 'planner/time-blocks', { title: 'Flow live schedule refresh', type: 'WORK', date: today, startTime: '08:00', endTime: '08:01' }, 201);
+  const liveBlock = await json('POST', 'planner/time-blocks', { title: 'Flow live schedule refresh', type: 'WORK', date: today, startTime: '08:00', endTime: '08:05' }, 201);
   await expect(page.getByText('Flow live schedule refresh', { exact: true }).first()).toBeVisible();
-  await page.getByRole('button').filter({ hasText: 'Flow live schedule refresh' }).click();
+  await page.getByRole('button').filter({ hasText: 'Flow live schedule refresh' }).first().click();
   await json('PATCH', 'auth/me/preferences', { timerPreferences: { focusDuration: 2, shortBreak: 5, longBreak: 15, longBreakAfter: 4 } });
   await expect.poll(async () => page.title()).toContain('(02:00)');
   await json('PATCH', 'auth/me/preferences', { timerPreferences: { focusDuration: 1, shortBreak: 5, longBreak: 15, longBreakAfter: 4 } });
@@ -162,7 +163,7 @@ test('mounted Focus refreshes Planner changes and preserves a failed save across
     if (failed) return route.fulfill({ status: 503, json: { message: 'Simulated save outage' } });
     return route.continue();
   });
-  await page.clock.install();
+  await page.clock.install({ time: new Date(Date.now() - 120000) });
   await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
   await page.keyboard.press('Space');
   await page.clock.runFor(20000);
@@ -180,7 +181,7 @@ test('mounted Focus refreshes Planner changes and preserves a failed save across
   record('Active Focus → stable task identity', true, 'Reassigning its Planner block while the timer runs does not change the recorded task.');
   const saved = await page.evaluate((key: string) => JSON.parse(localStorage.getItem(key)!), `krama.focus.unsaved.${userId}.${workspaceId}`);
   expect(saved).toEqual(payloads[0]);
-  await page.screenshot({ path: 'test-results/cross-section-flow/unsaved-session.png' });
+  await page.screenshot({ path: test.info().outputPath('unsaved-session.png') });
   await page.reload();
   await expect(retry).toBeVisible();
   expect(payloads).toHaveLength(3);
@@ -193,7 +194,7 @@ test('mounted Focus refreshes Planner changes and preserves a failed save across
   const history = await json('GET', 'analytics/focus-history?range=7d');
   expect(history.sessions.filter((entry: any) => entry.id === saved.completionId)).toHaveLength(1);
   record('Failed Focus save → reload and explicit retry', true, 'Exhausted retries keep the exact unsaved completion, reload restores Retry, and a successful retry records it once and clears the draft.');
-  writeFileSync('docs/cross-section-flow-check-2026-10-07.json', JSON.stringify({ checkedAt: new Date().toISOString(), scope: 'Isolated local fixture repair verification; no production deployment or real-user data changes', checks }, null, 2));
+  writeFileSync(test.info().outputPath('cross-section-flow.json'), JSON.stringify({ checkedAt: new Date().toISOString(), scope: 'Isolated local fixture repair verification; no production deployment or real-user data changes', checks }, null, 2));
   expect(checks.filter(check => check.status !== 'working')).toEqual([]);
 });
 

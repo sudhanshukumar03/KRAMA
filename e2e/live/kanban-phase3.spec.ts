@@ -1,68 +1,28 @@
 import { test, expect } from './fixtures';
 
-test.describe.serial('Kanban Phase 3 Verification', () => {
-  const userPassword = 'password123';
-  const userEmail = `kanban_phase3_${Date.now()}@krama.com`;
-
-  test('Drag and drop position updates and dependency UI works', async ({ page }) => {
-    // 1. Signup
-    await page.goto('/signup');
-    await page.fill('input[type="text"]', 'Kanban User');
-    await page.fill('input[type="email"]', userEmail);
-    await page.fill('input[type="password"]', userPassword);
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/app/);
-
-    // 2. Create a Project
-    await page.goto('/app/projects');
-    await page.click('text=New Initiative');
-    await page.fill('input[placeholder="e.g., Autonomous Decision Engine v2"]', 'Phase 3 Project');
-    await page.click('button:has-text("Launch Initiative")');
-    await expect(page.locator('text=Phase 3 Project').first()).toBeVisible();
-
-    // 3. Create two tasks via the board
-    await page.goto('/app/board');
-
-    // Create Task 1
-    await page.getByText('Quick Add').first().click();
-    await page.locator('h3:has-text("Create New Directive")').waitFor({ state: 'visible' });
-    await page.locator('input[type="text"]').last().fill('Task 1');
-    await page.locator('button[type="submit"]', { hasText: 'Create Task' }).click();
-    await expect(page.locator('text=Task 1').first()).toBeVisible();
-
-    // Create Task 2
-    await page.getByText('Quick Add').first().click();
-    await page.locator('h3:has-text("Create New Directive")').waitFor({ state: 'visible' });
-    await page.locator('input[type="text"]').last().fill('Task 2');
-    await page.locator('button[type="submit"]', { hasText: 'Create Task' }).click();
-    await expect(page.locator('text=Task 2').first()).toBeVisible();
-
-    // 4. Test Dependency UI (blockedById)
-    // Click on Task 2 to edit it
-    await page.getByText('Task 2', { exact: true }).first().click();
-    await expect(page.locator('h3', { hasText: 'Edit Task' })).toBeVisible();
-    
-    // Check if the single-select dependency UI is present
-    const select = page.locator('select').last();
-    // Select 'Task 1' as the blocking task
-    await select.selectOption({ index: 1 });
-    await page.locator('button[type="submit"]', { hasText: 'Save Changes' }).click();
-    
-    // Make sure modal closed
-    await expect(page.locator('h3', { hasText: 'Edit Task' })).toBeHidden();
-
-    // 5. Test Drag and Drop
-    // Move Task 1 to IN_PROGRESS
-    const sourceCard = page.locator('div').filter({ hasText: 'Task 1' }).first();
-    const targetColumn = page.locator('div').filter({ hasText: 'IN PROGRESS' }).first();
-    
-    await sourceCard.dragTo(targetColumn);
-    
-    // Wait a moment for mutation to finish
-    await page.waitForTimeout(2000);
-    
-    // Refresh page to verify persistence
-    await page.reload();
-    await expect(page.locator('text=Task 1').first()).toBeVisible();
-  });
+test('UI-created tasks retain dependencies and status after reload', async ({ page, account }) => {
+  await account.signIn(page); await page.goto('/app/board');
+  for (const title of ['Dependency source', 'Dependency target']) {
+    await page.getByRole('button', { name: 'New Directive', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Create New Directive' });
+    await dialog.getByLabel('Directive Title *', { exact: true }).fill(title);
+    await dialog.getByRole('button', { name: 'Create Directive', exact: true }).click();
+    await expect(dialog).toBeHidden(); await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
+  }
+  const tasks = await account.call('GET', 'tasks');
+  const source = tasks.find((task: any) => task.title === 'Dependency source');
+  const target = tasks.find((task: any) => task.title === 'Dependency target');
+  await page.getByText(target.title, { exact: true }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Directive Details' });
+  await dialog.getByLabel('Blocked By (Dependency)').selectOption(source.id);
+  await dialog.getByRole('button', { name: 'Save Changes', exact: true }).click(); await expect(dialog).toBeHidden();
+  await page.getByText(source.title, { exact: true }).first().click();
+  await dialog.getByLabel('Column / Status').selectOption('IN_PROGRESS');
+  await dialog.getByRole('button', { name: 'Save Changes', exact: true }).click(); await expect(dialog).toBeHidden();
+  expect((await account.call('GET', `tasks/${target.id}`)).blockedById).toBe(source.id);
+  expect((await account.call('GET', `tasks/${source.id}`)).status).toBe('IN_PROGRESS');
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'In Progress column', exact: true }).getByText(source.title, { exact: true })).toBeVisible();
+  await page.getByText(target.title, { exact: true }).first().click();
+  await expect(dialog.getByLabel('Blocked By (Dependency)')).toHaveValue(source.id);
 });

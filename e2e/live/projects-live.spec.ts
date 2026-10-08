@@ -104,7 +104,7 @@ test('project creation modal supports accessible fields, keyboard dismissal and 
   await page.setViewportSize({ width: 320, height: 640 });
   await page.getByRole('button', { name: 'New Initiative', exact: true }).click();
   await expect(page.getByText('New Project', { exact: true })).toBeVisible();
-  await page.screenshot({ path: 'test-results/projects-live/project-create-mobile.png', fullPage: true });
+  await page.screenshot({ path: test.info().outputPath('project-create-mobile.png'), fullPage: true });
   const geometry = await page.getByRole('dialog').evaluate(panel => { const box = panel.getBoundingClientRect(); return { top: box.top, bottom: box.bottom, height: window.innerHeight }; });
   console.log(`Project modal bounds: ${JSON.stringify(geometry)}`);
   await expect.soft(page.getByRole('dialog', { name: 'New Project' })).toBeVisible({ timeout: 1000 });
