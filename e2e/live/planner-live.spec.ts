@@ -1,6 +1,6 @@
 import { test, expect, request as createRequest, type APIRequestContext } from '@playwright/test';
 import crypto from 'node:crypto';
-import { INDIAN_STATES } from '../packages/types/src/locations';
+import { INDIAN_STATES } from '../../packages/types/src/locations';
 
 test.skip(process.env.KRAMA_LIVE_VERIFY !== '1', 'Live verification requires explicit opt-in');
 const marker = `Planner Verification ${crypto.randomUUID()}`;
@@ -82,12 +82,13 @@ test('live planner scheduling, recovery, routines, milestones and workspace isol
   await call('PATCH', `planner/milestones/${milestone.id}`, { completed: false }, 404, other.id);
   await call('DELETE', `planner/milestones/${milestone.id}`, undefined, 404, other.id);
   await call('GET', 'planner/week?start=2026-10-05&end=2026-10-11', undefined, 403, crypto.randomUUID());
-  const { prisma } = await import('../apps/server/src/prisma');
+  const { prisma } = await import('../../apps/server/src/prisma');
   const membership = await prisma.workspaceMember.findUniqueOrThrow({ where: { userId_workspaceId: { userId, workspaceId } } });
   await prisma.workspaceMember.delete({ where: { id: membership.id } });
   try {
-    await call('PATCH', `planner/time-blocks/${block.id}`, { title: 'Must not save' }, 403, null);
-    await call('PATCH', `planner/milestones/${milestone.id}`, { completed: false }, 403, null);
+    // Without a header, middleware selects the remaining workspace and hides foreign records.
+    await call('PATCH', `planner/time-blocks/${block.id}`, { title: 'Must not save' }, 404, null);
+    await call('PATCH', `planner/milestones/${milestone.id}`, { completed: false }, 404, null);
   } finally { await prisma.workspaceMember.create({ data: membership }); }
   console.log('LIVE PASS: scheduling, overlap rejection, date moves, routines, milestones, capacity and workspace isolation');
 
@@ -128,10 +129,10 @@ test('live planner scheduling, recovery, routines, milestones and workspace isol
 });
 test.afterAll(async () => {
   if (!userId) { await api?.dispose(); return; }
-  const { prisma } = await import('../apps/server/src/prisma');
-  const queues = await import('../apps/server/src/queues');
-  const { connection } = await import('../apps/server/src/lib/redis');
-  const { redisService } = await import('../apps/server/src/services/redis.service');
+  const { prisma } = await import('../../apps/server/src/prisma');
+  const queues = await import('../../apps/server/src/queues');
+  const { connection } = await import('../../apps/server/src/lib/redis');
+  const { redisService } = await import('../../apps/server/src/services/redis.service');
   try {
     const owner = await prisma.user.findUnique({ where: { id: userId } });
     expect(owner?.email).toBe(email); expect(owner?.name).toBe(marker);
@@ -148,6 +149,6 @@ test.afterAll(async () => {
   } finally {
     await Promise.all([queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close(), queues.embeddingQueue.close(), queues.documentVersionQueue.close()]);
     redisService.client.disconnect(); connection.disconnect();
-    await prisma.$disconnect(); await (globalThis as any).pool?.end(); await api.dispose();
+    await prisma.$disconnect(); const closingPool = (globalThis as any).pool; if (closingPool && !closingPool.ended) await closingPool.end(); await api.dispose();
   }
 });

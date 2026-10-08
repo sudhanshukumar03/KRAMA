@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { prisma } from '../apps/server/src/prisma';
+import { prisma } from '../../apps/server/src/prisma';
 
 test.describe.serial('Section 3 UI Verification', () => {
   const userPassword = 'password123';

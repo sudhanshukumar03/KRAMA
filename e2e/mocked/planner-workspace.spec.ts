@@ -1,6 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
-import { WeekQuerySchema, TimeBlockSchema } from '../packages/validation/src/planner';
-import { parseLocalDate } from '../apps/web/src/lib/utils';
+import { expect, test, type Page } from '@playwright/test';
 
 const day = '2025-10-15';
 const task = { id: 't1', title: 'Release checklist', status: 'TODO', scheduledDate: `${day}T12:00:00.000Z` };
@@ -22,15 +20,6 @@ async function mock(page: Page) {
     return r.fulfill({ json: data });
   });
 }
-test('validates real dates, bounded ranges and wall-clock times', () => {
-  expect(parseLocalDate('2025-02-30')).toBeNull();
-  expect(parseLocalDate('broken-date')).toBeNull();
-  expect(WeekQuerySchema.safeParse({ start: '2025-02-30', end: '2025-03-01' }).success).toBe(false);
-  expect(WeekQuerySchema.safeParse({ start: day, end: '2025-10-14' }).success).toBe(false);
-  expect(WeekQuerySchema.safeParse({ start: day, end: '2030-10-15' }).success).toBe(false);
-  for (const time of ['24:00', '09:60', '99:99']) expect(TimeBlockSchema.safeParse({ title: 'Work', date: day, startTime: time, endTime: '10:00', type: 'WORK' }).success).toBe(false);
-  expect(TimeBlockSchema.safeParse({ title: 'Work', date: '2024-02-29', startTime: '09:00', endTime: '10:00', type: 'WORK' }).success).toBe(true);
-});
 test('week and month navigation survives reload and browser history', async ({ page }) => {
   await mock(page); await page.goto(`/app/planner?mode=plan&date=${day}`);
   await expect(page.getByText('Oct 13 - Oct 19, 2025', { exact: true })).toBeVisible();

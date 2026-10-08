@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 test.describe.serial('Focus Mode Comprehensive E2E Verification', () => {
   test.beforeEach(async ({ page }) => {

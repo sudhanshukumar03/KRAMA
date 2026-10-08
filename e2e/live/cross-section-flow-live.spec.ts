@@ -1,7 +1,7 @@
 import { test, expect, request as createRequest, type APIRequestContext } from '@playwright/test';
 import crypto from 'node:crypto';
 import { writeFileSync } from 'node:fs';
-import { reportingClock, shiftDay, validDayKey } from '../apps/server/src/services/reportingTime';
+import { reportingClock, shiftDay, validDayKey } from '../../apps/server/src/services/reportingTime';
 test.describe.configure({ mode: 'serial' });
 test.skip(process.env.KRAMA_CROSS_SECTION_VERIFY !== '1', 'Live checks require explicit opt-in');
 const marker = `Cross Section Verification ${crypto.randomUUID()}`;
@@ -123,7 +123,7 @@ test('completion retries are atomic and reject reused identifiers with changed d
   const input = { completionId: crypto.randomUUID(), duration: 30, type: 'custom', startTime: new Date(Date.now() - 30000).toISOString(), endTime: new Date().toISOString() };
   const responses = await Promise.all(Array.from({ length: 4 }, () => json('POST', 'focus-sessions', input, 201)));
   expect(new Set(responses.map(response => response.session.id)).size).toBe(1);
-  const { prisma } = await import('../apps/server/src/prisma');
+  const { prisma } = await import('../../apps/server/src/prisma');
   expect(await prisma.focusSession.count({ where: { id: input.completionId, userId, workspaceId } })).toBe(1);
   expect(await prisma.activityLog.count({ where: { entityId: input.completionId, userId, workspaceId } })).toBe(1);
   await json('POST', 'focus-sessions', { ...input, duration: 31 }, 409);
@@ -199,8 +199,8 @@ test('mounted Focus refreshes Planner changes and preserves a failed save across
 
 test.afterAll(async () => {
   if (!userId) { await api?.dispose(); return; }
-  const { prisma } = await import('../apps/server/src/prisma');
-  const queues = await import('../apps/server/src/queues'); const { connection } = await import('../apps/server/src/lib/redis'); const { redisService } = await import('../apps/server/src/services/redis.service');
+  const { prisma } = await import('../../apps/server/src/prisma');
+  const queues = await import('../../apps/server/src/queues'); const { connection } = await import('../../apps/server/src/lib/redis'); const { redisService } = await import('../../apps/server/src/services/redis.service');
   try {
     const owner = await prisma.user.findUniqueOrThrow({ where: { id: userId } }); expect(owner.email).toBe(email); expect(owner.name).toBe(marker);
     const owned = await prisma.workspace.findMany({ where: { id: { in: [...workspaceIds] }, createdBy: userId } }); expect(owned.length).toBe(workspaceIds.size);
@@ -209,7 +209,7 @@ test.afterAll(async () => {
     await prisma.timeBlock.deleteMany({ where: { userId } }); await prisma.workspace.deleteMany({ where: { id: { in: [...workspaceIds] }, createdBy: userId } }); await prisma.user.delete({ where: { id: userId } });
     expect(await prisma.user.count({ where: { id: userId } })).toBe(0); console.log('Audit fixtures removed');
   } finally {
-    await Promise.all([queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close(), queues.embeddingQueue.close(), queues.documentVersionQueue.close()]); redisService.client.disconnect(); connection.disconnect(); await prisma.$disconnect(); await (globalThis as any).pool?.end(); await api.dispose();
+    await Promise.all([queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close(), queues.embeddingQueue.close(), queues.documentVersionQueue.close()]); redisService.client.disconnect(); connection.disconnect(); await prisma.$disconnect(); const closingPool = (globalThis as any).pool; if (closingPool && !closingPool.ended) await closingPool.end(); await api.dispose();
   }
 });
 

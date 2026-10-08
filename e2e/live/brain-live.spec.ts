@@ -145,8 +145,8 @@ test('live documents: save/reopen, conflicts, tree, links, search, import/export
 });
 
 test('live background idle snapshot and Gemini embeddings', async () => {
-  const { documentVersionQueue } = await import('../apps/server/src/queues');
-  const { prisma } = await import('../apps/server/src/prisma');
+  const { documentVersionQueue } = await import('../../apps/server/src/queues');
+  const { prisma } = await import('../../apps/server/src/prisma');
   const before = await prisma.documentVersion.count({ where: { documentId: root.id } });
   const fresh = await json('GET', `documents/${root.id}`);
   await json('PATCH', `documents/${root.id}/content`, { contentJson: paragraph('The verification launch code is SAPPHIRE42. A synthetic embedding verification note.'), expectedUpdatedAt: fresh.updatedAt });
@@ -176,9 +176,9 @@ for (const [mode, body] of [
 
 test.afterAll(async () => {
   if (!userId || !workspaceId) { await api?.dispose(); return; }
-  const { prisma } = await import('../apps/server/src/prisma');
-  const queues = await import('../apps/server/src/queues');
-  const { redisService } = await import('../apps/server/src/services/redis.service');
+  const { prisma } = await import('../../apps/server/src/prisma');
+  const queues = await import('../../apps/server/src/queues');
+  const { redisService } = await import('../../apps/server/src/services/redis.service');
   try {
     const owner = await prisma.user.findUnique({ where: { id: userId } });
     const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
@@ -207,8 +207,8 @@ test.afterAll(async () => {
     writeFileSync('test-results/brain-live-results.json', JSON.stringify({ date: new Date().toISOString(), checks: results }, null, 2));
     await Promise.all([queues.documentVersionQueue.close(), queues.embeddingQueue.close(), queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close()]);
     redisService.client.disconnect();
-    const { connection } = await import('../apps/server/src/lib/redis'); connection.disconnect();
-    await prisma.$disconnect(); await (globalThis as any).pool?.end();
+    const { connection } = await import('../../apps/server/src/lib/redis'); connection.disconnect();
+    await prisma.$disconnect(); const closingPool = (globalThis as any).pool; if (closingPool && !closingPool.ended) await closingPool.end();
     await api.dispose();
   }
 });

@@ -1,5 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
-import { DocumentSaveQueue, acquireDocumentSaveQueue, retainDocumentSaveQueue } from '../apps/web/src/lib/documentSaveQueue';
+import { expect, test, type Page } from '@playwright/test';
 
 const content = (text: string) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
 const initial = { content: content('Original body'), title: 'Architecture notes', revision: '2026-10-06T00:00:00.000Z' };
@@ -26,67 +25,9 @@ async function mockApi(page: Page) {
   });
 }
 
-test('serializes metadata and body writes and carries the latest revision', async () => {
-  let revision = initial.revision;
-  let active = 0;
-  const tokens: string[] = [];
-  const api = {
-    update: async (_id: string, data: any) => { expect(data.expectedUpdatedAt).toBe(revision); expect(active++).toBe(0); await new Promise(r => setTimeout(r, 15)); active--; revision = 'metadata-revision'; return { updatedAt: revision }; },
-    updateContent: async (_id: string, _body: any, token?: string) => { expect(active++).toBe(0); expect(token).toBe(revision); tokens.push(token!); active--; revision = 'body-revision'; return { updatedAt: revision }; },
-  };
-  const queue = new DocumentSaveQueue('doc-1', initial, api, 'draft', storage());
-  queue.setContent(content('Edited'));
-  await Promise.all([queue.updateMetadata({ title: 'Rename' }), queue.flush()]);
-  expect(tokens).toEqual(['metadata-revision']);
-  expect(queue.state).toBe('saved');
-});
 
-test('edits during a slow save are retained and saved with the next revision', async () => {
-  let release!: () => void;
-  let started!: () => void;
-  const gate = new Promise<void>(r => { release = r; });
-  const began = new Promise<void>(r => { started = r; });
-  const writes: any[] = [];
-  const queue = new DocumentSaveQueue('doc-1', initial, {
-    update: async () => ({}),
-    updateContent: async (_id, body, token) => { writes.push({ body, token }); if (writes.length === 1) { started(); await gate; } return { updatedAt: `revision-${writes.length}` }; },
-  }, 'draft', storage());
-  queue.setContent(content('First'));
-  const first = queue.flush(); await began;
-  queue.setContent(content('Latest')); const second = queue.flush(); release();
-  await Promise.all([first, second]);
-  expect(writes[1]).toEqual({ body: content('Latest'), token: 'revision-1' });
-  expect(queue.state).toBe('saved');
-});
 
-test('conflicts retain drafts and block automatic overwrites; explicit reload resolves them', async () => {
-  const drafts = storage(); let attempts = 0;
-  const api = { update: async () => ({}), updateContent: async () => { attempts++; throw { status: 409 }; } };
-  const queue = new DocumentSaveQueue('doc-1', initial, api, 'draft', drafts);
-  queue.setContent(content('My draft'));
-  await expect(queue.flush()).rejects.toEqual({ status: 409 });
-  queue.setContent(content('More changes'));
-  await expect(queue.flush()).rejects.toThrow('Resolve the document conflict');
-  expect(attempts).toBe(1); expect(queue.state).toBe('conflict');
-  const recovered = new DocumentSaveQueue('doc-1', initial, api, 'draft', drafts);
-  expect(recovered.content).toEqual(content('More changes'));
-  expect(recovered.recovered).toBe(true);
-  await queue.replaceFromServer({ ...initial, revision: 'fresh' });
-  expect(queue.state).toBe('saved'); expect(drafts.getItem('draft')).toBeNull();
-});
 
-test('network failure retains title and content for explicit retry', async () => {
-  const drafts = storage(); let fail = true;
-  const queue = new DocumentSaveQueue('doc-1', initial, {
-    update: async () => ({ updatedAt: 'title-revision' }),
-    updateContent: async () => { if (fail) throw new Error('Offline'); return { updatedAt: 'saved-revision' }; },
-  }, 'draft', drafts);
-  queue.setTitle('New title'); queue.setContent(content('New body'));
-  await expect(queue.flush()).rejects.toThrow('Offline');
-  expect(queue.state).toBe('error'); expect(drafts.getItem('draft')).not.toBeNull();
-  fail = false; await queue.flush();
-  expect(queue.state).toBe('saved'); expect(drafts.getItem('draft')).toBeNull();
-});
 
 test('document selection follows URLs and browser history with keyboard access', async ({ page }) => {
   await mockApi(page); await page.goto('/app/brain?doc=doc-1');
@@ -150,18 +91,6 @@ test('mobile AI pane keeps editor geometry and traps/restores keyboard focus', a
   await page.keyboard.press('Escape'); await expect(dialog).not.toBeVisible(); await expect(trigger).toBeFocused();
 });
 
-test('returning during an unmount save reuses the pending document writer', async () => {
-  let release!: () => void; let started!: () => void;
-  const gate = new Promise<void>(r => { release = r; });
-  const began = new Promise<void>(r => { started = r; });
-  const queue = new DocumentSaveQueue('pending-doc', initial, { update: async () => ({}), updateContent: async () => { started(); await gate; return { updatedAt: 'final-revision' }; } }, 'pending-draft', storage());
-  const detach = retainDocumentSaveQueue('pending-draft', queue);
-  queue.setContent(content('Leaving draft')); detach(); await began;
-  const resumed = acquireDocumentSaveQueue('pending-draft', () => { throw new Error('Started a competing writer'); });
-  const detachAgain = retainDocumentSaveQueue('pending-draft', resumed);
-  expect(resumed).toBe(queue); release(); await resumed.whenIdle();
-  expect(resumed.revision).toBe('final-revision'); expect(resumed.state).toBe('saved'); detachAgain();
-});
 
 test('failed browser save recovers its draft after reload and can retry', async ({ page }) => {
   await mockApi(page); let fail = true; let saved: any;
@@ -204,16 +133,6 @@ test('own rename then body edit saves with new token and reports Saved', async (
   expect(stored.contentJson).toEqual(content('Latest body'));
 });
 
-test('metadata conflict cannot silently rebase and overwrite another writer', async () => {
-  let bodyWrites = 0;
-  const queue = new DocumentSaveQueue('doc-1', initial, {
-    update: async (_id, metadata) => { expect(metadata.expectedUpdatedAt).toBe(initial.revision); throw { status: 409 }; },
-    updateContent: async () => { bodyWrites++; return {}; },
-  }, 'draft', storage());
-  queue.setTitle('My title'); queue.setContent(content('My body'));
-  await expect(queue.flush()).rejects.toEqual({ status: 409 });
-  expect(bodyWrites).toBe(0); expect(queue.state).toBe('conflict');
-});
 
 test('browser conflict retains edits, blocks later writes, and offers explicit recovery', async ({ page }) => {
   await mockApi(page); let attempts = 0;

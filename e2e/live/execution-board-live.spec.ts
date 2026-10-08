@@ -1,6 +1,6 @@
 import { test, expect, request as createRequest, type APIRequestContext } from '@playwright/test';
 import crypto from 'node:crypto';
-import { reportingClock, shiftDay, validDayKey } from '../apps/server/src/services/reportingTime';
+import { reportingClock, shiftDay, validDayKey } from '../../apps/server/src/services/reportingTime';
 test.describe.configure({ mode: 'serial' });
 test.skip(process.env.KRAMA_EXECUTION_BOARD_VERIFY !== '1', 'Live checks require explicit opt-in');
 const marker = `Execution Board Verification ${crypto.randomUUID()}`;
@@ -36,7 +36,7 @@ test('rejects foreign/deleted links, self-links, dependency/parent cycles and in
   const child = await json('POST', 'tasks', { title: 'Hierarchy child', parentTaskId: a.id }, 201); expect((await call('PATCH', `tasks/${a.id}`, { parentTaskId: child.id })).status()).toBe(400);
   await json('DELETE', `tasks/${b.id}`); expect((await call('POST', 'tasks', { title: 'Deleted dependency', blockedById: b.id })).status()).toBe(400);
   expect((await call('GET', `tasks/${foreign.id}`)).status()).toBe(404);
-  const { prisma } = await import('../apps/server/src/prisma'); await prisma.task.update({ where: { id: a.id }, data: { projectId: project.id, parentTaskId: foreign.id, blockedById: foreign.id } });
+  const { prisma } = await import('../../apps/server/src/prisma'); await prisma.task.update({ where: { id: a.id }, data: { projectId: project.id, parentTaskId: foreign.id, blockedById: foreign.id } });
   const legacy = await json('GET', `tasks/${a.id}`); expect(legacy.project).toBeNull(); expect(legacy.blockedBy).toBeNull(); expect(legacy.parentTask).toBeNull(); expect(legacy.parentTaskId).toBeNull();
   expect((await json('GET', 'tasks')).find((t: any) => t.id === a.id).project).toBeNull();
   expect((await call('POST', `tasks/${b.id}/comments`, { content: 'Should be rejected' })).status()).toBe(404);
@@ -50,7 +50,7 @@ test('General Operations creates Review tasks with dates, zero estimates and ret
   const dialog = page.getByRole('dialog', { name: 'Create New Directive' }); await dialog.getByLabel('Directive Title *', { exact: true }).fill('Review execution task'); await dialog.getByLabel('Column / Status').selectOption('REVIEW'); await dialog.getByLabel('Estimate (Minutes)').fill('0'); await dialog.getByLabel('Scheduled date', { exact: true }).fill(today); await dialog.getByLabel('Due date', { exact: true }).fill(shiftDay(today, 1));
   const bounds = await dialog.boundingBox(); expect(bounds!.y).toBeGreaterThanOrEqual(0); expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(640); await dialog.screenshot({ path: test.info().outputPath('board-mobile-create.png') });
   await page.route('**/api/v1/tasks', route => route.request().method() === 'POST' ? route.fulfill({ status: 503, json: { message: 'Temporary test failure' } }) : route.continue()); await dialog.getByRole('button', { name: 'Create Directive', exact: true }).click(); await expect(dialog.getByRole('alert')).toContainText('draft is retained'); await expect(dialog.getByLabel('Directive Title *', { exact: true })).toHaveValue('Review execution task');
-  await page.unroute('**/api/v1/tasks'); await dialog.getByRole('button', { name: 'Create Directive', exact: true }).click(); await expect(dialog).toBeHidden(); task = (await json('GET', 'tasks')).find((t: any) => t.title === 'Review execution task'); expect(task.projectId).toBeNull(); expect(task.estimateMinutes).toBe(0); expect(task.scheduledDate.slice(0, 10)).toBe(today); expect(task.status).toBe('REVIEW');
+  await page.getByRole('button', { name: 'Close toast', exact: true }).last().click(); await page.unroute('**/api/v1/tasks'); await dialog.getByRole('button', { name: 'Create Directive', exact: true }).click(); await expect(dialog).toBeHidden(); task = (await json('GET', 'tasks')).find((t: any) => t.title === 'Review execution task'); expect(task.projectId).toBeNull(); expect(task.estimateMinutes).toBe(0); expect(task.scheduledDate.slice(0, 10)).toBe(today); expect(task.status).toBe('REVIEW');
   await expect(page.getByRole('region', { name: 'Review column', exact: true }).getByText('Review execution task', { exact: true })).toBeVisible(); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('button', { name: 'New Directive', exact: true }).click(); await expect(dialog.getByLabel('Directive Title *', { exact: true })).toHaveValue(''); await page.keyboard.press('Escape'); await expect(dialog).toBeHidden();
 });
@@ -84,8 +84,8 @@ test('board, archive, project and discussion failures expose retries', async ({ 
 });
 test.afterAll(async () => {
   if (!userId) { await api?.dispose(); return; }
-  const { prisma } = await import('../apps/server/src/prisma');
-  const queues = await import('../apps/server/src/queues'); const { connection } = await import('../apps/server/src/lib/redis'); const { redisService } = await import('../apps/server/src/services/redis.service');
+  const { prisma } = await import('../../apps/server/src/prisma');
+  const queues = await import('../../apps/server/src/queues'); const { connection } = await import('../../apps/server/src/lib/redis'); const { redisService } = await import('../../apps/server/src/services/redis.service');
   try {
     const owner = await prisma.user.findUniqueOrThrow({ where: { id: userId } }); expect(owner.email).toBe(email); expect(owner.name).toBe(marker);
     const owned = await prisma.workspace.findMany({ where: { id: { in: [...workspaceIds] }, createdBy: userId } }); expect(owned.length).toBe(workspaceIds.size);
@@ -94,7 +94,7 @@ test.afterAll(async () => {
     await prisma.timeBlock.deleteMany({ where: { userId } }); await prisma.workspace.deleteMany({ where: { id: { in: [...workspaceIds] }, createdBy: userId } }); await prisma.user.delete({ where: { id: userId } });
     expect(await prisma.user.count({ where: { id: userId } })).toBe(0); console.log('Audit fixtures removed');
   } finally {
-    await Promise.all([queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close(), queues.embeddingQueue.close(), queues.documentVersionQueue.close()]); redisService.client.disconnect(); connection.disconnect(); await prisma.$disconnect(); await (globalThis as any).pool?.end(); await api.dispose();
+    await Promise.all([queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close(), queues.embeddingQueue.close(), queues.documentVersionQueue.close()]); redisService.client.disconnect(); connection.disconnect(); await prisma.$disconnect(); const closingPool = (globalThis as any).pool; if (closingPool && !closingPool.ended) await closingPool.end(); await api.dispose();
   }
 });
 

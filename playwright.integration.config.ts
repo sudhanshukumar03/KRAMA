@@ -23,8 +23,8 @@ process.env.KRAMA_API_TARGET = apiTarget.origin;
 
 export default defineConfig({
   ...base,
-  testMatch: '**/*.spec.ts',
-  testIgnore: base.testMatch,
+  testMatch: '**/live/*.spec.ts',
+  projects: [{ name: 'chromium', use: base.projects![1].use, testMatch: '**/live/*.spec.ts' }],
   timeout: 180000,
   retries: 0,
   use: {

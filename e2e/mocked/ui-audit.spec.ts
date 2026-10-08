@@ -1,5 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
-import { applyLocalRepulsion } from '../apps/web/src/lib/graphLayout';
+import { expect, test, type Page } from '@playwright/test';
 
 const doc = { id: 'doc-1', title: 'Architecture notes', type: 'DOCUMENT', spaceId: 'space-1', parentId: null, tags: [], contentJson: { type: 'doc', content: [{ type: 'paragraph' }] }, updatedAt: '2026-10-06T00:00:00Z', createdAt: '2026-10-06T00:00:00Z' };
 async function mockApi(page: Page, authed = true, memberships = [{ workspaceId: 'ws-1', role: 'OWNER', workspace: { id: 'ws-1', name: 'Test workspace' } }]) {
@@ -144,18 +143,3 @@ test('graph exposes searchable keyboard relationships and reduced-motion static 
   await expect(page.locator('.tiptap').first()).toBeVisible();
 });
 
-test('spatial repulsion matches original forces and benchmark', () => {
-  const fixture = (n: number) => Array.from({ length: n }, (_, i) => ({ x: (i % 40) * 85 - 1000, y: Math.floor(i / 40) * 85 - 900, vx: 0, vy: 0 }));
-  const original = (nodes: ReturnType<typeof fixture>) => {
-    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
-      const dx = nodes[j].x - nodes[i].x, dy = nodes[j].y - nodes[i].y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      if (dist < 180) { const force = (180 - dist) / dist * .4; nodes[i].vx -= dx * force; nodes[i].vy -= dy * force; nodes[j].vx += dx * force; nodes[j].vy += dy * force; }
-    }
-  };
-  const a = fixture(1000), b = fixture(1000);
-  original(a); applyLocalRepulsion(b);
-  for (let i = 0; i < a.length; i++) { expect(b[i].vx).toBeCloseTo(a[i].vx, 8); expect(b[i].vy).toBeCloseTo(a[i].vy, 8); }
-  const measure = (fn: typeof original) => { const data = fixture(1000); for (let i = 0; i < 10; i++) fn(data); const start = performance.now(); for (let i = 0; i < 50; i++) fn(data); return (performance.now() - start) / 50; };
-  console.log({ originalMs: measure(original), spatialMs: measure(applyLocalRepulsion) });
-});

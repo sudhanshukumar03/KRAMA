@@ -47,7 +47,7 @@ test('project creation, editing, version conflict, ordering and task restoration
 });
 
 test('project reorder cannot use a body workspace outside the authorized header workspace', async () => {
-  const { prisma } = await import('../apps/server/src/prisma');
+  const { prisma } = await import('../../apps/server/src/prisma');
   const member = await prisma.workspaceMember.findUniqueOrThrow({ where: { userId_workspaceId: { userId, workspaceId: secondaryId } } });
   await prisma.workspaceMember.delete({ where: { id: member.id } });
   try {
@@ -57,7 +57,7 @@ test('project reorder cannot use a body workspace outside the authorized header 
 });
 
 test('project creation rejects a goal from a workspace the caller cannot access', async () => {
-  const { prisma } = await import('../apps/server/src/prisma');
+  const { prisma } = await import('../../apps/server/src/prisma');
   const member = await prisma.workspaceMember.findUniqueOrThrow({ where: { userId_workspaceId: { userId, workspaceId: secondaryId } } });
   await prisma.workspaceMember.delete({ where: { id: member.id } });
   try {
@@ -151,7 +151,7 @@ test('timeline, refresh-safe edits and project-linked Brain creation persist', a
   await expect(document.getByLabel('Link to Project (Optional)')).toHaveValue(project.id);
   await document.getByPlaceholder('e.g. System Architecture Spec, API Contract...').fill('Connected project document');
   await document.getByRole('button', { name: 'Create Document', exact: true }).click(); await expect(document).toBeHidden();
-  const documents = await json('GET', 'documents');
+  const { items: documents } = await json('GET', 'documents');
   expect(documents.find((d: any) => d.title === 'Connected project document').projectId).toBe(project.id);
   await page.goto(`/app/projects/${project.id}`);
   await expect(page.getByText('Connected project document', { exact: true }).first()).toBeVisible();
@@ -193,8 +193,8 @@ test('authenticated reloads share one refresh and keep workspace navigation sign
 
 test.afterAll(async () => {
   if (!userId) { await api?.dispose(); return; }
-  const { prisma } = await import('../apps/server/src/prisma');
-  const queues = await import('../apps/server/src/queues'); const { connection } = await import('../apps/server/src/lib/redis'); const { redisService } = await import('../apps/server/src/services/redis.service');
+  const { prisma } = await import('../../apps/server/src/prisma');
+  const queues = await import('../../apps/server/src/queues'); const { connection } = await import('../../apps/server/src/lib/redis'); const { redisService } = await import('../../apps/server/src/services/redis.service');
   try {
     const owner = await prisma.user.findUniqueOrThrow({ where: { id: userId } }); expect(owner.email).toBe(email); expect(owner.name).toBe(marker);
     const owned = await prisma.workspace.findMany({ where: { id: { in: [...workspaceIds] }, createdBy: userId } }); expect(owned.length).toBe(workspaceIds.size);
@@ -203,6 +203,6 @@ test.afterAll(async () => {
     await prisma.timeBlock.deleteMany({ where: { userId } }); await prisma.workspace.deleteMany({ where: { id: { in: [...workspaceIds] }, createdBy: userId } }); await prisma.user.delete({ where: { id: userId } });
     expect(await prisma.user.count({ where: { id: userId } })).toBe(0); console.log('Audit fixtures removed');
   } finally {
-    await Promise.all([queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close(), queues.embeddingQueue.close(), queues.documentVersionQueue.close()]); redisService.client.disconnect(); connection.disconnect(); await prisma.$disconnect(); await (globalThis as any).pool?.end(); await api.dispose();
+    await Promise.all([queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close(), queues.embeddingQueue.close(), queues.documentVersionQueue.close()]); redisService.client.disconnect(); connection.disconnect(); await prisma.$disconnect(); const closingPool = (globalThis as any).pool; if (closingPool && !closingPool.ended) await closingPool.end(); await api.dispose();
   }
 });

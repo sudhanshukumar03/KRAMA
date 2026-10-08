@@ -1,6 +1,6 @@
 import { test, expect, request as createRequest, type APIRequestContext } from '@playwright/test';
 import crypto from 'node:crypto';
-import { reportingClock, shiftDay, validDayKey } from '../apps/server/src/services/reportingTime';
+import { reportingClock, shiftDay, validDayKey } from '../../apps/server/src/services/reportingTime';
 test.describe.configure({ mode: 'serial' });
 test.skip(process.env.KRAMA_DASHBOARD_ANALYTICS_VERIFY !== '1', 'Live checks require explicit opt-in');
 const marker = `Dashboard Analytics Verification ${crypto.randomUUID()}`;
@@ -35,7 +35,7 @@ test('calendar reporting handles Indian midnight, extreme offsets and DST', () =
 });
 test('overview is live, dense and separates personal timer time from Planner logs', async () => {
   for (const days of [7, 30, 90]) { const rows = await json('GET', `analytics/overview?range=${days}d`); expect(rows).toHaveLength(days); expect(rows[0].dayKey).toBe(shiftDay(today, -(days - 1))); expect(rows.at(-1).dayKey).toBe(today); expect(rows.every((r: any) => r.deepWorkLogged === 0)).toBe(true); expect(rows.at(-1).okrPace).toBeNull(); }
-  const { prisma } = await import('../apps/server/src/prisma');
+  const { prisma } = await import('../../apps/server/src/prisma');
   const root = await json('POST', 'goals', { title: 'Dashboard goal', type: 'monthly', progress: 80 }, 201);
   await json('POST', 'goals', { title: 'Dashboard child', type: 'monthly', parentGoalId: root.id, progress: 20 }, 201);
   task = await json('POST', 'tasks', { title: 'Dashboard work', scheduledDate: `${today}T12:00:00Z`, priority: 'HIGH' }, 201);
@@ -54,7 +54,7 @@ test('overview is live, dense and separates personal timer time from Planner log
   expect((await call('GET', 'dashboard?date=2026-02-30')).status()).toBe(400); expect((await call('GET', 'analytics/overview?range=8d')).status()).toBe(400);
 });
 test('personal focus history is paginated and cannot reveal another member or workspace', async () => {
-  const { prisma } = await import('../apps/server/src/prisma'); const owner = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  const { prisma } = await import('../../apps/server/src/prisma'); const owner = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   const memberEmail = `dashboard-member-${crypto.randomUUID()}@example.invalid`; const member = await prisma.user.create({ data: { name: `${marker} member`, email: memberEmail, passwordHash: owner.passwordHash, memberships: { create: { workspaceId, role: 'MEMBER' } } } });
   try {
     const foreign = await prisma.focusSession.create({ data: { userId: member.id, workspaceId, duration: 999, completed: true, startTime: new Date(`${today}T06:00:00Z`) } });
@@ -178,7 +178,7 @@ test('dashboard filters, detail links, loading layout and analytics trend modes 
 });
 
 test('focus history retains loaded rows after a failed next page and linked tasks open', async ({ page }) => {
-  const { prisma } = await import('../apps/server/src/prisma');
+  const { prisma } = await import('../../apps/server/src/prisma');
   await prisma.focusSession.createMany({ data: [
     { userId, workspaceId, taskId: task.id, startTime: new Date(`${today}T09:00:00Z`), duration: 60, completed: true, type: 'pomodoro' },
     { userId, workspaceId, taskId: task.id, startTime: new Date(`${today}T10:00:00Z`), duration: 60, completed: true, type: 'short_break' },
@@ -220,8 +220,8 @@ test('analytics charts retain the full date-axis width after responsive resizing
 
 test.afterAll(async () => {
   if (!userId) { await api?.dispose(); return; }
-  const { prisma } = await import('../apps/server/src/prisma');
-  const queues = await import('../apps/server/src/queues'); const { connection } = await import('../apps/server/src/lib/redis'); const { redisService } = await import('../apps/server/src/services/redis.service');
+  const { prisma } = await import('../../apps/server/src/prisma');
+  const queues = await import('../../apps/server/src/queues'); const { connection } = await import('../../apps/server/src/lib/redis'); const { redisService } = await import('../../apps/server/src/services/redis.service');
   try {
     const owner = await prisma.user.findUniqueOrThrow({ where: { id: userId } }); expect(owner.email).toBe(email); expect(owner.name).toBe(marker);
     const owned = await prisma.workspace.findMany({ where: { id: { in: [...workspaceIds] }, createdBy: userId } }); expect(owned.length).toBe(workspaceIds.size);
@@ -230,7 +230,7 @@ test.afterAll(async () => {
     await prisma.timeBlock.deleteMany({ where: { userId } }); await prisma.workspace.deleteMany({ where: { id: { in: [...workspaceIds] }, createdBy: userId } }); await prisma.user.delete({ where: { id: userId } });
     expect(await prisma.user.count({ where: { id: userId } })).toBe(0); console.log('Audit fixtures removed');
   } finally {
-    await Promise.all([queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close(), queues.embeddingQueue.close(), queues.documentVersionQueue.close()]); redisService.client.disconnect(); connection.disconnect(); await prisma.$disconnect(); await (globalThis as any).pool?.end(); await api.dispose();
+    await Promise.all([queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close(), queues.embeddingQueue.close(), queues.documentVersionQueue.close()]); redisService.client.disconnect(); connection.disconnect(); await prisma.$disconnect(); const closingPool = (globalThis as any).pool; if (closingPool && !closingPool.ended) await closingPool.end(); await api.dispose();
   }
 });
 

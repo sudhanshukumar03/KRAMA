@@ -3,15 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 // Default suite uses mocked APIs and starts only the frontend.
 export default defineConfig({
   testDir: './e2e',
-  testMatch: [
-    'brain-workspace.spec.ts',
-    'planner-workspace.spec.ts',
-    'ui-audit.spec.ts',
-    'focus-mode.spec.ts',
-    'focus-wallpaper-remove.spec.ts',
-    'verify-sidebar-fullscreen.spec.ts',
-    'throttled.spec.ts',
-  ],
+  testMatch: ['**/unit/*.spec.ts', '**/mocked/*.spec.ts'],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -24,7 +16,12 @@ export default defineConfig({
   },
   projects: [
     {
+      name: 'unit',
+      testMatch: '**/unit/*.spec.ts',
+    },
+    {
       name: 'chromium',
+      testMatch: '**/mocked/*.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
   ],

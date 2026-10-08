@@ -201,6 +201,19 @@ pnpm -r run build
 pnpm dev
 ```
 
+Frontend tests are grouped by purpose: `e2e/unit` contains module regressions,
+`e2e/mocked` contains browser scenarios with mocked APIs, and `e2e/live` contains
+scenarios that require a dedicated test backend. Run `pnpm exec playwright install
+chromium` once, then `pnpm test:ui` for the module and mocked browser checks.
+CI installs Chromium and runs those checks automatically. Live scenarios use
+`pnpm test:e2e` with isolated test database/Redis settings and the relevant opt-in
+flags; use `pnpm test:e2e --list` to inspect them without starting test services.
+
+Planner HTTP routes delegate database operations and calculations to
+`apps/server/src/services/planner.service.ts`. Frontend cards and dialogs live
+beside their features in `components/kanban`, `components/projects`, and
+`components/habits`; Today View's queries and actions live in `useTodayPlanner`.
+
 <div align="center">
   For host development, visit <code>http://localhost:5173</code> to launch KRAMA OS. 🎉
 </div>
