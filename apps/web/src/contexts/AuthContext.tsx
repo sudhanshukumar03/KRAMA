@@ -127,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             api.setWorkspaceId(wid); // Synchronously set to avoid race condition with React Query mounts
             if (wid) localStorage.setItem('krama_active_workspace', wid);
+            else localStorage.removeItem('krama_active_workspace');
             
             setAuthState({
               status: 'authed',
@@ -162,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api.setAccessToken(token);
     api.setWorkspaceId(wid);
     if (wid) localStorage.setItem('krama_active_workspace', wid);
+    else localStorage.removeItem('krama_active_workspace');
     
     setAuthState({
       status: 'authed',

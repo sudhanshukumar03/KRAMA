@@ -6,6 +6,7 @@ export const userAuthSelect = {
   email: true,
   metadata: true,
   memberships: {
+    where: { workspace: { deletedAt: null } },
     select: {
       workspaceId: true,
       role: true,
