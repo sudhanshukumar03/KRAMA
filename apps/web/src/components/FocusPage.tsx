@@ -696,6 +696,19 @@ const AccountFocusPage: React.FC = () => {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Dialog dismissal must work even when a modal control has focus.
+      if (e.key === 'Escape') {
+        if (showWallpaperModal || showSettingsModal || showLayoutModal) {
+          e.preventDefault();
+          setShowWallpaperModal(false);
+          setShowSettingsModal(false);
+          setShowLayoutModal(false);
+        } else if (isFullscreen && document.fullscreenElement) {
+          document.exitFullscreen().catch(() => { });
+        }
+        return;
+      }
+
       const target = e.target as HTMLElement;
       if (target.closest('input, textarea, select, button, a, [contenteditable=true], [role=button]')) return;
       if (showSettingsModal || showWallpaperModal || showLayoutModal) return;
@@ -704,18 +717,6 @@ const AccountFocusPage: React.FC = () => {
         if (mode !== 'clock') {
           e.preventDefault();
           if (isActiveRef.current) handlePause(); else handleStart();
-        }
-      } else if (e.key === 'Escape') {
-        if (showWallpaperModal) {
-          e.preventDefault();
-          setShowWallpaperModal(false);
-        } else if (showSettingsModal) {
-          e.preventDefault();
-          setShowSettingsModal(false);
-        } else if (isFullscreen) {
-          if (document.fullscreenElement) {
-            document.exitFullscreen().catch(() => { });
-          }
         }
       } else if (e.key.toLowerCase() === 'w' && !e.ctrlKey && !e.metaKey) {
         setShowWallpaperModal((prev) => !prev);

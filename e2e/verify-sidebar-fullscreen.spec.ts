@@ -68,13 +68,12 @@ test.describe('Sidebar Layout Fullscreen Verification', () => {
     await page.reload();
     await page.waitForTimeout(1000);
 
-    // 3. Normal tab state: Top header and mode pills must be visible
+    // 3. Normal tab state: Header and timer controls must be visible
     const focusTimerText = page.locator('span:has-text("Focus Timer")').first();
     await expect(focusTimerText).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('button:has-text("Focus")').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('button', { name: 'Enter Fullscreen' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Settings and options' })).toBeVisible();
 
-    // Take screenshot of normal sidebar view
-    await page.screenshot({ path: 'e2e/sidebar-normal-view.png' });
 
     // 4. Trigger Fullscreen
     await page.evaluate(() => {
@@ -96,7 +95,5 @@ test.describe('Sidebar Layout Fullscreen Verification', () => {
     // 6. Verify 25:00 is visible and beautifully centered
     await expect(page.locator('span:has-text("25:00")').first()).toBeVisible();
 
-    // Take screenshot of clean fullscreen view
-    await page.screenshot({ path: 'e2e/sidebar-fullscreen-clean.png' });
   });
 });

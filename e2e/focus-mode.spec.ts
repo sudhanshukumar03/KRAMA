@@ -206,7 +206,9 @@ test.describe.serial('Focus Mode Comprehensive E2E Verification', () => {
       await cardLayoutBtn.click();
     }
 
-    // Close Wallpaper modal via Escape
+    // Escape must dismiss even while a modal button has keyboard focus.
+    await cardLayoutBtn.focus();
+    await expect(cardLayoutBtn).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(themeModal).not.toBeVisible({ timeout: 3000 });
 
@@ -216,7 +218,10 @@ test.describe.serial('Focus Mode Comprehensive E2E Verification', () => {
     await expect(settingsModal).toBeVisible({ timeout: 3000 });
     await expect(page.locator('text=Custom Timer Sprint')).toBeVisible({ timeout: 3000 });
 
-    // Close Settings via Escape
+    // Editing a settings input must not block Escape dismissal.
+    const settingsInput = page.locator('input').first();
+    await settingsInput.focus();
+    await expect(settingsInput).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(settingsModal).not.toBeVisible({ timeout: 3000 });
   });
