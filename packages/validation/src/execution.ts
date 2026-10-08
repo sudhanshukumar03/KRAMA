@@ -99,19 +99,3 @@ export const HabitLogSchema = z.object({
   dateIso: z.string().datetime().optional(),
   workspaceId: z.string().uuid().optional(),
 });
-
-export const CreateDecisionSchema = WorkspaceScoped.extend({
-  title: z.string().min(1).max(255),
-  rationale: z.string().nullable().optional(),
-  outcomes: z.string().nullable().optional(),
-  options: z.array(z.string()).nullable().optional(),
-  metadata: z.union([z.string(), z.record(z.any())]).nullable().optional(),
-  createdAt: z.string().datetime().optional()
-});
-
-export const UpdateDecisionSchema = CreateDecisionSchema.partial().extend({
-  version: z.number().int().min(1).optional(),
-});
-
-
-
