@@ -12,17 +12,17 @@ COPY packages ./packages
 COPY apps/server ./apps/server
 COPY apps/web/package.json ./apps/web/package.json 
 
-# Install dependencies (ignoring scripts initially)
+# Install dependencies using the root-manifest build allowlist.
 RUN pnpm install --frozen-lockfile
 
 # Generate Prisma Client
 RUN cd apps/server && npx prisma generate
 
-# Build TypeScript
-RUN cd apps/server && npx tsc
+# Build shared packages before the server that imports their dist exports.
+RUN pnpm --filter server... run build
 
 # Deploy the server package into an isolated directory (/app/out)
-RUN pnpm --filter server deploy --legacy --prod /app/out
+RUN pnpm --filter server deploy --prod /app/out
 
 # Stage 2: Production runtime
 FROM node:24-alpine AS runner
