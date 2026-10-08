@@ -4,6 +4,7 @@ import {
   UpdateGoalSchema,
   UpdateHabitSchema,
   UpdateTaskSchema,
+  CreateTaskSchema,
   UpdateProjectSchema,
 } from '../execution';
 
@@ -43,6 +44,13 @@ describe('Validation Schema Concurrency Rules (P0)', () => {
       title: 'Updated Task Title',
     });
     assert.strictEqual(parsed.version, undefined);
+  });
+
+  it('bounds task estimates so a single task cannot request an unbounded schedule', () => {
+    const base = { workspaceId: dummyWorkspace, title: 'Estimate bound' };
+    assert.equal(CreateTaskSchema.safeParse({ ...base, estimateMinutes: 10080 }).success, true);
+    assert.equal(CreateTaskSchema.safeParse({ ...base, estimateMinutes: 10081 }).success, false);
+    assert.equal(UpdateTaskSchema.safeParse({ workspaceId: dummyWorkspace, estimateMinutes: 10081 }).success, false);
   });
 
   it('Amendment 3 - UpdateProjectSchema: version remains REQUIRED', () => {

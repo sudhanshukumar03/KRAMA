@@ -70,7 +70,8 @@ class SocketService {
         return next(new Error('Authentication error: Token missing'));
       }
       try {
-        // Mirror requireAuth: pin HS256, reject expired tokens, honor revocation.
+        // Mirror requireAuth: pin HS256, reject expired tokens, and verify
+        // shared revocation state plus authoritative session ownership.
         const decoded = jwt.decode(token, JWT_SECRET, false, 'HS256') as any;
         // exp is a NumericDate (seconds); compare against ms epoch.
         if (!decoded?.exp || decoded.exp * 1000 < Date.now()) {
@@ -78,22 +79,24 @@ class SocketService {
         }
 
         const sessionId = decoded.sessionId;
-        if (!sessionId) return next(new Error('Authentication error: Session missing'));
+        const userId = decoded.sub;
+        if (typeof sessionId !== 'string' || !sessionId || typeof userId !== 'string' || !userId) {
+          return next(new Error('Authentication error: Session missing'));
+        }
         if (sessionId) {
           const cacheKey = `session_revoked:${sessionId}`;
-          const cachedStatus = await redisService.get(cacheKey);
+          const cachedStatus = await redisService.getShared(cacheKey);
           if (cachedStatus === 'true') {
             return next(new Error('Authentication error: Session revoked'));
-          } else if (cachedStatus !== 'false') {
+          } else {
             const dbSession = await prisma.session.findUnique({
               where: { id: sessionId },
-              select: { revokedAt: true },
+              select: { userId: true, revokedAt: true },
             });
-            if (!dbSession || dbSession.revokedAt !== null) {
+            if (!dbSession || dbSession.userId !== userId || dbSession.revokedAt !== null) {
               await redisService.set(cacheKey, 'true', 3600);
               return next(new Error('Authentication error: Session revoked'));
             }
-            await redisService.set(cacheKey, 'false', 300);
           }
         }
 
@@ -114,8 +117,8 @@ class SocketService {
       }, Math.max(0, exp * 1000 - Date.now()));
       socket.on('disconnect', () => clearTimeout(expires));
       // A logout may have committed between the handshake check and room join.
-      const session = await prisma.session.findUnique({ where: { id: sessionId }, select: { revokedAt: true } });
-      if (!session || session.revokedAt || !socket.connected) {
+      const session = await prisma.session.findUnique({ where: { id: sessionId }, select: { userId: true, revokedAt: true } });
+      if (!session || session.userId !== userId || session.revokedAt || !socket.connected) {
         socket.emit('session:ended', { reason: 'revoked' });
         socket.disconnect(true);
         return;

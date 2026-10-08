@@ -34,6 +34,31 @@ export interface FocusScheduleResult {
   generatedAt: string;
 }
 
+const MAX_DAILY_FOCUS_MINUTES = 1440;
+const MAX_SCHEDULE_ENTRIES = 200;
+
+export function normalizeTimerPreferences(value?: Partial<TimerPreferences>): Required<TimerPreferences> {
+  const boundedInteger = (candidate: unknown, fallback: number, max: number) =>
+    typeof candidate === 'number' && Number.isInteger(candidate) && candidate >= 1 && candidate <= max
+      ? candidate
+      : fallback;
+  return {
+    focusDuration: boundedInteger(value?.focusDuration, 25, 1440),
+    shortBreak: boundedInteger(value?.shortBreak, 5, 1440),
+    longBreak: boundedInteger(value?.longBreak, 15, 1440),
+    longBreakAfter: boundedInteger(value?.longBreakAfter, 4, 16),
+  };
+}
+
+export function isValidTimerPreferences(value: unknown): value is TimerPreferences {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const allowed = new Set(['focusDuration', 'shortBreak', 'longBreak', 'longBreakAfter']);
+  return Object.entries(value).every(([key, candidate]) => {
+    const max = key === 'longBreakAfter' ? 16 : 1440;
+    return allowed.has(key) && typeof candidate === 'number' && Number.isInteger(candidate) && candidate >= 1 && candidate <= max;
+  });
+}
+
 export async function buildFocusSchedule(
   userId: string,
   workspaceId: string,
@@ -41,12 +66,7 @@ export async function buildFocusSchedule(
   requestedZone?: string,
   requestedOffset?: string
 ): Promise<FocusScheduleResult> {
-  const prefs: Required<TimerPreferences> = {
-    focusDuration: userPrefs?.focusDuration && userPrefs.focusDuration > 0 ? userPrefs.focusDuration : 25,
-    shortBreak: userPrefs?.shortBreak && userPrefs.shortBreak > 0 ? userPrefs.shortBreak : 5,
-    longBreak: userPrefs?.longBreak && userPrefs.longBreak > 0 ? userPrefs.longBreak : 15,
-    longBreakAfter: userPrefs?.longBreakAfter && userPrefs.longBreakAfter > 0 ? userPrefs.longBreakAfter : 4,
-  };
+  const prefs = normalizeTimerPreferences(userPrefs);
 
   // STEP 1: Load today's data.
   // "Today" is the user's LOCAL calendar day, not the server's — a server
@@ -97,7 +117,7 @@ export async function buildFocusSchedule(
   const projectMap = new Map(projects.map(p => [p.id, p.name]));
 
   // STEP 2: Compute daily cap
-  const dailyCapMinutes = Math.round((user?.weeklyCapacityMinutes ?? 2400) / 5);
+  const dailyCapMinutes = Math.min(MAX_DAILY_FOCUS_MINUTES, Math.round((user?.weeklyCapacityMinutes ?? 2400) / 5));
   // calculateCapacity handles interval merging & meeting deduction
   const capacity = calculateCapacity(user?.weeklyCapacityMinutes ?? 2400, timeBlocks);
   const meetingMinutes = capacity.meetingMinutes;
@@ -127,9 +147,11 @@ export async function buildFocusSchedule(
   const workSlots: WorkSlot[] = [];
 
   for (const block of workBlocks) {
-    const blockDuration = Math.max(1, Math.round(
+    const rawBlockDuration = Math.round(
       (new Date(block.endTime).getTime() - new Date(block.startTime).getTime()) / 60000
-    ));
+    );
+    if (!Number.isFinite(rawBlockDuration) || rawBlockDuration <= 0) continue;
+    const blockDuration = Math.min(rawBlockDuration, MAX_DAILY_FOCUS_MINUTES);
     const linkedTask = block.taskId ? taskMap.get(block.taskId) : null;
     if (block.taskId && !linkedTask) continue;
     const candidateProject = block.projectId ?? linkedTask?.projectId ?? null;
@@ -179,20 +201,25 @@ export async function buildFocusSchedule(
   const plan: SessionSlot[] = [];
   let globalIndex = 0;
   let globalPomodoroCount = 0;
+  let allocatedFocusMinutes = 0;
   const taskBreakdownMap = new Map<string, { taskId: string; title: string; pomodoroCount: number }>();
 
   for (let sIdx = 0; sIdx < workSlots.length; sIdx++) {
+    if (plan.length >= MAX_SCHEDULE_ENTRIES || allocatedFocusMinutes >= remainingMinutes) break;
     const slot = workSlots[sIdx];
     if (!slot) continue;
-    const effectiveDuration = slot.durationMin;
-    if (effectiveDuration <= 0) continue;
+    const effectiveDuration = Math.min(slot.durationMin, remainingMinutes - allocatedFocusMinutes);
+    if (!Number.isFinite(effectiveDuration) || effectiveDuration <= 0) continue;
     const pomodoroCount = Math.ceil(effectiveDuration / prefs.focusDuration);
 
     for (let p = 0; p < pomodoroCount; p++) {
+      if (plan.length >= MAX_SCHEDULE_ENTRIES || allocatedFocusMinutes >= remainingMinutes) break;
+      const durationMin = Math.min(prefs.focusDuration, effectiveDuration - p * prefs.focusDuration, remainingMinutes - allocatedFocusMinutes);
+      if (durationMin <= 0) break;
       plan.push({
         index: globalIndex++,
         type: 'pomodoro',
-        durationMin: Math.min(prefs.focusDuration, effectiveDuration - p * prefs.focusDuration),
+        durationMin,
         taskId: slot.taskId,
         taskTitle: slot.taskTitle,
         projectId: slot.projectId,
@@ -201,11 +228,12 @@ export async function buildFocusSchedule(
         timeBlockId: slot.blockId.startsWith('synthetic') ? null : slot.blockId,
 
       });
+      allocatedFocusMinutes += durationMin;
       globalPomodoroCount++;
 
       // Check if this is the last pomodoro of the last work slot
       const isLastOfAll = sIdx === workSlots.length - 1 && p === pomodoroCount - 1;
-      if (!isLastOfAll) {
+      if (!isLastOfAll && plan.length < MAX_SCHEDULE_ENTRIES && allocatedFocusMinutes < remainingMinutes) {
         const isLongBreak = globalPomodoroCount % prefs.longBreakAfter === 0;
         plan.push({
           index: globalIndex++,

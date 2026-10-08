@@ -4,6 +4,7 @@ import { SignupSchema, LoginSchema } from '@krama/validation';
 import { authService } from '../services/auth.service';
 import { prisma } from '../prisma';
 import { userAuthSelect } from '../utils/selectors';
+import { isValidTimerPreferences } from '../services/focusTimer.service';
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -162,7 +163,13 @@ export const updatePreferences = async (req: Request, res: Response) => {
     const userId = req.user.id;
     const { timerPreferences, locationConfig, weeklyCapacityMinutes, focusWallpaper, focusLayout } = req.body;
 
-    if (!timerPreferences && !locationConfig && weeklyCapacityMinutes === undefined && !focusWallpaper && !focusLayout) {
+    if (timerPreferences !== undefined) {
+      if (!isValidTimerPreferences(timerPreferences)) {
+        return res.status(400).json({ message: 'Timer preferences must use supported whole-minute values within the allowed range' });
+      }
+    }
+
+    if (timerPreferences === undefined && !locationConfig && weeklyCapacityMinutes === undefined && !focusWallpaper && !focusLayout) {
       return res.status(400).json({ message: 'No valid fields provided' });
     }
 
@@ -172,10 +179,10 @@ export const updatePreferences = async (req: Request, res: Response) => {
     const currentMetadata = (user.metadata as Record<string, any>) || {};
     
     const updateData: any = {};
-    if (timerPreferences || focusWallpaper || focusLayout) {
+    if (timerPreferences !== undefined || focusWallpaper || focusLayout) {
       updateData.metadata = {
         ...currentMetadata,
-        ...(timerPreferences ? {
+        ...(timerPreferences !== undefined ? {
           timerPreferences: {
             ...currentMetadata.timerPreferences,
             ...timerPreferences

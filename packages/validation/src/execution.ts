@@ -29,7 +29,7 @@ export const CreateTaskSchema = WorkspaceScoped.extend({
   priority: z.enum(['NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
   blockedById: z.string().uuid().nullable().optional(),
   parentTaskId: z.string().uuid().nullable().optional(),
-  estimateMinutes: z.number().int().min(0).optional(),
+  estimateMinutes: z.number().int().min(0).max(10080).optional(),
   scheduledDate: z.string().datetime().nullable().optional(),
   dueDate: z.string().datetime().nullable().optional(),
   metadata: z.record(z.any()).nullable().optional(),

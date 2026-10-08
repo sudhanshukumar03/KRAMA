@@ -13,7 +13,7 @@ async function main() {
   await new Promise<void>(resolve => reserve.close(() => resolve()));
   const child = spawn(process.execPath, ['--import', 'tsx', 'src/index.ts'], { stdio: ['ignore', 'pipe', 'pipe'], env: {
     ...process.env, NODE_ENV: 'test', PORT: String(port), DATABASE_URL: process.env.TEST_DATABASE_URL,
-    REDIS_URL: process.env.TEST_REDIS_URL, JWT_SECRET: 'startup-smoke-test-secret', KRAMA_TEST_RUN_ID: crypto.randomUUID(),
+    REDIS_URL: process.env.TEST_REDIS_URL, JWT_SECRET: 'startup-smoke-test-secret-at-least-forty-eight-characters-long', KRAMA_TEST_RUN_ID: crypto.randomUUID(),
     GROQ_API_KEY: '', GEMINI_API_KEY: '', R2_ACCOUNT_ID: '', R2_ACCESS_KEY_ID: '', R2_SECRET_ACCESS_KEY: '', R2_BUCKET_NAME: '', R2_PUBLIC_URL: '', UNSPLASH_ACCESS_KEY: '',
   } });
   // Consume logs without exposing records or credentials in CI output.

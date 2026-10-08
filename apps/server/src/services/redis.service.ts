@@ -75,6 +75,14 @@ class RedisService {
     return item.value;
   }
 
+  /** Read shared state without consulting the process-local fallback cache. */
+  async getShared(key: string): Promise<string | null> {
+    if (!this.isConnected || this.client.status !== 'ready') {
+      throw new Error('Redis is unavailable for shared state');
+    }
+    return this.client.get(key);
+  }
+
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
     if (this.isConnected && this.client.status === 'ready') {
       try {

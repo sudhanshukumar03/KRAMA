@@ -1,5 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { prisma } from '../prisma';
+import { buildFocusSchedule, isValidTimerPreferences, normalizeTimerPreferences } from '../services/focusTimer.service';
 import { getUserLocalDateStr, resolveUserTimeZone } from '../services/habitStreak.service';
 import {
   canonicalDay,
@@ -79,5 +81,40 @@ describe('Tier 1: Time-block move recompute (A1)', () => {
     assert.equal(canonicalDay(new Date('2026-09-21T23:45:12.000Z')).toISOString(), '2026-09-21T12:00:00.000Z');
     assert.equal(toHHmm(new Date('2026-09-21T09:05:00.000Z')), '09:05');
     assert.equal(toHHmm(new Date('2026-09-21T00:00:00.000Z')), '00:00');
+  });
+});
+
+describe('Focus schedule resource bounds', () => {
+  it('normalizes stored timer preferences and rejects malformed update values', () => {
+    assert.deepEqual(normalizeTimerPreferences({ focusDuration: 0.000001, shortBreak: 2.5, longBreakAfter: 100 }), {
+      focusDuration: 25, shortBreak: 5, longBreak: 15, longBreakAfter: 4,
+    });
+    assert.equal(isValidTimerPreferences({ focusDuration: 1, shortBreak: 1, longBreak: 1, longBreakAfter: 16 }), true);
+    assert.equal(isValidTimerPreferences({ focusDuration: 0.000001 }), false);
+    assert.equal(isValidTimerPreferences({ focusDuration: 25, unexpected: 1 }), false);
+  });
+
+  it('caps generated entries before expanding an extreme synthetic task estimate', async () => {
+    const original = {
+      user: (prisma as any).user,
+      timeBlock: (prisma as any).timeBlock,
+      task: (prisma as any).task,
+      focusSession: (prisma as any).focusSession,
+      project: (prisma as any).project,
+    };
+    (prisma as any).user = { findUnique: async () => ({ weeklyCapacityMinutes: 2400, metadata: null, countryCode: 'IN' }) };
+    (prisma as any).timeBlock = { findMany: async () => [] };
+    (prisma as any).task = { findMany: async () => [{ id: 'large', title: 'Large estimate', estimateMinutes: 1_000_000_000, projectId: null }] };
+    (prisma as any).focusSession = { findMany: async () => [] };
+    (prisma as any).project = { findMany: async () => [] };
+    try {
+      const result = await buildFocusSchedule('user', 'workspace', { focusDuration: 1, shortBreak: 1, longBreak: 1, longBreakAfter: 4 }, 'UTC');
+      assert.ok(result.plan.length <= 200);
+      assert.ok(result.plan.length >= 199);
+      assert.ok(result.totalFocusMinutes <= result.remainingMinutes);
+      assert.ok(result.plan.every(slot => Number.isFinite(slot.durationMin) && slot.durationMin > 0));
+    } finally {
+      Object.assign(prisma as any, original);
+    }
   });
 });
