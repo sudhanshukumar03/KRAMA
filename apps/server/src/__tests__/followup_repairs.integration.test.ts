@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import express from 'express';
 import plannerRouter from '../routes/planner.routes';
 import workspaceRouter from '../routes/workspace.routes';
@@ -18,7 +19,7 @@ import { goalService } from '../services/goal.service';
 import { habitService } from '../services/habit.service';
 import { deleteProject, restoreProject } from '../controllers/project.controller';
 import { completeFocusSession } from '../controllers/focusSession.controller';
-import { getWorkspaceDocuments, importDocumentSpec } from '../controllers/document.controller';
+import { getWorkspaceDocuments, importDocumentSpec, updateDocumentMetadata } from '../controllers/document.controller';
 import { buildFocusSchedule } from '../services/focusTimer.service';
 import { workspaceService } from '../services/workspace.service';
 import { requireWorkspaceRole } from '../middlewares/rbac.middleware';
@@ -65,6 +66,34 @@ test('document list pages return bounded metadata without bodies', async () => {
   await getWorkspaceDocuments(secondRequest, secondResponse as any);
   assert.equal(secondResponse.payload.items.length, 1);
   assert.notEqual(secondResponse.payload.items[0].id, firstResponse.payload.items[0].id);
+});
+
+test('production document HTTP errors hide injected database details and malformed metadata returns 400', async () => {
+  const previous = process.env.NODE_ENV;
+  const originalList = prisma.document.findMany;
+  const originalUpdate = prisma.document.update;
+  const app = express(); app.use(express.json());
+  app.use((req, _res, next) => { Object.assign(req, { user: { id: fixture.user.id }, workspaceId: fixture.workspace.id }); next(); });
+  app.get('/documents', getWorkspaceDocuments); app.patch('/documents/:id', updateDocumentMetadata);
+  const server = app.listen(0, '127.0.0.1'); await once(server, 'listening');
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  process.env.NODE_ENV = 'production';
+  try {
+    const malformed = await fetch(`${base}/documents/${doc.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 42 }) });
+    assert.equal(malformed.status, 400);
+    const fail = async () => { throw new Error('SELECT private_column FROM private_schema; database password=hidden'); };
+    (prisma.document as any).findMany = fail; (prisma.document as any).update = fail;
+    const requests = [await fetch(`${base}/documents`), await fetch(`${base}/documents/${doc.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'valid' }) })];
+    for (const reply of requests) {
+      assert.equal(reply.status, 500); const payload = await reply.json() as any;
+      assert.equal(payload.message, 'Internal server error'); assert.match(payload.requestId, /^[0-9a-f-]{36}$/);
+      assert.doesNotMatch(JSON.stringify(payload), /private_column|private_schema|password|hidden/);
+    }
+  } finally {
+    (prisma.document as any).findMany = originalList; (prisma.document as any).update = originalUpdate;
+    if (previous === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previous;
+    await new Promise<void>(resolve => server.close(() => resolve()));
+  }
 });
 
 test('document import rejects a foreign parent before creating spaces, documents or tags', async () => {
@@ -300,6 +329,80 @@ test('rotation disconnects old tabs; refreshed tabs connect and logout ends all 
   } finally {
     clients.forEach(client => client.disconnect());
     await socketService.shutdown();
+  }
+});
+
+test('session revocation is enforced by another process with a warm cache and a Redis outage', async () => {
+  const childSource = `
+    const express = require('express');
+    const { redisService } = require('./src/services/redis.service.ts');
+    const { requireAuth } = require('./src/middlewares/auth.middleware.ts');
+    const { prisma } = require('./src/prisma.ts');
+    (async () => {
+      await redisService.ensureConnected();
+      const app = express(); app.get('/protected', requireAuth, (_req, res) => res.json({ accepted: true }));
+      const server = app.listen(0, '127.0.0.1', () => process.send({ port: server.address().port }));
+      process.on('message', async message => {
+        if (message.type === 'outage') {
+          redisService.client.disconnect(); redisService.isConnected = false;
+          await redisService.set('session_revoked:' + message.sessionId, 'active:' + message.userId, 900);
+          process.send({ outage: true });
+        }
+      });
+      process.on('SIGTERM', () => server.close(async () => {
+        redisService.client.disconnect(); await prisma.$disconnect();
+        await globalThis.pool?.end(); process.exit(0);
+      }));
+    })().catch(error => { console.error(error); process.exit(1); });
+  `;
+  const child = spawn(process.execPath, ['--import', 'tsx', '-e', childSource], { cwd: process.cwd(), env: process.env, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
+  child.stdout?.resume(); child.stderr?.resume();
+  const message = () => new Promise<any>((resolve, reject) => {
+    const timer = setTimeout(() => { child.off('message', done); reject(new Error('Child process response timed out')); }, 5000);
+    const done = (value: any) => { clearTimeout(timer); resolve(value); };
+    child.once('message', done);
+  });
+  try {
+    const { port } = await message();
+    for (const outage of [false, true]) {
+      const pair = await authService.createSession(fixture.user.id);
+      const headers = { Authorization: `Bearer ${pair.accessToken}` };
+      const call = () => fetch(`http://127.0.0.1:${port}/protected`, { headers });
+      assert.equal((await call()).status, 200);
+      if (outage) {
+        const session = await prisma.session.findUniqueOrThrow({ where: { refreshTokenHash: authService.hashRefreshToken(pair.refreshToken) } });
+        const ack = message(); child.send({ type: 'outage', sessionId: session.id, userId: fixture.user.id });
+        assert.equal((await ack).outage, true);
+      }
+      await authService.revokeSession(pair.refreshToken);
+      assert.equal((await call()).status, 401);
+    }
+  } finally {
+    child.kill('SIGTERM');
+    if (child.exitCode === null) await once(child, 'exit');
+  }
+});
+
+test('live socket delivery withholds full task data after the connected member becomes a guest', async () => {
+  const io = createRequire(require.resolve('../../../web/package.json'))('socket.io-client').io;
+  const server = createServer(); socketService.init(server); server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  const pair = await authService.createSession(fixture.user.id);
+  const client = io(`http://127.0.0.1:${(server.address() as { port: number }).port}`, { auth: { token: pair.accessToken }, transports: ['websocket'], reconnection: false, timeout: 2000 });
+  try {
+    await Promise.race([once(client, 'connect'), once(client, 'connect_error').then(([error]) => { throw error; })]);
+    for (let attempt = 0; attempt < 50 && !socketService.getIO().sockets.sockets.get(client.id)?.rooms.has(fixture.user.id); attempt++) await new Promise(resolve => setTimeout(resolve, 10));
+    const received: any[] = []; client.on('task:created', (payload: any) => received.push(payload));
+    const ownerMessage = once(client, 'task:created');
+    await (socketService as any).emitToReadableWorkspace(fixture.workspace.id, 'task:created', { id: 'owner-control', description: 'private task body' });
+    assert.equal((await ownerMessage)[0].id, 'owner-control');
+    received.length = 0;
+    await prisma.workspaceMember.update({ where: { userId_workspaceId: { userId: fixture.user.id, workspaceId: fixture.workspace.id } }, data: { role: 'GUEST' } });
+    await (socketService as any).emitToReadableWorkspace(fixture.workspace.id, 'task:created', { id: 'guest-forbidden', description: 'private task body' });
+    await new Promise(resolve => setTimeout(resolve, 100));
+    assert.deepEqual(received, []);
+  } finally {
+    await prisma.workspaceMember.update({ where: { userId_workspaceId: { userId: fixture.user.id, workspaceId: fixture.workspace.id } }, data: { role: 'OWNER' } });
+    client.disconnect(); await authService.revokeSession(pair.refreshToken); await socketService.shutdown();
   }
 });
 

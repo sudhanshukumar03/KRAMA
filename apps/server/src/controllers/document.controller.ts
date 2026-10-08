@@ -13,6 +13,25 @@ import { GoogleGenAI } from '@google/genai';
 import { GROQ_MODEL, GEMINI_MODEL } from '../services/ai.service';
 import { streamWithFallback, type TextStreamProvider } from '../lib/providerStream';
 
+function documentErrorResponse(error: any, defaultStatus = 400): { status: number; payload: { message: string; requestId?: string } } {
+  const databaseFailure = String(error?.name || '').startsWith('Prisma') ||
+    /^(?:P\d{4}|[0-9A-Z]{5}|ECONN\w*|ETIMEDOUT|EHOST\w*)$/.test(String(error?.code || ''));
+  const requestedStatus = Number(error?.statusCode || error?.status || (databaseFailure ? 500 : defaultStatus));
+  const status = Number.isInteger(requestedStatus) && requestedStatus >= 400 && requestedStatus < 600 ? requestedStatus : 500;
+  if (status < 500) return { status, payload: { message: error?.message || 'Unable to complete document operation' } };
+  const requestId = randomUUID();
+  console.error(`[Document operation] Unexpected failure ${requestId}`, error);
+  return { status, payload: {
+    message: process.env.NODE_ENV === 'development' ? (error?.message || 'Internal server error') : 'Internal server error',
+    requestId,
+  } };
+}
+
+function handleDocumentError(res: Response, error: any, defaultStatus = 400) {
+  const { status, payload } = documentErrorResponse(error, defaultStatus);
+  return res.status(status).json(payload);
+}
+
 /**
  * Helper to ensure the target document belongs to the active workspace.
  */
@@ -84,7 +103,7 @@ export const getWorkspaceDocuments = async (req: Request, res: Response) => {
     const items = hasMore ? documents.slice(0, pageSize) : documents;
     res.status(200).json({ items, nextCursor: hasMore ? items[items.length - 1]?.id ?? null : null });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    handleDocumentError(res, error, 500);
   }
 };
 
@@ -166,7 +185,7 @@ export const createWorkspaceDocument = async (req: Request, res: Response) => {
 
     res.status(201).json(doc);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -185,7 +204,7 @@ export const getDocumentById = async (req: Request, res: Response) => {
 
     res.status(200).json(document);
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    handleDocumentError(res, error, 500);
   }
 };
 
@@ -231,9 +250,7 @@ export const updateDocumentMetadata = async (req: Request, res: Response) => {
     if (error?.name === 'ZodError' && Array.isArray(error.issues)) {
       return res.status(400).json({ message: error.issues[0]?.message || 'Invalid document metadata', errors: error.issues });
     }
-    const requestId = randomUUID();
-    console.error(`[Document metadata] Unexpected failure ${requestId}`, error);
-    return res.status(500).json({ message: 'Internal server error', requestId });
+    return handleDocumentError(res, error, 500);
   }
 };
 
@@ -251,7 +268,7 @@ export const moveDocument = async (req: Request, res: Response) => {
     const doc = await DocumentService.moveDocument(id, targetFolderId, targetParentId);
     res.status(200).json(doc);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -274,7 +291,7 @@ export const duplicateDocument = async (req: Request, res: Response) => {
     
     res.status(201).json(duplicated);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -294,7 +311,7 @@ export const toggleFavorite = async (req: Request, res: Response) => {
 
     res.status(200).json(updated);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -310,7 +327,7 @@ export const deleteDocument = async (req: Request, res: Response) => {
     await DocumentService.deepDelete(id);
     res.status(200).json({ message: 'Deleted successfully' });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    handleDocumentError(res, error, 500);
   }
 };
 
@@ -326,7 +343,7 @@ export const restoreDocument = async (req: Request, res: Response) => {
     await DocumentService.deepRestore(id);
     res.status(200).json({ message: 'Restored successfully' });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    handleDocumentError(res, error, 500);
   }
 };
 
@@ -372,7 +389,7 @@ export const purgeDocument = async (req: Request, res: Response) => {
 
     res.status(200).json({ message: 'Permanently deleted' });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    handleDocumentError(res, error, 500);
   }
 };
 
@@ -438,7 +455,7 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
       charCount
     });
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -455,7 +472,7 @@ export const getVersions = async (req: Request, res: Response) => {
     });
     res.status(200).json(versions);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -473,7 +490,7 @@ export const createVersion = async (req: Request, res: Response) => {
     redisService.del(`doc:${id}:mutations`).catch(() => {});
     res.status(201).json(version);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -491,7 +508,7 @@ export const getVersion = async (req: Request, res: Response) => {
     }
     res.status(200).json(version);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -516,7 +533,7 @@ export const restoreVersion = async (req: Request, res: Response) => {
 
     res.status(200).json(updated);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -549,7 +566,7 @@ export const getWorkspaceTags = async (req: Request, res: Response) => {
     });
     res.status(200).json(tags);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -590,7 +607,7 @@ export const addDocumentTag = async (req: Request, res: Response) => {
 
     res.status(200).json(tag);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -606,7 +623,7 @@ export const removeDocumentTag = async (req: Request, res: Response) => {
     });
     res.status(200).json({ message: 'Removed' });
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -624,7 +641,7 @@ export const getDocumentLinks = async (req: Request, res: Response) => {
     });
     res.status(200).json({ outgoing, incoming });
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -686,7 +703,7 @@ export const addDocumentLink = async (req: Request, res: Response) => {
     });
     res.status(201).json(link);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -707,7 +724,7 @@ export const removeLink = async (req: Request, res: Response) => {
     await prisma.entityLink.delete({ where: { id: linkId } });
     res.status(200).json({ message: 'Removed' });
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -739,7 +756,7 @@ export const createTaskFromDocument = async (req: Request, res: Response) => {
 
     res.status(201).json(result);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -818,7 +835,7 @@ export const searchDocuments = async (req: Request, res: Response) => {
 
     res.status(200).json(results);
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -883,7 +900,7 @@ wordCount: ${doc.wordCount}
 
     res.status(400).json({ message: 'Unsupported format' });
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -986,9 +1003,10 @@ export const aiAsk = async (req: Request, res: Response) => {
     await sendBrainAiStream(res, systemPrompt, question);
   } catch (error: any) {
     if (!res.headersSent) {
-      res.status(500).json({ message: error.message });
+      handleDocumentError(res, error, 500);
     } else {
-      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      const { payload } = documentErrorResponse(error, 500);
+      res.write(`data: ${JSON.stringify({ error: payload.message, requestId: payload.requestId })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
     }
@@ -1012,9 +1030,10 @@ export const aiCompose = async (req: Request, res: Response) => {
     await sendBrainAiStream(res, systemPrompt, userPrompt);
   } catch (error: any) {
     if (!res.headersSent) {
-      res.status(500).json({ message: error.message });
+      handleDocumentError(res, error, 500);
     } else {
-      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      const { payload } = documentErrorResponse(error, 500);
+      res.write(`data: ${JSON.stringify({ error: payload.message, requestId: payload.requestId })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
     }
@@ -1241,7 +1260,7 @@ export const importDocumentSpec = async (req: Request, res: Response) => {
       message: `Successfully imported spec "${title}" with ${totalImported} documents.`
     });
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
 
@@ -1401,6 +1420,6 @@ export const getWorkspaceGraph = async (req: Request, res: Response) => {
       links
     });
   } catch (error: any) {
-    res.status(error.statusCode || 400).json({ message: error.message });
+    handleDocumentError(res, error);
   }
 };
