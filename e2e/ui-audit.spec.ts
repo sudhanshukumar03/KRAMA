@@ -38,7 +38,7 @@ test('auth labels, password rule, and accessible server errors', async ({ page }
   await page.getByLabel('Name', { exact: true }).fill('Tester');
   await page.getByLabel('Email', { exact: true }).fill('tester@example.com');
   await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute('minlength', '8');
-  await expect(page.getByText('Use at least 8 characters.')).toBeVisible();
+  await expect(page.getByText(/Use at least 8 characters and no more than 72 UTF-8 bytes/)).toBeVisible();
   await page.route('**/auth/signup', route => route.fulfill({ status: 400, json: { message: 'Validation failed', errors: [{ message: 'Password must be at least 8 characters long' }] } }));
   await page.getByLabel('Password', { exact: true }).fill('abcdefgh');
   await page.getByRole('button', { name: 'Sign Up', exact: true }).click();

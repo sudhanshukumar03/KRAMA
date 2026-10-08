@@ -30,6 +30,22 @@ async function call(method: string, path: string, data?: unknown, status = 200) 
 async function json(method: string, path: string, data?: unknown, status = 200) {
   return (await call(method, path, data, status)).json();
 }
+async function listDocuments(deleted = false) {
+  const documents: any[] = [];
+  let cursor: string | null = null;
+  do {
+    const query = new URLSearchParams({ deleted: String(deleted), limit: '200' });
+    if (cursor) query.set('cursor', cursor);
+    const page = await json('GET', `documents?${query}`);
+    expect(Array.isArray(page.items)).toBe(true);
+    for (const item of page.items) expect(item).not.toHaveProperty('contentJson');
+    documents.push(...page.items);
+    expect(page.nextCursor === null || typeof page.nextCursor === 'string').toBe(true);
+    expect(page.nextCursor === null || page.nextCursor !== cursor).toBe(true);
+    cursor = page.nextCursor;
+  } while (cursor);
+  return documents;
+}
 function record(check: string) { results.push({ check, status: 'passed' }); console.log(`LIVE PASS: ${check}`); }
 
 test.beforeAll(async () => {
@@ -62,7 +78,7 @@ test('live documents: save/reopen, conflicts, tree, links, search, import/export
   const moved = await json('POST', `documents/${child.id}/move`, { targetParentId: null }); expect(moved.parentId).toBeNull();
   const returned = await json('POST', `documents/${child.id}/move`, { targetParentId: root.id }); expect(returned.parentId).toBe(root.id);
   const duplicate = await json('POST', `documents/${root.id}/duplicate`, undefined, 201); documentIds.add(duplicate.id);
-  const listed = await json('GET', 'documents');
+  const listed = await listDocuments();
   const copiedChild = listed.find((d: any) => d.parentId === duplicate.id); expect(copiedChild).toBeTruthy(); documentIds.add(copiedChild.id);
   record('nested move and subtree duplication');
 
@@ -103,7 +119,7 @@ test('live documents: save/reopen, conflicts, tree, links, search, import/export
   record('real queue worker snapshot creation and version restore');
 
   await json('DELETE', `documents/${duplicate.id}`);
-  expect((await json('GET', 'documents?deleted=true')).some((d: any) => d.id === duplicate.id)).toBe(true);
+  expect((await listDocuments(true)).some((d: any) => d.id === duplicate.id)).toBe(true);
   await call('GET', `documents/${duplicate.id}`, undefined, 404);
   await json('POST', `documents/${duplicate.id}/restore`);
   expect((await json('GET', `documents/${copiedChild.id}`)).deletedAt).toBeNull();

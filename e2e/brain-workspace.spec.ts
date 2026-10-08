@@ -11,15 +11,17 @@ function storage() {
 async function mockApi(page: Page) {
   await page.route('**/socket.io/**', r => r.abort());
   await page.route('**/api/v1/**', r => {
-    const path = new URL(r.request().url()).pathname.replace('/api/v1', '');
+    const url = new URL(r.request().url());
+    const path = url.pathname.replace('/api/v1', '');
     let data: any = [];
     if (path === '/auth/refresh') data = { accessToken: 'mock-token' };
     else if (path === '/auth/me') data = { user: { id: 'user-1', name: 'Tester', email: 'test@example.com', memberships: [{ workspaceId: 'ws-1', role: 'OWNER', workspace: { id: 'ws-1', name: 'Test' } }] } };
-    else if (path === '/documents') data = [original, { ...original, id: 'doc-2', title: 'Release checklist' }];
+    else if (path === '/documents') data = { items: url.searchParams.has('deleted') ? [] : [original, { ...original, id: 'doc-2', title: 'Release checklist' }].map(({ contentJson: _content, ...metadata }) => metadata), nextCursor: null };
     else if (path === '/spaces') data = [{ id: 'space-1', name: 'Engineering' }];
     else if (path === '/workspaces') data = [{ id: 'ws-1', name: 'Test' }];
     else if (path.endsWith('/links')) data = { incoming: [], outgoing: [] };
     else if (path === '/documents/doc-1') data = original;
+    else if (path === '/documents/doc-2') data = { ...original, id: 'doc-2', title: 'Release checklist' };
     return r.fulfill({ json: data });
   });
 }
@@ -179,7 +181,7 @@ test('failed browser save recovers its draft after reload and can retry', async 
 
 test('own rename then body edit saves with new token and reports Saved', async ({ page }) => {
   await mockApi(page); let stored = structuredClone(original); let version = 0; const attempts: any[] = [];
-  await page.route('**/api/v1/documents', r => r.fulfill({ json: [stored] }));
+  await page.route(/\/api\/v1\/documents(?:\?.*)?$/, r => { const { contentJson: _content, ...metadata } = stored; return r.fulfill({ json: { items: [metadata], nextCursor: null } }); });
   await page.route('**/api/v1/documents/doc-1', async r => {
     if (r.request().method() === 'PATCH') {
       const { expectedUpdatedAt, ...metadata } = r.request().postDataJSON();
