@@ -169,26 +169,40 @@ KRAMA is built as a single-tenant, local-first web app.
 # 1. Clone the repository
 git clone <repo-url> && cd krama
 
-# 2. Install dependencies (requires pnpm >= 9.0.0)
-pnpm install
-
-# 3. Start infrastructure — Postgres & Redis
-# Note: Docker must be running. The local setup is lightweight (< 500MB).
-docker compose up -d db redis
-
-# 4. Set up the database and environment variables
-cd apps/server
+# 2. Configure the root environment for Docker
 cp .env.example .env
-npx prisma db push
-npx prisma generate
+# Replace the PostgreSQL and Redis passwords with independent random values.
+# Set JWT_SECRET to a random string of at least 48 characters.
+# Keep DATABASE_URL/REDIS_URL aligned with those credentials.
+# Supply valid optional provider keys, or leave them blank.
 
-# 5. Run the full stack
-cd ../..
+# 3. Build and start the complete stack
+# The migration job must succeed before the API and workers start.
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+This Docker setup serves the app on `http://localhost:8080`. Its data lives in the
+production Compose volumes, separately from the development data stores. Editing
+`.env` does not change passwords inside an existing database or Redis instance.
+Back up existing data and reconcile its migration history before reusing it with
+new credentials. Use committed migrations rather than `prisma db push` for deployment.
+
+For host development, use Node 20.19+, 22.12+, or 24 and the pinned pnpm 9.15.0.
+Configure `apps/server/.env` with database and Redis URLs reachable from the host,
+then run the following after those local services are available:
+
+```bash
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+pnpm install --frozen-lockfile
+pnpm --filter server exec prisma generate
+pnpm --filter server db:deploy
+pnpm -r run build
 pnpm dev
 ```
 
 <div align="center">
-  Then visit <code>http://localhost:5173</code> to launch KRAMA OS. 🎉
+  For host development, visit <code>http://localhost:5173</code> to launch KRAMA OS. 🎉
 </div>
 
 ---

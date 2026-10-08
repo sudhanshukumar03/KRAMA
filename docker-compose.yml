@@ -32,13 +32,28 @@ services:
       timeout: 5s
       retries: 5
 
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+      target: builder
+    user: node
+    working_dir: /app/apps/server
+    command: ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   server:
     build:
       context: .
       dockerfile: apps/server/Dockerfile
     container_name: krama-server
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
       REDIS_URL: ${REDIS_URL:?REDIS_URL must be set}
@@ -54,6 +69,8 @@ services:
       R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
       UNSPLASH_ACCESS_KEY: ${UNSPLASH_ACCESS_KEY:-}
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:
@@ -71,6 +88,8 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:
@@ -82,7 +101,7 @@ services:
       dockerfile: apps/web/Dockerfile
     container_name: krama-web
     ports:
-      - "8080:80"
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
     depends_on:
       - server
 

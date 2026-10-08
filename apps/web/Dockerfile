@@ -3,6 +3,9 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
+# Opt in to Node environment proxies when a restricted build network requires one.
+ARG NODE_USE_ENV_PROXY
+
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
