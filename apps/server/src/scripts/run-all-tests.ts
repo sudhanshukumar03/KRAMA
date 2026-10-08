@@ -32,13 +32,13 @@ for (const file of testFiles) {
   console.log(`========================================`);
 
   const result = spawnSync(
-    process.platform === 'win32' ? 'npx.cmd' : 'npx',
-    ['tsx', '--test', filePath],
+    process.execPath,
+    ['--import', 'tsx', '--test', filePath],
     {
       stdio: 'inherit',
       cwd: join(__dirname, '..', '..'),
       env: testEnv,
-      shell: true,
+      shell: false,
       timeout: 30000,
     }
   );

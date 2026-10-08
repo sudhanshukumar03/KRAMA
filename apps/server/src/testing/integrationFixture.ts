@@ -1,9 +1,11 @@
 import crypto from 'node:crypto';
 import { prisma } from '../prisma';
+import { redisService } from '../services/redis.service';
 import { assertIntegrationEnvironment } from './testEnvironment';
 
 export async function createIntegrationFixture(label: string) {
   assertIntegrationEnvironment();
+  await redisService.ensureConnected();
   const marker = `integration-${process.env.KRAMA_TEST_RUN_ID}-${crypto.randomUUID()}`;
   const user = await prisma.user.create({ data: { email: `${marker}@example.invalid`, name: marker, passwordHash: 'test-only-invalid-hash' } });
   try {
@@ -31,12 +33,12 @@ export async function cleanupIntegrationFixture(fixture?: Awaited<ReturnType<typ
   await prisma.timeBlock.deleteMany({ where: { workspaceId: workspace.id } });
   await prisma.workspace.delete({ where: { id: workspace.id } });
   await prisma.user.delete({ where: { id: user.id } });
-  const queues = await import('../queues');
+  const queues = await import('../queues/index.js');
   for (const queue of [queues.notificationsQueue, queues.habitStreakQueue, queues.analyticsQueue, queues.embeddingQueue, queues.documentVersionQueue]) {
     const jobs = await queue.getJobs(['waiting', 'delayed', 'completed', 'failed']);
     for (const job of jobs) if (job.data.workspaceId === workspace.id || job.data.userId === user.id || documentIds.has(job.data.documentId)) await job.remove();
     await queue.close();
   }
-  const { socketService } = await import('../services/socket.service');
+  const { socketService } = await import('../services/socket.service.js');
   await socketService.shutdown();
 }
