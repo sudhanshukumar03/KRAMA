@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('verify drag and drop and dependencies', async ({ page }) => {
   // 1. Sign up a new user

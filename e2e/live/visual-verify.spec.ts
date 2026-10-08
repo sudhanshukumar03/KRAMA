@@ -1,13 +1,9 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { prisma } from '../../apps/server/src/prisma';
 
 test.describe.serial('Section 3 UI Verification', () => {
   const userPassword = 'password123';
   const userEmail = `e2e_ui_${Date.now()}@krama.com`;
-
-  test.afterAll(async () => {
-    await prisma.$disconnect();
-  });
 
   test('UI components and Habit Sync', async ({ page }) => {
     page.on('console', msg => {

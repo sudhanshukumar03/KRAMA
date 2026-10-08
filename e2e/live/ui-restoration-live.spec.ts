@@ -1,4 +1,4 @@
-import { test, expect, request as createRequest, type APIRequestContext } from '@playwright/test';
+import { test, expect, request as createRequest, type APIRequestContext } from './fixtures';
 import crypto from 'node:crypto';
 test.describe.configure({ mode: 'serial' });
 test.skip(process.env.KRAMA_UI_RESTORATION_VERIFY !== '1', 'Live checks require explicit opt-in');
@@ -60,7 +60,7 @@ test('previous presentation, navigation and Escape behavior remain usable', asyn
 test.afterAll(async () => {
   if (!userId) { await api?.dispose(); return; }
   const { prisma } = await import('../../apps/server/src/prisma');
-  const queues = await import('../../apps/server/src/queues'); const { connection } = await import('../../apps/server/src/lib/redis'); const { redisService } = await import('../../apps/server/src/services/redis.service');
+  const queues = await import('../../apps/server/src/queues');
   try {
     const owner = await prisma.user.findUniqueOrThrow({ where: { id: userId } }); expect(owner.email).toBe(email); expect(owner.name).toBe(marker);
     const owned = await prisma.workspace.findMany({ where: { id: { in: [...workspaceIds] }, createdBy: userId } }); expect(owned.length).toBe(workspaceIds.size);
@@ -69,7 +69,7 @@ test.afterAll(async () => {
     await prisma.timeBlock.deleteMany({ where: { userId } }); await prisma.workspace.deleteMany({ where: { id: { in: [...workspaceIds] }, createdBy: userId } }); await prisma.user.delete({ where: { id: userId } });
     expect(await prisma.user.count({ where: { id: userId } })).toBe(0); console.log('Audit fixtures removed');
   } finally {
-    await Promise.all([queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close(), queues.embeddingQueue.close(), queues.documentVersionQueue.close()]); redisService.client.disconnect(); connection.disconnect(); await prisma.$disconnect(); const closingPool = (globalThis as any).pool; if (closingPool && !closingPool.ended) await closingPool.end(); await api.dispose();
+    await api.dispose();
   }
 });
 

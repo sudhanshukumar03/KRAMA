@@ -1,4 +1,4 @@
-import { test, expect, request as createRequest, type APIRequestContext } from '@playwright/test';
+import { test, expect, request as createRequest, type APIRequestContext } from './fixtures';
 import crypto from 'node:crypto';
 import { reportingClock, shiftDay, validDayKey } from '../../apps/server/src/services/reportingTime';
 test.describe.configure({ mode: 'serial' });
@@ -66,7 +66,15 @@ test('pointer moves, action-menu ordering, drag cancellation and reload persiste
   await page.reload(); await page.getByLabel('Search directives').fill('Ordering'); const backlog = page.getByRole('region', { name: 'Backlog column', exact: true }); expect(await backlog.getByRole('button', { name: /Move directive Ordering/ }).allTextContents()).toHaveLength(2);
   const card = page.getByRole('button', { name: 'Move directive Ordering first', exact: true }); const target = page.getByRole('region', { name: 'Review column', exact: true }); await target.scrollIntoViewIfNeeded(); const cb = await card.boundingBox(); const tb = await target.boundingBox(); await page.mouse.move(cb!.x + 30, cb!.y + 75); await page.mouse.down(); await page.mouse.move(cb!.x + 42, cb!.y + 75, { steps: 3 }); await page.mouse.move(tb!.x + 60, tb!.y + 110, { steps: 15 }); await page.mouse.up(); await expect.poll(async () => (await json('GET', `tasks/${first.id}`)).status).toBe('REVIEW');
   await page.reload(); await page.getByLabel('Search directives').fill('Ordering'); await expect(page.getByRole('region', { name: 'Review column', exact: true }).getByText('Ordering first', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Move directive Ordering first', exact: true }).focus(); await page.keyboard.press('Space'); await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Move directive Ordering first', exact: true }).press('Enter'); await expect(page.getByRole('dialog', { name: 'Directive Details' })).toBeVisible();
+  const movedCard = page.getByRole('button', { name: 'Move directive Ordering first', exact: true });
+  await movedCard.focus();
+  await page.keyboard.press('Space');
+  await expect(movedCard).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Escape');
+  await expect(movedCard).not.toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('status')).toContainText('Dragging was cancelled');
+  await movedCard.press('Enter');
+  await expect(page.getByRole('dialog', { name: 'Directive Details' })).toBeVisible();
 });
 test('archive, List and Calendar views, delete/Undo and subtask navigation remain usable', async ({ page }) => {
   if (!task) task = await json('POST', 'tasks', { title: 'Review execution task', status: 'TODO', scheduledDate: `${today}T12:00:00Z` }, 201);
@@ -85,7 +93,7 @@ test('board, archive, project and discussion failures expose retries', async ({ 
 test.afterAll(async () => {
   if (!userId) { await api?.dispose(); return; }
   const { prisma } = await import('../../apps/server/src/prisma');
-  const queues = await import('../../apps/server/src/queues'); const { connection } = await import('../../apps/server/src/lib/redis'); const { redisService } = await import('../../apps/server/src/services/redis.service');
+  const queues = await import('../../apps/server/src/queues');
   try {
     const owner = await prisma.user.findUniqueOrThrow({ where: { id: userId } }); expect(owner.email).toBe(email); expect(owner.name).toBe(marker);
     const owned = await prisma.workspace.findMany({ where: { id: { in: [...workspaceIds] }, createdBy: userId } }); expect(owned.length).toBe(workspaceIds.size);
@@ -94,7 +102,7 @@ test.afterAll(async () => {
     await prisma.timeBlock.deleteMany({ where: { userId } }); await prisma.workspace.deleteMany({ where: { id: { in: [...workspaceIds] }, createdBy: userId } }); await prisma.user.delete({ where: { id: userId } });
     expect(await prisma.user.count({ where: { id: userId } })).toBe(0); console.log('Audit fixtures removed');
   } finally {
-    await Promise.all([queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close(), queues.embeddingQueue.close(), queues.documentVersionQueue.close()]); redisService.client.disconnect(); connection.disconnect(); await prisma.$disconnect(); const closingPool = (globalThis as any).pool; if (closingPool && !closingPool.ended) await closingPool.end(); await api.dispose();
+    await api.dispose();
   }
 });
 

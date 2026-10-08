@@ -1,13 +1,9 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { prisma } from '../../apps/server/src/prisma';
 
 test.describe.serial('Streak Synchronization Test', () => {
   const userPassword = 'password123';
   const userEmail = `streak_test_${Date.now()}@krama.com`;
-
-  test.afterAll(async () => {
-    await prisma.$disconnect();
-  });
 
   test('Habit Completion propagates streak automatically', async ({ page }) => {
     page.on('console', msg => console.log('BROWSER CONSOLE:', msg.text()));

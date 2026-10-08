@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test.describe.serial('Critical Path E2E Scenarios', () => {
   const userPassword = 'password123';

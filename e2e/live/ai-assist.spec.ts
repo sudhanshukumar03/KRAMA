@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test.describe('Grounded AI Assist Verification', () => {
   const userPassword = 'password123';

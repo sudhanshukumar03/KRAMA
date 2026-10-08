@@ -1,4 +1,4 @@
-import { test, expect, request as createRequest, type APIRequestContext } from '@playwright/test';
+import { test, expect, request as createRequest, type APIRequestContext } from './fixtures';
 import crypto from 'node:crypto';
 import { INDIAN_STATES } from '../../packages/types/src/locations';
 
@@ -131,8 +131,8 @@ test.afterAll(async () => {
   if (!userId) { await api?.dispose(); return; }
   const { prisma } = await import('../../apps/server/src/prisma');
   const queues = await import('../../apps/server/src/queues');
-  const { connection } = await import('../../apps/server/src/lib/redis');
-  const { redisService } = await import('../../apps/server/src/services/redis.service');
+
+
   try {
     const owner = await prisma.user.findUnique({ where: { id: userId } });
     expect(owner?.email).toBe(email); expect(owner?.name).toBe(marker);
@@ -147,8 +147,6 @@ test.afterAll(async () => {
     expect(await prisma.user.count({ where: { id: userId } })).toBe(0);
     console.log('LIVE PASS: disposable planner account, workspaces and queued fixtures removed');
   } finally {
-    await Promise.all([queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close(), queues.embeddingQueue.close(), queues.documentVersionQueue.close()]);
-    redisService.client.disconnect(); connection.disconnect();
-    await prisma.$disconnect(); const closingPool = (globalThis as any).pool; if (closingPool && !closingPool.ended) await closingPool.end(); await api.dispose();
+    await api.dispose();
   }
 });

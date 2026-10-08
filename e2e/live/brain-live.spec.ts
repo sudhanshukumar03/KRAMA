@@ -1,4 +1,4 @@
-import { test, expect, request as playwrightRequest, type APIRequestContext } from '@playwright/test';
+import { test, expect, request as playwrightRequest, type APIRequestContext } from './fixtures';
 import crypto from 'node:crypto';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
@@ -179,6 +179,7 @@ test.afterAll(async () => {
   const { prisma } = await import('../../apps/server/src/prisma');
   const queues = await import('../../apps/server/src/queues');
   const { redisService } = await import('../../apps/server/src/services/redis.service');
+
   try {
     const owner = await prisma.user.findUnique({ where: { id: userId } });
     const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
@@ -205,10 +206,6 @@ test.afterAll(async () => {
     record('temporary verification account, workspace, documents, and queued jobs cleaned up');
   } finally {
     writeFileSync('test-results/brain-live-results.json', JSON.stringify({ date: new Date().toISOString(), checks: results }, null, 2));
-    await Promise.all([queues.documentVersionQueue.close(), queues.embeddingQueue.close(), queues.notificationsQueue.close(), queues.habitStreakQueue.close(), queues.analyticsQueue.close()]);
-    redisService.client.disconnect();
-    const { connection } = await import('../../apps/server/src/lib/redis'); connection.disconnect();
-    await prisma.$disconnect(); const closingPool = (globalThis as any).pool; if (closingPool && !closingPool.ended) await closingPool.end();
     await api.dispose();
   }
 });

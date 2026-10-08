@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test } from './fixtures';
 
 test('Capture Dashboard', async ({ page }) => {
   page.on('console', msg => console.log('BROWSER_CONSOLE:', msg.text()));

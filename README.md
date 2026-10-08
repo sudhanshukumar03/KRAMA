@@ -208,6 +208,10 @@ chromium` once, then `pnpm test:ui` for the module and mocked browser checks.
 CI installs Chromium and runs those checks automatically. Live scenarios use
 `pnpm test:e2e` with isolated test database/Redis settings and the relevant opt-in
 flags; use `pnpm test:e2e --list` to inspect them without starting test services.
+Live tests share worker-scoped backend connections through `e2e/live/fixtures.ts`;
+each scenario removes its own records and jobs before the worker closes connections.
+For the dedicated live-test API, set `AUTH_RATE_LIMIT_MAX=100` and
+`REFRESH_RATE_LIMIT_MAX=100` so repeated synthetic sign-ins fit the suite.
 
 Planner HTTP routes delegate database operations and calculations to
 `apps/server/src/services/planner.service.ts`. Frontend cards and dialogs live
