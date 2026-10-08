@@ -37,7 +37,7 @@ jobs:
     env:
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/krama?schema=public"
       REDIS_URL: "redis://localhost:6379"
-      JWT_SECRET: "test-jwt-secret-32-chars-long!!"
+      JWT_SECRET: "ci-only-test-signing-secret-at-least-forty-eight-characters-long"
       TEST_DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/krama_integration_test?schema=public"
       TEST_REDIS_URL: "redis://localhost:6379/15"
 

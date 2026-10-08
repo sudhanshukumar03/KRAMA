@@ -2,14 +2,14 @@ import { test, expect, type Page } from '@playwright/test';
 import { applyLocalRepulsion } from '../apps/web/src/lib/graphLayout';
 
 const doc = { id: 'doc-1', title: 'Architecture notes', type: 'DOCUMENT', spaceId: 'space-1', parentId: null, tags: [], contentJson: { type: 'doc', content: [{ type: 'paragraph' }] }, updatedAt: '2026-10-06T00:00:00Z', createdAt: '2026-10-06T00:00:00Z' };
-async function mockApi(page: Page, authed = true) {
+async function mockApi(page: Page, authed = true, memberships = [{ workspaceId: 'ws-1', role: 'OWNER', workspace: { id: 'ws-1', name: 'Test workspace' } }]) {
   await page.route('**/socket.io/**', route => route.abort());
   await page.route('**/api/v1/**', route => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace('/api/v1', '');
     let data: unknown = [];
     if (path === '/auth/refresh') return route.fulfill({ status: authed ? 200 : 401, json: { accessToken: 'ui-test-token' } });
-    if (path === '/auth/me') data = { user: { id: 'user-1', name: 'UI Tester', email: 'ui@example.com', memberships: [{ workspaceId: 'ws-1', role: 'OWNER', workspace: { id: 'ws-1', name: 'Test workspace' } }] } };
+    if (path === '/auth/me') data = { user: { id: 'user-1', name: 'UI Tester', email: 'ui@example.com', memberships } };
     else if (path === '/documents') data = url.searchParams.has('deleted') ? [] : [doc];
     else if (path === '/documents/doc-1') data = doc;
     else if (path.endsWith('/links')) data = { incoming: [], outgoing: [] };
@@ -20,6 +20,17 @@ async function mockApi(page: Page, authed = true) {
     return route.fulfill({ json: data });
   });
 }
+
+test('authenticated users without a live workspace receive guidance and can sign out', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('krama_active_workspace', 'deleted-workspace'));
+  await mockApi(page, true, []);
+  await page.goto('/app/');
+  await expect(page.getByRole('heading', { name: 'No active workspace' })).toBeVisible();
+  await expect(page.getByText(/ask a workspace owner to invite you/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole('heading', { name: 'No active workspace' })).not.toBeVisible();
+});
 
 test('auth labels, password rule, and accessible server errors', async ({ page }) => {
   await mockApi(page, false);
