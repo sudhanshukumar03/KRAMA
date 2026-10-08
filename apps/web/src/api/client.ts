@@ -9,17 +9,24 @@ let currentAccessToken: string | null = null;
 let currentWorkspaceId: string | null = typeof window !== 'undefined' ? localStorage.getItem('krama_active_workspace') : null;
 let globalLogoutHandler: (() => void) | null = null;
 const tokenListeners = new Set<(token: string | null) => void>();
+let sessionGeneration = 0;
 
-function setAccessToken(token: string | null) {
+function publishAccessToken(token: string | null) {
   currentAccessToken = token;
   tokenListeners.forEach(listener => listener(token));
+}
+
+function setAccessToken(token: string | null) {
+  // Explicit login/logout invalidates pending work even when the value stays null.
+  sessionGeneration++;
+  publishAccessToken(token);
 }
 
 // The single in-flight refresh promise to prevent race conditions during concurrent 401s
 let refreshPromise: Promise<string | null> | null = null;
 
 async function doRefresh(): Promise<string | null> {
-  const previousToken = currentAccessToken;
+  const generation = sessionGeneration;
   try {
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
@@ -28,11 +35,12 @@ async function doRefresh(): Promise<string | null> {
     });
     if (!res.ok) throw new Error('Refresh failed');
     const data = await res.json();
-    if (currentAccessToken !== previousToken) return currentAccessToken;
-    setAccessToken(data.accessToken);
+    if (sessionGeneration !== generation) return null;
+    publishAccessToken(data.accessToken);
     return data.accessToken;
   } catch (error) {
-    if (currentAccessToken === previousToken) setAccessToken(null);
+    if (sessionGeneration !== generation) return null;
+    publishAccessToken(null);
     throw error;
   } finally {
     refreshPromise = null;
@@ -57,18 +65,20 @@ async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {
     return fetch(`${API_BASE}${endpoint}`, { ...options, headers, credentials: 'include' });
   };
   const requestedToken = currentAccessToken;
+  const generation = sessionGeneration;
   const response = await execute(requestedToken);
-  if (response.status !== 401 || endpoint.startsWith('/auth/')) return response;
+  const sessionEndpoint = ['/auth/login', '/auth/signup', '/auth/refresh', '/auth/logout'].includes(endpoint);
+  if (response.status !== 401 || sessionEndpoint || sessionGeneration !== generation) return response;
   if (options.signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
   let token: string | null;
   try {
     token = currentAccessToken !== requestedToken && currentAccessToken
       ? currentAccessToken : await refreshAccessToken();
   } catch (error) {
-    if (!currentAccessToken) globalLogoutHandler?.();
+    if (sessionGeneration === generation && !currentAccessToken) globalLogoutHandler?.();
     throw error;
   }
-  if (!token) return response;
+  if (!token || sessionGeneration !== generation) return response;
   if (options.signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
   return execute(token);
 }
