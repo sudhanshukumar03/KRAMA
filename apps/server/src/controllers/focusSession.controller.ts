@@ -15,6 +15,13 @@ export const completeFocusSession = async (req: Request, res: Response) => {
     const parsedStart = new Date(startTime);
     const parsedEnd = endTime ? new Date(endTime) : new Date();
     if (!startTime || Number.isNaN(+parsedStart) || Number.isNaN(+parsedEnd) || parsedEnd < parsedStart) return res.status(400).json({ message: 'Provide valid session start and end times.' });
+    // Allow a small client clock offset and one second of timer rounding.
+    // Paused sessions may report less work than elapsed time; offline history
+    // remains valid. Completed work must fit a non-empty interval.
+    const elapsedMs = +parsedEnd - +parsedStart;
+    if (elapsedMs <= 0 || numDuration > Math.ceil(elapsedMs / 1000) || +parsedEnd > Date.now() + 30_000) {
+      return res.status(400).json({ message: 'Completed duration must fit the session interval, and end time cannot be in the future.' });
+    }
     const allowed = ['pomodoro', 'short_break', 'long_break', 'custom', 'clock'];
     const sessionType = typeof type === 'string' && allowed.includes(type) ? type : 'pomodoro';
     if (completionId !== undefined && (typeof completionId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(completionId))) return res.status(400).json({ message: 'Invalid completion identifier' });
