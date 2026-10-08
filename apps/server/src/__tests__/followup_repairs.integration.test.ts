@@ -18,6 +18,7 @@ import { goalService } from '../services/goal.service';
 import { habitService } from '../services/habit.service';
 import { deleteProject, restoreProject } from '../controllers/project.controller';
 import { completeFocusSession } from '../controllers/focusSession.controller';
+import { importDocumentSpec } from '../controllers/document.controller';
 import { buildFocusSchedule } from '../services/focusTimer.service';
 import { workspaceService } from '../services/workspace.service';
 import { requireWorkspaceRole } from '../middlewares/rbac.middleware';
@@ -44,6 +45,24 @@ after(async () => {
   await (globalThis as any).pool?.end();
   const { connection } = await import('../lib/redis'); await connection.quit();
   const { redisService } = await import('../services/redis.service'); await redisService.client.quit();
+});
+
+test('document import rejects a foreign parent before creating spaces, documents or tags', async () => {
+  const before = {
+    spaces: await prisma.space.count({ where: { workspaceId: fixture.workspace.id } }),
+    documents: await prisma.document.count({ where: { space: { workspaceId: fixture.workspace.id } } }),
+    tags: await prisma.tag.count({ where: { workspaceId: fixture.workspace.id } }),
+  };
+  const req = request();
+  req.body = { content: '# Imported spec', parentId: foreignDoc.id };
+  const res = response();
+  await importDocumentSpec(req, res as any);
+  assert.equal(res.code, 400);
+  assert.deepEqual({
+    spaces: await prisma.space.count({ where: { workspaceId: fixture.workspace.id } }),
+    documents: await prisma.document.count({ where: { space: { workspaceId: fixture.workspace.id } } }),
+    tags: await prisma.tag.count({ where: { workspaceId: fixture.workspace.id } }),
+  }, before);
 });
 
 test('inline foreign references reject atomically; valid links reconcile on restore', async () => {

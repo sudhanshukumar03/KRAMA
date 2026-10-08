@@ -1022,8 +1022,21 @@ export const importDocumentSpec = async (req: Request, res: Response) => {
 
     const userId = (req as any).user?.id || 'system';
 
-    // Find or create default space
+    // Validate and resolve a parent before creating a space or any imported rows.
+    // Parent-scoped lookup intentionally returns the same result for missing and foreign parents.
     let targetSpaceId = spaceId;
+    if (parentId) {
+      const parent = await prisma.document.findFirst({
+        where: { id: parentId, deletedAt: null, space: { workspaceId, deletedAt: null } },
+        select: { spaceId: true },
+      });
+      if (!parent) {
+        return res.status(400).json({ message: 'Parent document was not found in the active workspace' });
+      }
+      targetSpaceId = parent.spaceId;
+    }
+
+    // Find or create default space
     if (targetSpaceId) {
       const exists = await prisma.space.findFirst({ where: { id: targetSpaceId, workspaceId, deletedAt: null } });
       if (!exists) targetSpaceId = undefined;

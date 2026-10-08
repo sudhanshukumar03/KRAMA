@@ -71,6 +71,14 @@ export class DocumentService {
     const doc = await prisma.$transaction(async tx => {
       const space = await tx.space.findFirst({ where: { id: data.spaceId, deletedAt: null, workspace: { deletedAt: null } } });
       if (!space) throw new Error('Space not found');
+      if (data.parentId) {
+        const parent = await tx.document.findFirst({
+          where: { id: data.parentId, deletedAt: null },
+          select: { spaceId: true },
+        });
+        if (!parent) throw new Error('Parent document not found or has been deleted');
+        if (parent.spaceId !== space.id) throw new Error('Parent document must belong to the same active space');
+      }
       const created = await tx.document.create({
       data: {
         spaceId: data.spaceId,
