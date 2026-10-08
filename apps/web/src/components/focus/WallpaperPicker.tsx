@@ -37,6 +37,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const uploadCapabilities = useQuery({ queryKey: ['upload-capabilities'], queryFn: api.upload.capabilities, enabled: activeTab === 'upload' });
   const canUpload = uploadCapabilities.data?.uploadAvailable === true;
+  const uploadsComingSoon = uploadCapabilities.isSuccess && !canUpload;
 
   // Saved uploaded wallpapers history
   const [customWallpapers, setCustomWallpapers] = useState<WallpaperConfig[]>(() => {
@@ -477,8 +478,9 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                 <div className="border-2 border-dashed border-border rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-accent/40 transition-colors bg-surface-2/30">
                   <Upload className="w-8 h-8 text-muted mb-2" />
                   <h4 className="text-sm font-semibold mb-1 text-primary">Upload Wallpaper</h4>
+                  {uploadsComingSoon && <span className="mb-2 rounded-full border border-border bg-surface px-2 py-1 text-xs font-medium text-secondary">Coming soon</span>}
                   <p className="text-xs text-muted max-w-xs mb-4">
-                    {uploadCapabilities.isError ? 'Upload availability could not be checked.' : uploadCapabilities.isLoading ? 'Checking upload availability…' : !canUpload ? 'Wallpaper uploads are unavailable until storage is configured. You can still use bundled wallpapers and gradients.' : 'Upload a JPG, PNG, GIF or WebP photo (up to 10 MB) as your focus background.'}
+                    {uploadCapabilities.isError ? 'Upload availability could not be checked.' : uploadCapabilities.isLoading ? 'Checking upload availability…' : uploadsComingSoon ? 'Custom wallpaper uploads are coming soon. Use built-in wallpapers or gradients for now.' : 'Upload a JPG, PNG, GIF or WebP photo (up to 10 MB) as your focus background.'}
                   </p>
                   {uploadCapabilities.isError && <button className="text-accent text-xs mb-3" onClick={() => uploadCapabilities.refetch()}>Try again</button>}
                   <label className={`px-4 py-2 bg-accent text-white font-semibold text-xs rounded-xl flex items-center gap-2 shadow-sm ${canUpload && !isUploading ? 'cursor-pointer hover:bg-accent-hover' : 'opacity-50 cursor-not-allowed'}`}>
@@ -488,7 +490,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                         <span>Uploading...</span>
                       </>
                     ) : (
-                      <span>Choose File</span>
+                      <span>{uploadsComingSoon ? 'Coming soon' : 'Choose File'}</span>
                     )}
                     <input
                       type="file"
