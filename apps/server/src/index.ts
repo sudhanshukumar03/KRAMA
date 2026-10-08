@@ -24,6 +24,7 @@ import { trustedProxyAddresses } from './config/proxy';
 
 import { socketService } from './services/socket.service';
 import { redisService } from './services/redis.service';
+import { prisma } from './prisma';
 import { ensureLocalUser, ensureVectorIndexes, ensureSearchVectorIndex } from './utils/bootstrap';
 import './events/subscribers';
 import './events/goalProgress.subscribers';
@@ -88,9 +89,35 @@ app.options(/(.*)/, cors(corsOptions));
 app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
 
-// Health Check
+// Liveness: the HTTP process is running; dependencies may still be starting.
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Readiness remains separate from liveness. Share an in-flight dependency check
+// so concurrent probes cannot enqueue an unbounded number of database queries.
+let startupReady = false;
+let readinessProbe: Promise<boolean> | null = null;
+app.get('/ready', async (_req, res) => {
+  if (!startupReady || redisService.client.status !== 'ready') {
+    return res.status(503).json({ status: 'not_ready' });
+  }
+  if (!readinessProbe) {
+    readinessProbe = Promise.all([
+      prisma.$queryRaw`SELECT 1`,
+      redisService.client.ping(),
+    ]).then(() => true, () => false).finally(() => { readinessProbe = null; });
+  }
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const ready = await Promise.race([
+      readinessProbe,
+      new Promise<boolean>(resolve => { timeout = setTimeout(() => resolve(false), 1000); }),
+    ]);
+    return res.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'not_ready' });
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 });
 
 // API Routes
@@ -135,18 +162,19 @@ const httpServer = createServer(app);
 socketService.init(httpServer);
 
 httpServer.listen(PORT, async () => {
-  if (process.env.NODE_ENV !== 'test') {
-    try {
-      // Ensure Redis is actually connected before accepting traffic
+  try {
+    if (process.env.NODE_ENV !== 'test') {
       await redisService.ensureConnected();
-    } catch (error) {
-      console.error('[CRITICAL] Redis is not available on boot. Auth system requires Redis.', error);
-      process.exit(1);
     }
+    await prisma.$queryRaw`SELECT 1`;
+    await ensureLocalUser();
+    await ensureVectorIndexes();
+    await ensureSearchVectorIndex();
+    startupReady = true;
+    console.log(`[Server] KRAMA OS Backend running on port ${PORT}`);
+  } catch (error) {
+    startupReady = false;
+    console.error('[CRITICAL] Startup dependencies or initialization failed.', error);
+    process.exit(1);
   }
-  await ensureLocalUser();
-  await ensureVectorIndexes();
-  await ensureSearchVectorIndex();
-  console.log(`[Server] KRAMA OS Backend running on port ${PORT}`);
 });
-
