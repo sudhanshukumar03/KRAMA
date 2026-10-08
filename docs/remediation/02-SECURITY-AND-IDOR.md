@@ -14,7 +14,8 @@ Close every cross-tenant read/write path found in the audit. The common defect s
 
 - **Every fix in this file is additive (adding a check), never a removal of an existing check.** If you find yourself deleting an auth check to make a test pass, stop — the test is wrong, not the check.
 - Use the existing `requireAuth` and `requireWorkspaceRole(role)` middlewares from `middlewares/auth.middleware.ts`. Do not write ad hoc `if (member.role !== 'OWNER')` checks inline when a middleware call does the same thing — consistency here is what makes future audits tractable.
-- `requireWorkspaceRole('MEMBER')` means "any role, but must be a member of this workspace" — use it for read paths. `requireWorkspaceRole('OWNER')` is for destructive workspace-level mutations only.
+- Roles are ordered OWNER > ADMIN > MEMBER > VIEWER > GUEST in `rbac.middleware.ts`. `requireWorkspaceRole('MEMBER')` permits MEMBER, ADMIN and OWNER; use `requireWorkspaceRole('VIEWER')` for ordinary workspace reads. GUEST does not have general content-read access. `requireWorkspaceRole('OWNER')` requires ownership for destructive workspace mutations.
+- The findings below describe the earlier audit state. Verify the current route policy before treating a historical snippet as an unresolved defect.
 
 ---
 
