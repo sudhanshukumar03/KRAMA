@@ -10,7 +10,7 @@ async function mockApi(page: Page, authed = true, memberships = [{ workspaceId: 
     let data: unknown = [];
     if (path === '/auth/refresh') return route.fulfill({ status: authed ? 200 : 401, json: { accessToken: 'ui-test-token' } });
     if (path === '/auth/me') data = { user: { id: 'user-1', name: 'UI Tester', email: 'ui@example.com', memberships } };
-    else if (path === '/documents') data = url.searchParams.has('deleted') ? [] : [doc];
+    else if (path === '/documents') data = { items: url.searchParams.has('deleted') ? [] : [{ id: doc.id, title: doc.title, documentType: doc.type, spaceId: doc.spaceId, parentId: doc.parentId, projectId: null, tags: doc.tags, isFavorite: false, statusBadges: [], createdAt: doc.createdAt, updatedAt: doc.updatedAt }], nextCursor: null };
     else if (path === '/documents/doc-1') data = doc;
     else if (path.endsWith('/links')) data = { incoming: [], outgoing: [] };
     else if (path.endsWith('/graph')) data = { nodes: [doc, { id: 'doc-2', type: 'DOCUMENT', title: 'Release checklist' }], links: [{ sourceId: 'doc-1', targetId: 'doc-2', linkType: 'REFERENCE' }] };

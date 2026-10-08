@@ -53,23 +53,36 @@ export const getWorkspaceDocuments = async (req: Request, res: Response) => {
 
     const isDeleted = req.query.deleted === 'true';
     const spaceId = req.query.spaceId as string | undefined;
+    const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
+    const rawLimit = Number(req.query.limit ?? 200);
+    const pageSize = Number.isFinite(rawLimit) ? Math.max(1, Math.min(200, Math.floor(rawLimit))) : 200;
 
     const where: any = {
-      space: { 
+      space: {
         workspaceId,
         ...(isDeleted ? {} : { deletedAt: null }),
-        ...(spaceId && spaceId !== 'ALL' ? { id: spaceId } : {})
+        ...(spaceId && spaceId !== 'ALL' ? { id: spaceId } : {}),
       },
-      deletedAt: isDeleted ? { not: null } : null
+      deletedAt: isDeleted ? { not: null } : null,
+      ...(cursor ? { id: { gt: cursor } } : {}),
     };
 
     const documents = await prisma.document.findMany({
       where,
-      include: { tags: { include: { tag: true } } },
-      orderBy: isDeleted ? { deletedAt: 'desc' } : { updatedAt: 'desc' }
+      select: {
+        id: true, spaceId: true, folderId: true, parentId: true, projectId: true,
+        title: true, subtitle: true, icon: true, statusBadges: true, documentType: true,
+        isFavorite: true, wordCount: true, charCount: true, deletedAt: true,
+        createdById: true, lastEditedById: true, createdAt: true, updatedAt: true,
+        tags: { include: { tag: true } },
+      },
+      orderBy: { id: 'asc' },
+      take: pageSize + 1,
     });
 
-    res.status(200).json(documents);
+    const hasMore = documents.length > pageSize;
+    const items = hasMore ? documents.slice(0, pageSize) : documents;
+    res.status(200).json({ items, nextCursor: hasMore ? items[items.length - 1]?.id ?? null : null });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

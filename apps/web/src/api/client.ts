@@ -218,6 +218,21 @@ async function downloadDocumentExport(id: string, format: 'md' | 'spec', filenam
   document.body.removeChild(a);
 }
 
+async function fetchDocumentPages(spaceId?: string, deleted = false) {
+  const all: any[] = [];
+  let cursor: string | null = null;
+  do {
+    const params = new URLSearchParams({ limit: '200' });
+    if (spaceId && spaceId !== 'ALL') params.set('spaceId', spaceId);
+    if (deleted) params.set('deleted', 'true');
+    if (cursor) params.set('cursor', cursor);
+    const page = await fetchApi<{ items: any[]; nextCursor: string | null }>(`/documents?${params.toString()}`);
+    all.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor);
+  return all;
+}
+
 export const api = {
   setAccessToken,
   subscribeAccessToken: (listener: (token: string | null) => void) => {
@@ -271,8 +286,8 @@ export const api = {
   },
 
   documents: {
-    list: (spaceId?: string) => fetchApi<any[]>(`/documents${spaceId && spaceId !== 'ALL' ? `?spaceId=${spaceId}` : ''}`),
-    listDeleted: (spaceId?: string) => fetchApi<any[]>(`/documents?deleted=true${spaceId && spaceId !== 'ALL' ? `&spaceId=${spaceId}` : ''}`),
+    list: (spaceId?: string) => fetchDocumentPages(spaceId, false),
+    listDeleted: (spaceId?: string) => fetchDocumentPages(spaceId, true),
     get: (id: string) => fetchApi<any>(`/documents/${id}`),
     create: (data: Record<string, any>) => fetchApi<any>('/documents', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, any>) => fetchApi<any>(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),

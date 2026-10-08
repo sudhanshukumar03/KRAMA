@@ -42,7 +42,31 @@ export interface EditorProps {
   onMoveDoc?: (doc: DocumentWithRelations) => void;
 }
 
-export function Editor({
+export function Editor(props: EditorProps) {
+  const documentQuery = useQuery({
+    queryKey: ['document', props.page.id],
+    queryFn: () => api.documents.get(props.page.id),
+    enabled: !!props.page.id,
+  });
+
+  if (documentQuery.isLoading) {
+    return <div className="flex-1 grid place-items-center text-secondary" role="status">Loading document...</div>;
+  }
+  if (!documentQuery.data) {
+    return (
+      <div className="flex-1 grid place-items-center text-secondary" role="alert">
+        <div className="text-center">
+          <p>Could not load this document.</p>
+          <button type="button" className="mt-2 underline text-accent-fg" onClick={() => void documentQuery.refetch()}>Try again</button>
+        </div>
+      </div>
+    );
+  }
+
+  return <LoadedEditor {...props} page={documentQuery.data} />;
+}
+
+function LoadedEditor({
   page,
   pages,
   projects,

@@ -18,7 +18,7 @@ import { goalService } from '../services/goal.service';
 import { habitService } from '../services/habit.service';
 import { deleteProject, restoreProject } from '../controllers/project.controller';
 import { completeFocusSession } from '../controllers/focusSession.controller';
-import { importDocumentSpec } from '../controllers/document.controller';
+import { getWorkspaceDocuments, importDocumentSpec } from '../controllers/document.controller';
 import { buildFocusSchedule } from '../services/focusTimer.service';
 import { workspaceService } from '../services/workspace.service';
 import { requireWorkspaceRole } from '../middlewares/rbac.middleware';
@@ -45,6 +45,26 @@ after(async () => {
   await (globalThis as any).pool?.end();
   const { connection } = await import('../lib/redis'); await connection.quit();
   const { redisService } = await import('../services/redis.service'); await redisService.client.quit();
+});
+
+test('document list pages return bounded metadata without bodies', async () => {
+  await DocumentService.createDocument({ title: 'Second list entry', spaceId: doc.spaceId, createdById: fixture.user.id, contentJson: body('Large body omitted') });
+  const firstRequest = request();
+  firstRequest.query = { limit: '1' };
+  const firstResponse = response();
+  await getWorkspaceDocuments(firstRequest, firstResponse as any);
+  assert.equal(firstResponse.code, 200);
+  assert.equal(firstResponse.payload.items.length, 1);
+  assert.equal('contentJson' in firstResponse.payload.items[0], false);
+  assert.equal('contentMarkdown' in firstResponse.payload.items[0], false);
+  assert.ok(firstResponse.payload.nextCursor);
+
+  const secondRequest = request();
+  secondRequest.query = { limit: '1', cursor: firstResponse.payload.nextCursor };
+  const secondResponse = response();
+  await getWorkspaceDocuments(secondRequest, secondResponse as any);
+  assert.equal(secondResponse.payload.items.length, 1);
+  assert.notEqual(secondResponse.payload.items[0].id, firstResponse.payload.items[0].id);
 });
 
 test('document import rejects a foreign parent before creating spaces, documents or tags', async () => {

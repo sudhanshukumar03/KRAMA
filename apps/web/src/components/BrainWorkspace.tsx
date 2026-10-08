@@ -55,6 +55,7 @@ export function BrainWorkspace() {
     setSpaceModalConfig({ isOpen: true, mode: 'edit', space: spaceObj });
   };
 
+  const [sidebarTab, setSidebarTab] = useState<'tree' | 'favorites' | 'recent' | 'trash'>('tree');
   const { data: pages = [], isLoading, isError } = useQuery({ 
     queryKey: ['documents', selectedSpaceId], 
     queryFn: () => api.documents.list(selectedSpaceId === 'ALL' ? undefined : selectedSpaceId) 
@@ -62,6 +63,7 @@ export function BrainWorkspace() {
   const { data: deletedPages = [] } = useQuery({
     queryKey: ['documents', 'deleted', selectedSpaceId],
     queryFn: () => api.documents.listDeleted(selectedSpaceId === 'ALL' ? undefined : selectedSpaceId),
+    enabled: sidebarTab === 'trash',
   });
   const { data: spaces = [] } = useQuery({ 
     queryKey: ['spaces'], 
@@ -162,7 +164,6 @@ export function BrainWorkspace() {
     reader.readAsText(file);
   };
 
-  const [sidebarTab, setSidebarTab] = useState<'tree' | 'favorites' | 'recent' | 'trash'>('tree');
   const favoritePages = useMemo(() => pages.filter(p => p.isFavorite), [pages]);
   const recentPages = useMemo(() => {
     return [...pages].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 20);
