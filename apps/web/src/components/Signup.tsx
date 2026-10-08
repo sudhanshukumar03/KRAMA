@@ -92,7 +92,7 @@ export function Signup() {
  required
  minLength={8}
  />
- <p id="signup-password-hint" className="mt-2 text-caption text-secondary">Use at least 8 characters.</p>
+ <p id="signup-password-hint" className="mt-2 text-caption text-secondary">Use at least 8 characters and no more than 72 UTF-8 bytes. Non-ASCII characters may use more than one byte.</p>
  </div>
  <BaseButton type="submit" variant="primary" className="w-full justify-center mt-2" isLoading={loading} aria-busy={loading}>
  {loading ? 'Creating account...' : 'Sign Up'}

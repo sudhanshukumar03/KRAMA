@@ -15,6 +15,9 @@ const REFRESH_TOKEN_EXPIRY_S = 30 * 24 * 60 * 60; // 30 days
 
 class AuthService {
   async hashPassword(password: string): Promise<string> {
+    if (Buffer.byteLength(password, 'utf8') > 72) {
+      throw new Error('Password must be 72 UTF-8 bytes or fewer');
+    }
     return bcrypt.hash(password, 12);
   }
 
