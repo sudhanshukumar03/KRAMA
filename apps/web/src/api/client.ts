@@ -266,6 +266,7 @@ export const api = {
   auth: {
     signup: (data: Record<string, any>) => fetchApi<any>('/auth/signup', { method: 'POST', body: JSON.stringify(data) }),
     login: (data: Record<string, any>) => fetchApi<any>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+    changePassword: (data: { currentPassword: string; newPassword: string }) => fetchApi<{ message: string }>('/auth/me/password', { method: 'POST', body: JSON.stringify(data) }),
     logout: () => fetchApi<any>('/auth/logout', { method: 'POST' }),
     refresh: async () => ({ accessToken: await refreshAccessToken() }),
     me: () => fetchApi<any>('/auth/me', { method: 'GET' }),

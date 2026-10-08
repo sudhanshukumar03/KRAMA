@@ -13,6 +13,12 @@ export const LoginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+// Preserve legacy login/current-password inputs; bound every newly chosen password.
+export const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: SignupSchema.shape.password,
+});
+
 export const AuthResponseSchema = z.object({
   accessToken: z.string(),
   user: z.object({

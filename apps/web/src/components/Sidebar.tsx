@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
@@ -9,7 +9,7 @@ import {
   Search, LogOut, Moon, Sun, Download, X, 
   Settings, User, Briefcase,
   PanelLeftClose, Timer, ExternalLink,
-  TrendingUp
+  TrendingUp, KeyRound, Eye, EyeOff
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useModalA11y } from '../hooks/useModalA11y';
@@ -66,6 +66,7 @@ export function Sidebar({
  const { toggleTheme, resolvedTheme } = useTheme();
   const { user, logout, workspaceId } = useAuth();
   const canExport = user?.memberships.some(member => member.workspaceId === workspaceId && member.role === 'OWNER');
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
 
@@ -214,7 +215,7 @@ export function Sidebar({
   };
 
  const sidebarContent = (
- <div className="w-[280px] border-r border-border bg-surface flex flex-col h-full flex-shrink-0 select-none shadow-level-1 z-10">
+ <div className="w-[260px] lg:w-[280px] border-r border-border bg-surface flex flex-col h-full flex-shrink-0 select-none shadow-level-1 z-10">
  {/* Header / Brand */}
  <div className="h-13 flex items-center justify-between px-4 border-b border-border bg-surface">
       <Link to="/app/" className="hover:opacity-90 transition-opacity">
@@ -224,7 +225,7 @@ export function Sidebar({
         {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}
-            className="p-1.5 rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors outline-none cursor-pointer border border-transparent"
+            className="hidden md:inline-flex p-1.5 rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors outline-none cursor-pointer border border-transparent"
             title="Collapse sidebar (Ctrl+\)"
             aria-label="Collapse sidebar"
           >
@@ -236,7 +237,7 @@ export function Sidebar({
         <button
           onClick={() => setSettingsOpen((prev) => !prev)}
           className={cn(
-            "p-1.5 rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors outline-none cursor-pointer border border-transparent",
+            "min-h-11 min-w-11 flex items-center justify-center rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent cursor-pointer border border-transparent",
             settingsOpen && "text-primary bg-surface-hover border-border"
           )}
           title="Settings & Preferences"
@@ -312,6 +313,10 @@ export function Sidebar({
               <span className="text-badge font-mono text-muted">JSON</span>
             </button>
 
+            <button type="button" onClick={() => { setSettingsOpen(false); onMobileClose?.(); setPasswordOpen(true); }}
+              className="w-full flex items-center gap-2 px-2.5 min-h-11 rounded-md text-caption text-secondary hover:text-primary hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
+              <KeyRound aria-hidden="true" className="w-3.5 h-3.5" /> Change password
+            </button>
             <div className="my-1 border-t border-border/80" />
 
             <button
@@ -330,6 +335,7 @@ export function Sidebar({
           </div>
         )}
       </div>
+      {mobileOpen && <button type="button" onClick={onMobileClose} aria-label="Close navigation" className="md:hidden min-h-11 min-w-11 flex items-center justify-center rounded-md text-secondary hover:text-primary hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"><X aria-hidden="true" className="w-4 h-4" /></button>}
       </div>
   </div>
 
@@ -413,18 +419,75 @@ export function Sidebar({
  <div ref={mobileDialogRef} role="dialog" aria-modal="true" aria-label="Workspace navigation" className="fixed inset-0 z-[60] md:hidden flex animate-in fade-in duration-150">
  <div onClick={onMobileClose} className="fixed inset-0 bg-black/50 backdrop-blur-2xs" />
  <div className="relative h-full z-10 animate-in slide-in-from-left duration-200">
- <button
- onClick={onMobileClose}
- aria-label="Close navigation"
- className="absolute top-3 right-3 p-1.5 rounded-md text-secondary hover:text-primary hover:bg-surface-hover z-20"
- >
- <X className="w-4 h-4" />
- </button>
  {sidebarContent}
  </div>
  </div>
  )}
+ {passwordOpen && <PasswordChangeDialog onClose={() => {
+   setPasswordOpen(false);
+   const trigger = settingsRef.current?.querySelector<HTMLButtonElement>('button');
+   if (trigger?.offsetParent !== null && trigger) trigger.focus();
+   else document.querySelector<HTMLButtonElement>('button[aria-label="Open navigation"]')?.focus();
+ }} />}
  </>
  );
 }
 
+
+function PasswordChangeDialog({ onClose }: { onClose: () => void }) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [visible, setVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const submitting = useRef(false);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const close = () => { if (!submitting.current) onClose(); };
+  const dialogRef = useModalA11y(true, close);
+  useEffect(() => { if (Object.keys(errors).length) errorRef.current?.focus(); }, [errors]);
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (submitting.current) return;
+    const issues: Record<string, string> = {};
+    if (!currentPassword) issues.current = 'Enter your current password.';
+    if (newPassword.length < 8) issues.new = 'Use at least 8 characters.';
+    else if (new TextEncoder().encode(newPassword).length > 72) issues.new = 'Use a shorter password (up to 72 bytes).';
+    if (confirmation !== newPassword) issues.confirm = 'New passwords do not match.';
+    if (Object.keys(issues).length) { setErrors(issues); return; }
+    submitting.current = true; setSaving(true); setErrors({});
+    try {
+      await api.auth.changePassword({ currentPassword, newPassword });
+      setCurrentPassword(''); setNewPassword(''); setConfirmation('');
+      toast.success('Password changed. Sign in with your new password.');
+      window.dispatchEvent(new Event('krama:logout'));
+    } catch (error: any) {
+      if (error.status === 401) { toast.error('Session expired. Sign in again.'); window.dispatchEvent(new Event('krama:logout')); }
+      else setErrors({ server: error.message || 'Unable to change password. Try again.' });
+    } finally { submitting.current = false; setSaving(false); }
+  }
+  const inputClass = 'w-full min-h-11 rounded-md border border-border bg-surface px-3 text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-60';
+  return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={event => { if (event.target === event.currentTarget) close(); }}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="password-title" aria-describedby="password-description"
+      className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-xl motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200 motion-reduce:animate-none">
+      <h2 id="password-title" className="text-lg font-semibold text-primary">Change password</h2>
+      <p id="password-description" className="mt-2 text-sm text-secondary">Choose a new password for your personal account. Changing it signs you out on all devices.</p>
+      <form onSubmit={submit} noValidate className="mt-5 space-y-4" aria-busy={saving} data-state={saving ? 'pending' : Object.keys(errors).length ? 'error' : 'idle'}>
+        {Object.keys(errors).length > 0 && <div ref={errorRef} tabIndex={-1} role="alert" className="rounded-md bg-error-tint p-3 text-sm text-error">{Object.entries(errors).map(([key, message]) => <p key={key}>{message}</p>)}</div>}
+        <div><label htmlFor="current-password" className="mb-1 block text-sm text-primary">Current password</label>
+          <input id="current-password" name="currentPassword" type={visible ? 'text' : 'password'} autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} disabled={saving} aria-invalid={Boolean(errors.current)} aria-describedby={errors.current ? 'current-password-error' : undefined} className={inputClass} />
+          {errors.current && <p id="current-password-error" className="mt-1 text-sm text-error">{errors.current}</p>}</div>
+        <div><label htmlFor="new-password" className="mb-1 block text-sm text-primary">New password</label>
+          <input id="new-password" name="newPassword" type={visible ? 'text' : 'password'} autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} disabled={saving} aria-invalid={Boolean(errors.new)} aria-describedby="new-password-help new-password-error" className={inputClass} />
+          <p id="new-password-help" className="mt-1 text-sm text-secondary">At least 8 characters. Long passphrases and password managers are welcome.</p>
+          <p id="new-password-error" className="text-sm text-error">{errors.new}</p></div>
+        <div><label htmlFor="confirm-password" className="mb-1 block text-sm text-primary">Confirm new password</label>
+          <input id="confirm-password" name="confirmation" type={visible ? 'text' : 'password'} autoComplete="new-password" value={confirmation} onChange={e => setConfirmation(e.target.value)} disabled={saving} aria-invalid={Boolean(errors.confirm)} aria-describedby={errors.confirm ? 'confirm-password-error' : undefined} className={inputClass} />
+          {errors.confirm && <p id="confirm-password-error" className="mt-1 text-sm text-error">{errors.confirm}</p>}</div>
+        <button type="button" onClick={() => setVisible(v => !v)} aria-pressed={visible} disabled={saving} className="flex min-h-11 items-center gap-2 text-sm text-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">{visible ? <EyeOff aria-hidden="true" className="h-4 w-4" /> : <Eye aria-hidden="true" className="h-4 w-4" />}{visible ? 'Hide passwords' : 'Show passwords'}</button>
+        <div className="flex flex-wrap justify-end gap-3"><button type="button" disabled={saving} onClick={close} className="min-h-11 rounded-md border border-border px-4 text-sm text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-60">Cancel</button>
+          <button type="submit" disabled={saving} className="min-h-11 rounded-md bg-accent px-4 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-60">{saving ? 'Changing password...' : 'Change password'}</button></div>
+      </form>
+    </div>
+  </div>;
+}

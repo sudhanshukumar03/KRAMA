@@ -415,3 +415,70 @@ test('role middleware rejects deleted workspaces and VIEWER writes', async () =>
   const deleted = response(); await requireWorkspaceRole('VIEWER')(request(), deleted as any, () => { passed = true; });
   assert.equal(deleted.code, 403); assert.equal(passed, false);
 });
+
+test('personal password changes protect the account, revoke all sessions and permit legacy migration', async () => {
+  const oldPassword = 'legacy-password-'.repeat(6); // historical bcrypt truncation
+  const legacyHash = await (await import('bcrypt')).default.hash(oldPassword, 4);
+  const marker = `password-change-${crypto.randomUUID()}`;
+  const user = await prisma.user.create({ data: { email: `${marker}@example.invalid`, name: marker, passwordHash: legacyHash } });
+  const { default: router } = await import('../routes/auth.routes');
+  const { default: cookieParser } = await import('cookie-parser');
+  const app = express(); app.use(express.json()); app.use(cookieParser()); app.use('/auth', router);
+  const server = app.listen(0, '127.0.0.1'); await once(server, 'listening');
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}/auth`;
+  const first = await authService.createSession(user.id);
+  const second = await authService.createSession(user.id);
+  const change = (body: any, token = first.accessToken) => fetch(`${base}/me/password`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await change({ currentPassword: oldPassword, newPassword: 'a-secure-new-passphrase' }, 'invalid-token')).status, 401);
+    const denied = await change({ currentPassword: 'wrong-password', newPassword: 'a-secure-new-passphrase' });
+    assert.equal(denied.status, 400); assert.match((await denied.json() as any).message, /Current password/);
+    assert.equal((await change({ currentPassword: oldPassword, newPassword: '\u20ac'.repeat(25) })).status, 400);
+    assert.equal((await change({ currentPassword: oldPassword, newPassword: oldPassword.slice(0, 72) })).status, 400);
+    assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).passwordHash, legacyHash);
+    assert.equal(await prisma.session.count({ where: { userId: user.id, revokedAt: null } }), 2);
+    const accepted = await change({ currentPassword: oldPassword, newPassword: 'a-secure-new-passphrase' });
+    assert.equal(accepted.status, 200);
+    assert.match(accepted.headers.get('set-cookie') || '', /krama_refresh=;/);
+    assert.equal(await prisma.session.count({ where: { userId: user.id, revokedAt: null } }), 0);
+    const latest = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    assert.equal(await authService.verifyPassword('a-secure-new-passphrase', latest.passwordHash), true);
+    assert.equal(await authService.verifyPassword(oldPassword, latest.passwordHash), false);
+    for (const token of [first.accessToken, second.accessToken]) {
+      assert.equal((await fetch(`${base}/me`, { headers: { authorization: `Bearer ${token}` } })).status, 401);
+    }
+    assert.equal((await fetch(`${base}/refresh`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ refreshToken: second.refreshToken }) })).status, 401);
+    await assert.rejects(authService.createSession(user.id, undefined, undefined, undefined, legacyHash), /Invalid credentials/);
+    await assert.rejects(authService.login({ email: user.email, password: oldPassword }), /Invalid credentials/);
+    const login = await authService.login({ email: user.email, password: 'a-secure-new-passphrase' });
+    assert.ok(login.accessToken);
+    await authService.revokeAllSessions(user.id);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test('session issuance rechecks credentials after a concurrent password update holds the user lock', async () => {
+  const marker = `password-race-${crypto.randomUUID()}`;
+  const user = await prisma.user.create({ data: { email: `${marker}@example.invalid`, name: marker, passwordHash: 'old-test-hash' } });
+  let release!: () => void;
+  let locked!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const acquired = new Promise<void>(resolve => { locked = resolve; });
+  const rotation = prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE`;
+    locked(); await gate;
+    await tx.user.update({ where: { id: user.id }, data: { passwordHash: 'new-test-hash' } });
+  });
+  try {
+    await acquired;
+    const issuance = authService.createSession(user.id, undefined, undefined, undefined, 'old-test-hash');
+    const rejected = assert.rejects(issuance, /Invalid credentials/);
+    release(); await rotation; await rejected;
+    assert.equal(await prisma.session.count({ where: { userId: user.id } }), 0);
+  } finally {
+    release(); await rotation;
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});

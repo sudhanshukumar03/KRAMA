@@ -7,7 +7,7 @@ import {
   CreateTaskSchema,
   UpdateProjectSchema,
 } from '../execution';
-import { SignupSchema } from '../auth';
+import { SignupSchema, ChangePasswordSchema } from '../auth';
 import { UpdateDocumentMetadataSchema } from '../documents';
 
 describe('Signup password byte limits', () => {
@@ -103,5 +103,15 @@ describe('Validation Schema Concurrency Rules (P0)', () => {
       version: 1,
     });
     assert.strictEqual(valid.version, 1);
+  });
+});
+
+describe('Personal-account password changes', () => {
+  it('allows a legacy long current password while requiring a bounded new password', () => {
+    const input = { currentPassword: 'a'.repeat(80), newPassword: '\u20ac'.repeat(24) };
+    assert.equal(ChangePasswordSchema.safeParse(input).success, true);
+    assert.equal(ChangePasswordSchema.safeParse({ ...input, newPassword: '\u20ac'.repeat(25) }).success, false);
+    assert.equal(ChangePasswordSchema.safeParse({ ...input, newPassword: 'short' }).success, false);
+    assert.equal(ChangePasswordSchema.safeParse({ ...input, currentPassword: '' }).success, false);
   });
 });

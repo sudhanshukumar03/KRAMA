@@ -1,7 +1,7 @@
 import { socketService } from '../services/socket.service';
 import type { Request, Response } from 'express';
 import { SignupSchema, LoginSchema } from '@krama/validation';
-import { authService } from '../services/auth.service';
+import { authService, PasswordChangeError } from '../services/auth.service';
 import { prisma } from '../prisma';
 import { userAuthSelect } from '../utils/selectors';
 import { isValidTimerPreferences } from '../services/focusTimer.service';
@@ -214,5 +214,19 @@ export const updatePreferences = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error updating user preferences', error);
     return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const changePassword = async (req: Request, res: Response) => {
+  if (!req.user?.id || !req.user.sessionId) return res.status(401).json({ message: 'Unauthorized' });
+  try {
+    await authService.changePassword(req.user.id, req.user.sessionId, req.body);
+    res.clearCookie('krama_refresh', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
+    return res.status(200).json({ message: 'Password changed. Sign in with your new password.' });
+  } catch (error: any) {
+    if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.issues });
+    if (error instanceof PasswordChangeError) return res.status(error.status).json({ message: error.message });
+    console.error('Password change failed');
+    return res.status(500).json({ message: 'Unable to change password. Try again.' });
   }
 };
