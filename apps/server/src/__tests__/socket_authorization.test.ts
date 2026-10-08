@@ -7,6 +7,7 @@ describe('SEC-002: workspace socket content authorization', () => {
   let prisma: typeof import('../prisma').prisma;
   let redisService: typeof import('../services/redis.service').redisService;
   let socketService: typeof import('../services/socket.service').socketService;
+  let originalMembers: typeof prisma.workspaceMember;
   const delivered: { rooms: string[]; event: string; data: unknown }[] = [];
   const members = [
     { userId: 'owner', role: 'OWNER', workspaceId: 'workspace', deleted: false },
@@ -21,18 +22,19 @@ describe('SEC-002: workspace socket content authorization', () => {
     ({ prisma } = await import('../prisma'));
     ({ redisService } = await import('../services/redis.service'));
     ({ socketService } = await import('../services/socket.service'));
+    originalMembers = prisma.workspaceMember;
   });
-  afterEach(() => { mock.restoreAll(); delivered.length = 0; (socketService as any).io = null; });
+  afterEach(() => { mock.restoreAll(); (prisma as any).workspaceMember = originalMembers; delivered.length = 0; (socketService as any).io = null; });
   after(async () => {
     redisService.client.disconnect();
     await prisma.$disconnect();
     await (globalThis as any).pool?.end();
   });
   function capture(active = members) {
-    mock.method(prisma.workspaceMember, 'findMany', async (query: any) => {
+    (prisma as any).workspaceMember = { findMany: async (query: any) => {
       assert.equal(query.where.workspace.deletedAt, null);
       return active.filter(m => m.workspaceId === query.where.workspaceId && !m.deleted && query.where.role.in.includes(m.role)) as any;
-    });
+    } };
     (socketService as any).io = { to(rooms: string[]) {
       return { emit(event: string, data: unknown) { delivered.push({ rooms, event, data }); } };
     } };

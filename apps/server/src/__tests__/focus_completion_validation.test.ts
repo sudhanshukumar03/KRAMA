@@ -8,13 +8,21 @@ describe('FUN-003: completed focus interval validation', () => {
   let prisma: typeof import('../prisma').prisma;
   let redisService: typeof import('../services/redis.service').redisService;
   let socketService: typeof import('../services/socket.service').socketService;
+  let originalSessions: typeof prisma.focusSession;
+  let originalTransaction: typeof prisma.$transaction;
   before(async () => {
     ({ completeFocusSession } = await import('../controllers/focusSession.controller'));
     ({ prisma } = await import('../prisma'));
     ({ redisService } = await import('../services/redis.service'));
     ({ socketService } = await import('../services/socket.service'));
+    originalSessions = prisma.focusSession;
+    originalTransaction = prisma.$transaction;
   });
-  afterEach(() => mock.restoreAll());
+  afterEach(() => {
+    mock.restoreAll();
+    (prisma as any).focusSession = originalSessions;
+    prisma.$transaction = originalTransaction;
+  });
   after(async () => {
     redisService.client.disconnect(); await prisma.$disconnect();
     await (globalThis as any).pool?.end();
@@ -23,8 +31,8 @@ describe('FUN-003: completed focus interval validation', () => {
     let status = 200;
     let reads = 0;
     const session = { userId: 'user', workspaceId: 'workspace', duration, type: 'pomodoro', taskId: null, projectId: null, startTime: new Date(startTime), endTime: new Date(endTime) };
-    mock.method(prisma.focusSession, 'findUnique', async () => { reads++; return session as any; });
-    mock.method(prisma, '$transaction', async () => { throw new Error('Unexpected write'); });
+    (prisma as any).focusSession = { findUnique: async () => { reads++; return session; } };
+    prisma.$transaction = (async () => { throw new Error('Unexpected write'); }) as any;
     mock.method(socketService, 'emitToUser', () => {});
     const res: any = { status(code: number) { status = code; return res; }, json() { return res; } };
     await completeFocusSession({ user: { id: 'user' }, workspaceId: 'workspace', body: { duration, startTime, endTime } } as any, res);
