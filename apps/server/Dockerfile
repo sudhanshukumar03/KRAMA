@@ -41,6 +41,9 @@ COPY --from=builder /app/out ./
 COPY --from=builder /app/apps/server/dist ./dist
 COPY --from=builder /app/apps/server/prisma ./prisma
 
+# The official Node image provides this unprivileged runtime account.
+USER node
+
 EXPOSE 3000
 
 CMD ["node", "dist/index.js"]
