@@ -246,7 +246,7 @@ export function IssueEditModal({
           </div>
 
           {fullIssue && fullIssue.version !== draftVersion && <p role="status" className="text-sm text-warning-fg">This task changed elsewhere. Your draft is retained; saving will check its version.</p>}
-          {onOpenTask && (fullIssue?.childTasks?.length || 0) > 0 && <section><h4 className="text-sm font-semibold text-primary">Subtasks</h4>{fullIssue?.childTasks?.map((child: any) => <button key={child.id} type="button" onClick={() => onOpenTask(child)} className="block w-full min-h-11 text-left text-accent-fg">Open subtask {child.title}</button>)}</section>}
+          {onOpenTask && (fullIssue?.childTasks?.length || 0) > 0 && <section><h4 className="text-sm font-semibold text-primary">Subtasks</h4>{fullIssue?.childTasks?.map((child) => <button key={child.id} type="button" onClick={() => onOpenTask(child)} className="block w-full min-h-11 text-left text-accent-fg">Open subtask {child.title}</button>)}</section>}
           {/* Activity / Comments Stream */}
           <div className="pt-4 border-t border-border space-y-3">
             <h4 className="text-sm font-semibold text-primary">Activity & Discussion</h4>
