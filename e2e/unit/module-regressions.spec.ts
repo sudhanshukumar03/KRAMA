@@ -57,6 +57,67 @@ test.describe('API session regression checks', () => {
       expect(requests).toBe(1);
     } finally { globalThis.fetch = originalFetch; api.setAccessToken(null); }
   });
+
+  test('a rejected refreshed token clears the session once for concurrent requests', async () => {
+    const { api } = await import('../../apps/web/src/api/client');
+    const originalFetch = globalThis.fetch;
+    let refreshes = 0;
+    let logouts = 0;
+    const tokens: (string | null)[] = [];
+    api.setAccessToken('expired');
+    api.setGlobalLogoutHandler(() => { logouts++; });
+    const unsubscribe = api.subscribeAccessToken(token => tokens.push(token));
+    globalThis.fetch = async input => {
+      if (String(input).endsWith('/auth/refresh')) {
+        refreshes++;
+        return Response.json({ accessToken: 'revoked' });
+      }
+      return Response.json({ message: 'Unauthorized' }, { status: 401 });
+    };
+    try {
+      const results = await Promise.allSettled([api.auth.me(), api.workspaces.list()]);
+      expect(results.every(result => result.status === 'rejected')).toBe(true);
+      expect(refreshes).toBe(1);
+      expect(logouts).toBe(1);
+      expect(tokens).toEqual(['revoked', null]);
+    } finally {
+      unsubscribe(); globalThis.fetch = originalFetch;
+      api.setGlobalLogoutHandler(() => {}); api.setAccessToken(null);
+    }
+  });
+
+  test('a delayed retry rejection cannot clear a new login', async () => {
+    const { api } = await import('../../apps/web/src/api/client');
+    const originalFetch = globalThis.fetch;
+    let release!: (response: Response) => void;
+    let retried!: () => void;
+    const retryStarted = new Promise<void>(resolve => { retried = resolve; });
+    let logouts = 0;
+    const tokens: (string | null)[] = [];
+    api.setAccessToken('expired');
+    api.setGlobalLogoutHandler(() => { logouts++; });
+    const unsubscribe = api.subscribeAccessToken(token => tokens.push(token));
+    globalThis.fetch = async (input, options) => {
+      if (String(input).endsWith('/auth/refresh')) return Response.json({ accessToken: 'old-renewed' });
+      if (new Headers(options?.headers).get('Authorization') === 'Bearer old-renewed') {
+        retried();
+        return new Promise(resolve => { release = resolve; });
+      }
+      return Response.json({ message: 'Unauthorized' }, { status: 401 });
+    };
+    try {
+      const pending = api.auth.me();
+      await retryStarted;
+      api.setAccessToken('new-account');
+      release(Response.json({ message: 'Unauthorized' }, { status: 401 }));
+      await expect(pending).rejects.toMatchObject({ status: 401 });
+      expect(logouts).toBe(0);
+      expect(tokens).toEqual(['old-renewed', 'new-account']);
+    } finally {
+      unsubscribe(); globalThis.fetch = originalFetch;
+      api.setGlobalLogoutHandler(() => {}); api.setAccessToken(null);
+    }
+  });
 });
 
 

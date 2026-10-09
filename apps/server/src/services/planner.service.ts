@@ -1,5 +1,5 @@
 import { HolidaySyncService } from '../services/holidays/HolidaySyncService';
-import { prisma } from '../prisma';
+import { prisma, type TxClient } from '../prisma';
 import { calculateCapacity } from '../services/capacity.service';
 import { habitService } from '../services/habit.service';
 import { socketService } from '../services/socket.service';
@@ -26,6 +26,21 @@ export class PlannerError extends Error {
   }
 }
 const holidaySync = new HolidaySyncService();
+async function writePlannerBlock<T>(write: (tx: TxClient) => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await prisma.$transaction(write, { isolationLevel: 'Serializable' });
+    } catch (error: any) {
+      // Query conflicts are P2034; adapter commit conflicts retain their cause.
+      const conflict = error?.code === 'P2034' ||
+        (error?.name === 'DriverAdapterError' && error?.cause?.kind === 'TransactionWriteConflict');
+      if (!conflict) throw error;
+      if (attempt >= 2) {
+        throw new PlannerError(409, { code: 'PLANNER_WRITE_CONFLICT', message: 'Planner changed concurrently. Please retry your edit.' });
+      }
+    }
+  }
+}
 // Soft-IDOR guard: a block may link a task and/or project, but the caller must
 // not be able to attach one that lives in another workspace. Verifies each
 // supplied id belongs to the block's workspace before it is saved. An empty
@@ -33,10 +48,11 @@ const holidaySync = new HolidaySyncService();
 async function verifyBlockLinks(
   workspaceId: string,
   taskId: string | null,
-  projectId: string | null
+  projectId: string | null,
+  db: TxClient = prisma
 ): Promise<{ ok: true } | { status: number; message: string }> {
   if (taskId) {
-    const task = await prisma.task.findUnique({
+    const task = await db.task.findUnique({
       where: { id: taskId },
       select: { workspaceId: true, deletedAt: true },
     });
@@ -46,7 +62,7 @@ async function verifyBlockLinks(
     }
   }
   if (projectId) {
-    const project = await prisma.project.findUnique({
+    const project = await db.project.findUnique({
       where: { id: projectId },
       select: { workspaceId: true, deletedAt: true },
     });
@@ -396,7 +412,7 @@ async function createTimeBlock(context: PlannerContext, body: ReturnType<typeof 
     // Wrap the overlap check + create in a serializable transaction and re-check
     // inside it, so two concurrent creates can't both pass the check and land
     // overlapping blocks (TOCTOU race).
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await writePlannerBlock(async (tx) => {
       const overlapping = await tx.timeBlock.findFirst({
         where: {
           userId,
@@ -424,7 +440,7 @@ async function createTimeBlock(context: PlannerContext, body: ReturnType<typeof 
         },
       });
       return { conflict: false as const, block: created };
-    }, { isolationLevel: 'Serializable' });
+    });
 
     if (result.conflict) {
       throw new PlannerError(409, { message: "Time block overlaps with an existing block on this date" });
@@ -439,52 +455,54 @@ async function updateTimeBlock(context: PlannerContext, body: ReturnType<typeof 
     if (!userId) throw new PlannerError(401, { message: 'Unauthorized' });
     const workspaceId = context.workspaceId;
 
-    const existing = await prisma.timeBlock.findFirst({
-      where: { id: context.id!, userId, ...(workspaceId ? { workspaceId } : {}) },
-    });
-
-    if (!existing) {
-      throw new PlannerError(404, { message: 'Time block not found' });
-    }
-    if (existing.workspaceId) {
-      const member = await prisma.workspaceMember.findUnique({
-        where: { userId_workspaceId: { userId, workspaceId: existing.workspaceId } }, select: { id: true },
+    // Read omitted fields in the same serializable transaction as the write.
+    // A retried partial edit must merge against the latest committed block.
+    const result = await writePlannerBlock(async (tx) => {
+      const existing = await tx.timeBlock.findFirst({
+        where: { id: context.id!, userId, ...(workspaceId ? { workspaceId } : {}) },
       });
-      if (!member) throw new PlannerError(403, { message: 'Forbidden' });
-    }
+
+      if (!existing) {
+        throw new PlannerError(404, { message: 'Time block not found' });
+      }
+      if (existing.workspaceId) {
+        const member = await tx.workspaceMember.findUnique({
+          where: { userId_workspaceId: { userId, workspaceId: existing.workspaceId } }, select: { id: true },
+        });
+        if (!member) throw new PlannerError(403, { message: 'Forbidden' });
+      }
 
 
-    // Always rebuild both instants against the effective (canonical) day. A
-    // date-only move (drag to another day) must carry the block's existing
-    // wall-clock times over to the new day — deriving HH:mm from the stored
-    // instants when the body omits them — otherwise the block keeps the old
-    // day's start/end (the move-block bug).
-    const date = canonicalDay(body.date ?? existing.date);
-    const startTime = createDateTime(date, body.startTime ?? toHHmm(existing.startTime));
-    const endTime = createDateTime(date, body.endTime ?? toHHmm(existing.endTime));
+      // Always rebuild both instants against the effective (canonical) day. A
+      // date-only move (drag to another day) must carry the block's existing
+      // wall-clock times over to the new day — deriving HH:mm from the stored
+      // instants when the body omits them — otherwise the block keeps the old
+      // day's start/end (the move-block bug).
+      const date = canonicalDay(body.date ?? existing.date);
+      const startTime = createDateTime(date, body.startTime ?? toHHmm(existing.startTime));
+      const endTime = createDateTime(date, body.endTime ?? toHHmm(existing.endTime));
 
-    if (endTime <= startTime) {
-      throw new PlannerError(400, { code: 'INVALID_TIME_RANGE', message: 'End time must be after start time' });
-    }
+      if (endTime <= startTime) {
+        throw new PlannerError(400, { code: 'INVALID_TIME_RANGE', message: 'End time must be after start time' });
+      }
 
-    // Coerce empty-string links to null (clear); leave undefined untouched.
-    const taskId = body.taskId === undefined ? undefined : (body.taskId || null);
-    const projectId = body.projectId === undefined ? undefined : (body.projectId || null);
-    // Verify links against the block's workspace, falling back to the caller's
-    // workspace context. Using `existing.workspaceId || ''` alone let a
-    // null-workspace block be re-linked to a task/project in another workspace
-    // (the verification is skipped for an empty workspace id) — a soft IDOR.
-    const fallbackMember = !existing.workspaceId && !workspaceId ? await prisma.workspaceMember.findFirst({ where: { userId }, select: { workspaceId: true } }) : null;
-    const linkWorkspaceId = existing.workspaceId || workspaceId || fallbackMember?.workspaceId || '';
-    if (!linkWorkspaceId && (taskId || projectId)) throw new PlannerError(403, { message: 'Workspace access required for linked items' });
-    const links = await verifyBlockLinks(linkWorkspaceId, taskId ?? null, projectId ?? null);
-    if ('status' in links) {
-      throw new PlannerError(links.status, { message: links.message });
-    }
+      // Coerce empty-string links to null (clear); leave undefined untouched.
+      const taskId = body.taskId === undefined ? undefined : (body.taskId || null);
+      const projectId = body.projectId === undefined ? undefined : (body.projectId || null);
+      // Verify links against the block's workspace, falling back to the caller's
+      // workspace context. Using `existing.workspaceId || ''` alone let a
+      // null-workspace block be re-linked to a task/project in another workspace
+      // (the verification is skipped for an empty workspace id) — a soft IDOR.
+      const fallbackMember = !existing.workspaceId && !workspaceId ? await tx.workspaceMember.findFirst({ where: { userId }, select: { workspaceId: true } }) : null;
+      const linkWorkspaceId = existing.workspaceId || workspaceId || fallbackMember?.workspaceId || '';
+      if (!linkWorkspaceId && (taskId || projectId)) throw new PlannerError(403, { message: 'Workspace access required for linked items' });
+      const links = await verifyBlockLinks(linkWorkspaceId, taskId ?? null, projectId ?? null, tx);
+      if ('status' in links) {
+        throw new PlannerError(links.status, { message: links.message });
+      }
 
-    // Serializable transaction: re-check overlap inside so a concurrent write
-    // can't slip an overlapping block past the check (TOCTOU race).
-    const result = await prisma.$transaction(async (tx) => {
+      // Serializable transaction: re-check overlap inside so a concurrent write
+      // can't slip an overlapping block past the check (TOCTOU race).
       const overlapping = await tx.timeBlock.findFirst({
         where: {
           userId,
@@ -512,13 +530,13 @@ async function updateTimeBlock(context: PlannerContext, body: ReturnType<typeof 
         },
       });
       return { conflict: false as const, block };
-    }, { isolationLevel: 'Serializable' });
+    });
 
     if (result.conflict) {
       throw new PlannerError(409, { message: "Time block overlaps with an existing block on this date" });
     }
 
-    socketService.emitToUser(userId, 'planner:changed', { workspaceId });
+    socketService.emitToUser(userId, 'planner:changed', { workspaceId: result.block.workspaceId });
     return (result.block);
 }
 

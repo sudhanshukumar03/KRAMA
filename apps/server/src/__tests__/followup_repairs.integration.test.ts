@@ -23,6 +23,7 @@ import { getWorkspaceDocuments, importDocumentSpec, updateDocumentMetadata } fro
 import { buildFocusSchedule } from '../services/focusTimer.service';
 import { workspaceService } from '../services/workspace.service';
 import { requireWorkspaceRole } from '../middlewares/rbac.middleware';
+import { plannerService } from '../services/planner.service';
 
 let fixture: Awaited<ReturnType<typeof createIntegrationFixture>>;
 let doc: any;
@@ -268,6 +269,110 @@ test('real Planner routes exclude deleted and foreign milestones and reject unav
   } finally {
     await authService.revokeSession(pair.refreshToken);
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
+test('Planner concurrent overlapping creates return a conflict and persist only one block', async () => {
+  const transaction = prisma.$transaction;
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let reads = 0;
+  (prisma as any).$transaction = (fn: any, options: any) => transaction.call(prisma, async (tx: any) => {
+    const find = tx.timeBlock.findFirst.bind(tx.timeBlock);
+    tx.timeBlock.findFirst = async (args: any) => {
+      const result = await find(args);
+      if (args.where.date?.toISOString().startsWith('2026-10-20') && reads < 2) {
+        if (++reads === 2) release();
+        await gate;
+      }
+      return result;
+    };
+    return fn(tx);
+  }, options);
+  try {
+    const context = { userId: fixture.user.id, workspaceId: fixture.workspace.id };
+    const block = { title: 'Concurrent overlap', date: new Date('2026-10-20'), startTime: '10:00', endTime: '11:00', type: 'WORK' as const };
+    const results = await Promise.allSettled([plannerService.createTimeBlock(context, block), plannerService.createTimeBlock(context, block)]);
+    assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+    const rejected = results.find(result => result.status === 'rejected') as PromiseRejectedResult;
+    assert.equal(rejected.reason.statusCode, 409, String(rejected.reason));
+    assert.equal(await prisma.timeBlock.count({ where: { userId: fixture.user.id, date: new Date('2026-10-20T12:00:00Z') } }), 1);
+  } finally {
+    release(); (prisma as any).$transaction = transaction;
+  }
+});
+
+test('Planner delayed partial edits preserve a concurrent time change', async () => {
+  const context = { userId: fixture.user.id, workspaceId: fixture.workspace.id };
+  const block = await plannerService.createTimeBlock(context, { title: 'Partial edit', date: new Date('2026-10-21'), startTime: '09:00', endTime: '10:00', type: 'WORK' });
+  const transaction = prisma.$transaction;
+  const find = prisma.timeBlock.findFirst;
+  let release!: () => void;
+  let read!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const readStarted = new Promise<void>(resolve => { read = resolve; });
+  let paused = false;
+  const pause = async (args: any, result: any) => {
+    if (!paused && args.where.id === block.id) { paused = true; read(); await gate; }
+    return result;
+  };
+  (prisma.timeBlock as any).findFirst = async (args: any) => pause(args, await find.call(prisma.timeBlock, args));
+  (prisma as any).$transaction = (fn: any, options: any) => transaction.call(prisma, async (tx: any) => {
+    const findInTransaction = tx.timeBlock.findFirst.bind(tx.timeBlock);
+    tx.timeBlock.findFirst = async (args: any) => pause(args, await findInTransaction(args));
+    return fn(tx);
+  }, options);
+  let pending: Promise<unknown> | undefined;
+  try {
+    pending = plannerService.updateTimeBlock({ ...context, id: block.id }, { notes: 'Keep these notes' });
+    await readStarted;
+    await plannerService.updateTimeBlock({ ...context, id: block.id }, { startTime: '11:00', endTime: '12:00' });
+    release(); await pending;
+    const persisted = await prisma.timeBlock.findUniqueOrThrow({ where: { id: block.id } });
+    assert.equal(persisted.startTime.toISOString(), '2026-10-21T11:00:00.000Z');
+    assert.equal(persisted.endTime.toISOString(), '2026-10-21T12:00:00.000Z');
+    assert.equal(persisted.notes, 'Keep these notes');
+  } finally {
+    release(); await pending?.catch(() => {});
+    (prisma as any).$transaction = transaction; (prisma.timeBlock as any).findFirst = find;
+  }
+});
+
+test('Planner HTTP errors hide internal details and distinguish invalid input from failures', async () => {
+  const pair = await authService.createSession(fixture.user.id);
+  const app = express(); app.use(express.json()); app.use('/planner', plannerRouter);
+  const server = app.listen(0, '127.0.0.1'); await once(server, 'listening');
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}/planner`;
+  const headers = { Authorization: `Bearer ${pair.accessToken}`, 'x-workspace-id': fixture.workspace.id, 'Content-Type': 'application/json' };
+  const previous = process.env.NODE_ENV;
+  const getWeek = plannerService.getWeek;
+  const updateRoutine = plannerService.updateRoutineOccurrence;
+  const createBlock = plannerService.createTimeBlock;
+  const fail = async () => { throw new Error('SELECT private_column FROM private_schema; database password=hidden'); };
+  process.env.NODE_ENV = 'production';
+  try {
+    const malformed = await fetch(`${base}/routine-occurrences`, { method: 'PATCH', headers, body: JSON.stringify({ habitId: 'test', date: 'bad' }) });
+    plannerService.getWeek = fail;
+    plannerService.updateRoutineOccurrence = fail;
+    plannerService.createTimeBlock = fail;
+    const replies = [
+      await fetch(`${base}/week?start=2026-10-19&end=2026-10-25`, { headers }),
+      await fetch(`${base}/routine-occurrences`, { method: 'PATCH', headers, body: JSON.stringify({ id: 'test', habitId: 'test', date: '2026-10-20', completed: true }) }),
+      await fetch(`${base}/time-blocks`, { method: 'POST', headers, body: JSON.stringify({ title: 'Valid', date: '2026-10-20', startTime: '13:00', endTime: '14:00', type: 'WORK' }) }),
+    ];
+    for (const reply of replies) {
+      assert.equal(reply.status, 500);
+      const payload = await reply.json() as any;
+      assert.match(payload.requestId, /^[0-9a-f-]{36}$/);
+      assert.doesNotMatch(JSON.stringify(payload), /private_column|private_schema|password|hidden/);
+    }
+    assert.equal(malformed.status, 400);
+    assert.ok(Array.isArray((await malformed.json() as any).errors));
+  } finally {
+    plannerService.getWeek = getWeek; plannerService.updateRoutineOccurrence = updateRoutine; plannerService.createTimeBlock = createBlock;
+    if (previous === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previous;
+    await authService.revokeSession(pair.refreshToken);
+    await new Promise<void>(resolve => server.close(() => resolve()));
   }
 });
 

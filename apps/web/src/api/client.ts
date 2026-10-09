@@ -143,7 +143,12 @@ async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {
   }
   if (!token || sessionGeneration !== generation) return response;
   if (options.signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
-  return execute(token);
+  const retried = await execute(token);
+  if (retried.status === 401 && sessionGeneration === generation && currentAccessToken === token) {
+    setAccessToken(null);
+    globalLogoutHandler?.();
+  }
+  return retried;
 }
 
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
