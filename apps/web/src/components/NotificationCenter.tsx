@@ -6,18 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { api } from '../api/client';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
-
-export interface NotificationItem {
-  id: string;
-  userId: string;
-  workspaceId: string;
-  title: string;
-  message: string;
-  read: boolean;
-  actionUrl?: string | null;
-  metadata?: any;
-  createdAt: string;
-}
+import type { Notification as NotificationItem } from '../types/schema';
 
 export function NotificationCenter({ className }: { className?: string }) {
   const [isOpen, setIsOpen] = useState(false);

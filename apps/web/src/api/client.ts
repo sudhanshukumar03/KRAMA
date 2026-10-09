@@ -1,5 +1,6 @@
 import type { 
-  Workspace, Space, ProjectWithRelations, IssueWithRelations, GoalWithRelations, Habit, SearchResult
+  Workspace, Space, ProjectWithRelations, IssueWithRelations, GoalWithRelations, Habit, SearchResult,
+  AuthUser, AuthResponse, PreferencesInput, TaskComment, Notification, TaskCreateInput, FocusCompletionInput
 } from '../types/schema';
 import { toast } from 'sonner';
 import type { PlannerData, TimeBlock, TimeBlockInput, TimeBlockUpdate, Milestone, MilestoneInput, MilestoneUpdate, MilestoneRange, HolidayCalendar } from '../types/planner';
@@ -211,7 +212,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
 async function streamDocumentAi(
   url: string,
-  body: Record<string, any>,
+  body: Record<string, unknown>,
   onChunk: (text: string) => void,
   onDone: () => void,
   onError: (err: any) => void,
@@ -345,18 +346,18 @@ export const api = {
     }
   },
   auth: {
-    signup: (data: Record<string, any>) => fetchApi<any>('/auth/signup', { method: 'POST', body: JSON.stringify(data) }),
-    login: (data: Record<string, any>) => fetchApi<any>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+    signup: (data: { email: string; password: string; name?: string }) => fetchApi<AuthResponse>('/auth/signup', { method: 'POST', body: JSON.stringify(data) }),
+    login: (data: { email: string; password: string }) => fetchApi<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
     changePassword: (data: { currentPassword: string; newPassword: string }) => fetchApi<{ message: string }>('/auth/me/password', { method: 'POST', body: JSON.stringify(data) }),
-    logout: () => fetchApi<any>('/auth/logout', { method: 'POST' }),
+    logout: () => fetchApi<{ message: string }>('/auth/logout', { method: 'POST' }),
     refresh: async (options?: { reuseExisting?: boolean }) => ({ accessToken: await refreshAccessToken(options?.reuseExisting) }),
-    me: () => fetchApi<any>('/auth/me', { method: 'GET' }),
-    updatePreferences: (body: Record<string, any>) => fetchApi<any>('/auth/me/preferences', { method: 'PATCH', body: JSON.stringify(body) }),
+    me: () => fetchApi<{ user: AuthUser }>('/auth/me', { method: 'GET' }),
+    updatePreferences: (body: PreferencesInput) => fetchApi<{ user: AuthUser }>('/auth/me/preferences', { method: 'PATCH', body: JSON.stringify(body) }),
   },
   workspaces: {
     list: () => fetchApi<Workspace[]>('/workspaces'),
-    create: (data: Record<string, any>) => fetchApi<Workspace>('/workspaces', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, any>) => fetchApi<Workspace>(`/workspaces/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    create: (data: Record<string, unknown>) => fetchApi<Workspace>('/workspaces', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, unknown>) => fetchApi<Workspace>(`/workspaces/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<void>(`/workspaces/${id}`, { method: 'DELETE' }),
     export: () => fetchApi<any>('/workspaces/export'),
   },
@@ -371,8 +372,8 @@ export const api = {
     list: (spaceId?: string) => fetchDocumentPages(spaceId, false),
     listDeleted: (spaceId?: string) => fetchDocumentPages(spaceId, true),
     get: (id: string) => fetchApi<any>(`/documents/${id}`),
-    create: (data: Record<string, any>) => fetchApi<any>('/documents', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, any>) => fetchApi<any>(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    create: (data: Record<string, unknown>) => fetchApi<any>('/documents', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, unknown>) => fetchApi<any>(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     updateContent: (id: string, contentJson: any, expectedUpdatedAt?: string) => fetchApi<any>(`/documents/${id}/content`, { method: 'PATCH', body: JSON.stringify({ contentJson, expectedUpdatedAt }) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/documents/${id}`, { method: 'DELETE' }),
     restore: (id: string) => fetchApi<any>(`/documents/${id}/restore`, { method: 'POST' }),
@@ -417,42 +418,42 @@ export const api = {
     // sidebar counts, and the command palette.
     listLite: () => fetchApi<GoalWithRelations[]>('/goals/lite'),
     get: (id: string) => fetchApi<GoalWithRelations>(`/goals/${id}`),
-    create: (data: Record<string, any>) => fetchApi<GoalWithRelations>('/goals', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, any>) => fetchApi<GoalWithRelations>(`/goals/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    create: (data: Record<string, unknown>) => fetchApi<GoalWithRelations>('/goals', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, unknown>) => fetchApi<GoalWithRelations>(`/goals/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/goals/${id}`, { method: 'DELETE' }),
-    restore: (id: string) => fetchApi<any>(`/goals/${id}/restore`, { method: 'POST' }),
+    restore: (id: string) => fetchApi<GoalWithRelations>(`/goals/${id}/restore`, { method: 'POST' }),
   },
     projects: {
     list: () => fetchApi<ProjectWithRelations[]>('/projects'),
     get: (id: string) => fetchApi<ProjectWithRelations>(`/projects/${id}`),
-    create: (data: Record<string, any>) => fetchApi<ProjectWithRelations>('/projects', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, any>) => fetchApi<ProjectWithRelations>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    create: (data: Record<string, unknown>) => fetchApi<ProjectWithRelations>('/projects', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, unknown>) => fetchApi<ProjectWithRelations>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/projects/${id}`, { method: 'DELETE' }),
     reorder: (id: string, data: { position: number; version: number; workspaceId?: string }) =>
       fetchApi<ProjectWithRelations>(`/projects/${id}/reorder`, { method: 'PATCH', body: JSON.stringify(data) }),
-    restore: (id: string) => fetchApi<any>(`/projects/${id}/restore`, { method: 'POST' }),
+    restore: (id: string) => fetchApi<ProjectWithRelations>(`/projects/${id}/restore`, { method: 'POST' }),
   },
   tasks: {
-    list: (params?: any) => {
-      const safeParams = (params && params.queryKey) ? undefined : params;
+    list: (params?: Record<string, string> | { queryKey: readonly unknown[] }) => {
+      const safeParams = params && 'queryKey' in params ? undefined : params;
       const q = new URLSearchParams(safeParams || {}).toString();
       return fetchApi<IssueWithRelations[]>(`/tasks${q ? `?${q}` : ''}`); // Mapped to /tasks
     },
     get: (id: string) => fetchApi<IssueWithRelations>(`/tasks/${id}`),
-    create: (data: Record<string, any> & { title: string }) => fetchApi<IssueWithRelations>('/tasks', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, any>) => fetchApi<IssueWithRelations>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    create: (data: TaskCreateInput) => fetchApi<IssueWithRelations>('/tasks', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, unknown>) => fetchApi<IssueWithRelations>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/tasks/${id}`, { method: 'DELETE' }),
-    restore: (id: string) => fetchApi<any>(`/tasks/${id}/restore`, { method: 'POST' }),
+    restore: (id: string) => fetchApi<IssueWithRelations>(`/tasks/${id}/restore`, { method: 'POST' }),
     complete: (id: string) => fetchApi<IssueWithRelations>(`/tasks/${id}/complete`, { method: 'PATCH' }),
-      addComment: (id: string, content: string) => fetchApi<any>(`/tasks/${id}/comments`, { method: 'POST', body: JSON.stringify({ content }) }),
+    addComment: (id: string, content: string) => fetchApi<TaskComment>(`/tasks/${id}/comments`, { method: 'POST', body: JSON.stringify({ content }) }),
   },
 
   habits: {
     list: () => fetchApi<Habit[]>('/habits'),
-    create: (data: Record<string, any>) => fetchApi<Habit>('/habits', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, any>) => fetchApi<Habit>(`/habits/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    create: (data: Record<string, unknown>) => fetchApi<Habit>('/habits', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, unknown>) => fetchApi<Habit>(`/habits/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/habits/${id}`, { method: 'DELETE' }),
-    restore: (id: string) => fetchApi<any>(`/habits/${id}/restore`, { method: 'POST' }),
+    restore: (id: string) => fetchApi<Habit>(`/habits/${id}/restore`, { method: 'POST' }),
     complete: (id: string, date?: string, dateIso?: string) => fetchApi<Habit>(`/habits/${id}/log`, { method: 'POST', ...(date ? { body: JSON.stringify({ date, dateIso }) } : {}) }),
     uncomplete: (id: string, date?: string, dateIso?: string) => fetchApi<Habit>(`/habits/${id}/log?date=${date || ''}&dateIso=${dateIso || ''}`, { method: 'DELETE' }),
   },
@@ -461,24 +462,24 @@ export const api = {
   },
 
   ai: {
-    complete: (data: Record<string, any>) => fetchApi<any>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),
-    ragQuery: (data: Record<string, any>) => fetchApi<any>('/ai/rag-query', { method: 'POST', body: JSON.stringify(data) }),
+    complete: (data: Record<string, unknown>) => fetchApi<any>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),
+    ragQuery: (data: Record<string, unknown>) => fetchApi<any>('/ai/rag-query', { method: 'POST', body: JSON.stringify(data) }),
     config: () => fetchApi<any>('/ai/config'),
-    analyzeTelemetry: (data: Record<string, any>) => fetchApi<{ insight: string }>('/ai/analyze-telemetry', { method: 'POST', body: JSON.stringify(data) }),
+    analyzeTelemetry: (data: Record<string, unknown>) => fetchApi<{ insight: string }>('/ai/analyze-telemetry', { method: 'POST', body: JSON.stringify(data) }),
     getDashboardInsight: (force?: boolean) => fetchApi<{ insight: string }>(`/ai/dashboard-insight${force ? '?force=true' : ''}`)
   },
 
   notifications: {
-    list: () => fetchApi<any[]>('/notifications', { method: 'GET' }),
-    markAsRead: (id: string) => fetchApi<any>(`/notifications/${id}/read`, { method: 'PATCH' }),
-    markAllAsRead: () => fetchApi<any>('/notifications/read-all', { method: 'PATCH' })
+    list: () => fetchApi<Notification[]>('/notifications', { method: 'GET' }),
+    markAsRead: (id: string) => fetchApi<Notification>(`/notifications/${id}/read`, { method: 'PATCH' }),
+    markAllAsRead: () => fetchApi<{ success: boolean }>('/notifications/read-all', { method: 'PATCH' })
   },
 
   dashboard: {
     get: () => fetchApi<any>('/dashboard', { method: 'GET' })
   },
   focusSessions: {
-    complete: (data: Record<string, any>) => fetchApi<any>('/focus-sessions', { method: 'POST', body: JSON.stringify(data) }),
+    complete: (data: FocusCompletionInput) => fetchApi<any>('/focus-sessions', { method: 'POST', body: JSON.stringify(data) }),
     getSchedule: () => fetchApi<any>('/focus-sessions/schedule'),
     getWallpaper: (category: string) => fetchApi<any>(`/focus-sessions/wallpaper?category=${encodeURIComponent(category)}`),
   },

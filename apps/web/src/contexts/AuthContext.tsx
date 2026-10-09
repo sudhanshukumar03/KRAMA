@@ -2,34 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  memberships: {
-    workspaceId: string;
-    role: string;
-    workspace?: {
-      id: string;
-      name: string;
-      productivityScore?: number;
-    };
-  }[];
-  metadata?: {
-    timerPreferences?: {
-      sprint?: number;
-      deep?: number;
-      quick?: number;
-      focusDuration?: number;
-      shortBreak?: number;
-      longBreak?: number;
-      longBreakAfter?: number;
-    };
-    focusWallpaper?: { type: string; value: string };
-    focusLayout?: string;
-    [key: string]: any;
-  };
-}
+import type { AuthUser as User } from '../types/schema';
 
 type AuthState = 
   | { status: 'loading' }
@@ -122,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (isCurrent() && meData.user) {
             const savedWid = localStorage.getItem('krama_active_workspace');
             const memberships = meData.user.memberships || [];
-            const hasSavedMembership = memberships.some((m: any) => m.workspaceId === savedWid);
+            const hasSavedMembership = memberships.some((m) => m.workspaceId === savedWid);
             const wid = (hasSavedMembership ? savedWid : null) || memberships[0]?.workspaceId || null;
 
             api.setWorkspaceId(wid); // Synchronously set to avoid race condition with React Query mounts
@@ -157,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
     const savedWid = localStorage.getItem('krama_active_workspace');
     const memberships = userData.memberships || [];
-    const hasSavedMembership = memberships.some((m: any) => m.workspaceId === savedWid);
+    const hasSavedMembership = memberships.some((m) => m.workspaceId === savedWid);
     const wid = (hasSavedMembership ? savedWid : null) || memberships[0]?.workspaceId || null;
 
     api.setAccessToken(token);

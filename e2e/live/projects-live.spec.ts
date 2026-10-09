@@ -160,6 +160,29 @@ test('timeline, refresh-safe edits and project-linked Brain creation persist', a
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test('project-detail task creation preserves scheduled and due dates after reload', async ({ page }) => {
+  const project = await json('POST', 'projects', { name: 'Dated project task fixture' }, 201);
+  await login(page);
+  await page.goto(`/app/projects/${project.id}`);
+  await page.getByRole('button', { name: 'New Execution Ticket (C)', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create New Directive' });
+  await dialog.getByLabel('Directive Title', { exact: false }).fill('Persist project task dates');
+  await dialog.getByLabel('Due date', { exact: true }).fill('2026-12-19');
+  await dialog.getByLabel('Scheduled date', { exact: true }).fill('2026-12-18');
+  await dialog.getByRole('button', { name: 'Create Directive', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  const tasks = await json('GET', `tasks?projectId=${project.id}`);
+  const task = tasks.find((candidate: { title: string }) => candidate.title === 'Persist project task dates');
+  expect(task).toBeDefined();
+  expect(task.projectId).toBe(project.id);
+  expect(task.dueDate).toBe('2026-12-19T12:00:00.000Z');
+  expect(task.scheduledDate).toBe('2026-12-18T12:00:00.000Z');
+  await page.reload();
+  const persisted = await json('GET', `tasks/${task.id}`);
+  expect(persisted.dueDate).toBe(task.dueDate);
+  expect(persisted.scheduledDate).toBe(task.scheduledDate);
+});
+
 test('list and detail failures expose a working retry', async ({ page }) => {
   const project = await json('POST', 'projects', { name: 'Recovery project fixture' }, 201);
   await login(page);

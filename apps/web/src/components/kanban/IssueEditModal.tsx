@@ -79,7 +79,9 @@ export function IssueEditModal({
       priority: priority as TaskPriority,
       estimateMinutes: Math.round(Number(estimate)) || 0,
       blockedById: blockedById || null,
-      projectId: projectId || null, version: draftVersion, dueDate: dueDay ? new Date(`${dueDay}T12:00:00.000Z`) : null, scheduledDate: scheduledDay ? new Date(`${scheduledDay}T12:00:00.000Z`) : null
+      projectId: projectId || null, version: draftVersion,
+      dueDate: dueDay ? `${dueDay}T12:00:00.000Z` : null,
+      scheduledDate: scheduledDay ? `${scheduledDay}T12:00:00.000Z` : null
     });
   };
 
@@ -252,7 +254,7 @@ export function IssueEditModal({
               {detailLoading ? <p role="status" className="text-sm text-secondary">Loading discussion...</p> : detailError ? <ErrorState title="Could not load task details" onRetry={() => retryDetail()} /> : comments.length === 0 ? (
                 <p className="text-xs text-secondary italic">No comments yet.</p>
               ) : (
-                comments.map((c: any) => (
+                comments.map((c) => (
                   <div key={c.id} className="p-2.5 rounded-lg bg-surface-hover/60 border border-border/50 text-xs">
                     <div className="flex items-center justify-between mb-1 text-[11px] text-muted">
                       <span className="font-semibold text-primary">{c.author?.name || 'User'}</span>

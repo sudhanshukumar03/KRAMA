@@ -43,6 +43,7 @@ import { LoadingState } from './ui/LoadingState';
 
 import { resolveIcon } from '../lib/iconResolver';
 import { IssueCreateModal, KanbanBoard } from './KanbanBoard';
+import type { TaskCreateInput } from '../types/schema';
 
 export function ProjectDetail() {
   const { id } = useParams();
@@ -198,17 +199,10 @@ export function ProjectDetail() {
   });
 
   const createDirectiveMutation = useMutation({
-    mutationFn: (data: { title: string; description: string; status: any; priority: any; estimateMinutes?: number; blockedById?: string | null; projectId?: string }) =>
+    mutationFn: (data: TaskCreateInput) =>
       api.tasks.create({
-        title: data.title,
-        description: data.description,
-        status: data.status,
-        priority: data.priority,
-        estimateMinutes: data.estimateMinutes,
-        assignee: 'me',
+        ...data,
         projectId: project?.id,
-        labels: [],
-        blockedById: data.blockedById
       }),
     onSuccess: (newIssue) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });

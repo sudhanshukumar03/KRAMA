@@ -19,7 +19,7 @@ export function computeGoalPace(goal: GoalWithRelations, today = new Date()): Go
   // Deadlines are calendar dates. Preserve their stored day rather than shifting
   // UTC midnight into the preceding day in western timezones.
   const targetDate = goal.targetDate;
-  const target = targetDate ? parseISO((typeof targetDate === 'string' ? targetDate : targetDate.toISOString()).slice(0, 10)) : null;
+  const target = targetDate ? parseISO(targetDate.slice(0, 10)) : null;
   const dayDifference = target && Number.isFinite(target.getTime()) ? differenceInCalendarDays(target, today) : null;
   const isDueToday = dayDifference === 0;
   const daysRemaining = Math.max(0, dayDifference ?? 0);

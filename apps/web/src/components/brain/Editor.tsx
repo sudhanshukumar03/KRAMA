@@ -93,7 +93,7 @@ function LoadedEditor({
   const { user, workspaceId } = useAuth();
   const draftKey = `krama:document-draft:v1:${user?.id}:${workspaceId}:${page.id}`;
   const [save] = useState(() => acquireDocumentSaveQueue(draftKey, () => new DocumentSaveQueue(page.id,
-    { content: page.contentJson || { type: 'doc', content: [] }, title: page.title || '', revision: page.updatedAt instanceof Date ? page.updatedAt.toISOString() : String(page.updatedAt) },
+    { content: page.contentJson || { type: 'doc', content: [] }, title: page.title || '', revision: page.updatedAt },
     api.documents, draftKey, localStorage,
     () => { void queryClient.invalidateQueries({ queryKey: ['documents'] }); })));
   const saveState = useSyncExternalStore(save.subscribe, save.getSnapshot);

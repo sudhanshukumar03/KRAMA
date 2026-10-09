@@ -9,14 +9,18 @@ ARG NODE_USE_ENV_PROXY
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
-# Copy the entire monorepo
+# Cache dependency installation separately from application source changes.
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY packages ./packages
-COPY apps/server ./apps/server
-COPY apps/web/package.json ./apps/web/package.json 
+COPY packages/validation/package.json ./packages/validation/package.json
+COPY packages/types/package.json ./packages/types/package.json
+COPY apps/server/package.json ./apps/server/package.json
+COPY apps/web/package.json ./apps/web/package.json
 
 # Fetch locked packages without dependency lifecycle scripts.
 RUN pnpm install --frozen-lockfile --ignore-scripts
+
+COPY packages ./packages
+COPY apps/server ./apps/server
 
 # Generate Prisma Client
 RUN cd apps/server && npx prisma generate

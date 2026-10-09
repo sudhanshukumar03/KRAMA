@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Target, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useModalA11y } from '../../hooks/useModalA11y';
+import type { Milestone } from '../../types/planner';
 
 interface Props {
   open: boolean;
@@ -9,7 +10,7 @@ interface Props {
   onSubmit: (data: { title: string; date: string; projectId: string; completed?: boolean }) => void;
   onDelete?: () => void;
   defaultDate: Date;
-  editingMilestone?: any | null;
+  editingMilestone?: Milestone | null;
   projects: { id: string; name: string }[];
   isSubmitting?: boolean;
 }
