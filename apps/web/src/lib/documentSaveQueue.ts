@@ -1,15 +1,17 @@
+import type { DocumentMetadataInput } from '../types/schema';
+
 export type SaveState = 'saved' | 'unsaved' | 'saving' | 'error' | 'conflict';
-type Draft = { content: any; title: string; revision?: string };
+type Draft = { content: unknown; title: string; revision?: string };
 type SaveApi = {
-  update: (id: string, metadata: any) => Promise<any>;
-  updateContent: (id: string, content: any, revision?: string) => Promise<any>;
+  update: (id: string, metadata: DocumentMetadataInput) => Promise<{ updatedAt?: string }>;
+  updateContent: (id: string, content: unknown, revision?: string) => Promise<{ updatedAt?: string }>;
 };
 
 // One queue per mounted document: title/metadata and body writes must share
 // the same revision and never race each other. Failed drafts survive remounts.
 export class DocumentSaveQueue {
   state: SaveState = 'saved';
-  content: any;
+  content: unknown;
   title: string;
   revision?: string;
   recovered = false;
@@ -25,7 +27,8 @@ export class DocumentSaveQueue {
       const raw = storage?.getItem(key);
       if (raw) {
         const draft = JSON.parse(raw) as Draft;
-        if (typeof draft.title === 'string' && draft.content?.type === 'doc') {
+        if (typeof draft.title === 'string' && draft.content && typeof draft.content === 'object' &&
+          'type' in draft.content && draft.content.type === 'doc') {
           this.content = draft.content; this.title = draft.title; this.revision = draft.revision;
           this.bodyDirty = this.titleDirty = this.recovered = true; this.state = 'unsaved';
         }
@@ -45,19 +48,22 @@ export class DocumentSaveQueue {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => { this.timer = undefined; void this.flush().catch(() => {}); }, 500);
   }
-  setContent(content: any) { this.content = content; this.bodyDirty = true; this.schedule(); }
+  setContent(content: unknown) { this.content = content; this.bodyDirty = true; this.schedule(); }
   setTitle(title: string) { this.title = title; this.titleDirty = true; this.schedule(); }
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
     const next = this.tail.then(async () => {
       if (this.state === 'conflict') throw new Error('Resolve the document conflict before saving.');
       this.emit('saving');
       try { return await operation(); }
-      catch (error: any) { this.persist(); this.emit(error?.status === 409 ? 'conflict' : 'error'); throw error; }
+      catch (error) {
+        const conflict = error && typeof error === 'object' && 'status' in error && error.status === 409;
+        this.persist(); this.emit(conflict ? 'conflict' : 'error'); throw error;
+      }
     });
     this.tail = next.catch(() => {});
     return next;
   }
-  updateMetadata(metadata: any) {
+  updateMetadata(metadata: DocumentMetadataInput) {
     return this.enqueue(async () => {
       const result = await this.api.update(this.id, { ...metadata, expectedUpdatedAt: this.revision });
       if (result?.updatedAt) this.revision = result.updatedAt;

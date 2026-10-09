@@ -75,13 +75,9 @@ export function KnowledgeGraphCanvas({
   const reducedMotion = useReducedMotion();
   const dragMovedRef = useRef(false);
   const pointerStartRef = useRef({ x: 0, y: 0 });
-  const links = useMemo(() => (graphData?.links || (graphData as any)?.edges || []).map((link: any) => ({
-    sourceId: link.sourceId || link.source,
-    targetId: link.targetId || link.target,
-    linkType: link.linkType || link.type || 'REFERENCE',
-  })), [graphData]);
+  const links = useMemo(() => graphData?.links || [], [graphData]);
   const graphNodes = graphData?.nodes || [];
-  const nodeLabels = useMemo(() => new Map((graphData?.nodes || []).map((node: any) => [node.id, node])), [graphData]);
+  const nodeLabels = useMemo(() => new Map((graphData?.nodes || []).map((node) => [node.id, node])), [graphData]);
   const adjacency = useMemo(() => {
     const result = new Map<string, { id: string; label: string }[]>();
     for (const link of links) {

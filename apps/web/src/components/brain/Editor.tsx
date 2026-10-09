@@ -19,7 +19,7 @@ import { EntityMentionExtension } from '../../extensions/EntityMentionExtension'
 import { SelectionToTaskModal } from '../editor/SelectionToTaskModal';
 import type { MentionEntityItem } from '../editor/EntityMentionMenu';
 import { DocumentOutlinePanel } from '../editor/DocumentOutlinePanel';
-import type { DocumentWithRelations } from '../../types/schema';
+import type { DocumentType, DocumentWithRelations } from '../../types/schema';
 import { CustomLink } from '../../extensions/CustomLink';
 import { cn } from '../../lib/utils';
 import { BaseButton } from '../ui/BaseButton';
@@ -215,7 +215,7 @@ function LoadedEditor({
     }
   };
 
-  const handleDocumentTypeChange = async (type: string) => {
+  const handleDocumentTypeChange = async (type: DocumentType) => {
     try {
       await save.updateMetadata({ documentType: type });
       queryClient.invalidateQueries({ queryKey: ['documents'] });
@@ -639,7 +639,7 @@ function LoadedEditor({
             {/* Document Type Picker */}
             <select
               value={page.documentType || 'GENERAL'}
-              onChange={(e) => handleDocumentTypeChange(e.target.value)}
+              onChange={(e) => handleDocumentTypeChange(e.target.value as DocumentType)}
               className="bg-surface-hover text-secondary hover:text-primary px-2.5 py-1 rounded-lg border border-border text-caption font-mono font-bold outline-none cursor-pointer"
             >
               <option value="GENERAL">GENERAL</option>

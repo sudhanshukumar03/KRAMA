@@ -6,13 +6,14 @@ import { DOCUMENT_TEMPLATES } from '../../../lib/documentTemplates';
 import { useModalA11y } from '../../../hooks/useModalA11y';
 import { cn } from '../../../lib/utils';
 import { toast } from 'sonner';
+import type { DocumentType, ProjectWithRelations, Space } from '../../../types/schema';
 
 export interface CreateDocumentModalProps {
   isOpen: boolean;
   onClose: () => void;
   target: { parentId?: string; parentTitle?: string; projectId?: string } | null;
-  projects: any[];
-  spaces: any[];
+  projects: ProjectWithRelations[];
+  spaces: Space[];
   activeWorkspaceId: string;
   defaultSpaceId?: string;
   onSuccess: (newPageId: string) => void;
@@ -29,7 +30,7 @@ export function CreateDocumentModal({
   onSuccess,
 }: CreateDocumentModalProps) {
   const [title, setTitle] = useState('');
-  const [documentType, setDocumentType] = useState('SPEC');
+  const [documentType, setDocumentType] = useState<DocumentType>('SPEC');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('blank');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>(() => {
@@ -190,7 +191,7 @@ export function CreateDocumentModal({
                   type="button"
                   onClick={() => {
                     setSelectedTemplateId(tmpl.id);
-                    const docType = tmpl.documentType || (tmpl as any).defaultDocType;
+                    const docType = tmpl.documentType || tmpl.defaultDocType;
                     if (docType) {
                       setDocumentType(docType);
                     }
@@ -203,7 +204,7 @@ export function CreateDocumentModal({
                   )}
                   title={tmpl.description}
                 >
-                  {tmpl.label || (tmpl as any).name}
+                  {tmpl.label || tmpl.name}
                 </button>
               ))}
             </div>
@@ -215,14 +216,14 @@ export function CreateDocumentModal({
               Document Type
             </label>
             <div className="grid grid-cols-3 gap-1.5">
-              {[
+              {([
                 { id: 'SPEC', label: 'SPEC' },
                 { id: 'RFC', label: 'RFC' },
                 { id: 'GENERAL', label: 'GENERAL' },
                 { id: 'MEETING', label: 'MEETING' },
                 { id: 'IDEA', label: 'IDEA' },
                 { id: 'NOTE', label: 'NOTE' },
-              ].map((t) => (
+              ] as const).map((t) => (
                 <button
                   key={t.id}
                   type="button"

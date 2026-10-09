@@ -3,18 +3,7 @@ import { Search, RefreshCw, X, FileText } from 'lucide-react';
 import { api } from '../../../api/client';
 import { useModalA11y } from '../../../hooks/useModalA11y';
 import { cn } from '../../../lib/utils';
-
-export interface DocumentSearchResult {
-  id: string;
-  title: string;
-  subtitle?: string | null;
-  icon?: string | null;
-  documentType?: string;
-  statusBadges?: string[];
-  projectId?: string | null;
-  updatedAt?: string | Date;
-  snippet?: string;
-}
+import type { DocumentSearchResult, Tag } from '../../../types/schema';
 
 export interface FullTextSearchDialogProps {
   workspaceId: string;
@@ -36,7 +25,7 @@ export function FullTextSearchDialog({
   const [selectedProject, setSelectedProject] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [selectedTag, setSelectedTag] = useState('ALL');
-  const [tags, setTags] = useState<{ id: string; name: string; color?: string }[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [results, setResults] = useState<DocumentSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');

@@ -71,7 +71,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
 
     api.focusSessions
       .getWallpaper(unsplashCategory)
-      .then((data: any) => {
+      .then((data) => {
         if (!isMounted) return;
         if (data?.error === 'UNSPLASH_NOT_CONFIGURED') {
           setUnsplashNotConfigured(true);

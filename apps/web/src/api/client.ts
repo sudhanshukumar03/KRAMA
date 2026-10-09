@@ -1,7 +1,11 @@
 import type { 
   Workspace, Space, ProjectWithRelations, IssueWithRelations, GoalWithRelations, Habit, SearchResult,
-  AuthUser, AuthResponse, PreferencesInput, TaskComment, Notification, TaskCreateInput, FocusCompletionInput
+  AuthUser, AuthResponse, PreferencesInput, TaskComment, Notification, TaskCreateInput, FocusCompletionInput,
+  DocumentWithRelations, DocumentDetail, DocumentVersion, DocumentVersionSummary, DocumentMetadataInput,
+  DocumentCreateInput, DocumentContentResult, DocumentSearchResult, DocumentGraph, Tag, EntityLink,
+  FocusSession, WallpaperResponse, AnalyticsDay, FocusHistory, DashboardData, AiConfiguration, AiResponse, WorkspaceExport
 } from '../types/schema';
+import type { FocusScheduleData } from '../components/focus/types';
 import { toast } from 'sonner';
 import type { PlannerData, TimeBlock, TimeBlockInput, TimeBlockUpdate, Milestone, MilestoneInput, MilestoneUpdate, MilestoneRange, HolidayCalendar } from '../types/planner';
 
@@ -215,7 +219,7 @@ async function streamDocumentAi(
   body: Record<string, unknown>,
   onChunk: (text: string) => void,
   onDone: () => void,
-  onError: (err: any) => void,
+  onError: (err: Error) => void,
   signal?: AbortSignal
 ) {
   try {
@@ -273,9 +277,9 @@ async function streamDocumentAi(
       }
     }
     onDone();
-  } catch (err: any) {
+  } catch (err) {
     if (signal?.aborted) return;
-    onError(err);
+    onError(err instanceof Error ? err : new Error('Stream request failed'));
   }
 }
 
@@ -301,14 +305,14 @@ async function downloadDocumentExport(id: string, format: 'md' | 'spec', filenam
 }
 
 async function fetchDocumentPages(spaceId?: string, deleted = false) {
-  const all: any[] = [];
+  const all: DocumentWithRelations[] = [];
   let cursor: string | null = null;
   do {
     const params = new URLSearchParams({ limit: '200' });
     if (spaceId && spaceId !== 'ALL') params.set('spaceId', spaceId);
     if (deleted) params.set('deleted', 'true');
     if (cursor) params.set('cursor', cursor);
-    const page = await fetchApi<{ items: any[]; nextCursor: string | null }>(`/documents?${params.toString()}`);
+    const page = await fetchApi<{ items: DocumentWithRelations[]; nextCursor: string | null }>(`/documents?${params.toString()}`);
     all.push(...page.items);
     cursor = page.nextCursor;
   } while (cursor);
@@ -359,7 +363,7 @@ export const api = {
     create: (data: Record<string, unknown>) => fetchApi<Workspace>('/workspaces', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, unknown>) => fetchApi<Workspace>(`/workspaces/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<void>(`/workspaces/${id}`, { method: 'DELETE' }),
-    export: () => fetchApi<any>('/workspaces/export'),
+    export: () => fetchApi<WorkspaceExport>('/workspaces/export'),
   },
   spaces: {
     list: () => fetchApi<Space[]>('/spaces'),
@@ -371,45 +375,45 @@ export const api = {
   documents: {
     list: (spaceId?: string) => fetchDocumentPages(spaceId, false),
     listDeleted: (spaceId?: string) => fetchDocumentPages(spaceId, true),
-    get: (id: string) => fetchApi<any>(`/documents/${id}`),
-    create: (data: Record<string, unknown>) => fetchApi<any>('/documents', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, unknown>) => fetchApi<any>(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    updateContent: (id: string, contentJson: any, expectedUpdatedAt?: string) => fetchApi<any>(`/documents/${id}/content`, { method: 'PATCH', body: JSON.stringify({ contentJson, expectedUpdatedAt }) }),
+    get: (id: string) => fetchApi<DocumentDetail>(`/documents/${id}`),
+    create: (data: DocumentCreateInput) => fetchApi<DocumentDetail>('/documents', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: DocumentMetadataInput) => fetchApi<DocumentDetail>(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    updateContent: (id: string, contentJson: unknown, expectedUpdatedAt?: string) => fetchApi<DocumentContentResult>(`/documents/${id}/content`, { method: 'PATCH', body: JSON.stringify({ contentJson, expectedUpdatedAt }) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/documents/${id}`, { method: 'DELETE' }),
-    restore: (id: string) => fetchApi<any>(`/documents/${id}/restore`, { method: 'POST' }),
+    restore: (id: string) => fetchApi<DocumentDetail>(`/documents/${id}/restore`, { method: 'POST' }),
     purge: (id: string) => fetchApi<{ message: string }>(`/documents/${id}/permanent`, { method: 'DELETE' }),
     move: (id: string, data: { targetFolderId?: string | null; targetParentId?: string | null }) => 
-      fetchApi<any>(`/documents/${id}/move`, { method: 'POST', body: JSON.stringify(data) }),
-    duplicate: (id: string) => fetchApi<any>(`/documents/${id}/duplicate`, { method: 'POST' }),
-    favorite: (id: string) => fetchApi<any>(`/documents/${id}/favorite`, { method: 'POST' }),
+      fetchApi<DocumentDetail>(`/documents/${id}/move`, { method: 'POST', body: JSON.stringify(data) }),
+    duplicate: (id: string) => fetchApi<DocumentDetail>(`/documents/${id}/duplicate`, { method: 'POST' }),
+    favorite: (id: string) => fetchApi<DocumentDetail>(`/documents/${id}/favorite`, { method: 'POST' }),
     importSpec: (data: { content: string; spaceId?: string; parentId?: string }) => 
-      fetchApi<any>('/documents/import', { method: 'POST', body: JSON.stringify(data) }),
-    getVersions: (id: string) => fetchApi<any[]>(`/documents/${id}/versions`),
-    createVersion: (id: string) => fetchApi<any>(`/documents/${id}/versions`, { method: 'POST' }),
-    restoreVersion: (id: string, versionId: string) => fetchApi<any>(`/documents/${id}/versions/${versionId}/restore`, { method: 'POST' }),
-    getTags: (workspaceId: string) => fetchApi<any[]>(`/workspaces/${workspaceId}/tags`),
-    addTag: (id: string, tagName: string, color?: string) => fetchApi<any>(`/documents/${id}/tags`, { method: 'POST', body: JSON.stringify({ tagName, color }) }),
-    removeTag: (id: string, tagId: string) => fetchApi<any>(`/documents/${id}/tags/${tagId}`, { method: 'DELETE' }),
-    getLinks: (id: string) => fetchApi<{ outgoing: any[]; incoming: any[] }>(`/documents/${id}/links`),
-    addLink: (id: string, data: { targetType: string; targetId: string; linkType?: string }) => fetchApi<any>(`/documents/${id}/links`, { method: 'POST', body: JSON.stringify(data) }),
-    removeLink: (linkId: string) => fetchApi<any>(`/links/${linkId}`, { method: 'DELETE' }),
+      fetchApi<{ document: DocumentDetail; totalImported: number; message: string }>('/documents/import', { method: 'POST', body: JSON.stringify(data) }),
+    getVersions: (id: string) => fetchApi<DocumentVersionSummary[]>(`/documents/${id}/versions`),
+    createVersion: (id: string) => fetchApi<DocumentVersion>(`/documents/${id}/versions`, { method: 'POST' }),
+    restoreVersion: (id: string, versionId: string) => fetchApi<DocumentDetail>(`/documents/${id}/versions/${versionId}/restore`, { method: 'POST' }),
+    getTags: (workspaceId: string) => fetchApi<Tag[]>(`/workspaces/${workspaceId}/tags`),
+    addTag: (id: string, tagName: string, color?: string) => fetchApi<Tag>(`/documents/${id}/tags`, { method: 'POST', body: JSON.stringify({ tagName, color }) }),
+    removeTag: (id: string, tagId: string) => fetchApi<{ message: string }>(`/documents/${id}/tags/${tagId}`, { method: 'DELETE' }),
+    getLinks: (id: string) => fetchApi<{ outgoing: EntityLink[]; incoming: EntityLink[] }>(`/documents/${id}/links`),
+    addLink: (id: string, data: { targetType: string; targetId: string; linkType?: string }) => fetchApi<EntityLink>(`/documents/${id}/links`, { method: 'POST', body: JSON.stringify(data) }),
+    removeLink: (linkId: string) => fetchApi<{ message: string }>(`/links/${linkId}`, { method: 'DELETE' }),
     createTask: (id: string, data: { title: string; priority?: string; status?: string; description?: string }) =>
-      fetchApi<{ task: any; link: any }>(`/documents/${id}/tasks`, { method: 'POST', body: JSON.stringify(data) }),
+      fetchApi<{ task: IssueWithRelations; link: EntityLink }>(`/documents/${id}/tasks`, { method: 'POST', body: JSON.stringify(data) }),
     search: (workspaceId: string, q: string, filters?: { type?: string; projectId?: string; status?: string; tag?: string }, signal?: AbortSignal) => {
       const params = new URLSearchParams({ q });
       if (filters?.type && filters.type !== 'ALL') params.append('type', filters.type);
       if (filters?.projectId && filters.projectId !== 'ALL') params.append('projectId', filters.projectId);
       if (filters?.status && filters.status !== 'ALL') params.append('status', filters.status);
       if (filters?.tag && filters.tag !== 'ALL') params.append('tag', filters.tag);
-      return fetchApi<any[]>(`/workspaces/${workspaceId}/search?${params.toString()}`, { signal });
+      return fetchApi<DocumentSearchResult[]>(`/workspaces/${workspaceId}/search?${params.toString()}`, { signal });
     },
 
 
     export: (id: string, format: 'md' | 'spec', filename?: string) => downloadDocumentExport(id, format, filename),
-    getGraph: (workspaceId: string) => fetchApi<{ nodes: any[]; links: any[] }>(`/workspaces/${workspaceId}/graph`),
-    aiAsk: (id: string, question: string, onChunk: (text: string) => void, onDone: () => void, onError: (err: any) => void, signal?: AbortSignal) =>
+    getGraph: (workspaceId: string) => fetchApi<DocumentGraph>(`/workspaces/${workspaceId}/graph`),
+    aiAsk: (id: string, question: string, onChunk: (text: string) => void, onDone: () => void, onError: (err: Error) => void, signal?: AbortSignal) =>
       streamDocumentAi(`/documents/${id}/ai/ask`, { question }, onChunk, onDone, onError, signal),
-    aiCompose: (id: string, payload: { instruction: string; mode: 'write' | 'improve' | 'explain'; selection?: string }, onChunk: (text: string) => void, onDone: () => void, onError: (err: any) => void, signal?: AbortSignal) =>
+    aiCompose: (id: string, payload: { instruction: string; mode: 'write' | 'improve' | 'explain'; selection?: string }, onChunk: (text: string) => void, onDone: () => void, onError: (err: Error) => void, signal?: AbortSignal) =>
       streamDocumentAi(`/documents/${id}/ai/compose`, payload, onChunk, onDone, onError, signal),
   },
   goals: {
@@ -462,9 +466,9 @@ export const api = {
   },
 
   ai: {
-    complete: (data: Record<string, unknown>) => fetchApi<any>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),
-    ragQuery: (data: Record<string, unknown>) => fetchApi<any>('/ai/rag-query', { method: 'POST', body: JSON.stringify(data) }),
-    config: () => fetchApi<any>('/ai/config'),
+    complete: (data: { message: string; ragEnabled?: boolean }) => fetchApi<AiResponse>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),
+    ragQuery: (data: { message: string; ragEnabled?: boolean }) => fetchApi<AiResponse>('/ai/rag-query', { method: 'POST', body: JSON.stringify(data) }),
+    config: () => fetchApi<AiConfiguration>('/ai/config'),
     analyzeTelemetry: (data: Record<string, unknown>) => fetchApi<{ insight: string }>('/ai/analyze-telemetry', { method: 'POST', body: JSON.stringify(data) }),
     getDashboardInsight: (force?: boolean) => fetchApi<{ insight: string }>(`/ai/dashboard-insight${force ? '?force=true' : ''}`)
   },
@@ -476,16 +480,16 @@ export const api = {
   },
 
   dashboard: {
-    get: () => fetchApi<any>('/dashboard', { method: 'GET' })
+    get: () => fetchApi<DashboardData>('/dashboard', { method: 'GET' })
   },
   focusSessions: {
-    complete: (data: FocusCompletionInput) => fetchApi<any>('/focus-sessions', { method: 'POST', body: JSON.stringify(data) }),
-    getSchedule: () => fetchApi<any>('/focus-sessions/schedule'),
-    getWallpaper: (category: string) => fetchApi<any>(`/focus-sessions/wallpaper?category=${encodeURIComponent(category)}`),
+    complete: (data: FocusCompletionInput) => fetchApi<{ session: FocusSession }>('/focus-sessions', { method: 'POST', body: JSON.stringify(data) }),
+    getSchedule: () => fetchApi<FocusScheduleData>('/focus-sessions/schedule'),
+    getWallpaper: (category: string) => fetchApi<WallpaperResponse>(`/focus-sessions/wallpaper?category=${encodeURIComponent(category)}`),
   },
   analytics: {
-    overview: (range: string) => fetchApi<any[]>(`/analytics/overview?range=${range}`, { method: 'GET' }),
-    focusHistory: (range: string, cursor?: string) => fetchApi<{ sessions: any[]; total: number; nextCursor: string | null }>(`/analytics/focus-history?range=${range}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { method: 'GET' })
+    overview: (range: string) => fetchApi<AnalyticsDay[]>(`/analytics/overview?range=${range}`, { method: 'GET' }),
+    focusHistory: (range: string, cursor?: string) => fetchApi<FocusHistory>(`/analytics/focus-history?range=${range}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { method: 'GET' })
   },
   planner: {
     getWeek: (start: string, end: string, workspaceId?: string | null) => {

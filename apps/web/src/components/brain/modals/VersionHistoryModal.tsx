@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { History, X } from 'lucide-react';
 import { api } from '../../../api/client';
-import type { DocumentVersion } from '../../../types/schema';
+import type { DocumentDetail } from '../../../types/schema';
 import { BaseButton } from '../../ui/BaseButton';
 import { useModalA11y } from '../../../hooks/useModalA11y';
 import { toast } from 'sonner';
@@ -11,7 +11,7 @@ export interface VersionHistoryModalProps {
   documentId: string;
   isOpen: boolean;
   onClose: () => void;
-  onRestoreSuccess: (restoredDoc?: any) => void | Promise<void>;
+  onRestoreSuccess: (restoredDoc?: DocumentDetail) => void | Promise<void>;
   beforeAction?: () => Promise<unknown>;
 }
 
@@ -106,7 +106,7 @@ export function VersionHistoryModal({
             Could not load version history. <BaseButton onClick={() => void refetch()}>Try again</BaseButton>
           </div>}
 
-          {versions.map((v: DocumentVersion) => (
+          {versions.map((v) => (
             <div
               key={v.id}
               className="p-3 rounded-xl border border-border/70 hover:border-accent/30 bg-surface-hover/50 flex items-center justify-between gap-3 transition-colors"

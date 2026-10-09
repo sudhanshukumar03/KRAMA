@@ -298,10 +298,8 @@ export function ProjectDetail() {
       const prompt = `Run a strategic diagnostic for project "${project.name}". Status: ${project.status}. Problem Statement: ${project.problemStatement || 'N/A'}. Tickets: ${projectIssues.length} tickets (${urgentIssues.length} urgent/high priority). Progress: ${progressPct}%. Provide a concise strategic assessment and recommended next actions.`;
       const result = await api.ai.complete({
         message: prompt,
-        prompt: prompt,
-        context: { projectId: project.id },
       });
-      const summary = result.summary || result.answer || (typeof result === 'string' ? result : 'Strategic assessment completed successfully.');
+      const summary = result.answer || 'Strategic assessment completed successfully.';
       toast.success('AI Strategic Diagnostic Complete', {
         description: summary,
       });
