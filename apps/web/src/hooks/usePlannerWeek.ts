@@ -8,7 +8,7 @@ import { format, startOfWeek, addDays, isSameDay, getISOWeek } from 'date-fns';
 import { parseLocalDate } from '../lib/utils';
 import { plannerApi } from '../api/plannerApi';
 import { api } from '../api/client';
-import type { RoutineOccurrence } from '../types/planner';
+import type { RoutineOccurrence, PlannerData, TimeBlockUpdate, MilestoneInput, MilestoneUpdate } from '../types/planner';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -54,12 +54,11 @@ export function usePlannerWeek(currentDate: Date) {
 
   // Mutations
   //
-  // Every planner query (`['planner','week',…]`, `['planner','day',…]`,
-  // `['planner','range-milestones',…]`) is PlannerData-shaped, so a single
-  // updater applied over the `['planner']` prefix keeps all of them optimistic.
+  // Week/day queries hold full data; calendar queries hold only milestones.
+  // Update only the arrays present in each cached response.
   const patchPlannerCaches = useCallback(
-    (updater: (old: any) => any) => {
-      queryClient.setQueriesData({ queryKey: ['planner'] }, (old: any) =>
+    (updater: (old: Partial<PlannerData>) => Partial<PlannerData>) => {
+      queryClient.setQueriesData<Partial<PlannerData>>({ queryKey: ['planner'] }, old =>
         old ? updater(old) : old
       );
     },
@@ -67,12 +66,12 @@ export function usePlannerWeek(currentDate: Date) {
   );
 
   const snapshotPlanner = useCallback(
-    () => queryClient.getQueriesData({ queryKey: ['planner'] }),
+    () => queryClient.getQueriesData<Partial<PlannerData>>({ queryKey: ['planner'] }),
     [queryClient]
   );
 
   const rollbackPlanner = useCallback(
-    (previous?: [readonly unknown[], unknown][]) => {
+    (previous?: [readonly unknown[], Partial<PlannerData> | undefined][]) => {
       previous?.forEach(([key, data]) => queryClient.setQueryData(key, data));
     },
     [queryClient]
@@ -99,12 +98,12 @@ export function usePlannerWeek(currentDate: Date) {
         completed: !occ.completed,
         completedAt: !occ.completed ? new Date().toISOString() : null,
       };
-      const matches = (o: any) =>
+      const matches = (o: RoutineOccurrence) =>
         o.habitId === occ.habitId && (o.id === occ.id || o.date?.split('T')[0] === dayKey);
       patchPlannerCaches((old) => {
         if (!Array.isArray(old.occurrences)) return old;
         let hit = false;
-        const mapped = old.occurrences.map((o: any) => {
+        const mapped = old.occurrences.map(o => {
           if (matches(o)) { hit = true; return { ...o, ...toggled }; }
           return o;
         });
@@ -112,7 +111,7 @@ export function usePlannerWeek(currentDate: Date) {
       });
       return { previous };
     },
-    onError: (err: any, _occ, context) => {
+    onError: (err, _occ, context) => {
       rollbackPlanner(context?.previous);
       toast.error('Failed to update routine: ' + (err?.message || 'Unknown error'));
     },
@@ -128,16 +127,15 @@ export function usePlannerWeek(currentDate: Date) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
-      queryClient.invalidateQueries({ queryKey: ['planner', 'day'] });
     },
-    onError: (err: any) => {
+    onError: err => {
       toast.error('Failed to create time block: ' + (err?.message || 'Unknown error'));
     }
   });
 
   const updateTimeBlockMutation = useMutation({
-    mutationFn: (args: { id: string, data: any }) => api.planner.updateTimeBlock(args.id, args.data),
-    onMutate: async (args: { id: string, data: any }) => {
+    mutationFn: (args: { id: string, data: TimeBlockUpdate }) => api.planner.updateTimeBlock(args.id, args.data),
+    onMutate: async (args: { id: string, data: TimeBlockUpdate }) => {
       await queryClient.cancelQueries({ queryKey: ['planner'] });
       const previous = snapshotPlanner();
       // Optimistically apply the patch to the matching block (covers cross-day
@@ -147,19 +145,18 @@ export function usePlannerWeek(currentDate: Date) {
       patchPlannerCaches((old) => ({
         ...old,
         timeBlocks: Array.isArray(old.timeBlocks)
-          ? old.timeBlocks.map((b: any) => (b.id === args.id ? { ...b, ...args.data } : b))
+          ? old.timeBlocks.map(b => (b.id === args.id ? { ...b, ...args.data } : b))
           : old.timeBlocks,
       }));
       return { previous };
     },
-    onError: (err: any, _args, context) => {
+    onError: (err, _args, context) => {
       rollbackPlanner(context?.previous);
       toast.error('Failed to update time block: ' + (err?.message || 'Unknown error'));
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
-      queryClient.invalidateQueries({ queryKey: ['planner', 'day'] });
     },
   });
 
@@ -171,12 +168,12 @@ export function usePlannerWeek(currentDate: Date) {
       patchPlannerCaches((old) => ({
         ...old,
         timeBlocks: Array.isArray(old.timeBlocks)
-          ? old.timeBlocks.filter((b: any) => b.id !== id)
+          ? old.timeBlocks.filter(b => b.id !== id)
           : old.timeBlocks,
       }));
       return { previous };
     },
-    onError: (err: any, _id, context) => {
+    onError: (err, _id, context) => {
       rollbackPlanner(context?.previous);
       toast.error('Failed to delete time block: ' + (err?.message || 'Unknown error'));
     },
@@ -186,7 +183,6 @@ export function usePlannerWeek(currentDate: Date) {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
-      queryClient.invalidateQueries({ queryKey: ['planner', 'day'] });
     },
   });
 
@@ -194,32 +190,32 @@ export function usePlannerWeek(currentDate: Date) {
   // the existing (previously unused) server endpoints; toggle + delete are
   // optimistic for instant feedback, create round-trips through the modal.
   const createMilestoneMutation = useMutation({
-    mutationFn: (data: any) => api.planner.createMilestone(data),
+    mutationFn: (data: MilestoneInput) => api.planner.createMilestone(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['project'] });
       toast.success('Milestone added');
     },
-    onError: (err: any) => {
+    onError: err => {
       toast.error('Failed to add milestone: ' + (err?.message || 'Unknown error'));
     },
   });
 
   const updateMilestoneMutation = useMutation({
-    mutationFn: (args: { id: string, data: any }) => api.planner.updateMilestone(args.id, args.data),
-    onMutate: async (args: { id: string, data: any }) => {
+    mutationFn: (args: { id: string, data: MilestoneUpdate }) => api.planner.updateMilestone(args.id, args.data),
+    onMutate: async (args: { id: string, data: MilestoneUpdate }) => {
       await queryClient.cancelQueries({ queryKey: ['planner'] });
       const previous = snapshotPlanner();
       patchPlannerCaches((old) => ({
         ...old,
         milestones: Array.isArray(old.milestones)
-          ? old.milestones.map((m: any) => (m.id === args.id ? { ...m, ...args.data } : m))
+          ? old.milestones.map(m => (m.id === args.id ? { ...m, ...args.data } : m))
           : old.milestones,
       }));
       return { previous };
     },
-    onError: (err: any, _args, context) => {
+    onError: (err, _args, context) => {
       rollbackPlanner(context?.previous);
       toast.error('Failed to update milestone: ' + (err?.message || 'Unknown error'));
     },
@@ -238,12 +234,12 @@ export function usePlannerWeek(currentDate: Date) {
       patchPlannerCaches((old) => ({
         ...old,
         milestones: Array.isArray(old.milestones)
-          ? old.milestones.filter((m: any) => m.id !== id)
+          ? old.milestones.filter(m => m.id !== id)
           : old.milestones,
       }));
       return { previous };
     },
-    onError: (err: any, _id, context) => {
+    onError: (err, _id, context) => {
       rollbackPlanner(context?.previous);
       toast.error('Failed to delete milestone: ' + (err?.message || 'Unknown error'));
     },

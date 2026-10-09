@@ -3,9 +3,16 @@ import { expect, test, type Page } from '@playwright/test';
 const content = (text: string) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
 const initial = { content: content('Original body'), title: 'Architecture notes', revision: '2026-10-06T00:00:00.000Z' };
 const original = { id: 'doc-1', title: initial.title, spaceId: 'space-1', parentId: null, tags: [], contentJson: initial.content, updatedAt: initial.revision, createdAt: initial.revision };
-function storage() {
+function storage(): Storage {
   const data = new Map<string, string>();
-  return { getItem: (k: string) => data.get(k) || null, setItem: (k: string, v: string) => data.set(k, v), removeItem: (k: string) => data.delete(k) } as Storage;
+  return {
+    get length() { return data.size; },
+    clear: () => data.clear(),
+    key: index => [...data.keys()][index] ?? null,
+    getItem: key => data.get(key) ?? null,
+    setItem: (key, value) => { data.set(key, value); },
+    removeItem: key => { data.delete(key); },
+  };
 }
 async function mockApi(page: Page) {
   await page.route('**/socket.io/**', r => r.abort());

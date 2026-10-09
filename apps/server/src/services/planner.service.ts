@@ -26,15 +26,31 @@ export class PlannerError extends Error {
   }
 }
 const holidaySync = new HolidaySyncService();
+async function resolveWorkspace({ userId, workspaceId }: PlannerContext): Promise<string> {
+  if (!userId) throw new PlannerError(401, { message: 'Unauthorized' });
+  const member = workspaceId
+    ? await prisma.workspaceMember.findUnique({ where: { userId_workspaceId: { userId, workspaceId } }, select: { workspaceId: true } })
+    : await prisma.workspaceMember.findFirst({ where: { userId }, select: { workspaceId: true } });
+  if (workspaceId && !member) throw new PlannerError(403, { message: 'Forbidden: Not a member of this workspace' });
+  if (!member) throw new PlannerError(400, { message: 'workspaceId is required' });
+  return member.workspaceId;
+}
+
+function isWriteConflict(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  if ('code' in error && error.code === 'P2034') return true;
+  return 'name' in error && error.name === 'DriverAdapterError' &&
+    'cause' in error && !!error.cause && typeof error.cause === 'object' &&
+    'kind' in error.cause && error.cause.kind === 'TransactionWriteConflict';
+}
+
 async function writePlannerBlock<T>(write: (tx: TxClient) => Promise<T>): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await prisma.$transaction(write, { isolationLevel: 'Serializable' });
-    } catch (error: any) {
+    } catch (error) {
       // Query conflicts are P2034; adapter commit conflicts retain their cause.
-      const conflict = error?.code === 'P2034' ||
-        (error?.name === 'DriverAdapterError' && error?.cause?.kind === 'TransactionWriteConflict');
-      if (!conflict) throw error;
+      if (!isWriteConflict(error)) throw error;
       if (attempt >= 2) {
         throw new PlannerError(409, { code: 'PLANNER_WRITE_CONFLICT', message: 'Planner changed concurrently. Please retry your edit.' });
       }
@@ -77,26 +93,7 @@ async function verifyBlockLinks(
 
 async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQuerySchema.parse>) {
     const userId = context.userId;
-    let workspaceId = context.workspaceId;
-
-    if (!userId) throw new PlannerError(401, { message: 'Unauthorized' });
-    if (workspaceId) {
-      const member = await prisma.workspaceMember.findUnique({
-        where: { userId_workspaceId: { userId, workspaceId } },
-      });
-      if (!member) {
-        throw new PlannerError(403, { message: 'Forbidden: Not a member of this workspace' });
-      }
-    } else {
-      const member = await prisma.workspaceMember.findFirst({
-        where: { userId },
-        select: { workspaceId: true },
-      });
-      if (member) {
-        workspaceId = member.workspaceId;
-      }
-    }
-    if (!workspaceId) throw new PlannerError(400, { message: 'workspaceId is required' });
+    const workspaceId = await resolveWorkspace(context);
 
     const { start: startParam, end: endParam } = query;
 
@@ -189,7 +186,7 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
       }),
     ]);
 
-    const goalDeadlines = (goalDeadlinesRaw || []).map((g: any) => ({
+    const goalDeadlines = (goalDeadlinesRaw || []).map((g) => ({
       id: g.id,
       title: g.title,
       targetDate: g.targetDate,
@@ -199,10 +196,10 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
 
     const workDayMinutes = Math.round((user.weeklyCapacityMinutes ?? 2400) / 5);
 
-    const holidayBlocks = holidayData.holidays.filter((h: any) => {
+    const holidayBlocks = holidayData.holidays.filter((h) => {
       const hDate = new Date(h.date);
       return hDate >= weekStart && hDate <= weekEnd;
-    }).map((h: any) => {
+    }).map((h) => {
       const hDate = new Date(h.date);
       const startTime = new Date(hDate.getTime() + 1000 * 60 * 60 * 9); // 9:00 AM start
       const endTime = new Date(startTime.getTime() + workDayMinutes * 60 * 1000); // full configured working day
@@ -223,30 +220,30 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
       };
     });
 
-    const allTimeBlocks = [...timeBlocks, ...holidayBlocks].sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    const allTimeBlocks = [...timeBlocks, ...holidayBlocks].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
     // Capacity is a 5-day (Mon–Fri) work-week model, so only weekday holidays
     // reduce it — a holiday that lands on a Saturday/Sunday deducts nothing.
     // Weekend holidays still appear as blocks in the payload (for display); they
     // just don't feed the capacity calculation.
-    const capacityHolidayBlocks = holidayBlocks.filter((h: any) => isCapacityHoliday({ ...h, date: new Date(h.date) }));
+    const capacityHolidayBlocks = holidayBlocks.filter((h) => isCapacityHoliday({ ...h, date: new Date(h.date) }));
 
     const capacity = calculateCapacity(
       user.weeklyCapacityMinutes ?? 2400,
       [...timeBlocks, ...capacityHolidayBlocks]
     );
 
-    const habitsWithPinned = habits.map((h: any) => ({
+    const habitsWithPinned = habits.map((h) => ({
       ...h,
-      pinnedToPlanner: (h.metadata as any)?.pinnedToPlanner ?? false,
+      pinnedToPlanner: Boolean(h.metadata && typeof h.metadata === 'object' && !Array.isArray(h.metadata) && h.metadata.pinnedToPlanner),
     }));
 
-    const routines = habitsWithPinned.filter((h: any) => h.pinnedToPlanner).map((h: any) => ({
+    const routines = habitsWithPinned.filter((h) => h.pinnedToPlanner).map((h) => ({
       id: h.id,
       name: h.name,
     }));
 
-    const plannerProjects = projects.map((p: any) => ({
+    const plannerProjects = projects.map((p) => ({
       id: p.id,
       name: p.name,
     }));
@@ -261,7 +258,7 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
       const dayOfWeek = currentDay.getUTCDay(); // 0 = Sun, 1 = Mon, etc.
       const dateStr = currentDay.toISOString().split('T')[0] as string;
 
-      const dayOccurrences: any[] = [];
+      const dayOccurrences: { id: string; habitId: string; date: string; completed: boolean; completedAt: string | null; isVirtual: boolean }[] = [];
       for (const habit of habitsWithPinned) {
         const isScheduled = habit.scheduledDays && habit.scheduledDays.includes(dayOfWeek);
         const isPinned = habit.pinnedToPlanner;
@@ -269,7 +266,7 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
         if (isScheduled || isPinned) {
           // Look up against the canonical date column
           const targetDateStr = `${dateStr}T12:00:00.000Z`;
-          const completion = habitCompletions.find((c: any) =>
+          const completion = habitCompletions.find((c) =>
             c.habitId === habit.id && c.date && (c.date instanceof Date ? c.date.toISOString() : new Date(c.date).toISOString()) === targetDateStr
           );
 
@@ -284,12 +281,12 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
         }
       }
 
-      const dayTasks = tasks.filter((t: any) => {
+      const dayTasks = tasks.filter((t) => {
         const d = t.scheduledDate || t.dueDate;
         if (!d) return false;
         const dObj = d instanceof Date ? d : new Date(d);
         return !isNaN(dObj.getTime()) && dObj.toISOString().startsWith(dateStr);
-      }).map((t: any) => ({
+      }).map((t) => ({
         id: t.id,
         title: t.title,
         status: t.status,
@@ -301,11 +298,11 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
         project: t.project,
       }));
 
-      const dayBlocks = allTimeBlocks.filter((b: any) => {
+      const dayBlocks = allTimeBlocks.filter((b) => {
         const d = b.date instanceof Date ? b.date : new Date(b.date);
         return !isNaN(d.getTime()) && d.toISOString().startsWith(dateStr);
       });
-      const dayMilestones = milestones.filter((m: any) => {
+      const dayMilestones = milestones.filter((m) => {
         const d = m.date instanceof Date ? m.date : new Date(m.date);
         return !isNaN(d.getTime()) && d.toISOString().startsWith(dateStr);
       });
@@ -317,13 +314,13 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
         tasks: dayTasks,
         timeBlocks: dayBlocks,
         milestones: dayMilestones,
-        goalDeadlines: goalDeadlines.filter((g: any) => (g.targetDate ? new Date(g.targetDate).toISOString().startsWith(dateStr) : false)),
+        goalDeadlines: goalDeadlines.filter((g) => (g.targetDate ? new Date(g.targetDate).toISOString().startsWith(dateStr) : false)),
       });
 
       currentDay.setUTCDate(currentDay.getUTCDate() + 1);
     }
 
-    const unscheduledTasks = tasks.filter((t: any) => !t.scheduledDate && !t.dueDate && t.status !== 'DONE' && t.status !== 'CANCELED').map((t: any) => ({
+    const unscheduledTasks = tasks.filter((t) => !t.scheduledDate && !t.dueDate && t.status !== 'DONE' && t.status !== 'CANCELED').map((t) => ({
       id: t.id,
       title: t.title,
       status: t.status,
@@ -342,7 +339,7 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
     // done. Distinct from capacity.completionPercent, which is capacity
     // utilization (occupied / weekly capacity) and duplicates the "Planned" tile.
     const scheduledThisWeek = days.flatMap(d => d.tasks);
-    const completedThisWeek = scheduledThisWeek.filter((t: any) => t.status === 'DONE');
+    const completedThisWeek = scheduledThisWeek.filter((t) => t.status === 'DONE');
     const taskCompletionPercent = scheduledThisWeek.length === 0
       ? 0
       : Math.round((completedThisWeek.length / scheduledThisWeek.length) * 100);
@@ -376,22 +373,7 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
 
 async function createTimeBlock(context: PlannerContext, body: ReturnType<typeof TimeBlockSchema.parse>) {
     const userId = context.userId;
-    if (!userId) throw new PlannerError(401, { message: 'Unauthorized' });
-    let workspaceId = context.workspaceId;
-    if (workspaceId) {
-      const member = await prisma.workspaceMember.findUnique({
-        where: { userId_workspaceId: { userId, workspaceId } },
-      });
-      if (!member) throw new PlannerError(403, { message: 'Forbidden: Not a member of this workspace' });
-    } else {
-      const member = await prisma.workspaceMember.findFirst({
-        where: { userId },
-        select: { workspaceId: true },
-      });
-      if (member) workspaceId = member.workspaceId;
-    }
-
-    if (!workspaceId) throw new PlannerError(400, { message: "workspaceId is required" });
+    const workspaceId = await resolveWorkspace(context);
     // Anchor the stored day at UTC noon so it buckets consistently across
     // timezones and the same-day overlap check compares like-for-like.
     const blockDate = canonicalDay(body.date);
@@ -433,7 +415,7 @@ async function createTimeBlock(context: PlannerContext, body: ReturnType<typeof 
           date: blockDate,
           startTime,
           endTime,
-          type: body.type as any,
+          type: body.type,
           taskId,
           projectId,
           notes: body.notes,
@@ -523,7 +505,7 @@ async function updateTimeBlock(context: PlannerContext, body: ReturnType<typeof 
           date,
           startTime,
           endTime,
-          type: body.type as any,
+          type: body.type,
           taskId,
           projectId,
           notes: body.notes,
@@ -615,25 +597,7 @@ async function updateRoutineOccurrence(context: PlannerContext, body: ReturnType
 
 async function listMilestones(context: PlannerContext, query: ReturnType<typeof WeekQuerySchema.parse>) {
     const userId = context.userId;
-    let workspaceId = context.workspaceId;
-    if (!userId) throw new PlannerError(401, { message: 'Unauthorized' });
-
-    // Resolve/verify workspace the same way /week does, so a caller only ever
-    // sees milestones from a workspace they belong to.
-    if (workspaceId) {
-      const member = await prisma.workspaceMember.findUnique({
-        where: { userId_workspaceId: { userId, workspaceId } },
-        select: { id: true },
-      });
-      if (!member) throw new PlannerError(403, { message: 'Forbidden: Not a member of this workspace' });
-    } else {
-      const member = await prisma.workspaceMember.findFirst({
-        where: { userId },
-        select: { workspaceId: true },
-      });
-      if (member) workspaceId = member.workspaceId;
-    }
-    if (!workspaceId) throw new PlannerError(400, { message: 'workspaceId is required' });
+    const workspaceId = await resolveWorkspace(context);
 
     const { start: startParam, end: endParam } = query;
     const rangeStart = new Date(`${startParam}T00:00:00.000Z`);
@@ -701,7 +665,7 @@ async function updateMilestone(context: PlannerContext, body: ReturnType<typeof 
     if (!sourceMember) throw new PlannerError(403, { message: 'Forbidden' });
 
 
-    const dataToUpdate: any = { ...body };
+    const dataToUpdate = { ...body };
     if (body.date) {
       dataToUpdate.date = canonicalDay(body.date);
     }

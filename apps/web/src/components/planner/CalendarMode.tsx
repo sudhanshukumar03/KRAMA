@@ -157,9 +157,9 @@ export function CalendarMode({
       </div>}
       {/* CALENDAR GRID */}
       <div className="flex-1 flex flex-col min-h-0 pb-1">
-        {(monthData?.coverage?.missingNationalYears?.length > 0 || monthData?.coverage?.missingRegionalYears?.length > 0) && (
+        {((monthData?.coverage?.missingNationalYears?.length ?? 0) > 0 || (monthData?.coverage?.missingRegionalYears?.length ?? 0) > 0) && (
           <p role="status" className="mb-2 text-sm text-warning-fg">
-            {monthData.coverage.missingNationalYears.length > 0
+            {(monthData?.coverage.missingNationalYears.length ?? 0) > 0
               ? 'Holiday dates are unavailable for part of this period.'
               : 'State holiday dates are unavailable for this period. Showing national dates only.'}
           </p>

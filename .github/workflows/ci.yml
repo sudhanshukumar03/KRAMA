@@ -71,6 +71,9 @@ jobs:
     - name: Build Monorepo Packages
       run: pnpm -r build
 
+    - name: Check Test and Config Types
+      run: pnpm exec tsc --noEmit -p tsconfig.json
+
     - name: Run Validation Unit Tests
       run: pnpm --filter @krama/validation test
 

@@ -20,6 +20,10 @@ if (apiTarget.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].inclu
   throw new Error('E2E API target must be a local HTTP server.');
 }
 process.env.KRAMA_API_TARGET = apiTarget.origin;
+const frontendServer = base.webServer;
+if (!frontendServer || Array.isArray(frontendServer)) {
+  throw new Error('Live checks require one configured frontend server.');
+}
 
 export default defineConfig({
   ...base,
@@ -33,7 +37,7 @@ export default defineConfig({
     contextOptions: { reducedMotion: 'reduce' },
   },
   webServer: {
-    ...base.webServer,
+    ...frontendServer,
     env: { KRAMA_API_TARGET: apiTarget.origin },
   },
 });

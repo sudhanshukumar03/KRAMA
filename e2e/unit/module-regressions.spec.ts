@@ -123,9 +123,16 @@ test.describe('API session regression checks', () => {
 
 const content = (text: string) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
 const initial = { content: content('Original body'), title: 'Architecture notes', revision: '2026-10-06T00:00:00.000Z' };
-function storage() {
+function storage(): Storage {
   const data = new Map<string, string>();
-  return { getItem: (k: string) => data.get(k) || null, setItem: (k: string, v: string) => data.set(k, v), removeItem: (k: string) => data.delete(k) } as Storage;
+  return {
+    get length() { return data.size; },
+    clear: () => data.clear(),
+    key: index => [...data.keys()][index] ?? null,
+    getItem: key => data.get(key) ?? null,
+    setItem: (key, value) => { data.set(key, value); },
+    removeItem: key => { data.delete(key); },
+  };
 }
 
 test('metadata conflict cannot silently rebase and overwrite another writer', async () => {

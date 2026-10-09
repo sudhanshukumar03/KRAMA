@@ -163,7 +163,7 @@ export function PlannerPage() {
  return <PlannerSkeleton />;
  }
 
- if (isError || !data) {
+ if (isError || !data || !mergedData) {
  return (
  <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
  <CalendarDays size={48} className="text-muted" />
@@ -325,7 +325,7 @@ export function PlannerPage() {
   return (
     <div className="flex flex-col h-full w-full min-h-0 overflow-hidden bg-canvas">
       <div className="flex flex-col h-full w-full max-w-[1700px] mx-auto px-4 md:px-6 py-2.5 min-h-0 gap-2.5">
-        {mode !== 'calendar' && (data.holidayCoverage?.missingNationalYears?.length > 0 || data.holidayCoverage?.missingRegionalYears?.length > 0) && (
+        {mode !== 'calendar' && ((data.holidayCoverage?.missingNationalYears?.length ?? 0) > 0 || (data.holidayCoverage?.missingRegionalYears?.length ?? 0) > 0) && (
           <p role="status" className="shrink-0 text-sm text-warning-fg">
             Holiday coverage is incomplete. Available capacity may exclude missing holidays.
           </p>
