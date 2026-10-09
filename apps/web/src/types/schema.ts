@@ -10,6 +10,27 @@ import type {
 
 export type { TaskStatus, TaskPriority, DocumentType };
 
+import type {
+  CreateProjectInput, UpdateProjectInput, CreateGoalInput, UpdateGoalInput,
+  CreateHabitInput, UpdateHabitInput, UpdateTaskInput, CreateTaskInput,
+} from '@krama/validation';
+
+// Workspace scope is supplied by the active-workspace request header.
+// Metadata remains an opaque JSON extension; named fields use schema inputs.
+type WriteInput<T> = Omit<T, 'workspaceId' | 'metadata'> & { workspaceId?: string; metadata?: unknown };
+export type ProjectCreateInput = WriteInput<CreateProjectInput>;
+export type ProjectUpdateInput = WriteInput<UpdateProjectInput>;
+export type GoalCreateInput = Omit<WriteInput<CreateGoalInput>, 'targetDate'> & { targetDate?: string | null };
+export type GoalUpdateInput = Omit<WriteInput<UpdateGoalInput>, 'targetDate'> & { targetDate?: string | null; note?: string };
+export type HabitCreateInput = WriteInput<CreateHabitInput>;
+export type HabitUpdateInput = WriteInput<UpdateHabitInput>;
+export type TaskUpdateInput = Omit<WriteInput<UpdateTaskInput>, "metadata"> & { metadata?: Prisma.JsonValue };
+export interface WorkspaceCreateInput { name: string; metadata?: Record<string, unknown> }
+export type WorkspaceUpdateInput = Partial<WorkspaceCreateInput>;
+export interface SpaceCreateInput { name: string; icon?: string | null; metadata?: unknown }
+export type SpaceUpdateInput = Partial<SpaceCreateInput>;
+export interface TelemetryInput { mood?: string; energy?: string; reflection?: string; sessionSeconds?: number; wins?: number }
+
 // HTTP JSON serializes database dates as strings, including nullable columns.
 type JsonDates<T> = {
   [K in keyof T]: T[K] extends Date ? string : T[K] extends Date | null ? string | null : T[K];
@@ -87,6 +108,7 @@ export type Habit = JsonDates<StoredHabit> & {
   linkedGoal?: Goal | null;
   completions?: JsonDates<HabitCompletion>[];
   pinnedToPlanner?: boolean;
+  timeOfDay?: NonNullable<HabitCreateInput["timeOfDay"]>;
   // Weekly cadence target is stored in metadata and exposed by formatHabit.
   weeklyTarget?: number;
 };
@@ -215,10 +237,7 @@ export interface WorkspaceExport {
 
 export type TaskComment = JsonDates<StoredComment> & { author?: Pick<User, 'name'> };
 
-export type TaskCreateInput = Pick<Issue, 'title'> & Partial<Pick<Issue,
-  'workspaceId' | 'description' | 'projectId' | 'assigneeId' | 'status' | 'priority' |
-  'blockedById' | 'parentTaskId' | 'estimateMinutes' | 'scheduledDate' | 'dueDate' | 'metadata'
->>;
+export type TaskCreateInput = WriteInput<CreateTaskInput>;
 
 export type IssueWithRelations = Issue & {
   assignee?: Pick<User, 'id' | 'name' | 'email'> | null;
@@ -239,3 +258,11 @@ export interface SearchResult {
   url: string;
   badge?: string;
 }
+
+export interface GoalMetadata {
+  whyStatement?: string; description?: string; category?: string; progressMode?: 'manual' | 'auto';
+  measurable?: boolean; targetValue?: number; currentValue?: number; isPinned?: boolean;
+  status?: string; unit?: string; weight?: number; [key: string]: unknown;
+}
+
+export type ProjectStatus = NonNullable<ProjectCreateInput["status"]>;

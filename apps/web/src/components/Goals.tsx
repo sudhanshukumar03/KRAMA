@@ -1,3 +1,5 @@
+import { goalMetadata } from '../lib/goalUtils';
+import type { GoalCreateInput, GoalUpdateInput } from '../types/schema';
 import { useSearchParams } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -18,7 +20,7 @@ import { GoalKpiStrip } from './goals/GoalKpiStrip';
 import { GoalCard } from './goals/GoalCard';
 import { GoalPillarBoard } from './goals/GoalPillarBoard';
 import { GoalDetailDrawer } from './goals/GoalDetailDrawer';
-import { GoalFormModal } from './goals/GoalFormModal';
+import { GoalFormModal, type GoalFormModalProps } from './goals/GoalFormModal';
 import { LIFE_PILLARS, getPillar, type GoalStatus } from './goals/goalConstants';
 
 export type { GoalStatus, LifePillarId } from './goals/goalConstants';
@@ -85,11 +87,11 @@ export function Goals() {
       title: string;
       type: string;
       progress?: number;
-      status?: string;
+      status?: GoalCreateInput["status"];
       targetDate: string;
       icon?: string;
       parentGoalId?: string | null;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
       selectedProjectIds?: string[];
       selectedHabitIds?: string[];
     }) => {
@@ -108,8 +110,9 @@ export function Goals() {
       if (Array.isArray(data.selectedProjectIds) && data.selectedProjectIds.length > 0 && newGoal?.id) {
         linkResults.push(...await Promise.allSettled(
           data.selectedProjectIds.map((pid: string) => {
-            const p = projects.find((proj: any) => proj.id === pid);
-            return api.projects.update(pid, { goalId: newGoal.id, version: p?.version });
+            const p = projects.find(proj => proj.id === pid);
+            if (!p) return Promise.reject(new Error("Project is no longer available. Refresh and retry."));
+            return api.projects.update(pid, { goalId: newGoal.id, version: p.version });
           })
         ));
       }
@@ -149,7 +152,7 @@ export function Goals() {
       selectedHabitIds,
     }: {
       id: string;
-      data: any;
+      data: GoalUpdateInput;
       selectedProjectIds?: string[];
       selectedHabitIds?: string[];
     }) => {
@@ -158,27 +161,29 @@ export function Goals() {
 
       if (Array.isArray(selectedProjectIds)) {
         const currentlyLinked = (projects || [])
-          .filter((p: any) => p.goalId === id)
-          .map((p: any) => p.id);
+          .filter((p) => p.goalId === id)
+          .map((p) => p.id);
         const toLink = selectedProjectIds.filter((pid) => !currentlyLinked.includes(pid));
         const toUnlink = currentlyLinked.filter((pid) => !selectedProjectIds.includes(pid));
 
         linkResults.push(...await Promise.allSettled([
           ...toLink.map((pid) => {
-            const p = projects.find((proj: any) => proj.id === pid);
-            return api.projects.update(pid, { goalId: id, version: p?.version });
+            const p = projects.find(proj => proj.id === pid);
+            if (!p) return Promise.reject(new Error("Project is no longer available. Refresh and retry."));
+            return api.projects.update(pid, { goalId: id, version: p.version });
           }),
           ...toUnlink.map((pid) => {
-            const p = projects.find((proj: any) => proj.id === pid);
-            return api.projects.update(pid, { goalId: null, version: p?.version });
+            const p = projects.find(proj => proj.id === pid);
+            if (!p) return Promise.reject(new Error("Project is no longer available. Refresh and retry."));
+            return api.projects.update(pid, { goalId: null, version: p.version });
           }),
         ]));
       }
 
       if (Array.isArray(selectedHabitIds)) {
         const currentlyLinked = (allHabits || [])
-          .filter((h: any) => h.linkedGoalId === id)
-          .map((h: any) => h.id);
+          .filter((h) => h.linkedGoalId === id)
+          .map((h) => h.id);
         const toLink = selectedHabitIds.filter((hid) => !currentlyLinked.includes(hid));
         const toUnlink = currentlyLinked.filter((hid) => !selectedHabitIds.includes(hid));
 
@@ -226,7 +231,7 @@ export function Goals() {
     setFormModalOpen(true);
   }, []);
 
-  const handleModalSubmit = (data: any) => {
+  const handleModalSubmit = (data: Parameters<GoalFormModalProps['onSubmit']>[0]) => {
     if (editingGoal) {
       updateGoalDetailsMutation.mutate({
         id: editingGoal.id,
@@ -251,11 +256,11 @@ export function Goals() {
   const rootGoals = useMemo(() => goals.filter((g) => !g.parentGoalId), [goals]);
 
   const getGoalStatus = (g: GoalWithRelations): GoalStatus =>
-    (((g as any).metadata?.status || (g as any).status || 'ACTIVE') as GoalStatus);
+    ((goalMetadata(g.metadata).status || 'ACTIVE') as GoalStatus);
 
   const scopedGoals = useMemo(() => {
     return rootGoals.filter((g) => {
-      const meta = (g.metadata || {}) as Record<string, any>;
+      const meta = goalMetadata(g.metadata);
       if (selectedPillar !== 'all' && meta.category !== selectedPillar) return false;
       if (selectedHorizon !== 'all' && g.type !== selectedHorizon) return false;
       return true;
@@ -286,7 +291,7 @@ export function Goals() {
       if (activeTab === 'paused' && st !== 'PAUSED') return false;
 
       // Life Pillar filter
-      const meta = (g.metadata || {}) as Record<string, any>;
+      const meta = goalMetadata(g.metadata);
       if (selectedPillar !== 'all' && meta.category !== selectedPillar) return false;
 
       // Horizon filter
@@ -433,7 +438,7 @@ export function Goals() {
             {/* Sort Dropdown */}
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="px-2.5 py-1 text-xs border border-border rounded-lg bg-surface text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer font-mono"
             >
               <option value="created">Newest First</option>

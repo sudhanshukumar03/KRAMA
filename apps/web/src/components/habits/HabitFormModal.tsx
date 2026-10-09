@@ -1,3 +1,4 @@
+import type { HabitCreateInput, Habit, GoalWithRelations } from '../../types/schema';
 import { useModalA11y } from '../../hooks/useModalA11y';
 // UI-only refactor — no data/logic changes
 import {
@@ -26,47 +27,48 @@ export function HabitFormModal({
     name: string;
     icon?: string;
     linkedGoalId?: string | null;
-    cadence: string;
-    category: string;
-    difficulty: string;
+    cadence: NonNullable<HabitCreateInput["cadence"]>;
+    category: NonNullable<HabitCreateInput["category"]>;
+    difficulty: NonNullable<HabitCreateInput["difficulty"]>;
     expectedDurationMinutes: number;
     scheduledDays: number[];
-    timeOfDay: string;
+    timeOfDay: NonNullable<HabitCreateInput["timeOfDay"]>;
     weeklyTarget?: number;
     pinnedToPlanner?: boolean;
     version?: number;
   }) => void;
   isSubmitting: boolean;
-  goals: any[];
+  goals: GoalWithRelations[];
   mode?: "create" | "edit";
-  initialData?: any;
-  defaultTimeOfDay?: string;
+  initialData?: Habit;
+  defaultTimeOfDay?: NonNullable<HabitCreateInput["timeOfDay"]>;
 }) {
   const dismiss = () => { if (!isSubmitting) onClose(); };
   const dialogRef = useModalA11y(open, dismiss);
   const [name, setName] = useState("");
   const [icon, setIcon] = useState<string | null>(null);
   const [linkedGoalId, setLinkedGoalId] = useState<string>("");
-  const [cadence, setCadence] = useState("daily");
-  const [category, setCategory] = useState("PRODUCTIVITY");
-  const [difficulty, setDifficulty] = useState("MEDIUM");
+  const [cadence, setCadence] = useState<NonNullable<HabitCreateInput["cadence"]>>("daily");
+  const [category, setCategory] = useState<NonNullable<HabitCreateInput["category"]>>("PRODUCTIVITY");
+  const [difficulty, setDifficulty] = useState<NonNullable<HabitCreateInput["difficulty"]>>("MEDIUM");
   const [expectedDurationMinutes, setDuration] = useState(15);
-  const [timeOfDay, setTimeOfDay] = useState(defaultTimeOfDay);
+  const [timeOfDay, setTimeOfDay] = useState<NonNullable<HabitCreateInput["timeOfDay"]>>(defaultTimeOfDay);
   const [scheduledDays, setScheduledDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [weeklyTarget, setWeeklyTarget] = useState(3);
 
   const resetForm = useCallback(() => {
     if (mode === "edit" && initialData) {
+      const metadata = initialData.metadata && typeof initialData.metadata === 'object' && !Array.isArray(initialData.metadata) ? initialData.metadata : {};
       setName(initialData.name || "");
       setIcon(initialData.icon || null);
       setLinkedGoalId(initialData.linkedGoalId || "");
-      setCadence(initialData.cadence || "daily");
+      setCadence(initialData.cadence === "weekly" ? "weekly" : "daily");
       setCategory(initialData.category || "PRODUCTIVITY");
       setDifficulty(initialData.difficulty || "MEDIUM");
       setDuration(initialData.expectedDurationMinutes || 15);
-      setTimeOfDay(initialData.metadata?.timeOfDay || initialData.timeOfDay || "morning");
+      setTimeOfDay((['morning', 'afternoon', 'evening', 'anytime'] as const).find(time => time === (metadata.timeOfDay || initialData.timeOfDay)) ?? 'morning');
       setScheduledDays(initialData.scheduledDays || [0, 1, 2, 3, 4, 5, 6]);
-      setWeeklyTarget(initialData.weeklyTarget ?? initialData.metadata?.weeklyTarget ?? 3);
+      setWeeklyTarget(initialData.weeklyTarget ?? (typeof metadata.weeklyTarget === 'number' ? metadata.weeklyTarget : 3));
       return;
     }
     setName("");
@@ -189,7 +191,7 @@ export function HabitFormModal({
  <select
  aria-label="Cadence"
  value={cadence}
- onChange={(e) => setCadence(e.target.value)}
+ onChange={(e) => setCadence(e.target.value as NonNullable<HabitCreateInput["cadence"]>)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
  >
  <option value="daily">Daily Routine</option>
@@ -204,7 +206,7 @@ export function HabitFormModal({
  <select
  aria-label="Category"
  value={category}
- onChange={(e) => setCategory(e.target.value)}
+ onChange={(e) => setCategory(e.target.value as NonNullable<HabitCreateInput["category"]>)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
  >
  <option value="PRODUCTIVITY">Productivity</option>
@@ -273,7 +275,7 @@ export function HabitFormModal({
  <select
  aria-label="Difficulty"
  value={difficulty}
- onChange={(e) => setDifficulty(e.target.value)}
+ onChange={(e) => setDifficulty(e.target.value as NonNullable<HabitCreateInput["difficulty"]>)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
  >
  <option value="VERY_EASY">Very Easy</option>
@@ -312,7 +314,7 @@ export function HabitFormModal({
  <select
  aria-label="Time of day"
  value={timeOfDay}
- onChange={(e) => setTimeOfDay(e.target.value)}
+ onChange={(e) => setTimeOfDay(e.target.value as NonNullable<HabitCreateInput["timeOfDay"]>)}
  className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
  >
  <option value="morning">Morning</option>

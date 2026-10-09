@@ -1,3 +1,5 @@
+import type { ProjectStatus, ProjectWithRelations } from '../types/schema';
+import { projectStatus } from '../lib/utils';
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
@@ -24,13 +26,13 @@ function ProjectCreateModal({
 }: {
  open: boolean;
  onClose: () => void;
- onSubmit: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon: string; goalId?: string | null }) => void;
+ onSubmit: (data: { name: string; problemStatement: string; status: ProjectStatus; targetDate: string; icon: string; goalId?: string | null }) => void;
  isSubmitting: boolean;
- goals?: any[];
+ goals?: { id: string; title: string; type: string; progress: number }[];
 }) {
  const [name, setName] = useState('');
  const [problemStatement, setProblemStatement] = useState('');
- const [status, setStatus] = useState('active');
+ const [status, setStatus] = useState<ProjectStatus>('active');
  const [goalId, setGoalId] = useState('');
  const [targetDate, setTargetDate] = useState(() => {
  const d = new Date();
@@ -111,7 +113,7 @@ function ProjectCreateModal({
               </label>
               <select aria-label="Status"
                 value={status}
-                onChange={e => setStatus(e.target.value)}
+                onChange={e => setStatus(projectStatus(e.target.value))}
                 className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono font-bold cursor-pointer"
               >
                 <option value="idea">💡 Idea / Discovery</option>
@@ -150,7 +152,7 @@ function ProjectCreateModal({
               className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono cursor-pointer"
             >
               <option value="">No linked goal (Standalone initiative)</option>
-              {goals.map((g: any) => (
+              {goals.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.title} ({g.type} · {g.progress || 0}%)
                 </option>
@@ -182,7 +184,7 @@ export function Projects() {
  const { data: pages = [], isLoading: docLoading, isError: docError, refetch: retryDocs } = useQuery({ queryKey: ['documents'], queryFn: () => api.documents.list() });
  const { data: goals = [], isLoading: goalsLoading, isError: goalsError, refetch: retryGoals } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
 
- const handleDeleteProject = async (e: React.MouseEvent, project: any) => {
+ const handleDeleteProject = async (e: React.MouseEvent, project: ProjectWithRelations) => {
  e.stopPropagation();
  try {
  await api.projects.delete(project.id);
@@ -206,13 +208,13 @@ export function Projects() {
 
  const [createModalOpen, setCreateModalOpen] = useState(false);
  const createProjectMutation = useMutation({
- mutationFn: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon: string; goalId?: string | null }) =>
+ mutationFn: (data: { name: string; problemStatement: string; status: ProjectStatus; targetDate: string; icon: string; goalId?: string | null }) =>
  api.projects.create({
  name: data.name,
  problemStatement: data.problemStatement,
  status: data.status,
  progress: 0,
- icon: data.icon,
+ icon: data.icon ?? undefined,
  goalId: data.goalId || null,
  targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : null
  }),
@@ -243,8 +245,8 @@ export function Projects() {
  api.projects.reorder(vars.id, { position: vars.position, version: vars.version }),
  onMutate: async (vars) => {
  await queryClient.cancelQueries({ queryKey: ['projects'] });
- const prev = queryClient.getQueryData<any[]>(['projects']);
- queryClient.setQueryData<any[]>(['projects'], (old) =>
+ const prev = queryClient.getQueryData<ProjectWithRelations[]>(['projects']);
+ queryClient.setQueryData<ProjectWithRelations[]>(['projects'], (old) =>
  old
  ? old
  .map((p) => (p.id === vars.id ? { ...p, position: vars.position, version: p.version + 1 } : p))
@@ -260,7 +262,7 @@ export function Projects() {
  onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
  });
 
- const handleMove = (e: React.MouseEvent, project: any, direction: 'up' | 'down') => {
+ const handleMove = (e: React.MouseEvent, project: ProjectWithRelations, direction: 'up' | 'down') => {
  e.stopPropagation();
  // Same-status siblings in their current (position-asc) order.
  const siblings = projects
@@ -390,7 +392,7 @@ export function Projects() {
  const projectIssues = project.tasks || issues.filter(i => i.projectId === project.id);
  const totalDocs = pages.filter(p => p.linkedProjectId === project.id || p.projectId === project.id).length;
 
- const completedIssues = projectIssues.filter((i: any) => i.status === "DONE").length;
+ const completedIssues = projectIssues.filter((i) => i.status === "DONE").length;
  const totalIssues = project._count?.tasks ?? projectIssues.length;
  const progressPct = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
 
@@ -418,7 +420,7 @@ export function Projects() {
                     {project.name}
                   </h3>
                   {project.goalId && (() => {
-                    const linkedGoal = goals.find((g: any) => g.id === project.goalId);
+                    const linkedGoal = goals.find((g) => g.id === project.goalId);
                     return (
                       <button
                         type="button"

@@ -6,7 +6,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { api } from '../../api/client';
 import { useModalA11y } from '../../hooks/useModalA11y';
-import type { IssueWithRelations, TaskPriority, TaskStatus } from '../../types/schema';
+import type { IssueWithRelations, TaskPriority, TaskStatus, TaskUpdateInput } from '../../types/schema';
 import { BaseButton } from '../ui/BaseButton';
 import { ErrorState } from '../ui/ErrorState';
 import { CANCELED_COLUMN, STATUS_COLUMNS, taskDay } from './boardConfig';
@@ -26,7 +26,7 @@ export function IssueEditModal({
   allIssues: IssueWithRelations[];
   projects?: { id: string; name: string }[];
   onClose: () => void;
-  onSubmit: (id: string, data: Partial<IssueWithRelations> & { blockedById?: string | null; projectId?: string | null }) => void;
+  onSubmit: (id: string, data: TaskUpdateInput) => void;
   isSubmitting: boolean;
   error?: string;
   onOpenTask?: (task: IssueWithRelations) => void;

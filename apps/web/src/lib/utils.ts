@@ -65,3 +65,17 @@ export function formatBlockTime(value: string | null | undefined): string {
   const m = mins % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
+
+export function errorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") return error.message || fallback;
+  return fallback;
+}
+
+export function projectMetadata(value: unknown): { targetDate?: string; tags: string[]; [key: string]: unknown } {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return { ...raw, targetDate: typeof raw.targetDate === 'string' ? raw.targetDate : undefined,
+    tags: Array.isArray(raw.tags) ? raw.tags.filter((tag): tag is string => typeof tag === 'string') : [] };
+}
+export function projectStatus(value: string | null | undefined): import('../types/schema').ProjectStatus {
+  return (['active', 'completed', 'archived', 'idea', 'paused', 'shipped'] as const).find(status => status === value) ?? 'active';
+}

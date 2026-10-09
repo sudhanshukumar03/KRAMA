@@ -1,27 +1,23 @@
+import { GoalConnections } from './GoalConnections';
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useModalA11y } from '../../hooks/useModalA11y';
 import { ErrorState } from '../ui/ErrorState';
 import { api } from '../../api/client';
-import {
-  Calendar, CheckCircle2, Plus,
-  X, Star, Pencil, FolderKanban, Activity, Sparkles,
-  ArrowRight, Unlink, ChevronRight, Zap, Check
-} from 'lucide-react';
+import { Calendar, CheckCircle2, Plus, X, Star, Pencil, Activity, Sparkles, ChevronRight, Zap } from 'lucide-react';
 import { ConfirmDeleteButton } from '../ui/ConfirmDeleteButton';
 import { BaseButton } from '../ui/BaseButton';
 import { IconPicker } from '../ui/IconPicker';
 import { resolveIcon } from '../../lib/iconResolver';
-import { computeGoalPace } from '../../lib/goalUtils';
-import { cn, formatLocalDate } from '../../lib/utils';
+import { computeGoalPace, goalMetadata } from '../../lib/goalUtils';
+import { cn, formatLocalDate, errorMessage } from '../../lib/utils';
 import { toast } from 'sonner';
 import { LIFE_PILLARS, getPillar, type GoalStatus } from './goalConstants';
-import type { GoalWithRelations } from '../../types/schema';
+import type { GoalWithRelations, ProjectWithRelations, GoalUpdateInput } from '../../types/schema';
 
 interface GoalDetailDrawerProps {
   goal: GoalWithRelations;
-  projects: any[];
+  projects: ProjectWithRelations[];
   onClose: () => void;
   onAddChild?: (parentGoal: GoalWithRelations) => void;
   onSelectGoal?: (goal: GoalWithRelations) => void;
@@ -34,7 +30,6 @@ export function GoalDetailDrawer({
   onAddChild,
   onSelectGoal,
 }: GoalDetailDrawerProps) {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const goalId = goal.id;
   const dialogRef = useModalA11y(true, onClose);
@@ -48,11 +43,11 @@ export function GoalDetailDrawer({
 
   // Inline edit state
   const [editTitle, setEditTitle] = useState(goal.title);
-  const [editIcon, setEditIcon] = useState<string>((goal as any).icon || 'Target');
+  const [editIcon, setEditIcon] = useState<string>(goal.icon || 'Target');
   const [editWhy, setEditWhy] = useState(
-    (goal.metadata as any)?.whyStatement || (goal.metadata as any)?.description || ''
+    goalMetadata(goal.metadata)?.whyStatement || goalMetadata(goal.metadata)?.description || ''
   );
-  const [editCategory, setEditCategory] = useState((goal.metadata as any)?.category || 'health');
+  const [editCategory, setEditCategory] = useState(goalMetadata(goal.metadata)?.category || 'health');
   const [editTargetDate, setEditTargetDate] = useState(() =>
     goal.targetDate ? new Date(goal.targetDate).toISOString().split('T')[0] : ''
   );
@@ -74,7 +69,7 @@ export function GoalDetailDrawer({
   });
 
   const current = (detail ?? goal) as GoalWithRelations;
-  const metadata = ((current as any)?.metadata || {}) as Record<string, any>;
+  const metadata = goalMetadata(current.metadata);
   const isAuto = metadata.progressMode === 'auto';
   const isMeasurable = Boolean(metadata.measurable) && metadata.targetValue != null;
   const isPinned = Boolean(metadata.isPinned);
@@ -90,7 +85,7 @@ export function GoalDetailDrawer({
     setProgressInput(current.progress ?? 0);
     setMeasurableInput(metadata.currentValue != null ? String(metadata.currentValue) : '');
     setEditTitle(current.title);
-    setEditIcon((current as any).icon || 'Target');
+    setEditIcon(current.icon || 'Target');
     setEditWhy(metadata.whyStatement || metadata.description || '');
     setEditCategory(metadata.category || 'health');
     setEditProgressMode(metadata.progressMode === 'auto' ? 'auto' : 'manual');
@@ -101,7 +96,7 @@ export function GoalDetailDrawer({
     metadata.currentValue,
     metadata.progressMode,
     current.title,
-    (current as any).icon,
+    current.icon,
     current.targetDate,
     metadata.whyStatement,
     metadata.description,
@@ -115,30 +110,30 @@ export function GoalDetailDrawer({
     return allGoals.find((g) => g.id === current.parentGoalId) || null;
   }, [allGoals, current.parentGoalId]);
 
-  const childGoals = ((current as any)?.childGoals ?? []) as GoalWithRelations[];
+  const childGoals = current.childGoals ?? [];
 
   const linkedProjects = useMemo(
-    () => (projects || []).filter((p: any) => p.goalId === goalId),
+    () => (projects || []).filter((p) => p.goalId === goalId),
     [projects, goalId]
   );
 
   const unlinkedProjects = useMemo(
-    () => (projects || []).filter((p: any) => !p.goalId || p.goalId !== goalId),
+    () => (projects || []).filter((p) => !p.goalId || p.goalId !== goalId),
     [projects, goalId]
   );
 
   const linkedHabits = useMemo(
-    () => (allHabits as any[]).filter((h) => h.linkedGoalId === goalId),
+    () => allHabits.filter((h) => h.linkedGoalId === goalId),
     [allHabits, goalId]
   );
 
   const unlinkedHabits = useMemo(
-    () => (allHabits as any[]).filter((h) => !h.linkedGoalId || h.linkedGoalId !== goalId),
+    () => allHabits.filter((h) => !h.linkedGoalId || h.linkedGoalId !== goalId),
     [allHabits, goalId]
   );
 
   const snapshots = useMemo(() => {
-    const s = ((current as any)?.snapshots ?? []) as Array<{
+    const s = (current.snapshots ?? []) as Array<{
       date: string;
       progress: number;
       notes?: string | null;
@@ -157,7 +152,7 @@ export function GoalDetailDrawer({
           : progressInput;
 
       const hasChildren = childGoals.length > 0;
-      const payload: Record<string, any> = {
+      const payload: GoalUpdateInput = {
         progress: isAuto || hasChildren ? current.progress ?? 0 : derivedProgress,
         version: draftVersion,
         ...(note.trim() ? { note: note.trim() } : {}),
@@ -181,8 +176,8 @@ export function GoalDetailDrawer({
       setNote('');
       toast.success('Check-in and reflection saved');
     },
-    onError: (err: any) =>
-      toast.error('Failed to save check-in: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to save check-in: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   const inlineEditMutation = useMutation({
@@ -209,8 +204,8 @@ export function GoalDetailDrawer({
       setActiveTab('cockpit');
       toast.success('Goal settings updated');
     },
-    onError: (err: any) =>
-      toast.error('Failed to update details: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to update details: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   const statusChangeMutation = useMutation({
@@ -218,7 +213,7 @@ export function GoalDetailDrawer({
       api.goals.update(goalId, {
         status: newStatus,
         progress: newStatus === 'COMPLETED' ? 100 : current.progress,
-        version: (current as any)?.version,
+        version: current.version,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
@@ -227,14 +222,14 @@ export function GoalDetailDrawer({
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       toast.success('Goal status updated');
     },
-    onError: (err: any) =>
-      toast.error('Failed to update status: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to update status: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   const togglePinMutation = useMutation({
     mutationFn: () => {
       return api.goals.update(goalId, {
-        version: (current as any)?.version,
+        version: current.version,
         metadata: {
           ...metadata,
           isPinned: !isPinned,
@@ -253,7 +248,7 @@ export function GoalDetailDrawer({
   // Link / Unlink Project
   const linkProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
-      const proj = projects.find((p: any) => p.id === projectId);
+      const proj = projects.find((p) => p.id === projectId);
       if (!proj) return;
       return api.projects.update(projectId, { goalId, version: proj.version });
     },
@@ -266,13 +261,13 @@ export function GoalDetailDrawer({
       setSelectedProjectIdToLink('');
       toast.success('Project connected to goal');
     },
-    onError: (err: any) =>
-      toast.error('Failed to connect project: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to connect project: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   const unlinkProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
-      const proj = projects.find((p: any) => p.id === projectId);
+      const proj = projects.find((p) => p.id === projectId);
       if (!proj) return;
       return api.projects.update(projectId, { goalId: null, version: proj.version });
     },
@@ -284,8 +279,8 @@ export function GoalDetailDrawer({
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       toast.success('Project unlinked');
     },
-    onError: (err: any) =>
-      toast.error('Failed to unlink project: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to unlink project: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   // Link / Unlink Habit
@@ -302,8 +297,8 @@ export function GoalDetailDrawer({
       setSelectedHabitIdToLink('');
       toast.success('Habit connected to goal');
     },
-    onError: (err: any) =>
-      toast.error('Failed to connect habit: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to connect habit: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   const unlinkHabitMutation = useMutation({
@@ -318,8 +313,8 @@ export function GoalDetailDrawer({
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       toast.success('Habit unlinked');
     },
-    onError: (err: any) =>
-      toast.error('Failed to unlink habit: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to unlink habit: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   // One-Click Habit Completion directly inside drawer
@@ -337,8 +332,8 @@ export function GoalDetailDrawer({
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       toast.success('Habit logged for today! Momentum maintained 🔥');
     },
-    onError: (err: any) =>
-      toast.error('Failed to log habit: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to log habit: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   const handleDeleteGoalFromDrawer = async () => {
@@ -369,8 +364,8 @@ export function GoalDetailDrawer({
     }
   };
 
-  const DrawerIcon = resolveIcon((current as any)?.icon || 'Target');
-  const rawStatus = (metadata.status || (current as any).status || 'ACTIVE') as GoalStatus;
+  const DrawerIcon = resolveIcon(current.icon || 'Target');
+  const rawStatus = (metadata.status || 'ACTIVE') as GoalStatus;
   const isCompleted = rawStatus === 'COMPLETED' || current.progress >= 100;
 
   if (isLoading || detailError || goalsError || habitsError) return (
@@ -811,7 +806,7 @@ export function GoalDetailDrawer({
               ) : (
                 <div className="space-y-2">
                   {childGoals.map((kr) => {
-                    const krMeta = ((kr as any)?.metadata || {}) as Record<string, any>;
+                    const krMeta = goalMetadata(kr.metadata);
                     const krMeasurable = Boolean(krMeta.measurable) && krMeta.targetValue != null;
                     return (
                       <div
@@ -864,167 +859,22 @@ export function GoalDetailDrawer({
               )}
             </div>
 
-            {/* Connected Initiatives (Projects) */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-caption font-mono uppercase tracking-wide text-secondary flex items-center gap-1.5">
-                  <FolderKanban className="w-3.5 h-3.5 text-cat-projects" /> Connected Projects ({linkedProjects.length})
-                </h4>
-              </div>
-
-              {unlinkedProjects.length > 0 && (
-                <div className="mb-2 flex items-center gap-2">
-                  <select
-                    aria-label="Project to connect"
-                  value={selectedProjectIdToLink}
-                    onChange={(e) => setSelectedProjectIdToLink(e.target.value)}
-                    className="flex-1 text-xs border border-border rounded-lg px-2.5 py-1.5 bg-surface text-primary focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="">+ Connect existing project...</option>
-                    {unlinkedProjects.map((p: any) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p._count?.tasks ?? p.tasks?.length ?? 0} tasks)
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={!selectedProjectIdToLink || linkProjectMutation.isPending}
-                    onClick={() =>
-                      selectedProjectIdToLink &&
-                      linkProjectMutation.mutate(selectedProjectIdToLink)
-                    }
-                    className="px-2.5 py-1.5 text-xs bg-accent text-white font-medium rounded-lg hover:bg-accent-hover disabled:opacity-40 transition-colors shadow-2xs cursor-pointer shrink-0"
-                  >
-                    Connect
-                  </button>
-                </div>
-              )}
-
-              {linkedProjects.length === 0 ? (
-                <p className="text-caption text-secondary italic">No projects connected yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {linkedProjects.map((proj: any) => (
-                    <div
-                      key={proj.id}
-                      className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-border bg-surface hover:border-accent/40 transition-colors"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/app/projects/${proj.id}`)}
-                        className="flex-1 text-left min-w-0 flex items-center gap-2 cursor-pointer group"
-                      >
-                        <span className="w-2 h-2 rounded-full bg-cat-projects shrink-0" />
-                        <p className="text-xs font-medium text-primary group-hover:text-accent-fg transition-colors truncate">
-                          {proj.name}
-                        </p>
-                        <ArrowRight className="w-3 h-3 text-secondary group-hover:text-accent-fg transition-transform group-hover:translate-x-0.5 shrink-0" />
-                      </button>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[10px] font-mono text-secondary bg-surface-hover px-1.5 py-0.5 rounded">
-                          {proj._count?.tasks ?? proj.tasks?.length ?? 0} tasks
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => unlinkProjectMutation.mutate(proj.id)}
-                          className="text-secondary hover:text-danger-fg p-1 rounded hover:bg-surface-hover transition-colors cursor-pointer"
-                          title="Disconnect project"
-                        >
-                          <Unlink className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Daily Habit Synergy (With Direct Log Button!) */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-caption font-mono uppercase tracking-wide text-secondary flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-warning-fg" /> Daily Habits ({linkedHabits.length})
-                </h4>
-              </div>
-
-              {unlinkedHabits.length > 0 && (
-                <div className="mb-2 flex items-center gap-2">
-                  <select
-                    aria-label="Habit to connect"
-                  value={selectedHabitIdToLink}
-                    onChange={(e) => setSelectedHabitIdToLink(e.target.value)}
-                    className="flex-1 text-xs border border-border rounded-lg px-2.5 py-1.5 bg-surface text-primary focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="">+ Connect daily habit...</option>
-                    {unlinkedHabits.map((h: any) => (
-                      <option key={h.id} value={h.id}>
-                        {h.name} (streak: {h.streak ?? 0}d)
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={!selectedHabitIdToLink || linkHabitMutation.isPending}
-                    onClick={() =>
-                      selectedHabitIdToLink && linkHabitMutation.mutate(selectedHabitIdToLink)
-                    }
-                    className="px-2.5 py-1.5 text-xs bg-accent text-white font-medium rounded-lg hover:bg-accent-hover disabled:opacity-40 transition-colors shadow-2xs cursor-pointer shrink-0"
-                  >
-                    Connect
-                  </button>
-                </div>
-              )}
-
-              {linkedHabits.length === 0 ? (
-                <p className="text-caption text-secondary italic">No habits connected to this goal yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {linkedHabits.map((h: any) => (
-                    <div
-                      key={h.id}
-                      className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-border bg-surface hover:border-accent/40 transition-colors"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/app/habits?goalId=${goalId}`)}
-                        className="flex-1 text-left min-w-0 flex items-center gap-2 cursor-pointer group"
-                      >
-                        <p className="text-xs font-medium text-primary group-hover:text-accent-fg transition-colors truncate">
-                          {h.name}
-                        </p>
-                      </button>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        {/* Direct Log Today Button */}
-                        <button
-                          type="button"
-                          onClick={() => logHabitMutation.mutate(h.id)}
-                          disabled={logHabitMutation.isPending}
-                          className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-success-bg text-success-fg border border-success-border hover:bg-success-bg/80 transition-all flex items-center gap-1 cursor-pointer"
-                          title="Log habit for today"
-                        >
-                          <Check className="w-3 h-3" /> Log Today
-                        </button>
-
-                        <span className="text-[10px] font-mono text-warning-fg bg-warning-bg border border-warning-border px-1.5 py-0.5 rounded font-semibold">
-                          🔥 {h.streak ?? 0}d
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() => unlinkHabitMutation.mutate(h.id)}
-                          className="text-secondary hover:text-danger-fg p-1 rounded hover:bg-surface-hover transition-colors cursor-pointer"
-                          title="Disconnect habit"
-                        >
-                          <Unlink className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <GoalConnections
+              goalId={goalId}
+              linkedProjects={linkedProjects}
+              unlinkedProjects={unlinkedProjects}
+              selectedProjectIdToLink={selectedProjectIdToLink}
+              setSelectedProjectIdToLink={setSelectedProjectIdToLink}
+              linkProjectMutation={linkProjectMutation}
+              unlinkProjectMutation={unlinkProjectMutation}
+              linkedHabits={linkedHabits}
+              unlinkedHabits={unlinkedHabits}
+              selectedHabitIdToLink={selectedHabitIdToLink}
+              setSelectedHabitIdToLink={setSelectedHabitIdToLink}
+              linkHabitMutation={linkHabitMutation}
+              unlinkHabitMutation={unlinkHabitMutation}
+              logHabitMutation={logHabitMutation}
+            />
 
             {/* Reflection & Progress History */}
             {snapshots.length > 0 && (

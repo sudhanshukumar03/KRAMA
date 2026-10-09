@@ -12,13 +12,15 @@ export type GoalPace = {
 };
 
 // Helper to compute pace strictly from real snapshot deltas or creation timestamps
-export function computeGoalPace(goal: GoalWithRelations, today = new Date()): GoalPace {
+export function computeGoalPace(goal: Omit<GoalWithRelations, 'targetDate'> & { targetDate?: string | Date | null }, today = new Date()): GoalPace {
   const metadata = goal.metadata && typeof goal.metadata === 'object' && !Array.isArray(goal.metadata)
     ? goal.metadata : {};
   const effectiveStatus = metadata.status ?? (goal as GoalWithRelations & { status?: string }).status;
   // Deadlines are calendar dates. Preserve their stored day rather than shifting
   // UTC midnight into the preceding day in western timezones.
-  const targetDate = goal.targetDate;
+  const targetDate = goal.targetDate instanceof Date
+    ? (Number.isFinite(goal.targetDate.getTime()) ? goal.targetDate.toISOString() : null)
+    : goal.targetDate;
   const target = targetDate ? parseISO(targetDate.slice(0, 10)) : null;
   const dayDifference = target && Number.isFinite(target.getTime()) ? differenceInCalendarDays(target, today) : null;
   const isDueToday = dayDifference === 0;
@@ -84,4 +86,21 @@ export function computeGoalPace(goal: GoalWithRelations, today = new Date()): Go
     projectedDate,
     ...deadline
   };
+}
+
+export function goalMetadata(value: unknown): import('../types/schema').GoalMetadata {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const raw = value as Record<string, unknown>;
+  const result: import('../types/schema').GoalMetadata = { ...raw };
+  for (const key of ['whyStatement', 'description', 'category', 'status', 'unit'] as const) {
+    if (typeof raw[key] !== 'string') delete result[key];
+  }
+  for (const key of ['targetValue', 'currentValue', 'weight'] as const) {
+    if (typeof raw[key] !== 'number') delete result[key];
+  }
+  for (const key of ['measurable', 'isPinned'] as const) {
+    if (typeof raw[key] !== 'boolean') delete result[key];
+  }
+  if (raw.progressMode !== 'auto' && raw.progressMode !== 'manual') delete result.progressMode;
+  return result;
 }

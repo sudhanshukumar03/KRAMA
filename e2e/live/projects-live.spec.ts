@@ -229,3 +229,20 @@ test.afterAll(async () => {
     await api.dispose();
   }
 });
+
+
+test('project quick status changes preserve a null icon after reload', async ({ page }) => {
+  const project = await json('POST', 'projects', { name: 'Iconless project status fixture' }, 201);
+  expect(project.icon).toBeNull();
+  await login(page);
+  await page.goto(`/app/projects/${project.id}`);
+  await page.getByRole('button', { name: 'active', exact: true }).click();
+  const saved = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().endsWith(`/api/v1/projects/${project.id}`));
+  await page.getByRole('button', { name: 'paused', exact: true }).click();
+  expect((await saved).status()).toBe(200);
+  const updated = await json('GET', `projects/${project.id}`);
+  expect(updated.status).toBe('paused');
+  expect(updated.icon).toBeNull();
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'paused', exact: true })).toBeVisible();
+});

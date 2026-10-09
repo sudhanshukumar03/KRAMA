@@ -1,3 +1,6 @@
+import { getDocumentGraph } from '../services/documentGraph.service';
+import { importDocumentSpecContent } from '../services/documentSpec.service';
+import { sendBrainAiStream } from '../services/documentAi.service';
 import { randomUUID } from 'node:crypto';
 import { Request, Response } from 'express';
 import { prisma } from '../prisma';
@@ -8,26 +11,24 @@ import { saveDocumentContent, queueDocumentEmbedding, snapshotDocument } from '.
 import { DocumentService } from '../services/document.service';
 import { documentVersionQueue } from '../queues';
 import { redisService } from '../services/redis.service';
-import Groq from 'groq-sdk';
-import { GoogleGenAI } from '@google/genai';
-import { GROQ_MODEL, GEMINI_MODEL } from '../services/ai.service';
-import { streamWithFallback, type TextStreamProvider } from '../lib/providerStream';
 
-function documentErrorResponse(error: any, defaultStatus = 400): { status: number; payload: { message: string; requestId?: string } } {
-  const databaseFailure = String(error?.name || '').startsWith('Prisma') ||
-    /^(?:P\d{4}|[0-9A-Z]{5}|ECONN\w*|ETIMEDOUT|EHOST\w*)$/.test(String(error?.code || ''));
-  const requestedStatus = Number(error?.statusCode || error?.status || (databaseFailure ? 500 : defaultStatus));
+function documentErrorResponse(error: unknown, defaultStatus = 400): { status: number; payload: { message: string; requestId?: string } } {
+  const fields = error && typeof error === 'object' ? error as Record<string, unknown> : {};
+  const message = typeof fields.message === 'string' ? fields.message : undefined;
+  const databaseFailure = String(fields.name || '').startsWith('Prisma') ||
+    /^(?:P\d{4}|[0-9A-Z]{5}|ECONN\w*|ETIMEDOUT|EHOST\w*)$/.test(String(fields.code || ''));
+  const requestedStatus = Number(fields.statusCode || fields.status || (databaseFailure ? 500 : defaultStatus));
   const status = Number.isInteger(requestedStatus) && requestedStatus >= 400 && requestedStatus < 600 ? requestedStatus : 500;
-  if (status < 500) return { status, payload: { message: error?.message || 'Unable to complete document operation' } };
+  if (status < 500) return { status, payload: { message: message || 'Unable to complete document operation' } };
   const requestId = randomUUID();
   console.error(`[Document operation] Unexpected failure ${requestId}`, error);
   return { status, payload: {
-    message: process.env.NODE_ENV === 'development' ? (error?.message || 'Internal server error') : 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? (message || 'Internal server error') : 'Internal server error',
     requestId,
   } };
 }
 
-function handleDocumentError(res: Response, error: any, defaultStatus = 400) {
+function handleDocumentError(res: Response, error: unknown, defaultStatus = 400) {
   const { status, payload } = documentErrorResponse(error, defaultStatus);
   return res.status(status).json(payload);
 }
@@ -35,9 +36,9 @@ function handleDocumentError(res: Response, error: any, defaultStatus = 400) {
 /**
  * Helper to ensure the target document belongs to the active workspace.
  */
-const verifyDocWorkspace = async (docId: string, req: Request): Promise<{ ok: boolean; doc?: any }> => {
-  const workspaceId = (req as any).workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
-  const userId = (req as any).user?.id;
+const verifyDocWorkspace = async (docId: string, req: Request): Promise<{ ok: boolean; doc?: Prisma.DocumentGetPayload<{ include: { space: true } }> }> => {
+  const workspaceId = req.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+  const userId = req.user?.id;
   const doc = await prisma.document.findUnique({
     where: { id: docId },
     include: { space: true }
@@ -58,10 +59,10 @@ const verifyDocWorkspace = async (docId: string, req: Request): Promise<{ ok: bo
 
 export const getWorkspaceDocuments = async (req: Request, res: Response) => {
   try {
-    let workspaceId = (req as any).workspaceId || req.body?.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
-    if (!workspaceId && (req as any).user?.id) {
+    let workspaceId = req.workspaceId || req.body?.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    if (!workspaceId && req.user?.id) {
       const member = await prisma.workspaceMember.findFirst({
-        where: { userId: (req as any).user.id }
+        where: { userId: req.user.id }
       });
       if (member) workspaceId = member.workspaceId;
     }
@@ -76,7 +77,7 @@ export const getWorkspaceDocuments = async (req: Request, res: Response) => {
     const rawLimit = Number(req.query.limit ?? 200);
     const pageSize = Number.isFinite(rawLimit) ? Math.max(1, Math.min(200, Math.floor(rawLimit))) : 200;
 
-    const where: any = {
+    const where: Prisma.DocumentWhereInput = {
       space: {
         workspaceId,
         ...(isDeleted ? {} : { deletedAt: null }),
@@ -102,17 +103,17 @@ export const getWorkspaceDocuments = async (req: Request, res: Response) => {
     const hasMore = documents.length > pageSize;
     const items = hasMore ? documents.slice(0, pageSize) : documents;
     res.status(200).json({ items, nextCursor: hasMore ? items[items.length - 1]?.id ?? null : null });
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error, 500);
   }
 };
 
 export const createWorkspaceDocument = async (req: Request, res: Response) => {
   try {
-    let workspaceId = (req as any).workspaceId || req.body?.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
-    if (!workspaceId && (req as any).user?.id) {
+    let workspaceId = req.workspaceId || req.body?.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    if (!workspaceId && req.user?.id) {
       const member = await prisma.workspaceMember.findFirst({
-        where: { userId: (req as any).user.id }
+        where: { userId: req.user.id }
       });
       if (member) workspaceId = member.workspaceId;
     }
@@ -122,7 +123,7 @@ export const createWorkspaceDocument = async (req: Request, res: Response) => {
     }
 
     const { title, folderId, parentId, projectId, documentType, spaceId, contentJson } = req.body;
-    const userId = (req as any).user?.id || 'system';
+    const userId = req.user?.id || 'system';
 
     if (!title) {
       return res.status(400).json({ message: 'Title is required' });
@@ -184,7 +185,7 @@ export const createWorkspaceDocument = async (req: Request, res: Response) => {
     });
 
     res.status(201).json(doc);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -203,7 +204,7 @@ export const getDocumentById = async (req: Request, res: Response) => {
     });
 
     res.status(200).json(document);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error, 500);
   }
 };
@@ -246,8 +247,8 @@ export const updateDocumentMetadata = async (req: Request, res: Response) => {
     }
 
     res.status(200).json(updated);
-  } catch (error: any) {
-    if (error?.name === 'ZodError' && Array.isArray(error.issues)) {
+  } catch (error) {
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'ZodError' && 'issues' in error && Array.isArray(error.issues)) {
       return res.status(400).json({ message: error.issues[0]?.message || 'Invalid document metadata', errors: error.issues });
     }
     return handleDocumentError(res, error, 500);
@@ -267,7 +268,7 @@ export const moveDocument = async (req: Request, res: Response) => {
 
     const doc = await DocumentService.moveDocument(id, targetFolderId, targetParentId);
     res.status(200).json(doc);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -281,7 +282,7 @@ export const duplicateDocument = async (req: Request, res: Response) => {
     const { ok } = await verifyDocWorkspace(id, req);
     if (!ok) return res.status(404).json({ message: 'Document not found' });
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
@@ -290,7 +291,7 @@ export const duplicateDocument = async (req: Request, res: Response) => {
     const duplicated = await prisma.document.findUnique({ where: { id: duplicatedId } });
     
     res.status(201).json(duplicated);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -310,7 +311,7 @@ export const toggleFavorite = async (req: Request, res: Response) => {
     });
 
     res.status(200).json(updated);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -326,7 +327,7 @@ export const deleteDocument = async (req: Request, res: Response) => {
 
     await DocumentService.deepDelete(id);
     res.status(200).json({ message: 'Deleted successfully' });
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error, 500);
   }
 };
@@ -342,7 +343,7 @@ export const restoreDocument = async (req: Request, res: Response) => {
 
     await DocumentService.deepRestore(id);
     res.status(200).json({ message: 'Restored successfully' });
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error, 500);
   }
 };
@@ -388,7 +389,7 @@ export const purgeDocument = async (req: Request, res: Response) => {
     });
 
     res.status(200).json({ message: 'Permanently deleted' });
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error, 500);
   }
 };
@@ -403,7 +404,7 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
     if (!ok) return res.status(404).json({ message: 'Document not found' });
 
     const { contentJson, expectedUpdatedAt } = req.body;
-    const userId = (req as any).user?.id || 'system';
+    const userId = req.user?.id || 'system';
 
     const updated = await saveDocumentContent(id, contentJson, userId, expectedUpdatedAt);
     const { wordCount, charCount } = updated;
@@ -454,7 +455,7 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
       wordCount,
       charCount
     });
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -471,7 +472,7 @@ export const getVersions = async (req: Request, res: Response) => {
       orderBy: { versionNumber: 'desc' }
     });
     res.status(200).json(versions);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -483,13 +484,13 @@ export const createVersion = async (req: Request, res: Response) => {
     const { ok, doc } = await verifyDocWorkspace(id, req);
     if (!ok || !doc) return res.status(404).json({ message: 'Document not found' });
 
-    const userId = (req as any).user?.id || 'system';
+    const userId = req.user?.id || 'system';
 
     const version = await prisma.$transaction(tx => snapshotDocument(tx, id, userId));
     // The successful response means the row is persisted, even if Redis is down.
     redisService.del(`doc:${id}:mutations`).catch(() => {});
     res.status(201).json(version);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -507,7 +508,7 @@ export const getVersion = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Not found' });
     }
     res.status(200).json(version);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -518,7 +519,7 @@ export const restoreVersion = async (req: Request, res: Response) => {
     const { ok, doc: currentDoc } = await verifyDocWorkspace(id, req);
     if (!ok || !currentDoc) return res.status(404).json({ message: 'Document not found' });
 
-    const userId = (req as any).user?.id || 'system';
+    const userId = req.user?.id || 'system';
     
     const versionToRestore = await prisma.documentVersion.findUnique({
       where: { id: versionId }
@@ -532,17 +533,17 @@ export const restoreVersion = async (req: Request, res: Response) => {
     queueDocumentEmbedding(updated).catch(console.error);
 
     res.status(200).json(updated);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
 
 export const getWorkspaceTags = async (req: Request, res: Response) => {
   try {
-    let id = req.params.id as string; // workspaceId
-    const userId = (req as any).user?.id;
+    let id: string | undefined = req.params.id as string; // workspaceId
+    const userId = req.user?.id;
     if (!id || id === 'undefined' || id === 'null') {
-      id = (req as any).workspaceId;
+      id = req.workspaceId;
     }
     if (!id && userId) {
       const member = await prisma.workspaceMember.findFirst({
@@ -565,7 +566,7 @@ export const getWorkspaceTags = async (req: Request, res: Response) => {
       orderBy: { name: 'asc' }
     });
     res.status(200).json(tags);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -606,7 +607,7 @@ export const addDocumentTag = async (req: Request, res: Response) => {
     });
 
     res.status(200).json(tag);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -622,7 +623,7 @@ export const removeDocumentTag = async (req: Request, res: Response) => {
       where: { documentId_tagId: { documentId: id, tagId } }
     });
     res.status(200).json({ message: 'Removed' });
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -640,7 +641,7 @@ export const getDocumentLinks = async (req: Request, res: Response) => {
       where: { targetType: 'DOCUMENT', targetId: id }
     });
     res.status(200).json({ outgoing, incoming });
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -652,7 +653,7 @@ export const addDocumentLink = async (req: Request, res: Response) => {
     if (!ok || !doc) return res.status(404).json({ message: 'Document not found' });
 
     const { targetType, targetId, linkType } = req.body;
-    const userId = (req as any).user?.id || 'system';
+    const userId = req.user?.id || 'system';
 
     if (!targetId || !['DOCUMENT', 'PROJECT', 'TASK'].includes(targetType)) {
       return res.status(400).json({ message: 'A valid targetType (DOCUMENT | PROJECT | TASK) and targetId are required' });
@@ -702,7 +703,7 @@ export const addDocumentLink = async (req: Request, res: Response) => {
       }
     });
     res.status(201).json(link);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -723,7 +724,7 @@ export const removeLink = async (req: Request, res: Response) => {
 
     await prisma.entityLink.delete({ where: { id: linkId } });
     res.status(200).json({ message: 'Removed' });
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -739,8 +740,8 @@ export const createTaskFromDocument = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Task title is required' });
     }
 
-    const userId = (req as any).user?.id || 'system';
-    const workspaceId = (req as any).workspaceId || req.body.workspaceId;
+    const userId = req.user?.id || 'system';
+    const workspaceId = req.workspaceId || req.body.workspaceId;
 
     const result = await DocumentService.createTaskFromDocument(
       id,
@@ -755,17 +756,17 @@ export const createTaskFromDocument = async (req: Request, res: Response) => {
     );
 
     res.status(201).json(result);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
 
 export const searchDocuments = async (req: Request, res: Response) => {
   try {
-    let id = req.params.id as string; // workspaceId
-    const userId = (req as any).user?.id;
+    let id: string | undefined = req.params.id as string; // workspaceId
+    const userId = req.user?.id;
     if (!id || id === 'undefined' || id === 'null') {
-      id = (req as any).workspaceId;
+      id = req.workspaceId;
     }
     if (!id && userId) {
       const member = await prisma.workspaceMember.findFirst({
@@ -834,7 +835,7 @@ export const searchDocuments = async (req: Request, res: Response) => {
     `;
 
     res.status(200).json(results);
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -885,7 +886,7 @@ title: ${doc.title}
 subtitle: ${doc.subtitle || ''}
 documentType: ${doc.documentType}
 statusBadges: [${doc.statusBadges.join(', ')}]
-tags: [${doc.tags.map((t: any) => t.tag.name).join(', ')}]
+tags: [${doc.tags.map((t) => t.tag.name).join(', ')}]
 wordCount: ${doc.wordCount}
 ---
 
@@ -899,7 +900,7 @@ wordCount: ${doc.wordCount}
     }
 
     res.status(400).json({ message: 'Unsupported format' });
-  } catch (error: any) {
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
@@ -927,44 +928,6 @@ function annotateHeadingsWithAnchors(markdown: string): { annotatedMd: string; a
   return { annotatedMd: annotatedLines.join('\n'), anchors };
 }
 
-async function sendBrainAiStream(res: Response, systemPrompt: string, prompt: string) {
-  const controller = new AbortController();
-  const onDisconnect = () => { if (!res.writableEnded) controller.abort(); };
-  res.on('close', onDisconnect);
-  const providers: TextStreamProvider[] = [];
-  if (process.env.GROQ_API_KEY) providers.push(async signal => {
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const stream = await groq.chat.completions.create({
-      model: GROQ_MODEL,
-      messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }],
-      stream: true,
-    }, { signal, timeout: 30000, maxRetries: 0 });
-    return (async function* () { for await (const chunk of stream) yield chunk.choices[0]?.delta?.content || ''; })();
-  });
-  if (process.env.GEMINI_API_KEY) providers.push(async signal => {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const stream = await ai.models.generateContentStream({
-      model: GEMINI_MODEL, contents: prompt,
-      config: { systemInstruction: systemPrompt, abortSignal: signal, httpOptions: { timeout: 60000 }, maxOutputTokens: 2048 },
-    });
-    return (async function* () { for await (const chunk of stream) yield chunk.text || ''; })();
-  });
-  const headers = () => {
-    if (res.headersSent) return;
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-  };
-  try {
-    for await (const text of streamWithFallback(providers, controller.signal)) {
-      if (res.destroyed || res.writableEnded) return;
-      headers(); res.write(`data: ${JSON.stringify({ text })}\n\n`);
-    }
-    if (!res.destroyed && !res.writableEnded) { headers(); res.write('data: [DONE]\n\n'); res.end(); }
-  } catch (error) {
-    if (!controller.signal.aborted) throw error;
-  } finally { res.off('close', onDisconnect); }
-}
 
 export const aiAsk = async (req: Request, res: Response) => {
   try {
@@ -1001,7 +964,7 @@ export const aiAsk = async (req: Request, res: Response) => {
     const systemPrompt = `You are an AI assistant grounded ONLY in the following knowledge base content:\n\n${contextText}\n\n${availableAnchorsList}\n\nAnswer the user's question accurately. When citing information, you MUST cite the specific document section using its anchor slug like [#section-title] where applicable.`;
 
     await sendBrainAiStream(res, systemPrompt, question);
-  } catch (error: any) {
+  } catch (error) {
     if (!res.headersSent) {
       handleDocumentError(res, error, 500);
     } else {
@@ -1028,7 +991,7 @@ export const aiCompose = async (req: Request, res: Response) => {
     const userPrompt = selection ? `Selection: ${selection}\n\nInstruction: ${instruction}` : instruction;
 
     await sendBrainAiStream(res, systemPrompt, userPrompt);
-  } catch (error: any) {
+  } catch (error) {
     if (!res.headersSent) {
       handleDocumentError(res, error, 500);
     } else {
@@ -1042,10 +1005,10 @@ export const aiCompose = async (req: Request, res: Response) => {
 
 export const importDocumentSpec = async (req: Request, res: Response) => {
   try {
-    let workspaceId = (req as any).workspaceId || req.body?.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
-    if (!workspaceId && (req as any).user?.id) {
+    let workspaceId = req.workspaceId || req.body?.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    if (!workspaceId && req.user?.id) {
       const member = await prisma.workspaceMember.findFirst({
-        where: { userId: (req as any).user.id }
+        where: { userId: req.user.id }
       });
       if (member) workspaceId = member.workspaceId;
     }
@@ -1059,7 +1022,7 @@ export const importDocumentSpec = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Spec file content is required' });
     }
 
-    const userId = (req as any).user?.id || 'system';
+    const userId = req.user?.id || 'system';
 
     // Validate and resolve a parent before creating a space or any imported rows.
     // Parent-scoped lookup intentionally returns the same result for missing and foreign parents.
@@ -1088,188 +1051,19 @@ export const importDocumentSpec = async (req: Request, res: Response) => {
       targetSpaceId = space.id;
     }
 
-    // 1. Parse YAML frontmatter if present
-    let rawContent = content;
-    let title = 'Imported Specification';
-    let subtitle = '';
-    let documentType: any = 'SPEC';
-    let statusBadges: string[] = ['LIVE SPECIFICATION'];
-    let tagsList: string[] = [];
-
-    const frontmatterMatch = rawContent.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
-    if (frontmatterMatch) {
-      const fmText = frontmatterMatch[1] || '';
-      rawContent = frontmatterMatch[2] || '';
-
-      const titleMatch = fmText.match(/^title:\s*(.*)$/m);
-      if (titleMatch && titleMatch[1]?.trim()) title = titleMatch[1].trim();
-
-      const subtitleMatch = fmText.match(/^subtitle:\s*(.*)$/m);
-      if (subtitleMatch && subtitleMatch[1]?.trim()) subtitle = subtitleMatch[1].trim();
-
-      const typeMatch = fmText.match(/^documentType:\s*(.*)$/m);
-      if (typeMatch && typeMatch[1]?.trim()) {
-        const t = typeMatch[1].trim().toUpperCase();
-        if (['SPEC', 'NOTE', 'MEETING', 'IDEA', 'RFC', 'GENERAL'].includes(t)) {
-          documentType = t;
-        }
-      }
-
-      const badgesMatch = fmText.match(/^statusBadges:\s*\[(.*?)\]/m);
-      if (badgesMatch && badgesMatch[1]) {
-        statusBadges = badgesMatch[1].split(',').map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
-      }
-
-      const tagsMatch = fmText.match(/^tags:\s*\[(.*?)\]/m);
-      if (tagsMatch && tagsMatch[1]) {
-        tagsList = tagsMatch[1].split(',').map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
-      }
-    }
-
-    // Helper to turn markdown into simple ProseMirror TipTap document
-    const markdownToTipTapJson = (md: string) => {
-      const paragraphs = md.split(/\n\s*\n/).filter(p => p.trim());
-      const contentNodes: any[] = [];
-      for (const p of paragraphs) {
-        const trimmed = p.trim();
-        if (trimmed.startsWith('# ')) {
-          contentNodes.push({ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: trimmed.slice(2).trim() }] });
-        } else if (trimmed.startsWith('## ')) {
-          contentNodes.push({ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: trimmed.slice(3).trim() }] });
-        } else if (trimmed.startsWith('### ')) {
-          contentNodes.push({ type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: trimmed.slice(4).trim() }] });
-        } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-          const items = trimmed.split('\n').filter(l => l.trim().startsWith('- ') || l.trim().startsWith('* '));
-          contentNodes.push({
-            type: 'bulletList',
-            content: items.map(it => ({
-              type: 'listItem',
-              content: [{ type: 'paragraph', content: [{ type: 'text', text: it.replace(/^[-*]\s*/, '').trim() }] }]
-            }))
-          });
-        } else if (trimmed.startsWith('```')) {
-          contentNodes.push({
-            type: 'codeBlock',
-            content: [{ type: 'text', text: trimmed.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '') }]
-          });
-        } else {
-          contentNodes.push({
-            type: 'paragraph',
-            content: [{ type: 'text', text: trimmed }]
-          });
-        }
-      }
-      return {
-        type: 'doc',
-        content: contentNodes.length > 0 ? contentNodes : [{ type: 'paragraph', content: [{ type: 'text', text: md }] }]
-      };
-    };
-
-    // Split root markdown vs nested child headings (## Heading)
-    const childSections = rawContent.split(/\n(?=##\s+)/);
-    const rootBodyMd = childSections[0] || '';
-
-    // Create root document
-    const rootDoc = await DocumentService.createDocument({
-      spaceId: targetSpaceId,
-      parentId: parentId || undefined,
-      title,
-      subtitle: subtitle || undefined,
-      documentType,
-      statusBadges: statusBadges.length > 0 ? statusBadges : ['LIVE SPECIFICATION'],
-      contentJson: markdownToTipTapJson(rootBodyMd),
-      createdById: userId,
-    });
-
-    // Attach tags to rootDoc
-    for (const tagName of tagsList) {
-      let tag = await prisma.tag.findUnique({
-        where: { workspaceId_name: { workspaceId, name: tagName.toLowerCase() } }
-      });
-      if (!tag) {
-        tag = await prisma.tag.create({
-          data: { workspaceId, name: tagName.toLowerCase() }
-        });
-      }
-      await prisma.documentTag.upsert({
-        where: { documentId_tagId: { documentId: rootDoc.id, tagId: tag.id } },
-        create: { documentId: rootDoc.id, tagId: tag.id },
-        update: {}
-      });
-    }
-
-    // Process nested child sections (up to depth 2: ## Child, depth 3: ### Grandchild)
-    let totalImported = 1;
-    const rootDepth = await DocumentService.getDepth(rootDoc.id);
-
-    if (rootDepth < 3) {
-      for (let i = 1; i < childSections.length; i++) {
-        const section = childSections[i] || '';
-        const lines = section.split('\n');
-        const headingLine = lines[0] || '';
-        const childTitle = headingLine.replace(/^##\s+/, '').trim() || `Child Document ${i}`;
-
-        // Grandchild sections inside this child section
-        const grandchildSections = lines.slice(1).join('\n').split(/\n(?=###\s+)/);
-        const childBodyMd = grandchildSections[0] || '';
-
-        const childDoc = await DocumentService.createDocument({
-          spaceId: targetSpaceId,
-          parentId: rootDoc.id,
-          title: childTitle,
-          documentType: 'SPEC',
-          statusBadges: ['SUB-SPEC'],
-          contentJson: markdownToTipTapJson(childBodyMd),
-          createdById: userId,
-        });
-        totalImported++;
-
-        // Process grandchildren if depth allows
-        const childDepth = rootDepth + 1;
-        if (childDepth < 3) {
-          for (let j = 1; j < grandchildSections.length; j++) {
-            const gcSection = grandchildSections[j] || '';
-            const gcLines = gcSection.split('\n');
-            const gcHeading = gcLines[0] || '';
-            const gcTitle = gcHeading.replace(/^###\s+/, '').trim() || `Grandchild Document ${j}`;
-            const gcBodyMd = gcLines.slice(1).join('\n');
-
-            await DocumentService.createDocument({
-              spaceId: targetSpaceId,
-              parentId: childDoc.id,
-              title: gcTitle,
-              documentType: 'SPEC',
-              statusBadges: ['SUB-SPEC'],
-              contentJson: markdownToTipTapJson(gcBodyMd),
-              createdById: userId,
-            });
-            totalImported++;
-          }
-        }
-      }
-    }
-
-    const fullRoot = await prisma.document.findUnique({
-      where: { id: rootDoc.id },
-      include: { tags: { include: { tag: true } } }
-    });
-
-    res.status(201).json({
-      document: fullRoot,
-      totalImported,
-      message: `Successfully imported spec "${title}" with ${totalImported} documents.`
-    });
-  } catch (error: any) {
+    const imported = await importDocumentSpecContent(content, targetSpaceId, workspaceId, userId, parentId);
+    res.status(201).json(imported);
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };
 
 export const getWorkspaceGraph = async (req: Request, res: Response) => {
   try {
-    let id = req.params.id as string; // workspaceId
-    const userId = (req as any).user?.id;
+    let id: string | undefined = req.params.id as string; // workspaceId
+    const userId = req.user?.id;
     if (!id || id === 'undefined' || id === 'null') {
-      id = (req as any).workspaceId;
+      id = req.workspaceId;
     }
     if (!id && userId) {
       const member = await prisma.workspaceMember.findFirst({
@@ -1288,138 +1082,9 @@ export const getWorkspaceGraph = async (req: Request, res: Response) => {
     }
 
     const rootId = (req.query.rootId as string) || undefined;
-    const maxDepth = Math.min(parseInt((req.query.depth as string) || '2', 10), 2); // Depth capped at 2
-    const maxNodesCap = 150; // Cap at 150 nodes
-
-    let docIdsToInclude: Set<string> = new Set();
-
-    if (rootId) {
-      // Seed validation: the rootId must be a live document in this workspace.
-      // Otherwise a crafted rootId would kick off a BFS rooted in another
-      // workspace's graph (the final metadata fetch is workspace-scoped, so
-      // nothing leaks, but we short-circuit rather than walk foreign links).
-      const rootDoc = await prisma.document.findFirst({
-        where: { id: rootId, deletedAt: null, space: { workspaceId: id } },
-        select: { id: true }
-      });
-      if (!rootDoc) {
-        return res.status(200).json({ nodes: [], links: [] });
-      }
-
-      // BFS traversal starting from rootId up to maxDepth
-      const visited = new Set<string>([rootId]);
-      let currentQueue: string[] = [rootId];
-      let currentDepth = 0;
-
-      while (currentQueue.length > 0 && currentDepth <= maxDepth && visited.size < maxNodesCap) {
-        const nextQueue: string[] = [];
-        for (const currentId of currentQueue) {
-          if (visited.size >= maxNodesCap) break;
-          // Find connected entity links (outgoing & incoming for DOCUMENT)
-          const links = await prisma.entityLink.findMany({
-            where: {
-              OR: [
-                { sourceType: 'DOCUMENT', sourceId: currentId },
-                { targetType: 'DOCUMENT', targetId: currentId }
-              ]
-            }
-          });
-          for (const l of links) {
-            const neighborId = l.sourceId === currentId ? (l.targetType === 'DOCUMENT' ? l.targetId : null) : l.sourceId;
-            if (neighborId && !visited.has(neighborId)) {
-              visited.add(neighborId);
-              nextQueue.push(neighborId);
-              if (visited.size >= maxNodesCap) break;
-            }
-          }
-        }
-        currentQueue = nextQueue;
-        currentDepth++;
-      }
-      docIdsToInclude = visited;
-    } else {
-      const docs = await prisma.document.findMany({
-        where: {
-          space: { workspaceId: id, deletedAt: null },
-          deletedAt: null
-        },
-        take: maxNodesCap,
-        select: { id: true }
-      });
-      docIdsToInclude = new Set(docs.map(d => d.id));
-    }
-
-    // Retrieve documents metadata — always workspace-scoped. The rootId BFS above
-    // walks entity links, which (in legacy data) could reach documents in other
-    // workspaces; constraining the metadata fetch to this workspace's spaces keeps
-    // a crafted rootId from surfacing foreign documents in the graph.
-    const docs = await prisma.document.findMany({
-      where: { id: { in: Array.from(docIdsToInclude) }, deletedAt: null, space: { workspaceId: id, deletedAt: null } },
-      select: { id: true, title: true, documentType: true }
-    });
-
-    const docIds = docs.map(d => d.id);
-
-    // Retrieve links connecting these documents
-    const rawLinks = await prisma.entityLink.findMany({
-      where: {
-        OR: [
-          { sourceType: 'DOCUMENT', sourceId: { in: docIds } },
-          { targetType: 'DOCUMENT', targetId: { in: docIds } }
-        ]
-      }
-    });
-
-    // Gather external entities (PROJECT and TASK) linked to these documents
-    const projectIds = new Set<string>();
-    const taskIds = new Set<string>();
-    for (const l of rawLinks) {
-      if (l.targetType === 'PROJECT') projectIds.add(l.targetId);
-      if (l.sourceType === 'PROJECT') projectIds.add(l.sourceId);
-      if (l.targetType === 'TASK') taskIds.add(l.targetId);
-      if (l.sourceType === 'TASK') taskIds.add(l.sourceId);
-    }
-
-    // Workspace-scope the external entities too, so cross-workspace links in
-    // legacy data don't pull foreign projects/tasks into the graph.
-    const projects = projectIds.size > 0 ? await prisma.project.findMany({
-      where: { id: { in: Array.from(projectIds) }, workspaceId: id },
-      select: { id: true, name: true }
-    }) : [];
-
-    const tasks = taskIds.size > 0 ? await prisma.task.findMany({
-      where: { id: { in: Array.from(taskIds) }, workspaceId: id },
-      select: { id: true, title: true }
-    }) : [];
-
-    // Construct nodes list
-    const nodes: any[] = docs.map(d => ({
-      id: d.id,
-      title: d.title,
-      type: 'DOCUMENT',
-      documentType: d.documentType
-    }));
-
-    for (const p of projects) {
-      if (nodes.length < maxNodesCap) {
-        nodes.push({ id: p.id, title: p.name, type: 'PROJECT' });
-      }
-    }
-
-    for (const t of tasks) {
-      if (nodes.length < maxNodesCap) {
-        nodes.push({ id: t.id, title: t.title, type: 'TASK' });
-      }
-    }
-
-    const nodeIds = new Set(nodes.map(n => n.id));
-    const links = rawLinks.filter(l => nodeIds.has(l.sourceId) && nodeIds.has(l.targetId));
-
-    res.status(200).json({
-      nodes: nodes.slice(0, maxNodesCap),
-      links
-    });
-  } catch (error: any) {
+    const maxDepth = Math.min(parseInt((req.query.depth as string) || '2', 10), 2);
+    res.status(200).json(await getDocumentGraph(id, rootId, maxDepth));
+  } catch (error) {
     handleDocumentError(res, error);
   }
 };

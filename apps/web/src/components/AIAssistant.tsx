@@ -4,8 +4,11 @@ import { api } from '../api/client';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import type { AiResponse, AiConfiguration } from '../types/schema';
+import { errorMessage } from '../lib/utils';
+type ChatMessage = { role: 'user'; content: string } | { role: 'assistant'; content: string | AiResponse };
 
-function AIResponseRenderer({ response, navigate }: { response: any, navigate: any }) {
+function AIResponseRenderer({ response, navigate }: { response: string | AiResponse, navigate: ReturnType<typeof useNavigate> }) {
   const queryClient = useQueryClient();
 
   if (typeof response === 'string') {
@@ -26,7 +29,7 @@ function AIResponseRenderer({ response, navigate }: { response: any, navigate: a
         </p>
       )}
 
-      {response.sections && response.sections.length > 0 && response.sections.map((section: any, index: number) => (
+      {response.sections && response.sections.length > 0 && response.sections.map((section, index) => (
         <section key={index} className="space-y-1.5 mt-4">
           <h4 className="font-bold text-[13px] uppercase tracking-wider text-secondary">{section.title}</h4>
           <p className="text-sm text-primary whitespace-pre-wrap leading-relaxed">{section.content}</p>
@@ -35,7 +38,7 @@ function AIResponseRenderer({ response, navigate }: { response: any, navigate: a
 
       {response.actions && response.actions.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-4 pt-2">
-          {response.actions.map((action: any, index: number) => (
+          {response.actions.map((action, index) => (
             <button
               key={index}
               onClick={async () => {
@@ -50,8 +53,8 @@ function AIResponseRenderer({ response, navigate }: { response: any, navigate: a
                     queryClient.invalidateQueries({ queryKey: ['issues'] });
                     queryClient.invalidateQueries({ queryKey: ['tasks'] });
                     toast.success(`Task created: "${taskTitle}"`);
-                  } catch (err: any) {
-                    toast.error(err?.message || 'Failed to create task');
+                  } catch (err) {
+                    toast.error(errorMessage(err, 'Failed to create task'));
                   }
                 } else if (action.type === 'complete_task' && action.id) {
                   try {
@@ -59,8 +62,8 @@ function AIResponseRenderer({ response, navigate }: { response: any, navigate: a
                     queryClient.invalidateQueries({ queryKey: ['issues'] });
                     queryClient.invalidateQueries({ queryKey: ['tasks'] });
                     toast.success('Task marked as complete');
-                  } catch (err: any) {
-                    toast.error(err?.message || 'Failed to complete task');
+                  } catch (err) {
+                    toast.error(errorMessage(err, 'Failed to complete task'));
                   }
                 }
               }}
@@ -76,8 +79,8 @@ function AIResponseRenderer({ response, navigate }: { response: any, navigate: a
         <div className="mt-4 pt-3 border-t border-border/30">
           <span className="text-[10px] font-bold text-secondary mb-2 block uppercase tracking-wider">Brain Sources</span>
           <div className="flex flex-wrap gap-1.5">
-            {response.sources.map((source: any) => {
-              const docId = source.documentId || source.pageId || source.id;
+            {response.sources.map((source) => {
+              const docId = source.pageId;
               return (
                 <a
                   key={docId}
@@ -102,14 +105,14 @@ function AIResponseRenderer({ response, navigate }: { response: any, navigate: a
 export function AIAssistant() {
  const navigate = useNavigate();
  const [isOpen, setIsOpen] = useState(false);
- const [messages, setMessages] = useState<Array<{role: 'user' | 'assistant', content: any, sources?: any[]}>>([
+ const [messages, setMessages] = useState<ChatMessage[]>([
  { role: 'assistant', content: 'Hello! I am KRAMA AI. How can I help you today?' }
  ]);
  const [input, setInput] = useState('');
  const [isLoading, setIsLoading] = useState(false);
  const [error, setError] = useState<string | null>(null);
  const [useRag, setUseRag] = useState(false);
- const [config, setConfig] = useState<any>(null);
+ const [config, setConfig] = useState<AiConfiguration | null>(null);
  const bottomRef = useRef<HTMLDivElement>(null);
  const inputRef = useRef<HTMLInputElement>(null);
 
@@ -169,15 +172,14 @@ export function AIAssistant() {
  
  setMessages(prev => [...prev, { 
  role: 'assistant', 
- content: response,
- sources: response.sources || []
+ content: response
  }]);
- } catch (err: any) {
+ } catch (err) {
  console.error(err);
- if (err?.status === 429) {
+ if (err && typeof err === 'object' && 'status' in err && err.status === 429) {
  setError('Rate limit exceeded. Please try again later.');
  } else {
- setError(err?.message || 'Failed to get response');
+ setError(errorMessage(err, 'Failed to get response'));
  }
  } finally {
  setIsLoading(false);
@@ -259,7 +261,7 @@ export function AIAssistant() {
  : 'bg-card border-border text-primary rounded-tl-none'
  }`}>
  {msg.role === 'user' ? (
- <p className="whitespace-pre-wrap leading-relaxed text-sm font-medium">{msg.content as string}</p>
+ <p className="whitespace-pre-wrap leading-relaxed text-sm font-medium">{msg.content}</p>
  ) : (
  <AIResponseRenderer response={msg.content} navigate={navigate} />
  )}

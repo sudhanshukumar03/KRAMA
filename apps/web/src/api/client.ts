@@ -1,5 +1,6 @@
 import type { 
-  Workspace, Space, ProjectWithRelations, IssueWithRelations, GoalWithRelations, Habit, SearchResult,
+  Workspace, Space, WorkspaceCreateInput, WorkspaceUpdateInput, SpaceCreateInput, SpaceUpdateInput,
+  ProjectCreateInput, ProjectUpdateInput, GoalCreateInput, GoalUpdateInput, HabitCreateInput, HabitUpdateInput, TaskUpdateInput, TelemetryInput, ProjectWithRelations, IssueWithRelations, GoalWithRelations, Habit, SearchResult,
   AuthUser, AuthResponse, PreferencesInput, TaskComment, Notification, TaskCreateInput, FocusCompletionInput,
   DocumentWithRelations, DocumentDetail, DocumentVersion, DocumentVersionSummary, DocumentMetadataInput,
   DocumentCreateInput, DocumentContentResult, DocumentSearchResult, DocumentGraph, Tag, EntityLink,
@@ -360,15 +361,15 @@ export const api = {
   },
   workspaces: {
     list: () => fetchApi<Workspace[]>('/workspaces'),
-    create: (data: Record<string, unknown>) => fetchApi<Workspace>('/workspaces', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, unknown>) => fetchApi<Workspace>(`/workspaces/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    create: (data: WorkspaceCreateInput) => fetchApi<Workspace>('/workspaces', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: WorkspaceUpdateInput) => fetchApi<Workspace>(`/workspaces/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<void>(`/workspaces/${id}`, { method: 'DELETE' }),
     export: () => fetchApi<WorkspaceExport>('/workspaces/export'),
   },
   spaces: {
     list: () => fetchApi<Space[]>('/spaces'),
-    create: (data: Partial<Space>) => fetchApi<Space>('/spaces', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Partial<Space>) => fetchApi<Space>(`/spaces/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    create: (data: SpaceCreateInput) => fetchApi<Space>('/spaces', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: SpaceUpdateInput) => fetchApi<Space>(`/spaces/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ success: boolean }>(`/spaces/${id}`, { method: 'DELETE' }),
   },
 
@@ -422,16 +423,16 @@ export const api = {
     // sidebar counts, and the command palette.
     listLite: () => fetchApi<GoalWithRelations[]>('/goals/lite'),
     get: (id: string) => fetchApi<GoalWithRelations>(`/goals/${id}`),
-    create: (data: Record<string, unknown>) => fetchApi<GoalWithRelations>('/goals', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, unknown>) => fetchApi<GoalWithRelations>(`/goals/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    create: (data: GoalCreateInput) => fetchApi<GoalWithRelations>('/goals', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: GoalUpdateInput) => fetchApi<GoalWithRelations>(`/goals/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/goals/${id}`, { method: 'DELETE' }),
     restore: (id: string) => fetchApi<GoalWithRelations>(`/goals/${id}/restore`, { method: 'POST' }),
   },
     projects: {
     list: () => fetchApi<ProjectWithRelations[]>('/projects'),
     get: (id: string) => fetchApi<ProjectWithRelations>(`/projects/${id}`),
-    create: (data: Record<string, unknown>) => fetchApi<ProjectWithRelations>('/projects', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, unknown>) => fetchApi<ProjectWithRelations>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    create: (data: ProjectCreateInput) => fetchApi<ProjectWithRelations>('/projects', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: ProjectUpdateInput) => fetchApi<ProjectWithRelations>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/projects/${id}`, { method: 'DELETE' }),
     reorder: (id: string, data: { position: number; version: number; workspaceId?: string }) =>
       fetchApi<ProjectWithRelations>(`/projects/${id}/reorder`, { method: 'PATCH', body: JSON.stringify(data) }),
@@ -445,7 +446,7 @@ export const api = {
     },
     get: (id: string) => fetchApi<IssueWithRelations>(`/tasks/${id}`),
     create: (data: TaskCreateInput) => fetchApi<IssueWithRelations>('/tasks', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, unknown>) => fetchApi<IssueWithRelations>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    update: (id: string, data: TaskUpdateInput) => fetchApi<IssueWithRelations>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/tasks/${id}`, { method: 'DELETE' }),
     restore: (id: string) => fetchApi<IssueWithRelations>(`/tasks/${id}/restore`, { method: 'POST' }),
     complete: (id: string) => fetchApi<IssueWithRelations>(`/tasks/${id}/complete`, { method: 'PATCH' }),
@@ -454,8 +455,8 @@ export const api = {
 
   habits: {
     list: () => fetchApi<Habit[]>('/habits'),
-    create: (data: Record<string, unknown>) => fetchApi<Habit>('/habits', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: Record<string, unknown>) => fetchApi<Habit>(`/habits/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    create: (data: HabitCreateInput) => fetchApi<Habit>('/habits', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: HabitUpdateInput) => fetchApi<Habit>(`/habits/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/habits/${id}`, { method: 'DELETE' }),
     restore: (id: string) => fetchApi<Habit>(`/habits/${id}/restore`, { method: 'POST' }),
     complete: (id: string, date?: string, dateIso?: string) => fetchApi<Habit>(`/habits/${id}/log`, { method: 'POST', ...(date ? { body: JSON.stringify({ date, dateIso }) } : {}) }),
@@ -469,7 +470,7 @@ export const api = {
     complete: (data: { message: string; ragEnabled?: boolean }) => fetchApi<AiResponse>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),
     ragQuery: (data: { message: string; ragEnabled?: boolean }) => fetchApi<AiResponse>('/ai/rag-query', { method: 'POST', body: JSON.stringify(data) }),
     config: () => fetchApi<AiConfiguration>('/ai/config'),
-    analyzeTelemetry: (data: Record<string, unknown>) => fetchApi<{ insight: string }>('/ai/analyze-telemetry', { method: 'POST', body: JSON.stringify(data) }),
+    analyzeTelemetry: (data: TelemetryInput) => fetchApi<{ insight: string }>('/ai/analyze-telemetry', { method: 'POST', body: JSON.stringify(data) }),
     getDashboardInsight: (force?: boolean) => fetchApi<{ insight: string }>(`/ai/dashboard-insight${force ? '?force=true' : ''}`)
   },
 

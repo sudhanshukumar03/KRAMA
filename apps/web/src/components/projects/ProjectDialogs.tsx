@@ -1,3 +1,5 @@
+import type { ProjectStatus, ProjectWithRelations } from '../../types/schema';
+import { projectStatus, projectMetadata } from '../../lib/utils';
 import {
     Trash2,
     X
@@ -12,10 +14,10 @@ import { useModalA11y } from '../../hooks/useModalA11y';
 interface ProjectEditModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon?: string | null; goalId?: string | null; version?: number }) => void;
+  onSubmit: (data: { name: string; problemStatement: string; status: ProjectStatus; targetDate: string; icon?: string | null; goalId?: string | null; version?: number }) => void;
   isSubmitting: boolean;
-  initialData: any;
-  goals?: any[];
+  initialData: ProjectWithRelations;
+  goals?: { id: string; title: string; type: string }[];
 }
 
 export function ProjectEditModal({
@@ -28,7 +30,7 @@ export function ProjectEditModal({
 }: ProjectEditModalProps) {
   const [name, setName] = useState(initialData?.name || '');
   const [problemStatement, setProblemStatement] = useState(initialData?.problemStatement || '');
-  const [status, setStatus] = useState(initialData?.status || 'active');
+  const [status, setStatus] = useState<ProjectStatus>(projectStatus(initialData?.status));
   const [goalId, setGoalId] = useState(initialData?.goalId || '');
   const [targetDate, setTargetDate] = useState(() => {
     if (initialData?.targetDate) return new Date(initialData.targetDate).toISOString().split('T')[0];
@@ -46,9 +48,9 @@ export function ProjectEditModal({
     if (open && initialData) {
       setName(initialData.name || '');
       setProblemStatement(initialData.problemStatement || '');
-      setStatus(initialData.status || 'active');
+      setStatus(projectStatus(initialData.status));
       setGoalId(initialData.goalId || '');
-      const tDate = initialData.targetDate || (initialData.metadata as any)?.targetDate;
+      const tDate = initialData.targetDate || projectMetadata(initialData.metadata).targetDate;
       setTargetDate(tDate ? new Date(tDate).toISOString().split('T')[0] : '');
       setIcon(initialData.icon || 'FolderKanban');
       setInitialVersion(initialData.version);
@@ -137,7 +139,7 @@ export function ProjectEditModal({
               className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-sans cursor-pointer"
             >
               <option value="">None (Standalone Initiative)</option>
-              {goals.map((g: any) => (
+              {goals.map((g) => (
                 <option key={g.id} value={g.id}>
                   🎯 {g.title} ({g.type?.toUpperCase() || 'OKR'})
                 </option>
@@ -152,7 +154,7 @@ export function ProjectEditModal({
               </label>
               <select aria-label="Status"
                 value={status}
-                onChange={e => setStatus(e.target.value)}
+                onChange={e => setStatus(projectStatus(e.target.value))}
                 className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono font-bold cursor-pointer"
               >
                 <option value="idea">💡 Idea / Discovery</option>

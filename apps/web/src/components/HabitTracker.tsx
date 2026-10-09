@@ -1,3 +1,4 @@
+import type { HabitCreateInput, HabitUpdateInput, Habit } from '../types/schema';
 import { HabitGridCard, HabitTrackerRow, PlantIllustration, RadialProgress } from './habits/HabitCards';
 import { HabitFormModal } from './habits/HabitFormModal';
 // UI-only refactor — no data/logic changes
@@ -78,8 +79,8 @@ export function HabitTracker() {
 
  const [createModalOpen, setCreateModalOpen] = useState(false);
  const [editModalOpen, setEditModalOpen] = useState(false);
- const [editingHabit, setEditingHabit] = useState<any>(null);
- const [defaultTimeOfDay, setDefaultTimeOfDay] = useState("morning");
+ const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+ const [defaultTimeOfDay, setDefaultTimeOfDay] = useState<NonNullable<HabitCreateInput["timeOfDay"]>>("morning");
 
  const [todayTrackerOpen, setTodayTrackerOpen] = useState(() => {
  if (typeof window !== 'undefined') {
@@ -102,12 +103,12 @@ export function HabitTracker() {
       name: string;
       icon?: string;
       linkedGoalId?: string | null;
-      cadence: string;
-      category: string;
-      difficulty: string;
+      cadence: NonNullable<HabitCreateInput["cadence"]>;
+      category: NonNullable<HabitCreateInput["category"]>;
+      difficulty: NonNullable<HabitCreateInput["difficulty"]>;
       expectedDurationMinutes: number;
       scheduledDays: number[];
-      timeOfDay: string;
+      timeOfDay: NonNullable<HabitCreateInput["timeOfDay"]>;
       weeklyTarget?: number;
       pinnedToPlanner?: boolean;
     }) =>
@@ -116,14 +117,13 @@ export function HabitTracker() {
         icon: data.icon,
         linkedGoalId: data.linkedGoalId,
         cadence: data.cadence,
-        category: data.category as any,
-        difficulty: data.difficulty as any,
+        category: data.category,
+        difficulty: data.difficulty,
         expectedDurationMinutes: data.expectedDurationMinutes,
         scheduledDays: data.scheduledDays,
         timeOfDay: data.timeOfDay,
         ...(data.cadence === "weekly" && data.weeklyTarget ? { weeklyTarget: data.weeklyTarget } : {}),
         pinnedToPlanner: data.pinnedToPlanner,
-        streak: 0,
       }),
     onSuccess: (newHabit) => {
       queryClient.invalidateQueries({ queryKey: ["habits"] });
@@ -142,7 +142,7 @@ export function HabitTracker() {
     mutationFn: (data: { id: string; pinned: boolean }) => api.habits.update(data.id, { pinnedToPlanner: data.pinned, version: habits.find(h => h.id === data.id)?.version }),
     onMutate: async ({ id, pinned }) => {
       await queryClient.cancelQueries({ queryKey: ["habits"] });
-      const previousHabits = queryClient.getQueryData<any[]>(["habits"]);
+      const previousHabits = queryClient.getQueryData<Habit[]>(["habits"]);
       if (previousHabits) {
         queryClient.setQueryData(
           ["habits"],
@@ -171,7 +171,7 @@ export function HabitTracker() {
   const editHabitMutation = useMutation({
     mutationFn: (data: {
       id: string;
-      payload: any;
+      payload: HabitUpdateInput;
     }) => api.habits.update(data.id, data.payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["habits"] });
@@ -187,7 +187,7 @@ export function HabitTracker() {
     },
   });
 
- const handleEditHabit = (habit: any) => {
+ const handleEditHabit = (habit: Habit) => {
  setEditingHabit(habit);
  setEditModalOpen(true);
  };
@@ -214,7 +214,10 @@ export function HabitTracker() {
  );
  }
 
-  const getHabitTime = (h: any) => h.metadata?.timeOfDay || h.timeOfDay || "anytime";
+  const getHabitTime = (h: Habit) => {
+    const metadata = h.metadata && typeof h.metadata === "object" && !Array.isArray(h.metadata) ? h.metadata : {};
+    return typeof metadata.timeOfDay === "string" ? metadata.timeOfDay : h.timeOfDay || "anytime";
+  };
 
   const morningHabits = habits.filter((h) => getHabitTime(h) === "morning");
   const afternoonHabits = habits.filter((h) => getHabitTime(h) === "afternoon");
@@ -247,7 +250,7 @@ export function HabitTracker() {
   });
 
   const handleOpenCreateWithTime = (time: string) => {
-    setDefaultTimeOfDay(time);
+    setDefaultTimeOfDay((['morning', 'afternoon', 'evening', 'anytime'] as const).find(value => value === time) ?? 'morning');
     setCreateModalOpen(true);
   };
 

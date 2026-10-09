@@ -1,10 +1,11 @@
+import { EditorFormattingToolbar } from './EditorFormattingToolbar';
 import { useState, useRef, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   Star, FolderKanban, FolderInput, Copy, History, Sparkles, 
   ChevronDown, FileText, FileCode, CheckSquare, ListTree, Check, Plus, 
-  Heading1, Heading2, List, ListOrdered, Code, Quote, Minus, Link2,
+  Link2,
   X, ArrowUpRight, MoreHorizontal, Trash2
 } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -19,9 +20,9 @@ import { EntityMentionExtension } from '../../extensions/EntityMentionExtension'
 import { SelectionToTaskModal } from '../editor/SelectionToTaskModal';
 import type { MentionEntityItem } from '../editor/EntityMentionMenu';
 import { DocumentOutlinePanel } from '../editor/DocumentOutlinePanel';
-import type { DocumentType, DocumentWithRelations } from '../../types/schema';
+import type { DocumentType, DocumentWithRelations, ProjectWithRelations, IssueWithRelations } from '../../types/schema';
 import { CustomLink } from '../../extensions/CustomLink';
-import { cn } from '../../lib/utils';
+import { cn, errorMessage } from '../../lib/utils';
 import { BaseButton } from '../ui/BaseButton';
 import { toast } from 'sonner';
 import { IconPicker } from '../ui/IconPicker';
@@ -37,7 +38,7 @@ import { useAuth } from '../../contexts/AuthContext';
 export interface EditorProps {
   page: DocumentWithRelations;
   pages: DocumentWithRelations[];
-  projects: any[];
+  projects: ProjectWithRelations[];
   onSelectDoc: (id: string) => void;
   onMoveDoc?: (doc: DocumentWithRelations) => void;
 }
@@ -111,13 +112,13 @@ function LoadedEditor({
       type: 'DOCUMENT',
       subtitle: p.documentType || 'SPEC',
     }));
-    const taskEntities: MentionEntityItem[] = tasks.map((t: any) => ({
+    const taskEntities: MentionEntityItem[] = tasks.map((t) => ({
       id: t.id,
       title: t.title,
       type: 'TASK',
       subtitle: t.status,
     }));
-    const projEntities: MentionEntityItem[] = projects.map((p: any) => ({
+    const projEntities: MentionEntityItem[] = projects.map((p) => ({
       id: p.id,
       title: p.name,
       type: 'PROJECT',
@@ -147,8 +148,8 @@ function LoadedEditor({
 
   // Listen for auto-link events from WikiLinks or @Mentions
   useEffect(() => {
-    const handleEntityLinked = async (e: any) => {
-      const { targetType, targetId } = e.detail || {};
+    const handleEntityLinked = async (e: Event) => {
+      const { targetType, targetId } = (e as CustomEvent<{ targetType?: string; targetId?: string }>).detail || {};
       if (targetType && targetId && page.id) {
         try {
           await api.documents.addLink(page.id, { targetType, targetId, linkType: 'REFERENCE' });
@@ -194,8 +195,8 @@ function LoadedEditor({
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       if (copy?.id) onSelectDoc(copy.id);
       toast.success(`Duplicated "${page.title}"`);
-    } catch (err: any) {
-      toast.error('Failed to duplicate document: ' + (err?.message || 'Unknown error'));
+    } catch (err) {
+      toast.error('Failed to duplicate document: ' + errorMessage(err, 'Unknown error'));
     }
   };
 
@@ -210,8 +211,8 @@ function LoadedEditor({
       await save.updateMetadata({ projectId: projectId || null, linkedProjectId: projectId || null });
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast.success(projectId ? 'Document linked to project' : 'Document unlinked from project');
-    } catch (err: any) {
-      toast.error('Failed to update project link: ' + (err?.message || 'Unknown error'));
+    } catch (err) {
+      toast.error('Failed to update project link: ' + errorMessage(err, 'Unknown error'));
     }
   };
 
@@ -299,7 +300,7 @@ function LoadedEditor({
       EntityMentionExtension.configure({
         getEntities: () => mentionEntitiesRef.current,
       }),
-    ] as any,
+    ],
     content: save.content as Content,
     onUpdate: ({ editor }) => { save.setContent(editor.getJSON()); },
     editorProps: {
@@ -344,8 +345,8 @@ function LoadedEditor({
 
   // Listen for open task modal requests (e.g. from /task or selection bridge)
   useEffect(() => {
-    const handler = (e: any) => {
-      let taskTitle = e.detail?.defaultTitle || '';
+    const handler = (e: Event) => {
+      let taskTitle = (e as CustomEvent<{ defaultTitle?: string }>).detail?.defaultTitle || '';
       if (!taskTitle && editor) {
         const { from, to } = editor.state.selection;
         if (from !== to) {
@@ -370,7 +371,7 @@ function LoadedEditor({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleTaskCreated = (task: any) => {
+  const handleTaskCreated = (task: IssueWithRelations) => {
     if (editor && !editor.isDestroyed) {
       const { from, to } = editor.state.selection;
       const content = [
@@ -605,8 +606,8 @@ function LoadedEditor({
                         });
                         const nextDoc = pages.find(p => p.id !== page.id);
                         onSelectDoc(nextDoc?.id || '');
-                      } catch (err: any) {
-                        toast.error('Failed to delete document: ' + (err?.message || 'Unknown error'));
+                      } catch (err) {
+                        toast.error('Failed to delete document: ' + errorMessage(err, 'Unknown error'));
                       }
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-danger-bg text-danger-fg flex items-center gap-2 cursor-pointer transition-colors"
@@ -676,7 +677,7 @@ function LoadedEditor({
 
           {/* Tags */}
           <div className="flex flex-wrap items-center gap-1.5">
-            {page.tags?.map((item: any) => {
+            {page.tags?.map((item) => {
               const tag = item.tag || item;
               const colorClass = getTagColor(tag.color);
               return (
@@ -729,74 +730,7 @@ function LoadedEditor({
         {/* Writing Canvas Container */}
         <div className="flex-1 v4-card rounded-2xl border border-border shadow-xs bg-surface flex flex-col w-full overflow-hidden min-h-[580px] relative mb-8">
           {/* Command Ribbon */}
-          {editor && (
-            <div className="bg-surface-hover/80 backdrop-blur-md px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0 border-b border-border">
-              <div className="flex flex-wrap items-center gap-1">
-                <button
-                  onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer active:scale-[0.98]",
-                    editor.isActive('heading', { level: 1 }) ? "bg-accent text-on-accent shadow-xs" : "bg-surface text-primary border border-border hover:bg-surface-hover"
-                  )}
-                  title="Heading 1"
-                >
-                  <Heading1 className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer active:scale-[0.98]",
-                    editor.isActive('heading', { level: 2 }) ? "bg-accent text-on-accent shadow-xs" : "bg-surface text-primary border border-border hover:bg-surface-hover"
-                  )}
-                  title="Heading 2"
-                >
-                  <Heading2 className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().toggleBulletList().run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer active:scale-[0.98]",
-                    editor.isActive('bulletList') ? "bg-accent text-on-accent shadow-xs" : "bg-surface text-primary border border-border hover:bg-surface-hover"
-                  )}
-                  title="Bullet List"
-                >
-                  <List className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer active:scale-[0.98]",
-                    editor.isActive('orderedList') ? "bg-accent text-on-accent shadow-xs" : "bg-surface text-primary border border-border hover:bg-surface-hover"
-                  )}
-                  title="Ordered List"
-                >
-                  <ListOrdered className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer active:scale-[0.98]",
-                    editor.isActive('codeBlock') ? "bg-accent text-on-accent shadow-xs" : "bg-surface text-primary border border-border hover:bg-surface-hover"
-                  )}
-                  title="Code Block"
-                >
-                  <Code className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer active:scale-[0.98]",
-                    editor.isActive('blockquote') ? "bg-accent text-on-accent shadow-xs" : "bg-surface text-primary border border-border hover:bg-surface-hover"
-                  )}
-                  title="Blockquote"
-                >
-                  <Quote className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().setHorizontalRule().run()}
-                  className="px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer bg-surface text-primary border border-border hover:bg-surface-hover active:scale-[0.98]"
-                  title="Horizontal Rule"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-            </div>
-          )}
+          {editor && <EditorFormattingToolbar editor={editor} />}
 
           {/* Editor Area */}
           <div className="flex-1 p-6 md:p-8 flex flex-col justify-between overflow-y-auto relative">
@@ -872,7 +806,7 @@ function LoadedEditor({
                       <span className="text-muted text-[12px] italic">No documents currently reference this page.</span>
                     ) : (
                       <div className="space-y-1.5">
-                        {linksData.incoming.map((link: any) => {
+                        {linksData.incoming.map((link) => {
                           const sourceDoc = pages.find(p => p.id === link.sourceId);
                           return (
                             <div
@@ -902,7 +836,7 @@ function LoadedEditor({
                       <span className="text-muted text-[12px] italic">No outgoing entity links added yet.</span>
                     ) : (
                       <div className="space-y-1.5">
-                        {linksData.outgoing.map((link: any) => {
+                        {linksData.outgoing.map((link) => {
                           let label = `${link.targetType} #${link.targetId.slice(0, 8)}`;
                           let statusBadge = '';
                           if (link.targetType === 'DOCUMENT') {
@@ -910,7 +844,7 @@ function LoadedEditor({
                           } else if (link.targetType === 'PROJECT') {
                             label = projects.find(p => p.id === link.targetId)?.name || label;
                           } else if (link.targetType === 'TASK') {
-                            const task = tasks.find((t: any) => t.id === link.targetId);
+                            const task = tasks.find((t) => t.id === link.targetId);
                             label = task ? task.title : label;
                             statusBadge = task?.status || '';
                           }

@@ -1,3 +1,4 @@
+import type { TaskUpdateInput } from '../types/schema';
 import type {
     CollisionDetection,
     DragEndEvent,
@@ -99,7 +100,7 @@ export function KanbanBoard({
         title: data.title,
         description: data.description,
         status: data.status,
-        priority: data.priority as any,
+        priority: data.priority,
         estimateMinutes: data.estimateMinutes,
         projectId: lockedProjectId || data.projectId || null,
         blockedById: data.blockedById, dueDate: data.dueDate, scheduledDate: data.scheduledDate
@@ -125,7 +126,7 @@ export function KanbanBoard({
   });
 
   const updateIssueDetailMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<IssueWithRelations> & { blockedById?: string | null } }) =>
+    mutationFn: ({ id, data }: { id: string; data: TaskUpdateInput }) =>
       api.tasks.update(id, data),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
@@ -217,7 +218,7 @@ export function KanbanBoard({
   }, [queryClient]);
 
   const updateIssueMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string, data: Partial<IssueWithRelations> }) => api.tasks.update(id, data),
+    mutationFn: ({ id, data }: { id: string, data: TaskUpdateInput }) => api.tasks.update(id, data),
     onMutate: async ({ id, data }) => {
       await queryClient.cancelQueries({ queryKey: ['issues'] });
       const previousIssues = queryClient.getQueryData<IssueWithRelations[]>(['issues']);
@@ -511,7 +512,7 @@ export function KanbanBoard({
           <div className="relative">
             <select
               aria-label="Filter by priority" value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value as any)}
+              onChange={(e) => setPriorityFilter(e.target.value as typeof priorityFilter)}
               className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
             >
               <option value="all">All Priorities</option>
@@ -531,7 +532,7 @@ export function KanbanBoard({
           <div className="relative">
             <select
               aria-label="Sort directives" value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
             >
               <option value="manual">Manual order</option>
@@ -738,7 +739,7 @@ export function KanbanBoard({
         allIssues={issues}
         projects={projects}
         onClose={() => { if (!updateIssueDetailMutation.isPending) { setEditModalOpen(false); setEditingIssue(null); setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('task'); return next; }, { replace: true }); } }}
-        onSubmit={(id, data) => updateIssueDetailMutation.mutate({ id, data: data as any })}
+        onSubmit={(id, data) => updateIssueDetailMutation.mutate({ id, data })}
         isSubmitting={updateIssueDetailMutation.isPending}
       />
     </div>

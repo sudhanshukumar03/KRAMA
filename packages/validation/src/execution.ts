@@ -99,3 +99,14 @@ export const HabitLogSchema = z.object({
   dateIso: z.string().datetime().optional(),
   workspaceId: z.string().uuid().optional(),
 });
+
+// Input types preserve defaults/optional fields before server-side parsing.
+export type CreateProjectInput = z.input<typeof CreateProjectSchema>;
+export type UpdateProjectInput = z.input<typeof UpdateProjectSchema>;
+export type CreateGoalInput = z.input<typeof CreateGoalSchema>;
+export type UpdateGoalInput = z.input<typeof UpdateGoalSchema>;
+export type CreateHabitInput = z.input<typeof CreateHabitSchema>;
+export type UpdateHabitInput = z.input<typeof UpdateHabitSchema>;
+export type UpdateTaskInput = z.input<typeof UpdateTaskSchema>;
+
+export type CreateTaskInput = z.input<typeof CreateTaskSchema>;

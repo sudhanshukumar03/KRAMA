@@ -29,7 +29,7 @@ COPY apps/server/prisma.config.ts ./apps/server/prisma.config.ts
 RUN pnpm --filter server exec prisma generate
 
 # Build the frontend
-RUN cd apps/web && pnpm run build
+RUN pnpm --filter client... run build
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine AS runner

@@ -5,9 +5,10 @@ import { BaseButton } from '../ui/BaseButton';
 import { IconPicker } from '../ui/IconPicker';
 import { cn } from '../../lib/utils';
 import { LIFE_PILLARS, type GoalStatus } from './goalConstants';
-import type { GoalWithRelations } from '../../types/schema';
+import { goalMetadata } from '../../lib/goalUtils';
+import type { GoalWithRelations, ProjectWithRelations, Habit } from '../../types/schema';
 
-interface GoalFormModalProps {
+export interface GoalFormModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: {
@@ -18,7 +19,7 @@ interface GoalFormModalProps {
     icon?: string;
     parentGoalId?: string | null;
     status?: GoalStatus;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     selectedProjectIds?: string[];
     selectedHabitIds?: string[];
   }) => void;
@@ -26,8 +27,8 @@ interface GoalFormModalProps {
   initialData?: GoalWithRelations | null;
   parentGoal?: { id: string; title: string } | null;
   defaultPillar?: string;
-  projects?: any[];
-  allHabits?: any[];
+  projects?: ProjectWithRelations[];
+  allHabits?: Habit[];
 }
 
 export function GoalFormModal({
@@ -81,12 +82,11 @@ export function GoalFormModal({
         setType(initialData.type || 'quarterly');
         setProgress(initialData.progress || 0);
         const rawStatus = (
-          (initialData as any).metadata?.status ||
-          (initialData as any).status ||
+          goalMetadata(initialData.metadata).status ||
           'ACTIVE'
         ) as string;
         setStatus(rawStatus as GoalStatus);
-        const md = ((initialData as any).metadata || {}) as Record<string, any>;
+        const md = goalMetadata(initialData.metadata);
         setDescription(md.description || '');
         setWhyStatement(md.whyStatement || '');
         setCategory(md.category || 'health');
@@ -98,10 +98,10 @@ export function GoalFormModal({
         setUnit(md.unit || '');
         setWeight(md.weight != null ? String(md.weight) : '1');
         setSelectedProjectIds(
-          projects.filter((p: any) => p.goalId === initialData.id).map((p: any) => p.id)
+          projects.filter((p) => p.goalId === initialData.id).map((p) => p.id)
         );
         setSelectedHabitIds(
-          allHabits.filter((h: any) => h.linkedGoalId === initialData.id).map((h: any) => h.id)
+          allHabits.filter((h) => h.linkedGoalId === initialData.id).map((h) => h.id)
         );
         if (initialData.targetDate) {
           setTargetDate(new Date(initialData.targetDate).toISOString().split('T')[0]);
@@ -149,8 +149,8 @@ export function GoalFormModal({
     if (isSubmitting || !title.trim()) return;
 
     const w = Number(weight);
-    const existingMeta = ((initialData as any)?.metadata || {}) as Record<string, any>;
-    const metadata: Record<string, any> = {
+    const existingMeta = goalMetadata(initialData?.metadata);
+    const metadata: Record<string, unknown> = {
       ...existingMeta,
       description: description.trim() || null,
       whyStatement: whyStatement.trim() || null,
@@ -518,7 +518,7 @@ export function GoalFormModal({
                     </span>
                   </label>
                   <div className="max-h-24 overflow-y-auto rounded-lg border border-border bg-surface p-1.5 space-y-1">
-                    {projects.map((proj: any) => {
+                    {projects.map((proj) => {
                       const checked = selectedProjectIds.includes(proj.id);
                       return (
                         <label
@@ -553,7 +553,7 @@ export function GoalFormModal({
                     </span>
                   </label>
                   <div className="max-h-24 overflow-y-auto rounded-lg border border-border bg-surface p-1.5 space-y-1">
-                    {allHabits.map((habit: any) => {
+                    {allHabits.map((habit) => {
                       const checked = selectedHabitIds.includes(habit.id);
                       return (
                         <label
