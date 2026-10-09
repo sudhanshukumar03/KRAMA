@@ -147,11 +147,14 @@ test('live documents: save/reopen, conflicts, tree, links, search, import/export
 test('live background idle snapshot and Gemini embeddings', async () => {
   test.skip(process.env.KRAMA_AI_VERIFY !== '1', 'Real provider checks require KRAMA_AI_VERIFY=1');
   const { documentVersionQueue } = await import('../../apps/server/src/queues');
+  const { redisService } = await import('../../apps/server/src/services/redis.service');
   const { prisma } = await import('../../apps/server/src/prisma');
   const before = await prisma.documentVersion.count({ where: { documentId: root.id } });
   const fresh = await json('GET', `documents/${root.id}`);
   await json('PATCH', `documents/${root.id}/content`, { contentJson: paragraph('The verification launch code is SAPPHIRE42. A synthetic embedding verification note.'), expectedUpdatedAt: fresh.updatedAt });
-  const job = await documentVersionQueue.getJob(`idle-snapshot-${root.id}`); expect(job).toBeTruthy(); expect(job!.opts.delay).toBe(300000);
+  await redisService.ensureConnected();
+  const jobId = await redisService.getShared(`doc:${root.id}:idle-job`); expect(jobId).toBeTruthy();
+  const job = await documentVersionQueue.getJob(jobId!); expect(job).toBeTruthy(); expect(job!.data.documentId).toBe(root.id); expect(job!.opts.delay).toBe(300000);
   // Verify the real delayed job/processor without waiting five minutes.
   await job!.promote();
   await expect.poll(async () => prisma.documentVersion.count({ where: { documentId: root.id } }), { timeout: 15000 }).toBeGreaterThan(before);

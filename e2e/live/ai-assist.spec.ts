@@ -2,87 +2,34 @@ import { test, expect } from './fixtures';
 
 test.skip(process.env.KRAMA_AI_VERIFY !== '1', 'Real provider checks require KRAMA_AI_VERIFY=1');
 
-test.describe('Grounded AI Assist Verification', () => {
-  test('Grounded AI Assist answers questions and composes text via the configured provider', async ({ page, account }) => {
-    await account.signIn(page);
+test('Grounded AI answers from a document and saves composed text', async ({ page, account }) => {
+  const space = await account.call('POST', 'spaces', { name: 'Synthetic AI verification' }, 201);
+  const document = await account.call('POST', 'documents', {
+    title: 'Synthetic launch specification', spaceId: space.id,
+    contentJson: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The synthetic verification launch code is SAPPHIRE42.' }] }] },
+  }, 201);
+  await account.signIn(page);
+  await page.goto(`/app/brain?doc=${document.id}`);
+  await expect(page.getByLabel('Document title')).toHaveValue(document.title);
+  await page.getByRole('button', { name: 'AI Assist', exact: true }).click();
+  const panel = page.getByRole('complementary', { name: 'AI Assist', exact: true });
+  await expect(panel).toBeVisible();
+  const askResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith(`/documents/${document.id}/ai/ask`));
+  await panel.getByLabel('Question about this document').fill('What is the synthetic verification launch code? Reply with just the code.');
+  await panel.getByLabel('Question about this document').press('Enter');
+  const asked = await askResponse; expect(asked.status()).toBe(200); await asked.finished();
+  expect(await asked.text()).toContain('data: [DONE]');
+  await expect(panel.locator('.whitespace-pre-wrap')).toContainText('SAPPHIRE42', { timeout: 30000 });
 
-    // 2. Navigate to Brain Workspace
-    await page.goto('/app/brain');
-    await page.waitForLoadState('networkidle');
-
-    // 3. Ensure a document exists or create one
-    const createNewSpecBtn = page.locator('button:has-text("Create New Spec")').first();
-    if (await createNewSpecBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await createNewSpecBtn.click();
-    } else {
-      const addDocBtn = page.locator('button:has-text("Add Document")').first();
-      await addDocBtn.click();
-    }
-
-    const createDocInput = page.getByPlaceholder('e.g. System Architecture Spec, API Contract...');
-    await expect(createDocInput).toBeVisible({ timeout: 5000 });
-    await createDocInput.fill('KRAMA Architecture Specification');
-    await page.locator('button:has-text("Create Document")').click();
-
-    // 4. Wait for document editor and click AI Assist button
-    const aiAssistBtn = page.locator('button:has-text("AI Assist")').first();
-    await expect(aiAssistBtn).toBeVisible({ timeout: 10000 });
-    await aiAssistBtn.click();
-
-    // 5. Verify Grounded AI Assist drawer opens
-    await expect(page.locator('text=Grounded AI Assist').first()).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('button:has-text("Ask Notes")').first()).toBeVisible();
-
-    // 6. Test Ask Notes
-    const questionInput = page.locator('input[placeholder="Ask anything about this spec..."]');
-    await expect(questionInput).toBeVisible();
-    await questionInput.fill('What is this specification? Reply in one short sentence.');
-    await questionInput.press('Enter');
-
-    // Verify response arrives and NO error toast is shown
-    await expect(page.locator('text=AI Q&A failed')).not.toBeVisible({ timeout: 3000 });
-    
-    // Wait for the AI output container to appear
-    const outputContainer = page.locator('.whitespace-pre-wrap').first();
-    await expect(outputContainer).toBeVisible({ timeout: 20000 });
-
-    // Wait until stream text length > 10
-    await expect.poll(async () => {
-      const text = await outputContainer.textContent();
-      return text ? text.length : 0;
-    }, { timeout: 20000 }).toBeGreaterThan(10);
-
-    const outputText = await outputContainer.textContent();
-    console.log('AI Ask Output (full):', outputText);
-
-    // Screenshot working Ask Notes
-    await page.screenshot({ path: test.info().outputPath('ai-assist-ask-working.png') });
-
-    // 7. Test Compose & Refine tab
-    await page.locator('button:has-text("Compose & Refine")').click();
-    const instructionInput = page.locator('textarea[placeholder*="e.g. Outline deployment"]');
-    await expect(instructionInput).toBeVisible();
-    await instructionInput.fill('Write a 2-bullet summary for an executive review.');
-
-    const generateBtn = page.locator('button:has-text("Generate with AI")');
-    await generateBtn.click();
-
-    // Verify no compose failure toast
-    await expect(page.locator('text=AI Compose failed')).not.toBeVisible({ timeout: 3000 });
-
-    // Wait for compose output text to stream
-    const composeContainers = page.locator('.whitespace-pre-wrap');
-    await expect(composeContainers.first()).toBeVisible({ timeout: 20000 });
-
-    await expect.poll(async () => {
-      const text = await composeContainers.first().textContent();
-      return text ? text.length : 0;
-    }, { timeout: 25000 }).toBeGreaterThan(10);
-
-    const composeText = await composeContainers.first().textContent();
-    console.log('AI Compose Output (full):', composeText);
-
-    // Screenshot working Compose & Refine
-    await page.screenshot({ path: test.info().outputPath('ai-assist-compose-working.png') });
-  });
+  await panel.getByRole('button', { name: 'Compose & Refine', exact: true }).click();
+  await panel.getByLabel('Writing instruction').fill('Write exactly this short sentence: Synthetic verification complete.');
+  const composeResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith(`/documents/${document.id}/ai/compose`));
+  await panel.getByRole('button', { name: 'Generate with AI', exact: true }).click();
+  const composed = await composeResponse; expect(composed.status()).toBe(200); await composed.finished();
+  expect(await composed.text()).toContain('data: [DONE]');
+  await expect(panel.locator('.whitespace-pre-wrap')).toContainText('Synthetic verification complete', { timeout: 30000 });
+  await panel.getByRole('button', { name: 'Insert at Cursor', exact: true }).click();
+  await expect.poll(async () => (await account.call('GET', `documents/${document.id}`)).contentMarkdown).toContain('Synthetic verification complete');
+  await page.reload();
+  await expect(page.locator('.tiptap')).toContainText('Synthetic verification complete');
 });
