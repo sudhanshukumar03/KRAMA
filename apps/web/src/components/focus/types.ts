@@ -12,7 +12,7 @@ export interface SessionSlot {
   projectName: string | null;
   label: string;
   timeBlockId: string | null;
-  scheduledStart?: string;
+
 }
 
 export interface FocusScheduleData {

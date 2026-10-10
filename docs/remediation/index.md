@@ -10,7 +10,7 @@ This is not advice. Every instruction below is written to be applied literally, 
 
 ## 1. How to Use This Doc Set
 
-Twelve files, each scoped to one subsystem. Each file is self-contained: scope, priority map, hard rules, numbered issues (symptom → root cause → exact file/line → exact fix → verification), a cleanup list, and a completion checklist. Execute one file at a time, top to bottom, run its checklist, then move to the next file in the **Global Execution Order** below. Do not jump ahead to a later file's issue because it looks related — cross-references are called out explicitly where they exist.
+Each subsystem document records its scope, findings, repairs and verification.
 
 | # | File | Subsystem | Scope & Primary Objectives | Priority | Status |
 |---|---|---|---|---|---|
@@ -19,11 +19,11 @@ Twelve files, each scoped to one subsystem. Each file is self-contained: scope, 
 | **02** | `02-SECURITY-AND-IDOR.md` | Security & Access Control | Eliminate unvalidated `x-workspace-id` header trust, enforce RBAC on all mutation routes (POST/PATCH/DELETE), mitigate IDOR & DoS | **P1** | **COMPLETED** |
 | **03** | `03-AI-AND-RAG.md` | AI Gateway & RAG Retrieval | Resolve live model outages (replace invalid model names with current Google GenAI models), route through `AiService` gateway with `AiRequest` logging, pgvector HNSW indexing, filter `deletedAt: null`, wire assistant UI actions | **P0 / P2** | **COMPLETED** |
 | **05** | `05-BRAIN-KNOWLEDGE-BASE.md` | Brain & Knowledge Base | Prevent QuickCapture silent data loss, unified `Document` & `Space` architecture, PostgreSQL GIN full-text search trigger, soft-delete cascades | **P0 / P1** | Next Up |
-| **06** | `06-PLANNER-AND-CALENDAR.md` | Planner & Calendar | Fix holiday capacity math (deduct 8h workday instead of 1h dummy block), fix Milestone unique query constraints, timezone-aligned daily log creation (P2002 avoidance) | **P0 / P2** | **COMPLETED** |
-| **04** | `04-KANBAN-AND-SPRINTS.md` | Kanban & Sprint Execution | Align `CANCELED` status enum (eliminate `CANCELLED` silent failures), burndown chart time-series calculation, optimistic drag-and-drop state | **P1 / P2** | **COMPLETED** |
-| **07** | `07-HABITS-AND-GOALS.md` | Habits & Strategic Goals | Fix goal `version` OCC Zod 400 outage, migrate OKR pace math server-side, timezone-aligned habit streak evaluation | **P0 / P2** | **COMPLETED** |
+| **06** | `06-PLANNER-AND-CALENDAR.md` | Planner & Calendar | Fix holiday capacity math, Milestone unique query constraints and timezone-aligned daily log creation; supply sourced 2026 holiday calendars for all 36 Indian states/UTs (PLAN-06) | **P0 / P2** | Completed; [PLAN-06 verified for 2026](06-PLANNER-AND-CALENDAR.md#plan-06-complete-state-and-union-territory-holiday-dates) |
+| **04** | `04-KANBAN-AND-SPRINTS.md` | Kanban & Sprint Execution | Status columns, version-safe task edits/order, drafts, scheduling, discussion, links, mobile controls and recovery; earlier Sprint repairs | **P1 / P2** | [COMPLETE — 15 Board follow-up repairs verified](04-KANBAN-AND-SPRINTS.md#9-execution-board-follow-up--2026-10-07) |
+| **07** | `07-HABITS-AND-GOALS.md` | Habits & Strategic Goals | Goal hierarchy/link isolation, atomic edits, progress rollups, safe Undo, personal habit checkoffs, draft retention and accessible forms | **P1 / P2** | [COMPLETE — 15 follow-up repairs verified](07-HABITS-AND-GOALS.md#5-goals-and-habits-follow-up--2026-10-07) |
 | **08** | `08-REALTIME-EVENTS.md` | Realtime Events & Bus | Dispatch domain events *post-transaction*, activate `socketService.emitToUser()` for notifications & cross-tab sync, remove hardcoded user fallbacks | **P1** | **COMPLETED** |
-| **09** | `09-DASHBOARD-AND-ANALYTICS.md` | Dashboard & Analytics | Render computed `activeStreaks` and `okrPace` in UI, single-query dashboard metrics aggregation, distinguish unlogged vs zero-effort days | **P2** | **COMPLETED** |
+| **09** | `09-DASHBOARD-AND-ANALYTICS.md` | Dashboard & Analytics | Live reporting, focus/task controls, filters, detail navigation, chart modes, snapshot scope, history recovery and responsive UI | **P1 / P2** | [COMPLETE — 26 follow-up repairs verified](09-DASHBOARD-AND-ANALYTICS.md#7-dashboard-and-analytics-ui-follow-up--2026-10-07) |
 | **10** | `10-DEAD-CODE-REMOVAL.md` | Dead Code Pruning | Safely prune uncalled Automations engine, drop orphaned models (`Certification`, `CareerMilestone`), remove dead route endpoints | **P3** | **COMPLETED** |
 | **11** | `11-FOCUS-MODE-FEATURE.md` | Focus Mode Feature | Full-screen focus timer, ambient wallpaper & sound generator, cross-tab socket synchronization, automatic deep work timeblock attribution | **Feature (Additive)** | **COMPLETED** |
 

@@ -1,104 +1,120 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { prisma } from '../prisma';
+import { buildFocusSchedule, isValidTimerPreferences, normalizeTimerPreferences } from '../services/focusTimer.service';
+import { getUserLocalDateStr, resolveUserTimeZone } from '../services/habitStreak.service';
+import {
+  canonicalDay,
+  createDateTime,
+  toHHmm,
+  localDayBoundsUtc,
+} from '../services/plannerTime';
 
-describe('Tier 1: Focus Planner Timer Algorithm Unit Tests', () => {
-  it('correctly calculates pomodoro counts and cycle expansion for work blocks', () => {
-    const focusDuration = 25;
-    const shortBreak = 5;
-    const longBreak = 15;
-    const longBreakAfter = 4;
+// The focus schedule and the time-block move both depend on pure, exported
+// helpers. These test those helpers directly (no DB), covering the focus-timer
+// day-bounds fix (A4) and the move-block recompute (A1).
 
-    // A 90 min task estimate should yield 4 pomodoros (ceil(90 / 25) = 4)
-    const estimateMinutes = 90;
-    const pomodoroCount = Math.max(1, Math.ceil(estimateMinutes / focusDuration));
-    assert.equal(pomodoroCount, 4, '90 minutes task should expand to 4 pomodoros');
+describe('Tier 1: Focus schedule local day-bounds (A4)', () => {
+  it('windows the user LOCAL day, not the server-UTC day', () => {
+    // 2026-09-18T20:00Z is still Sep 18 in UTC but already Sep 19 in Kolkata.
+    // A server computing "today" in UTC would build the wrong day's schedule.
+    const now = new Date('2026-09-18T20:00:00.000Z');
+    const tz = resolveUserTimeZone({ countryCode: 'IN' });
+    assert.equal(tz, 'Asia/Kolkata');
 
-    // Emulate cycle generation
-    const slots: any[] = [];
-    let pomodoroIdx = 0;
-    for (let p = 0; p < pomodoroCount; p++) {
-      slots.push({ type: 'pomodoro', durationMin: focusDuration });
-      pomodoroIdx++;
-      const isLast = p === pomodoroCount - 1;
-      if (!isLast) {
-        const isLong = pomodoroIdx % longBreakAfter === 0;
-        slots.push({ type: isLong ? 'long_break' : 'short_break', durationMin: isLong ? longBreak : shortBreak });
-      }
-    }
+    const key = getUserLocalDateStr(now, tz);
+    assert.equal(key, '2026-09-19', 'local day is Sep 19 for the Kolkata user');
 
-    assert.equal(slots.length, 7, '4 pomodoros with 3 intermediate breaks should yield 7 slots');
-    assert.equal(slots[0].type, 'pomodoro');
-    assert.equal(slots[1].type, 'short_break');
-    assert.equal(slots[2].type, 'pomodoro');
-    assert.equal(slots[3].type, 'short_break');
-    assert.equal(slots[4].type, 'pomodoro');
-    assert.equal(slots[5].type, 'short_break');
-    assert.equal(slots[6].type, 'pomodoro');
+    const { start, end } = localDayBoundsUtc(key);
+    assert.equal(start.toISOString(), '2026-09-19T00:00:00.000Z');
+    assert.equal(end.toISOString(), '2026-09-19T23:59:59.999Z');
+
+    // A block created for that local day is stored at canonical UTC noon and
+    // must fall inside the window.
+    const blockDate = canonicalDay(new Date('2026-09-19T12:00:00.000Z'));
+    assert.ok(blockDate >= start && blockDate <= end, 'noon-keyed block is inside the day window');
   });
 
-  it('triggers a long break after the configured interval', () => {
-    const focusDuration = 25;
-    const longBreakAfter = 2; // trigger after every 2 pomodoros
+  it('falls back to UTC bounds when no timezone is resolvable', () => {
+    const tz = resolveUserTimeZone(null);
+    assert.equal(tz, 'UTC');
+    const { start, end } = localDayBoundsUtc(getUserLocalDateStr(new Date('2026-09-19T03:00:00.000Z'), tz));
+    assert.equal(start.toISOString(), '2026-09-19T00:00:00.000Z');
+    assert.equal(end.toISOString(), '2026-09-19T23:59:59.999Z');
+  });
+});
 
-    const pomodoroCount = 4;
-    const slots: any[] = [];
-    let pomodoroIdx = 0;
+describe('Tier 1: Time-block move recompute (A1)', () => {
+  it('carries existing start/end times to the new day on a date-only move', () => {
+    // Existing block: 2026-09-21, 09:00–10:30 (stored UTC instants).
+    const existingStart = new Date('2026-09-21T09:00:00.000Z');
+    const existingEnd = new Date('2026-09-21T10:30:00.000Z');
 
-    for (let p = 0; p < pomodoroCount; p++) {
-      slots.push({ type: 'pomodoro' });
-      pomodoroIdx++;
-      if (p < pomodoroCount - 1) {
-        const isLong = pomodoroIdx % longBreakAfter === 0;
-        slots.push({ type: isLong ? 'long_break' : 'short_break' });
-      }
-    }
+    // PATCH body carries only a new date (drag to another day).
+    const bodyDate = new Date('2026-09-23T12:00:00.000Z');
 
-    // slot 0: pomodoro (1st)
-    // slot 1: short_break
-    // slot 2: pomodoro (2nd) -> break after is long break!
-    // slot 3: long_break
-    // slot 4: pomodoro (3rd)
-    // slot 5: short_break
-    // slot 6: pomodoro (4th)
-    assert.equal(slots[1].type, 'short_break');
-    assert.equal(slots[3].type, 'long_break');
-    assert.equal(slots[5].type, 'short_break');
+    const date = canonicalDay(bodyDate);
+    const newStart = createDateTime(date, toHHmm(existingStart));
+    const newEnd = createDateTime(date, toHHmm(existingEnd));
+
+    assert.equal(newStart.toISOString(), '2026-09-23T09:00:00.000Z', 'start follows to the new day');
+    assert.equal(newEnd.toISOString(), '2026-09-23T10:30:00.000Z', 'end follows to the new day');
+    // Regression guard for the move-block bug: the instants must NOT stay on the old day.
+    assert.notEqual(newStart.toISOString(), existingStart.toISOString());
   });
 
-  it('enforces daily capacity cap and trims excess sessions', () => {
-    const focusDuration = 25;
-    const remainingMinutes = 60; // only 60 minutes remaining for today
+  it('rebuilds both instants on the new day when only startTime is resent', () => {
+    const existingStart = new Date('2026-09-21T09:00:00.000Z');
+    const existingEnd = new Date('2026-09-21T10:30:00.000Z');
+    const bodyDate = new Date('2026-09-23T12:00:00.000Z');
+    const bodyStartTime = '11:15';
 
-    // Candidate plan has 4 pomodoros (100 min)
-    const rawPlan = [
-      { type: 'pomodoro', durationMin: 25 },
-      { type: 'short_break', durationMin: 5 },
-      { type: 'pomodoro', durationMin: 25 },
-      { type: 'short_break', durationMin: 5 },
-      { type: 'pomodoro', durationMin: 25 },
-      { type: 'short_break', durationMin: 5 },
-      { type: 'pomodoro', durationMin: 25 },
-    ];
+    const date = canonicalDay(bodyDate);
+    const newStart = createDateTime(date, bodyStartTime ?? toHHmm(existingStart));
+    const newEnd = createDateTime(date, toHHmm(existingEnd));
 
-    let plannedFocus = 0;
-    const cappedPlan: any[] = [];
-    for (const slot of rawPlan) {
-      if (slot.type === 'pomodoro') {
-        if (plannedFocus + slot.durationMin > remainingMinutes && cappedPlan.some(s => s.type === 'pomodoro')) {
-          break;
-        }
-        plannedFocus += slot.durationMin;
-      }
-      cappedPlan.push(slot);
+    assert.equal(newStart.toISOString(), '2026-09-23T11:15:00.000Z', 'resent start time applies on new day');
+    assert.equal(newEnd.toISOString(), '2026-09-23T10:30:00.000Z', 'omitted end keeps its wall-clock on new day');
+  });
+
+  it('canonicalDay anchors any instant to UTC noon; toHHmm round-trips UTC wall-clock', () => {
+    assert.equal(canonicalDay(new Date('2026-09-21T23:45:12.000Z')).toISOString(), '2026-09-21T12:00:00.000Z');
+    assert.equal(toHHmm(new Date('2026-09-21T09:05:00.000Z')), '09:05');
+    assert.equal(toHHmm(new Date('2026-09-21T00:00:00.000Z')), '00:00');
+  });
+});
+
+describe('Focus schedule resource bounds', () => {
+  it('normalizes stored timer preferences and rejects malformed update values', () => {
+    assert.deepEqual(normalizeTimerPreferences({ focusDuration: 0.000001, shortBreak: 2.5, longBreakAfter: 100 }), {
+      focusDuration: 25, shortBreak: 5, longBreak: 15, longBreakAfter: 4,
+    });
+    assert.equal(isValidTimerPreferences({ focusDuration: 1, shortBreak: 1, longBreak: 1, longBreakAfter: 16 }), true);
+    assert.equal(isValidTimerPreferences({ focusDuration: 0.000001 }), false);
+    assert.equal(isValidTimerPreferences({ focusDuration: 25, unexpected: 1 }), false);
+  });
+
+  it('caps generated entries before expanding an extreme synthetic task estimate', async () => {
+    const original = {
+      user: (prisma as any).user,
+      timeBlock: (prisma as any).timeBlock,
+      task: (prisma as any).task,
+      focusSession: (prisma as any).focusSession,
+      project: (prisma as any).project,
+    };
+    (prisma as any).user = { findUnique: async () => ({ weeklyCapacityMinutes: 2400, metadata: null, countryCode: 'IN' }) };
+    (prisma as any).timeBlock = { findMany: async () => [] };
+    (prisma as any).task = { findMany: async () => [{ id: 'large', title: 'Large estimate', estimateMinutes: 1_000_000_000, projectId: null }] };
+    (prisma as any).focusSession = { findMany: async () => [] };
+    (prisma as any).project = { findMany: async () => [] };
+    try {
+      const result = await buildFocusSchedule('user', 'workspace', { focusDuration: 1, shortBreak: 1, longBreak: 1, longBreakAfter: 4 }, 'UTC');
+      assert.ok(result.plan.length <= 200);
+      assert.ok(result.plan.length >= 199);
+      assert.ok(result.totalFocusMinutes <= result.remainingMinutes);
+      assert.ok(result.plan.every(slot => Number.isFinite(slot.durationMin) && slot.durationMin > 0));
+    } finally {
+      Object.assign(prisma as any, original);
     }
-
-    // Trim trailing break if capped
-    while (cappedPlan.length > 0 && cappedPlan[cappedPlan.length - 1].type !== 'pomodoro') {
-      cappedPlan.pop();
-    }
-
-    assert.equal(plannedFocus, 50, 'Should cap at 2 pomodoros (50 min) within 60 min limit');
-    assert.equal(cappedPlan[cappedPlan.length - 1].type, 'pomodoro', 'Plan should not end with a dangling break');
-    assert.equal(cappedPlan.filter(s => s.type === 'pomodoro').length, 2);
   });
 });

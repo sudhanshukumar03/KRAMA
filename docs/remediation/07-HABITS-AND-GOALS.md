@@ -1,5 +1,7 @@
 # 07 — Habits, Routines & Strategic Goals (OKR) Architecture
 
+**Current status:** COMPLETE for the 2026-10-07 Goals/Habits follow-up. The earlier repairs below remain historical context.
+
 **Priority:** P2 (all three issues are correctness bugs, not outages — but each silently corrupts user-facing state over time)  
 **Cross-reference:** `06-PLANNER-AND-CALENDAR.md` PLAN-04 (planner routine checkoffs route through `habitService`)  
 **Touches:** `apps/server/src/services/habit.service.ts`, `apps/web/src/components/Goals.tsx`, `apps/server/src/services/goal.service.ts`
@@ -68,3 +70,21 @@ Stop off-schedule habit completions from crashing, stop goal creation from silen
 - [x] Goal creation preserves a chosen `PAUSED`/`CANCELED` status instead of forcing `ACTIVE` (GOAL-01).
 - [x] Goal edits enforce `version`-based optimistic locking on both frontend and backend (GOAL-02).
 - [x] Deleting or restoring a Key Result recomputes its parent Objective's progress immediately (GOAL-03).
+
+## 5. Goals and Habits follow-up — 2026-10-07
+
+- [x] Validate workspace/active-state parent and habit goal links; reject cycles and conflicting request scope (GH-01/02).
+- [x] Enforce atomic Goal/Habit version checks (GH-03).
+- [x] Recalculate weighted progress after child moves/weight changes and last-child removal (GH-04).
+- [x] Cascade deletion at any depth and restore only descendants removed by that deletion (GH-05).
+- [x] Recompute automatic progress for both goals on task moves and on task restoration; reject manual overrides (GH-06).
+- [x] Preserve form/drawer drafts and their starting versions through background changes (GH-07).
+- [x] Report partial link failures and support retry without duplicate goal creation (GH-08).
+- [x] Repair dialogs, keyboard controls, field labels, mobile scrolling and error recovery (GH-09/10).
+- [x] Preserve Habit metadata and validate canonical completion dates (GH-11/12).
+- [x] Separate member completion histories/streaks and serialize duplicate checkoffs (GH-13/14).
+- [x] Retain failed Habit drafts and refresh Planner/open Goal detail after changes (GH-15).
+
+Ten live Goals/Habits regressions and sixteen existing progress/streak calculation tests passed. All nine live Projects regressions and the live Planner suite passed after the shared changes. Frontend/backend builds and workspace lint passed. Test-owned accounts/workspaces and queued fixtures were removed. No migration was needed. See the audit for exact checks and remaining manual-testing limits.
+
+Goal deletion continues to disconnect projects/habits by design. Undo restores the deleted goal hierarchy, including only that deletion's descendants; associations can be relinked afterwards. Earlier deleted child goals stay deleted.

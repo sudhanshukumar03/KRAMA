@@ -1,0 +1,138 @@
+/* Dashboard and Analytics share hierarchy without changing the workspace shell. */
+.insights-page .insights-header {
+  border-color: var(--border-subtle);
+  box-shadow: none;
+}
+.insights-header h1 {
+  font-size: 24px;
+  line-height: 1.3;
+  letter-spacing: -0.035em;
+}
+.insights-page h2 { letter-spacing: -0.015em; }
+.insights-report {
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.insights-page .insights-toolbar {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 16px 20px;
+}
+.insights-metrics {
+  display: grid;
+  border-top: 1px solid var(--border-default);
+}
+.insights-page .insights-metric {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 20px;
+}
+.insights-metric + .insights-metric { border-top: 1px solid var(--border-default); }
+.insights-metric .insights-value {
+  font-size: 36px;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+}
+.insights-metric .insights-description { font-size: 13px; }
+.insights-snapshot { padding: 0 4px; }
+.insights-snapshot h2 { font-size: 13px; margin-bottom: 12px; }
+.insights-snapshot button { padding: 8px; }
+.insights-page .insights-chart,
+.insights-page .insights-panel {
+  border-color: var(--border-subtle);
+  box-shadow: none;
+}
+.insights-chart h2,
+.insights-panel h2 { font-size: 18px; line-height: 1.5; }
+.insights-empty-chart {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.insights-empty-chart > svg { width: 20px; height: 20px; flex-shrink: 0; }
+.insights-empty-chart p { flex: 1; min-width: 150px; }
+.insights-empty-chart button { text-align: left; }
+.insights-page .insights-disclosure {
+  background: transparent;
+  border-radius: 0;
+  border-width: 1px 0;
+  border-color: var(--border-default);
+  box-shadow: none;
+  padding: 8px 4px;
+}
+.insights-workspace-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 16px;
+  padding: 0 4px;
+}
+.insights-workspace-summary button {
+  min-height: 56px;
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+.insights-workspace-summary button:hover { background: var(--state-hover); }
+.insights-workspace-summary .insights-count {
+  margin-left: auto;
+  font-size: 20px;
+  font-weight: 600;
+}
+.insights-page .insights-focus {
+  border-color: var(--border-default);
+  padding: 20px;
+}
+.insights-focus h3 { font-size: 28px; line-height: 1.35; }
+.insights-focus-empty { text-align: left; padding: 12px 0 4px; }
+.insights-focus-empty > svg { display: none; }
+.insights-focus-empty > p:first-of-type {
+  font-size: 28px;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+.insights-secondary .insights-panel {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border-default);
+  border-radius: 0;
+  padding: 4px 4px 20px;
+}
+.insights-capture button { background: var(--surface-1); border-color: var(--border-subtle); }
+.insights-support-list { border-width: 0 0 1px; border-radius: 0; padding: 12px 0; }
+.insights-support-list:last-child { border: 0; margin-bottom: 0; }
+@media (min-width: 640px) {
+  .insights-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .insights-metric + .insights-metric {
+    border-top: 0;
+    border-left: 1px solid var(--border-default);
+  }
+  .insights-page .insights-metric { padding: 24px; }
+  .insights-page .insights-focus { padding: 24px; }
+}
+@media (min-width: 1280px) {
+  .insights-workspace-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .insights-workspace-summary button + button { border-left: 1px solid var(--border-default); border-radius: 0; }
+}
+@media (max-width: 639px) {
+  .insights-header h1 { font-size: 22px; }
+  .insights-page .insights-toolbar { padding: 16px; }
+  .insights-metric .insights-value { font-size: 28px; }
+  .insights-focus h3,
+  .insights-focus-empty > p:first-of-type { font-size: 24px; }
+  .insights-empty-chart button { margin-left: 32px; }
+}

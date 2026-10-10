@@ -40,9 +40,14 @@ export function calculateCapacity(weeklyCapacityMinutes: number, blocks: TimeBlo
     0
   );
 
-  const meetingMinutes = blocks
-    .filter((block) => block.type === 'MEETING')
-    .reduce((total, block) => total + durationMinutes(block.startTime, block.endTime), 0);
+  // Merge the MEETING subset before summing so overlapping meetings aren't
+  // double-counted (which could push meetingMinutes above occupiedMinutes and
+  // make otherMinutes clamp to 0 incorrectly).
+  const meetingMinutes = mergeIntervals(
+    blocks
+      .filter((block) => block.type === 'MEETING')
+      .map((block) => ({ start: block.startTime, end: block.endTime }))
+  ).reduce((total, interval) => total + durationMinutes(interval.start, interval.end), 0);
 
   const freeMinutes = Math.max(0, weeklyCapacityMinutes - occupiedMinutes);
 

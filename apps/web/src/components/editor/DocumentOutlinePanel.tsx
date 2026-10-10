@@ -59,7 +59,7 @@ export function DocumentOutlinePanel({ editor, isOpen, onClose }: DocumentOutlin
   return (
     <div
       ref={panelRef}
-      className="absolute top-16 right-6 z-30 w-72 max-h-[70vh] bg-surface/95 backdrop-blur-md border border-border rounded-2xl shadow-xl p-4 flex flex-col font-sans animate-in fade-in zoom-in-95 duration-150"
+      className="absolute top-16 right-2 md:right-6 z-30 w-72 max-w-[calc(100%-1rem)] max-h-[70vh] bg-surface/95 backdrop-blur-md border border-border rounded-2xl shadow-xl p-4 flex flex-col font-sans animate-in fade-in zoom-in-95 duration-150"
     >
       <div className="flex items-center justify-between pb-3 border-b border-border/80 text-secondary">
         <div className="flex items-center gap-2 text-caption font-mono font-bold uppercase tracking-wider text-primary">

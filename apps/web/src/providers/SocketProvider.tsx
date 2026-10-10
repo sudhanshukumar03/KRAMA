@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { SocketContext } from '../hooks/useSocket';
+import { api } from '../api/client';
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -12,10 +13,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { accessToken } = useAuth();
 
   useEffect(() => {
-    const rawToken = accessToken || localStorage.getItem('krama_token');
+    const rawToken = accessToken;
     if (!rawToken) return;
 
-    const cleanToken = rawToken.replace(/^"(.*)"$/, '');
+    const cleanToken = rawToken.replace(/^"(.*)"$/, '$1');
 
     const socketInstance = io('/', {
       auth: { token: cleanToken },
@@ -26,9 +27,21 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.log('Real-time connection established');
       setIsConnected(true);
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
     });
+
+    socketInstance.on('planner:changed', () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+    });
+    socketInstance.on('document:version:created', (data: { documentId: string }) => queryClient.invalidateQueries({ queryKey: ['document-versions', data.documentId] }));
+    socketInstance.on('preferences:updated', () => queryClient.invalidateQueries({ queryKey: ['focus-schedule'] }));
 
     socketInstance.on('disconnect', () => {
       console.log('Real-time connection lost');
@@ -36,32 +49,90 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     socketInstance.on('notification', (data) => {
-      toast(data.title, { description: data.message });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      toast(data.title, { description: data.message });
+    });
+    socketInstance.on('connect_error', (error) => {
+      if (error.message.includes('Token expired')) {
+        api.auth.refresh().catch(() => window.dispatchEvent(new Event('krama:logout')));
+      }
+    });
+    socketInstance.on('session:ended', ({ reason }: { reason: string }) => {
+      if (reason === 'revoked') window.dispatchEvent(new Event('krama:logout'));
+      else api.auth.refresh({ reuseExisting: reason === 'rotated' }).catch(() => window.dispatchEvent(new Event('krama:logout')));
     });
 
-    socketInstance.on('task:updated', () => {
+    const invalidateTasksAndGoals = () => {
+      queryClient.invalidateQueries({ queryKey: ['task'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+    };
 
-    socketInstance.on('task:created', () => {
+    socketInstance.on('task:updated', invalidateTasksAndGoals);
+    socketInstance.on('task:created', invalidateTasksAndGoals);
+    socketInstance.on('task:deleted', invalidateTasksAndGoals);
+
+    const invalidateProjectsAndGoals = () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['sprints'] });
-    });
+    };
 
-    socketInstance.on('task:deleted', () => {
-      queryClient.invalidateQueries({ queryKey: ['issues'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['sprints'] });
-    });
+    socketInstance.on('project:created', invalidateProjectsAndGoals);
+    socketInstance.on('project:updated', invalidateProjectsAndGoals);
+    socketInstance.on('project:deleted', invalidateProjectsAndGoals);
+    socketInstance.on('project:restored', invalidateProjectsAndGoals);
+
+    const invalidateHabitsAndGoals = () => {
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+    };
+
+    socketInstance.on('habit:created', invalidateHabitsAndGoals);
+    socketInstance.on('habit:updated', invalidateHabitsAndGoals);
+    socketInstance.on('habit:deleted', invalidateHabitsAndGoals);
+    socketInstance.on('habit:logged', invalidateHabitsAndGoals);
+    socketInstance.on('habit:unlogged', invalidateHabitsAndGoals);
+    socketInstance.on('habit:restored', invalidateHabitsAndGoals);
+
+    const invalidateGoals = (data?: { goalId?: string }) => {
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      if (data?.goalId) {
+        queryClient.invalidateQueries({ queryKey: ['goal', data.goalId] });
+      }
+    };
+
+    socketInstance.on('goal:created', invalidateGoals);
+    socketInstance.on('goal:updated', invalidateGoals);
+    socketInstance.on('goal:deleted', invalidateGoals);
+    socketInstance.on('goal:restored', invalidateGoals);
 
     socketInstance.on('focus:session:completed', () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
       queryClient.invalidateQueries({ queryKey: ['analytics'] });
     });
 

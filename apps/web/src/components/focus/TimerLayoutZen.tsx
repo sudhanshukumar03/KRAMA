@@ -71,13 +71,13 @@ export const TimerLayoutZen: React.FC<TimerLayoutProps> = ({
               className={`px-3 py-1 text-xs font-light tracking-wider rounded-full transition-all cursor-pointer ${mode === 'clock' ? 'bg-white text-black font-normal' : 'text-white/60 hover:text-white'}`}>CLOCK</button>
           </div>
         ) : (
-          <div className="flex items-center gap-2 p-1 bg-black/40 backdrop-blur-2xl rounded-full border border-emerald-500/20 shadow-2xl px-3">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-            <span className="text-[11px] font-mono text-emerald-300 tracking-wider">
+          <div className="flex items-center gap-2 p-1 bg-black/40 backdrop-blur-2xl rounded-full border border-success-border shadow-2xl px-3">
+            <span className="w-1.5 h-1.5 rounded-full bg-success-fg animate-pulse shrink-0" />
+            <span className="text-[11px] font-mono text-success-fg tracking-wider">
               {mode === 'pomodoro' ? 'FLOW' : mode === 'short_break' ? 'REST' : mode === 'long_break' ? 'RECOVERY' : 'BREAK'}
             </span>
             {taskTitle && (<><span className="text-white/20 text-xs">•</span><span className="text-[11px] font-mono text-white/70 max-w-[220px] truncate">{taskTitle}</span></>)}
-            <span className="text-[10px] font-mono text-white/40 ml-1">({currentSlotIndex + 1}/{totalSlots})</span>
+            {totalSlots > 0 && <span className="text-[10px] font-mono text-white/40 ml-1">({currentSlotIndex + 1}/{totalSlots})</span>}
           </div>
         )}
 
@@ -131,7 +131,7 @@ export const TimerLayoutZen: React.FC<TimerLayoutProps> = ({
             <button
               type="button"
               onClick={handleToggleTimer}
-              className="group relative focus:outline-none cursor-pointer bg-transparent border-0 p-0 text-center transition-transform duration-200 active:scale-98"
+              className="group relative focus:outline-none cursor-pointer bg-transparent border-0 p-0 text-center transition-transform duration-200 active:scale-[0.98]"
               title={isActive ? 'Click or press Enter to pause' : 'Click or press Enter to start'}
             >
               <span

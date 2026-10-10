@@ -1,6 +1,8 @@
 import { Worker, Job } from 'bullmq';
 import { connection } from '../lib/redis';
 import { QUEUE_NAMES } from '../queues';
+import { snapshotDocument } from '../services/documentContent.service';
+import { socketService } from '../services/socket.service';
 import { prisma } from '../prisma';
 
 export const documentVersionWorker = new Worker(
@@ -8,24 +10,9 @@ export const documentVersionWorker = new Worker(
   async (job: Job<{ documentId: string; userId: string; contentJson: any }>) => {
     const { documentId, userId, contentJson } = job.data;
     
-    // Find highest version number for this document
-    const latestVersion = await prisma.documentVersion.findFirst({
-      where: { documentId },
-      orderBy: { versionNumber: 'desc' },
-    });
-
-    const nextVersion = (latestVersion?.versionNumber || 0) + 1;
-
-    await prisma.documentVersion.create({
-      data: {
-        documentId,
-        versionNumber: nextVersion,
-        contentJson,
-        editedById: userId,
-      }
-    });
-
-    console.log(`[DocumentVersionWorker] Snapshot created for doc ${documentId}, version ${nextVersion}`);
+    const version = await prisma.$transaction(tx => snapshotDocument(tx, documentId, userId, contentJson, job.id));
+    const doc = await prisma.document.findUnique({ where: { id: documentId }, select: { space: { select: { workspaceId: true } } } });
+    if (doc) socketService.emitToWorkspace(doc.space.workspaceId, 'document:version:created', { documentId, versionId: version.id });
   },
   { connection, concurrency: 5 }
 );

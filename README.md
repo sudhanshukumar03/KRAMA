@@ -169,26 +169,59 @@ KRAMA is built as a single-tenant, local-first web app.
 # 1. Clone the repository
 git clone <repo-url> && cd krama
 
-# 2. Install dependencies (requires pnpm >= 9.0.0)
-pnpm install
-
-# 3. Start infrastructure — Postgres & Redis
-# Note: Docker must be running. The local setup is lightweight (< 500MB).
-docker compose up -d db redis
-
-# 4. Set up the database and environment variables
-cd apps/server
+# 2. Configure the root environment for Docker
 cp .env.example .env
-npx prisma db push
-npx prisma generate
+# Replace the PostgreSQL and Redis passwords with independent random values.
+# Set JWT_SECRET to a random string of at least 48 characters.
+# Keep DATABASE_URL/REDIS_URL aligned with those credentials.
+# Supply valid optional provider keys, or leave them blank.
 
-# 5. Run the full stack
-cd ../..
+# 3. Build and start the complete stack
+# The migration job must succeed before the API and workers start.
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+This Docker setup serves the app on `http://localhost:8080`. Its data lives in the
+production Compose volumes, separately from the development data stores. Editing
+`.env` does not change passwords inside an existing database or Redis instance.
+Back up existing data and reconcile its migration history before reusing it with
+new credentials. Use committed migrations rather than `prisma db push` for deployment.
+
+For host development, use Node 20.19+, 22.12+, or 24 and the pinned pnpm 9.15.0.
+Configure `apps/server/.env` with database and Redis URLs reachable from the host,
+then run the following after those local services are available:
+
+```bash
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+pnpm install --frozen-lockfile
+pnpm --filter server exec prisma generate
+pnpm --filter server db:deploy
+pnpm -r run build
 pnpm dev
 ```
 
+Frontend tests are grouped by purpose: `e2e/unit` contains module regressions,
+`e2e/mocked` contains browser scenarios with mocked APIs, and `e2e/live` contains
+scenarios that require a dedicated test backend. Run `pnpm exec playwright install
+chromium` once, then `pnpm test:ui` for the module and mocked browser checks.
+CI installs Chromium and runs those checks automatically. Live scenarios use
+`pnpm test:e2e` with isolated test database/Redis settings and the relevant opt-in
+flags; use `pnpm test:e2e --list` to inspect them without starting test services.
+The four real AI/embedding checks also require `KRAMA_AI_VERIFY=1` and provider
+credentials on the isolated backend; they are skipped during local-only checks.
+Live tests share worker-scoped backend connections through `e2e/live/fixtures.ts`;
+each scenario removes its own records and jobs before the worker closes connections.
+For the dedicated live-test API, set `AUTH_RATE_LIMIT_MAX=500` and
+`REFRESH_RATE_LIMIT_MAX=500` so repeated synthetic sign-ins fit the full suite.
+
+Planner HTTP routes delegate database operations and calculations to
+`apps/server/src/services/planner.service.ts`. Frontend cards and dialogs live
+beside their features in `components/kanban`, `components/projects`, and
+`components/habits`; Today View's queries and actions live in `useTodayPlanner`.
+
 <div align="center">
-  Then visit <code>http://localhost:5173</code> to launch KRAMA OS. 🎉
+  For host development, visit <code>http://localhost:5173</code> to launch KRAMA OS. 🎉
 </div>
 
 ---

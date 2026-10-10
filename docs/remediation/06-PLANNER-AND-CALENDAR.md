@@ -88,3 +88,25 @@ Fix the two crashes that block daily log creation entirely (missing `workspaceId
 - [x] Milestone update/delete no longer throw Prisma validation errors, and enforce per-user ownership via `findFirst` (PLAN-03).
 - [x] Routine checkoffs from the Planner increment real habit streaks via `habitService`, not a local upsert (PLAN-04).
 - [x] Week view returns exactly the requested day range, not always 7; unscheduled tasks are genuinely surfaced as backlog (PLAN-05).
+
+---
+
+## 5. Regional Holiday Repair
+
+### PLAN-06: Complete State and Union Territory Holiday Dates
+
+**Priority:** P2
+
+**Status:** COMPLETE for 2026 — implemented and verified 2026-10-07.
+
+The original location picker contained all 28 Indian states and 8 union territories but no annual holiday dataset. The original provider check returned 71 national entries and no usable regional entries for any of the 36 locations.
+
+Added a sourced 2026 snapshot covering all 36 locations. Thirty-two calendars use Office Holidays' published subscription feeds; four use government holiday tables. Source references accompany the records. The regional provider is wired into sync, the holiday endpoint and weekly capacity. A full regional calendar replaces conflicting central dates. Optional, bank-only, district-only and observance dates do not reduce statewide capacity.
+
+- [x] Supply dated regional calendars for all 36 locations for 2026, validate dates/location/source references and distinguish public holidays from optional dates and observances.
+- [x] Verify all 36 through sync and the live API, check state date precedence, public-holiday capacity, and visible Month/Week results. National copies cannot count as regional coverage.
+- [x] Full-location coverage and live calendar/capacity checks passed. Missing-data notices remain for unsupported years.
+
+Validation: 16 focused checks, nine browser regressions, the live API/browser suite, production builds and lint passed. Disposable verification accounts and workspaces were removed. Coverage is an annual published-calendar snapshot, not a claim that every later statutory amendment has been independently checked. Future years require their own sourced dataset.
+
+Maintenance: [dataset notes](../../apps/server/src/services/holidays/data/README.md).

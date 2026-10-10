@@ -77,15 +77,15 @@ export const WikiLinkMenu = forwardRef<WikiLinkMenuRef, WikiLinkMenuProps>((prop
                 isSelected ? "bg-surface-hover text-primary" : "text-secondary hover:text-primary"
               )}
             >
-              <div className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0">
-                <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <div className="w-6 h-6 rounded-md bg-cat-projects-bg border border-cat-projects/20 flex items-center justify-center shrink-0">
+                <FileText className="w-3.5 h-3.5 text-cat-projects shrink-0" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-[12px] font-medium truncate leading-tight text-primary">
                   {doc.title || 'Untitled Document'}
                 </div>
                 <div className="text-[10px] font-mono text-muted flex items-center gap-1.5 mt-0.5">
-                  <span className="text-blue-500 bg-blue-500/10 uppercase font-bold text-[9px] px-1 py-0.2 rounded">
+                  <span className="text-cat-projects bg-cat-projects-bg border border-cat-projects/20 uppercase font-bold text-[9px] px-1 py-0.2 rounded">
                     {doc.documentType || 'DOC'}
                   </span>
                   {doc.wordCount !== undefined && (

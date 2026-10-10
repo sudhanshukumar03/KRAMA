@@ -1,342 +1,106 @@
-import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import '../styles/insights.css';
+import { analyticsCsv } from '../lib/analyticsCsv';
+import { useMemo } from 'react';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import {
-  TrendingUp,
-  Zap,
-  Flame,
-  Target,
-  Clock,
-  Activity,
-  CheckCircle2,
-  Brain
-} from 'lucide-react';
+import { Download, RefreshCw, ArrowRight, Clock, CheckCircle2, CalendarDays, TrendingUp } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 import { api } from '../api/client';
-import { cn } from '../lib/utils';
+import { cn, parseLocalDate } from '../lib/utils';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { LoadingState } from './ui/LoadingState';
 import { ErrorState } from './ui/ErrorState';
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from 'recharts';
+import { PageHeader } from './ui/PageHeader';
 
 type RangeOption = '7d' | '30d' | '90d';
+const number = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+const hours = (minutes: number) => minutes > 0 && minutes < 6 ? '< 0.1' : number(minutes / 60);
+const sessionLabel = (type: string) => ({ pomodoro: 'Focus session', custom: 'Custom focus', short_break: 'Short break', long_break: 'Long break' }[type] || 'Focus session');
 
 export function AnalyticsPage() {
-  const [range, setRange] = useState<RangeOption>('30d');
-
-  const { data: analytics = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ['analytics', 'overview', range],
-    queryFn: () => api.analytics.overview(range),
-    staleTime: 30_000,
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rangeParam = searchParams.get('range');
+  const range: RangeOption = rangeParam === '7d' || rangeParam === '90d' ? rangeParam : '30d';
+  const trend = searchParams.get('trend') === 'rolling' ? 'rolling' : 'daily';
+  const setRange = (next: RangeOption) => setSearchParams(previous => {
+    const params = new URLSearchParams(previous); params.set('range', next); return params;
   });
-
-  const { data: focusHistory = [] } = useQuery({
-    queryKey: ['analytics', 'focus-history', range],
-    queryFn: () => api.analytics.focusHistory(range),
-    staleTime: 30_000,
+  const setTrend = (next: 'daily' | 'rolling') => setSearchParams(previous => {
+    const params = new URLSearchParams(previous); params.set('trend', next); return params;
   });
-
-  const latestStats = useMemo(() => {
-    if (!analytics.length) {
-      return {
-        weeklyVelocity: 0,
-        activeStreaks: 0,
-        okrPace: 0,
-        deepWorkLogged: 0,
-      };
-    }
-    const last = analytics[analytics.length - 1];
-    return {
-      weeklyVelocity: last.weeklyVelocity || 0,
-      activeStreaks: last.activeStreaks || 0,
-      okrPace: Math.round(last.okrPace || 0),
-      deepWorkLogged: last.deepWorkLogged || 0,
-    };
-  }, [analytics]);
-
-  const totalDeepWorkHours = useMemo(() => {
-    const totalMinutes = analytics.reduce((sum: number, item: any) => sum + (item.deepWorkLogged || 0), 0);
-    return (totalMinutes / 60).toFixed(1);
-  }, [analytics]);
-
-  const chartData = useMemo(() => {
-    return analytics.map((item: any) => ({
-      date: format(new Date(item.date), range === '7d' ? 'EEE' : 'MMM d'),
-      rawDate: item.date,
-      velocity: item.weeklyVelocity || 0,
-      deepWorkHours: Number(((item.deepWorkLogged || 0) / 60).toFixed(1)),
-      streaks: item.activeStreaks || 0,
-      okrPace: Math.round(item.okrPace || 0),
-    }));
-  }, [analytics, range]);
-
-  if (isLoading) {
-    return <LoadingState variant="dashboard" title="Aggregating workspace analytics..." description="Calculating velocity, deep work, streaks, and OKR pace..." />;
-  }
-
-  if (isError) {
-    return <ErrorState message="Failed to load analytics" onRetry={() => refetch()} />;
-  }
-
-  return (
-    <div className="h-full w-full max-w-[1360px] mx-auto px-6 sm:px-8 lg:px-12 pt-6 pb-12 flex flex-col overflow-y-auto min-h-0 animate-in fade-in duration-200">
-      {/* Header & Range Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="p-1.5 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
-              Analytics & Velocity
-            </h1>
-          </div>
-          <p className="text-xs sm:text-sm text-secondary">
-            Continuous operational telemetry: velocity, deep work, streak consistency, and strategic OKR pace.
-          </p>
+  const dailyDataOpen = searchParams.get('data') === '1';
+  const setDailyDataOpen = (open: boolean) => setSearchParams(previous => {
+    const params = new URLSearchParams(previous);
+    if (open) params.set('data', '1'); else params.delete('data');
+    return params;
+  }, { replace: true });
+  const navigate = useNavigate();
+  const reducedMotion = useReducedMotion();
+  const overview = useQuery({ queryKey: ['analytics', 'overview', range], queryFn: () => api.analytics.overview(range), staleTime: 30_000, retry: 1, refetchInterval: 60_000 });
+  const history = useInfiniteQuery({ queryKey: ['analytics', 'focus-history', range], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.analytics.focusHistory(range, pageParam), getNextPageParam: page => page.nextCursor || undefined, staleTime: 30_000, retry: 1, refetchInterval: 60_000 });
+  const rows = useMemo(() => overview.data || [], [overview.data]);
+  const sessions = history.data?.pages.flatMap(page => page.sessions) || [];
+  const latest = rows.at(-1);
+  const totals = useMemo(() => ({ completed: rows.reduce((sum, row) => sum + row.completedTasks, 0), focus: rows.reduce((sum, row) => sum + row.deepWorkLogged, 0), logged: rows.reduce((sum, row) => sum + (row.loggedDeepWork || 0), 0), loggedDays: rows.filter(row => row.loggedDeepWork !== null).length }), [rows]);
+  const chart = useMemo(() => rows.map(row => ({ ...row, label: format(parseLocalDate(row.dayKey)!, range === '7d' ? 'EEE, MMM d' : 'MMM d'), focusHours: row.deepWorkLogged / 60, loggedHours: row.loggedDeepWork === null ? null : row.loggedDeepWork / 60 })), [rows, range]);
+  const hasTaskTrend = chart.some(row => (trend === 'daily' ? row.completedTasks : row.weeklyVelocity) > 0);
+  const hasWorkTime = totals.focus > 0 || totals.loggedDays > 0;
+  const chartDate = (_label: unknown, payload: readonly any[]) => {
+    const day = payload?.[0]?.payload?.dayKey;
+    return day ? format(parseLocalDate(day)!, 'EEE, MMM d, yyyy') : '';
+  };
+  const refresh = () => { void overview.refetch(); void history.refetch(); };
+  const exportCsv = () => {
+    const blob = new Blob([analyticsCsv(rows)], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `krama-analytics-${range}-${latest?.dayKey || 'report'}.csv`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+  return <div className="insights-page h-full overflow-y-auto min-h-0 bg-canvas"><div className="max-w-[1360px] mx-auto p-4 sm:p-6 md:p-8 space-y-6">
+    <PageHeader className="insights-header" icon={TrendingUp} title="Analytics" description="Understand your progress, then decide what to do next." />
+    <section className="insights-report" aria-label="Selected calendar report">
+    <section aria-label="Report controls" className="insights-toolbar krama-card p-3 sm:p-4">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] xl:grid-cols-[auto_1fr_auto] items-center gap-3">
+        <div className="grid grid-cols-3 w-full sm:w-fit bg-surface-hover border border-border rounded-xl p-1" role="group" aria-label="Analytics time range">
+          {(['7d', '30d', '90d'] as RangeOption[]).map(option => <button type="button" key={option} aria-pressed={range === option} onClick={() => setRange(option)} className={cn('min-h-11 px-2 sm:px-4 rounded-lg text-caption font-medium', range === option ? 'bg-accent text-on-accent' : 'text-secondary hover:bg-surface')}>{option.replace('d', ' days')}</button>)}
         </div>
-
-        {/* Range Segmented Control */}
-        <div className="flex items-center bg-surface border border-border rounded-xl p-1 shadow-2xs self-start sm:self-auto">
-          {(['7d', '30d', '90d'] as RangeOption[]).map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setRange(opt)}
-              className={cn(
-                'px-3.5 py-1.5 text-xs font-mono font-medium rounded-lg transition-all',
-                range === opt
-                  ? 'bg-primary text-primary-foreground shadow-xs font-semibold'
-                  : 'text-secondary hover:text-primary hover:bg-surface-hover'
-              )}
-            >
-              {opt === '7d' ? '7 Days' : opt === '30d' ? '30 Days' : '90 Days'}
-            </button>
-          ))}
+        <div className="order-3 xl:order-2 sm:col-span-2 xl:col-span-1 text-xs text-secondary space-y-1 border-t xl:border-t-0 border-border pt-3 xl:pt-0 xl:pl-3">
+          <p>{latest ? `${format(parseLocalDate(rows[0].dayKey)!, 'MMM d, yyyy')} – ${format(parseLocalDate(latest.dayKey)!, 'MMM d, yyyy')} · Includes today` : 'Choose 7, 30 or 90 calendar days.'}</p>
+          <p role="status">{overview.isFetching ? 'Updating report...' : overview.dataUpdatedAt ? `Report updated ${format(new Date(overview.dataUpdatedAt), 'h:mm a')}` : 'Report not loaded'}</p>
+        </div>
+        <div className="order-2 xl:order-3 flex items-center gap-2">
+          <button type="button" aria-label="Refresh analytics" title="Refresh analytics" onClick={refresh} disabled={overview.isFetching || history.isFetching} className="min-h-11 min-w-11 rounded-lg border border-border flex items-center justify-center text-secondary hover:bg-surface-hover disabled:opacity-50"><RefreshCw className={cn('w-4 h-4', (overview.isFetching || history.isFetching) && 'animate-spin')} aria-hidden="true" /></button>
+          <button type="button" onClick={exportCsv} disabled={!rows.length || overview.isError || overview.isFetching} className="min-h-11 flex-1 sm:flex-none px-3 rounded-lg border border-border text-caption text-primary inline-flex justify-center items-center gap-2 disabled:opacity-50"><Download className="w-4 h-4" aria-hidden="true" />Export CSV</button>
         </div>
       </div>
-
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {/* Card 1: Weekly Velocity */}
-        <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between text-secondary mb-3">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold">Weekly Velocity</span>
-            <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-500">
-              <Zap className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold font-mono text-primary">{latestStats.weeklyVelocity}</span>
-            <span className="text-xs text-secondary font-mono">tasks / wk</span>
-          </div>
-          <p className="text-xs text-secondary mt-2 flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5 text-success-fg" />
-            Completed over last 7 days
-          </p>
-        </div>
-
-        {/* Card 2: Deep Work */}
-        <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between text-secondary mb-3">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold">Total Deep Work</span>
-            <div className="p-1.5 rounded-md bg-teal-500/10 text-teal-500">
-              <Brain className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold font-mono text-primary">{totalDeepWorkHours}</span>
-            <span className="text-xs text-secondary font-mono">hours</span>
-          </div>
-          <p className="text-xs text-secondary mt-2 flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5 text-teal-500" />
-            {latestStats.deepWorkLogged} mins logged today
-          </p>
-        </div>
-
-        {/* Card 3: Active Streaks */}
-        <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between text-secondary mb-3">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold">Active Streaks</span>
-            <div className="p-1.5 rounded-md bg-amber-500/10 text-amber-500">
-              <Flame className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold font-mono text-primary">{latestStats.activeStreaks}</span>
-            <span className="text-xs text-secondary font-mono">habits alive</span>
-          </div>
-          <p className="text-xs text-secondary mt-2 flex items-center gap-1">
-            <Activity className="w-3.5 h-3.5 text-amber-500" />
-            Routines maintained continuously
-          </p>
-        </div>
-
-        {/* Card 4: OKR Pace */}
-        <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between text-secondary mb-3">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold">OKR Strategic Pace</span>
-            <div className="p-1.5 rounded-md bg-purple-500/10 text-purple-500">
-              <Target className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold font-mono text-primary">{latestStats.okrPace}%</span>
-            <span className="text-xs text-secondary font-mono">avg progress</span>
-          </div>
-          <div className="w-full bg-surface-hover rounded-full h-1.5 mt-3 overflow-hidden">
-            <div
-              className="bg-purple-500 h-1.5 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, Math.max(0, latestStats.okrPace))}%` }}
-            />
-          </div>
-        </div>
+    </section>
+    {overview.isError && overview.data !== undefined && <div role="alert" className="rounded-xl border border-warning-border bg-warning-bg p-4 flex flex-wrap items-center justify-between gap-3"><div><p className="text-caption font-semibold text-warning-fg">Could not refresh report</p><p className="text-xs text-warning-fg mt-1">Showing the last loaded report. Retry to get the latest values.</p></div><button type="button" onClick={() => overview.refetch()} className="min-h-11 px-3 rounded-lg border border-warning-border text-caption text-warning-fg">Retry report</button></div>}
+    {overview.isLoading ? <LoadingState variant="dashboard" title="Loading analytics..." /> : overview.isError && overview.data === undefined ? <ErrorState title="Could not load analytics" onRetry={() => overview.refetch()} /> : <>
+      <div className="insights-metrics" aria-label="Analytics summary">
+        {[
+          { title: 'Completed tasks', value: totals.completed, description: `Workspace tasks in this ${range.replace('d', '-day')} range`, Icon: CheckCircle2 },
+          { title: 'Your focus hours', value: hours(totals.focus), description: 'Completed work sessions; breaks excluded', Icon: Clock },
+          { title: 'Your Planner log hours', value: totals.loggedDays ? hours(totals.logged) : '—', description: totals.loggedDays ? `${totals.loggedDays} ${totals.loggedDays === 1 ? 'day' : 'days'} with a recorded log` : 'No Planner deep-work logs in this range', Icon: CalendarDays },
+        ].map(({ title, value, description, Icon }) => <section key={title} className="insights-metric krama-card min-w-0 grid grid-cols-[1fr_auto] sm:block gap-x-4"><div className="flex justify-between gap-2 col-start-1"><h2 className="text-sm text-secondary">{title}</h2><Icon className="hidden sm:block w-4 h-4 text-secondary shrink-0" aria-hidden="true" /></div><p className="insights-value text-3xl font-semibold tracking-tight tabular-nums text-primary col-start-2 row-start-1 row-span-2 self-center sm:mt-3">{value}</p><p className="insights-description text-xs text-secondary leading-relaxed col-start-1 mt-1 sm:mt-3">{description}</p></section>)}
       </div>
-
-      {/* Main Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Chart 1: Task Velocity Trend */}
-        <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-primary">Task Velocity Over Time</h2>
-              <p className="text-xs text-secondary">Rolling 7-day completed task count</p>
-            </div>
-            <div className="text-xs font-mono text-secondary bg-surface-hover px-2.5 py-1 rounded-md">
-              {range.toUpperCase()}
-            </div>
-          </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="velocityGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border" />
-                <XAxis dataKey="date" tickLine={false} stroke="currentColor" className="text-muted text-[11px] font-mono" />
-                <YAxis tickLine={false} stroke="currentColor" className="text-muted text-[11px] font-mono" allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--color-surface, #1e1e2d)',
-                    borderColor: 'var(--color-border, #333)',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    color: 'var(--color-primary, #fff)',
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="velocity"
-                  name="Completed Tasks"
-                  stroke="#6366F1"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#velocityGrad)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Chart 2: Deep Work Distribution */}
-        <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-primary">Daily Deep Work Hours</h2>
-              <p className="text-xs text-secondary">Hours recorded via planner daily logs</p>
-            </div>
-            <div className="text-xs font-mono text-secondary bg-surface-hover px-2.5 py-1 rounded-md">
-              HOURS / DAY
-            </div>
-          </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border" />
-                <XAxis dataKey="date" tickLine={false} stroke="currentColor" className="text-muted text-[11px] font-mono" />
-                <YAxis tickLine={false} stroke="currentColor" className="text-muted text-[11px] font-mono" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--color-surface, #1e1e2d)',
-                    borderColor: 'var(--color-border, #333)',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    color: 'var(--color-primary, #fff)',
-                  }}
-                />
-                <Bar
-                  dataKey="deepWorkHours"
-                  name="Deep Work (hrs)"
-                  fill="#0D9488"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+    </>}
+    </section>
+    {!overview.isLoading && !(overview.isError && overview.data === undefined) && <>
+      <section aria-label="Current workspace snapshot" className="insights-snapshot"><h2 className="text-sm font-semibold text-primary mb-3">Current snapshot <span className="font-normal text-secondary">· As of today</span></h2><div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{[
+        { title: 'Weekly velocity', value: latest?.weeklyVelocity || 0, description: 'Workspace tasks completed in the last 7 days', path: '/app/board' },
+        { title: 'Your active streaks', value: latest?.activeStreaks || 0, description: 'Current streaks for your habit checkoffs', path: '/app/habits' },
+        { title: 'Goal progress', value: latest?.okrPace == null ? '—' : `${latest.okrPace}%`, description: latest?.goalCount ? `Average of ${latest.goalCount} top-level workspace goals` : 'Create a goal to track progress', path: '/app/goals' },
+      ].map(item => <button key={item.title} type="button" onClick={() => navigate(item.path)} className="min-h-11 text-left rounded-lg hover:bg-surface-hover p-2 -m-2 min-w-0"><div className="flex items-center justify-between gap-2"><span className="text-sm text-secondary">{item.title}</span><span className="text-lg font-semibold text-primary tabular-nums">{item.value}</span></div><p className="text-xs text-secondary mt-1 leading-relaxed">{item.description}</p></button>)}</div></section>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+        <section className="insights-chart krama-card p-4 sm:p-5 min-w-0" aria-label="Task velocity chart"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-base font-semibold text-primary">Task completion trend</h2><div className="flex rounded-lg bg-surface-hover p-1" role="group" aria-label="Task trend measure">{(['daily', 'rolling'] as const).map(mode => <button key={mode} type="button" aria-pressed={trend === mode} onClick={() => setTrend(mode)} className={cn('min-h-11 px-3 rounded-md text-xs', trend === mode ? 'bg-surface text-primary font-medium shadow-xs' : 'text-secondary')}>{mode === 'daily' ? 'Daily' : '7-day rolling'}</button>)}</div></div><p className="text-xs text-secondary mt-2 mb-4">{trend === 'daily' ? 'Tasks completed each day in this range.' : 'Rolling 7-day count, including days before the selected range.'}</p><div className={hasTaskTrend ? "h-64" : ""}>{hasTaskTrend ? <ResponsiveContainer width="100%" height="100%"><AreaChart key={`${range}-${trend}`} accessibilityLayer data={chart} margin={{ left: -12, right: 12, top: 12, bottom: 4 }}><CartesianGrid stroke="var(--color-border)" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="label" minTickGap={32} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--color-secondary)' }} /><YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--color-secondary)' }} /><Tooltip labelFormatter={chartDate} formatter={(value: any, name: any) => [`${number(Number(value))} tasks`, name]} contentStyle={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', color: 'var(--color-primary)' }} /><Area type="monotone" dataKey={trend === 'daily' ? 'completedTasks' : 'weeklyVelocity'} name={trend === 'daily' ? 'Completed tasks' : '7-day completed tasks'} stroke="var(--color-accent)" strokeWidth={2} fill="var(--color-accent)" fillOpacity={0.12} isAnimationActive={!reducedMotion} /></AreaChart></ResponsiveContainer> : <div className="insights-empty-chart"><CheckCircle2 className="w-7 h-7 text-secondary" aria-hidden="true" /><p className="text-sm text-secondary">{trend === 'daily' ? 'No tasks completed in this selected range.' : 'No completed tasks in these rolling windows.'}</p><button type="button" onClick={() => navigate('/app/board')} className="min-h-11 text-sm text-accent-fg">Open Execution Board</button></div>}</div></section>
+        <section className="insights-chart krama-card p-4 sm:p-5 min-w-0" aria-label="Focus and Planner chart"><h2 className="text-base font-semibold text-primary">Your daily work time</h2><p className="text-xs text-secondary mt-1 mb-4">Timer sessions and Planner logs are separate measures and may overlap.</p><div className={hasWorkTime ? "h-64" : ""}>{hasWorkTime ? <ResponsiveContainer width="100%" height="100%"><BarChart key={range} accessibilityLayer data={chart} margin={{ left: -12, right: 12, top: 12, bottom: 4 }}><CartesianGrid stroke="var(--color-border)" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="label" minTickGap={32} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--color-secondary)' }} /><YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--color-secondary)' }} /><Tooltip labelFormatter={chartDate} formatter={(value: any, name: any) => [`${number(Number(value) * 60)} min`, name]} contentStyle={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', color: 'var(--color-primary)' }} /><Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} /><Bar dataKey="focusHours" name="Focus hours" fill="var(--color-accent)" radius={[3, 3, 0, 0]} isAnimationActive={!reducedMotion} /><Bar dataKey="loggedHours" name="Planner log hours" fill="var(--color-chart-2)" radius={[3, 3, 0, 0]} isAnimationActive={!reducedMotion} /></BarChart></ResponsiveContainer> : <div className="insights-empty-chart"><Clock className="w-7 h-7 text-secondary" aria-hidden="true" /><p className="text-sm text-secondary">No work time recorded in this range.</p><button type="button" onClick={() => navigate('/focus')} className="min-h-11 text-sm text-accent-fg">Record a focus session</button></div>}</div></section>
       </div>
-
-      {/* Focus Session Log History */}
-      <div className="bg-surface border border-border rounded-xl p-5 shadow-2xs flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-base font-semibold text-primary">Recent Focus Sessions</h2>
-            <p className="text-xs text-secondary">Recorded Pomodoro and flow blocks in this workspace</p>
-          </div>
-          <div className="text-xs font-mono text-secondary">
-            {focusHistory.length} Sessions Logged
-          </div>
-        </div>
-
-        {focusHistory.length === 0 ? (
-          <div className="py-12 flex flex-col items-center justify-center text-center text-muted">
-            <Clock className="w-8 h-8 mb-2 opacity-50" />
-            <p className="text-sm font-medium">No focus sessions recorded in this time range.</p>
-            <p className="text-xs mt-1">Start a timer from Focus Mode to build your deep work history.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border">
-            {focusHistory.slice(0, 10).map((session: any) => (
-              <div key={session.id} className="py-3 flex items-center justify-between hover:bg-surface-hover/50 px-2 rounded-lg transition-colors">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-600 flex items-center justify-center shrink-0">
-                    <Clock className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-primary truncate">
-                      {session.task?.title || session.project?.name || 'Unlinked Focus Session'}
-                    </p>
-                    <p className="text-xs text-secondary font-mono">
-                      {session.startTime ? format(new Date(session.startTime), 'MMM d, yyyy · h:mm a') : 'Recently'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-surface-hover text-primary">
-                    {session.duration ? `${Math.round(session.duration / 60)} min` : 'Completed'}
-                  </span>
-                  {session.completed ? (
-                    <span className="text-[11px] text-teal-600 font-mono font-medium">DONE</span>
-                  ) : (
-                    <span className="text-[11px] text-muted font-mono">PARTIAL</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+      <details open={dailyDataOpen} onToggle={event => { const open = event.currentTarget.open; if (open !== dailyDataOpen) setDailyDataOpen(open); }} className="insights-disclosure krama-card p-4 sm:p-5"><summary className="min-h-11 cursor-pointer text-sm font-medium text-primary">View daily data ({rows.length} days)</summary><p className="text-xs text-secondary my-3">A dash means no Planner log was recorded. Older tasks without a completion timestamp use their last update date.</p><div role="region" aria-label="Scrollable daily analytics" tabIndex={0} className="overflow-x-auto rounded-lg"><table className="w-full text-sm text-left whitespace-nowrap"><caption className="sr-only">Daily analytics values for the selected calendar range</caption><thead><tr>{['Date', 'Completed tasks', '7-day tasks', 'Focus minutes', 'Planner minutes', 'Your streaks'].map(column => <th key={column} scope="col" className="py-3 pr-5 text-secondary font-medium">{column}</th>)}</tr></thead><tbody>{rows.map(row => <tr key={row.dayKey} className="border-t border-border"><th scope="row" className="py-3 pr-5 font-normal text-primary">{row.dayKey}</th><td>{row.completedTasks}</td><td>{row.weeklyVelocity}</td><td>{number(row.deepWorkLogged)}</td><td>{row.loggedDeepWork === null ? '—' : row.loggedDeepWork}</td><td>{row.activeStreaks}</td></tr>)}</tbody></table></div></details>
+    </>}
+    <section className="insights-panel krama-card p-4 sm:p-5 min-w-0"><div className="flex flex-wrap justify-between items-center gap-3 mb-4"><div><h2 className="text-base font-semibold text-primary">Your focus history</h2><p className="text-xs text-secondary mt-1">Work sessions, breaks and partial sessions in this range.</p></div><button type="button" onClick={() => navigate('/focus')} className="text-sm text-accent-fg min-h-11 inline-flex items-center gap-1">Start Focus<ArrowRight className="w-4 h-4" aria-hidden="true" /></button></div>
+      {history.isLoading && <p role="status" className="text-sm text-secondary">Loading focus history...</p>}
+      {history.isError && <ErrorState title={history.isFetchNextPageError ? 'Could not load more sessions' : 'Could not load focus history'} message={history.isFetchNextPageError ? 'Your loaded sessions are still available. Retry to load the next page.' : 'Check your connection and try again.'} onRetry={() => history.isFetchNextPageError ? history.fetchNextPage() : history.refetch()} />}
+      {!history.isLoading && !history.isError && sessions.length === 0 && <p className="text-sm text-secondary py-6">No focus sessions recorded in this range. Start Focus to record your first session.</p>}
+      {sessions.length > 0 && <><p className="text-xs text-secondary mb-3">Showing {sessions.length} of {history.data?.pages[0].total} sessions</p><ul className="divide-y divide-border">{sessions.map(session => <li key={session.id} className="py-4 flex flex-wrap items-center justify-between gap-3"><div className="min-w-0"><p className="text-sm font-medium text-primary break-words">{['short_break', 'long_break'].includes(session.type) ? sessionLabel(session.type) : session.task?.title || session.project?.name || 'Unlinked session'}</p><p className="text-xs text-secondary mt-1">{format(new Date(session.startTime), 'MMM d, yyyy · h:mm a')} · {sessionLabel(session.type)}</p>{!['short_break', 'long_break'].includes(session.type) && (session.task || session.project) && <button type="button" onClick={() => navigate(session.task ? `/app/board?task=${encodeURIComponent(session.task.id)}` : `/app/projects/${session.project!.id}`)} className="min-h-11 text-xs text-accent-fg hover:underline mt-1">{session.task ? 'View task' : 'View project'}</button>}</div><div className="text-right shrink-0"><p className="text-sm text-primary tabular-nums">{session.duration < 60 ? `${number(session.duration)} sec` : `${number(session.duration / 60)} min`}</p><p className="text-xs text-secondary mt-1">{session.completed ? 'Completed' : 'Partial'}</p></div></li>)}</ul>{history.hasNextPage && !history.isFetchNextPageError && <button type="button" onClick={() => history.fetchNextPage()} disabled={history.isFetchingNextPage} className="min-h-11 px-4 rounded-xl border border-border text-sm text-primary mt-4 disabled:opacity-50">{history.isFetchingNextPage ? 'Loading...' : 'Load more sessions'}</button>}</>}
+    </section>
+  </div></div>;
 }

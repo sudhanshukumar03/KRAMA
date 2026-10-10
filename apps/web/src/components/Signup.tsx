@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../api/client';
-import { Hexagon, Loader2 } from 'lucide-react';
+import { Hexagon } from 'lucide-react';
 import { BaseButton } from './ui/BaseButton';
 
 export function Signup() {
@@ -43,14 +43,18 @@ export function Signup() {
 
  <form onSubmit={handleSubmit} className="bg-surface border border-border rounded-[var(--radius-card)] p-6 shadow-[var(--shadow-resting)] space-y-5">
  {error && (
- <div className="text-body text-danger bg-danger/5 border border-danger/20 p-3 rounded-[var(--radius-input)] animate-in fade-in duration-200">
+ <div id="signup-error" role="alert" className="text-body text-danger bg-danger/5 border border-danger/20 p-3 rounded-[var(--radius-input)] animate-in fade-in duration-200">
  {error}
  </div>
  )}
  <div>
- <label className="block text-caption font-mono font-bold text-primary uppercase mb-2">Name</label>
+ <label htmlFor="signup-name" className="block text-caption font-mono font-bold text-primary uppercase mb-2">Name</label>
  <input
  type="text"
+ id="signup-name"
+ name="name"
+ autoComplete="name"
+ aria-describedby={error ? "signup-error" : undefined}
  value={name}
  onChange={(e) => setName(e.target.value)}
  className="w-full px-4 py-3 border border-border rounded-[var(--radius-input)] bg-background text-primary placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all duration-200 ease-out"
@@ -59,9 +63,13 @@ export function Signup() {
  />
  </div>
  <div>
- <label className="block text-caption font-mono font-bold text-primary uppercase mb-2">Email</label>
+ <label htmlFor="signup-email" className="block text-caption font-mono font-bold text-primary uppercase mb-2">Email</label>
  <input
  type="email"
+ id="signup-email"
+ name="email"
+ autoComplete="email"
+ aria-describedby={error ? "signup-error" : undefined}
  value={email}
  onChange={(e) => setEmail(e.target.value)}
  className="w-full px-4 py-3 border border-border rounded-[var(--radius-input)] bg-background text-primary placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all duration-200 ease-out"
@@ -70,19 +78,24 @@ export function Signup() {
  />
  </div>
  <div>
- <label className="block text-caption font-mono font-bold text-primary uppercase mb-2">Password</label>
+ <label htmlFor="signup-password" className="block text-caption font-mono font-bold text-primary uppercase mb-2">Password</label>
  <input
  type="password"
+ id="signup-password"
+ name="password"
+ autoComplete="new-password"
+ aria-describedby={error ? "signup-password-hint signup-error" : "signup-password-hint"}
  value={password}
  onChange={(e) => setPassword(e.target.value)}
  className="w-full px-4 py-3 border border-border rounded-[var(--radius-input)] bg-background text-primary placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all duration-200 ease-out"
  placeholder="••••••••"
  required
- minLength={6}
+ minLength={8}
  />
+ <p id="signup-password-hint" className="mt-2 text-caption text-secondary">Use at least 8 characters and no more than 72 UTF-8 bytes. Non-ASCII characters may use more than one byte.</p>
  </div>
- <BaseButton type="submit" variant="primary" className="w-full justify-center mt-2" disabled={loading}>
- {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign Up'}
+ <BaseButton type="submit" variant="primary" className="w-full justify-center mt-2" isLoading={loading} aria-busy={loading}>
+ {loading ? 'Creating account...' : 'Sign Up'}
  </BaseButton>
  </form>
 

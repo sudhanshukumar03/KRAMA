@@ -2,14 +2,9 @@
 // PLANNER TYPES — KRAMA OS
 // =============================================================================
 
-export type TimeBlockType =
-  | 'MEETING'
-  | 'PERSONAL'
-  | 'STUDY'
-  | 'WORK'
-  | 'HEALTH'
-  | 'ADMIN'
-  | 'OTHER';
+import type { Holiday, TimeBlockType as StoredTimeBlockType } from '@prisma/client';
+
+export type TimeBlockType = StoredTimeBlockType;
 
 interface Routine {
   id: string;
@@ -24,7 +19,7 @@ export interface RoutineOccurrence {
   completedAt?: string | null;
 }
 
-interface PlannerTask {
+export interface PlannerTask {
   id: string;
   title: string;
   completed: boolean;
@@ -32,9 +27,11 @@ interface PlannerTask {
   scheduledDate?: string | null;
   dueDate?: string | null;
   estimateMinutes?: number | null;
+  priority?: string;
+  project?: PlannerProject | null;
 }
 
-interface TimeBlock {
+export interface TimeBlock {
   id: string;
   title: string;
   date: string;
@@ -43,14 +40,25 @@ interface TimeBlock {
   type: TimeBlockType;
   taskId?: string | null;
   projectId?: string | null;
+  notes?: string | null;
+  isExternal?: boolean;
+  isPublicHoliday?: boolean;
+  isOptional?: boolean;
+  source?: string;
 }
 
-interface PlannerProject {
+// Request dates are JSON strings; validated service dates are Date objects.
+export type TimeBlockInput = Pick<TimeBlock, 'title' | 'date' | 'startTime' | 'endTime' | 'type' | 'taskId' | 'projectId' | 'notes'>;
+export type TimeBlockUpdate = Partial<TimeBlockInput>;
+export type MilestoneInput = Pick<Milestone, 'title' | 'date' | 'projectId'>;
+export type MilestoneUpdate = Partial<Pick<Milestone, 'title' | 'date' | 'projectId' | 'completed'>>;
+
+export interface PlannerProject {
   id: string;
   name: string;
 }
 
-interface Milestone {
+export interface Milestone {
   id: string;
   title: string;
   date: string;
@@ -58,20 +66,15 @@ interface Milestone {
   projectId: string;
 }
 
-interface Holiday {
+// A goal whose targetDate falls inside the queried range — surfaced in the
+// planner as a read-only deadline chip (goals are edited from the Goals page,
+// not the planner).
+export interface GoalDeadline {
   id: string;
-  name: string;
-  date: string;
-  countryCode: string;
-  regionCode?: string | null;
-  type:
-    | 'NATIONAL'
-    | 'STATE'
-    | 'REGIONAL'
-    | 'OPTIONAL'
-    | 'INTERNATIONAL'
-    | 'OBSERVANCE';
-  isOptional: boolean;
+  title: string;
+  targetDate: string;
+  progress: number;
+  icon?: string | null;
 }
 
 interface PlannerCapacity {
@@ -81,6 +84,37 @@ interface PlannerCapacity {
   otherMinutes: number;
   freeMinutes: number;
   completionPercent: number;
+  taskCompletionPercent?: number;
+  completedTaskCount?: number;
+  scheduledTaskCount?: number;
+}
+
+export interface MilestoneRange {
+  milestones: Milestone[];
+  goalDeadlines: GoalDeadline[];
+}
+
+interface HolidayCoverage {
+  missingNationalYears: number[];
+  missingRegionalYears: number[];
+}
+
+export interface HolidayCalendar {
+  location: { countryCode: string; regionCode: string | null };
+  holidays: (Omit<Holiday, 'date' | 'createdAt' | 'updatedAt'> & { date: string; createdAt: string; updatedAt: string })[];
+  coverage: HolidayCoverage;
+}
+
+// One day column as emitted by GET /week. The server pre-buckets tasks, blocks,
+// routine occurrences and milestones per day, keyed by the canonical day string.
+export interface PlannerDay {
+  dateKey: string;
+  date: string;
+  occurrences: RoutineOccurrence[];
+  tasks: PlannerTask[];
+  timeBlocks: TimeBlock[];
+  milestones: Milestone[];
+  goalDeadlines?: GoalDeadline[];
 }
 
 export interface PlannerData {
@@ -88,19 +122,18 @@ export interface PlannerData {
   weekEnd: string;
   routines: Routine[];
   occurrences: RoutineOccurrence[];
+  days: PlannerDay[];
   tasks: PlannerTask[];
+  backlog?: PlannerTask[];
   timeBlocks: TimeBlock[];
   projects: PlannerProject[];
   milestones: Milestone[];
-  holidays: Holiday[];
+  goalDeadlines?: GoalDeadline[];
   capacity: PlannerCapacity;
-  syncStatus?: {
-    provider?: string | null;
-    status?: string;
-    lastSyncedAt?: string | null;
-  } | null;
+  workDayMinutes?: number;
   config?: {
     countryCode: string;
     regionCode?: string | null;
   };
+  holidayCoverage?: HolidayCoverage;
 }

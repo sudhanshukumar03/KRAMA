@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { prisma } from '../prisma';
-import { vectorSearch } from './rag/retriever';
+import { vectorSearch, keywordSearch, mergeAndRank } from './rag/retriever';
 import { getEmbedding } from '../lib/embedding';
-import { aiService, GEMINI_MODEL } from './ai.service';
+import { aiService } from './ai.service';
 
 const ResponseTypeSchema = z.enum([
   "direct",
@@ -69,9 +69,8 @@ summary: Requests to summarize KRAMA information.
 
 User: ${message}
 Return ONLY the category word.`;
-    const outputText = await aiService.interactWithGemini({
-      input: prompt,
-      model: GEMINI_MODEL,
+    const outputText = await aiService.complete({
+      prompt,
       workspaceId,
       userId,
     });
@@ -80,12 +79,12 @@ Return ONLY the category word.`;
     return valid.includes(value as AIIntent) ? (value as AIIntent) : "general";
   }
 
-  private async getKramaContext(workspaceId: string, userId: string) {
+  private async getKramaContext(workspaceId: string, _userId: string) {
     const [goals, projects, tasks, blockers] = await Promise.all([
-      prisma.goal.findMany({ where: { workspaceId }, take: 10, orderBy: { createdAt: "desc" } }),
-      prisma.project.findMany({ where: { workspaceId }, take: 10, orderBy: { createdAt: "desc" } }),
-      prisma.task.findMany({ where: { workspaceId, status: { not: "DONE" } }, take: 20, orderBy: { createdAt: "desc" } }),
-      prisma.task.findMany({ where: { workspaceId, blockedById: { not: null } }, take: 10 }),
+      prisma.goal.findMany({ where: { workspaceId, deletedAt: null }, take: 10, orderBy: { createdAt: "desc" } }),
+      prisma.project.findMany({ where: { workspaceId, deletedAt: null }, take: 10, orderBy: { createdAt: "desc" } }),
+      prisma.task.findMany({ where: { workspaceId, deletedAt: null, status: { notIn: ["DONE", "CANCELED"] } }, take: 20, orderBy: { createdAt: "desc" } }),
+      prisma.task.findMany({ where: { workspaceId, deletedAt: null, status: { notIn: ["DONE", "CANCELED"] }, blockedById: { not: null } }, take: 10 }),
     ]);
     return { goals, projects, tasks, blockers };
   }
@@ -156,9 +155,8 @@ Return ONLY valid JSON matching this schema:
   }
 
   private async generateKramaResponse(prompt: string, workspaceId: string, userId: string): Promise<AIResponse> {
-    const raw = await aiService.interactWithGemini({
-      input: prompt,
-      model: GEMINI_MODEL,
+    const raw = await aiService.complete({
+      prompt,
       workspaceId,
       userId,
     });
@@ -186,9 +184,17 @@ Return ONLY valid JSON matching this schema:
 
     let ragContext = "";
     let sourcesList: any[] = [];
-    if (ragEnabled || intent === "knowledge") {
+    if ((ragEnabled || intent === "knowledge") && process.env.GEMINI_API_KEY) {
       const embedding = await getEmbedding(message);
-      const chunks = await vectorSearch(workspaceId, embedding, 8);
+      // Hybrid retrieval: blend semantic (vector) and lexical (keyword) recall,
+      // then fuse with Reciprocal Rank Fusion. Vector-only search misses exact
+      // term/identifier matches that keyword search catches, so this widens recall
+      // before we trim to the top chunks fed to the model.
+      const [vectorResults, keywordResults] = await Promise.all([
+        vectorSearch(workspaceId, embedding, 20),
+        keywordSearch(workspaceId, message, 20),
+      ]);
+      const chunks = mergeAndRank(vectorResults, keywordResults).slice(0, 8);
       ragContext = chunks.map((chunk: any, i: number) => `SOURCE ${i + 1}\nPage ID: ${chunk.pageId || chunk.documentId || ''}\nTitle: ${chunk.title || chunk.pageTitle || ''}\nContent:\n${chunk.content}\n`).join("\n");
       sourcesList = chunks.map((chunk: any) => ({ pageId: chunk.pageId || chunk.documentId || chunk.id, title: chunk.title || chunk.pageTitle || 'Source', chunkId: chunk.id }));
     }

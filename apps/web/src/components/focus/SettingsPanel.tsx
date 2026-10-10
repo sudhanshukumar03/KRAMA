@@ -55,16 +55,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-neutral-900/95 backdrop-blur-2xl border border-white/15 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-white">
+      <div className="w-full max-w-lg krama-dialog rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-primary">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 shrink-0">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border/80 shrink-0">
           <div className="flex items-center gap-2.5">
-            <Sliders className="w-5 h-5 text-purple-400" />
+            <Sliders className="w-5 h-5 text-accent-fg" />
             <h2 className="text-base font-semibold">Timer Configuration</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-full hover:bg-surface-hover text-muted hover:text-primary transition-colors cursor-pointer"
             title="Close"
           >
             <X className="w-5 h-5" />
@@ -74,19 +74,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         {/* Settings Form Body with proper padding & scrolling */}
         <div className="p-6 space-y-6 overflow-y-auto flex-1">
           {/* Numbers Colour Section */}
-          <div className="space-y-3 pb-5 border-b border-white/10">
+          <div className="space-y-3 pb-5 border-b border-border/60">
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-xs font-semibold flex items-center gap-1.5 text-white">
-                  <Palette className="w-4 h-4 text-teal-400" />
+                <label className="text-xs font-semibold flex items-center gap-1.5 text-primary">
+                  <Palette className="w-4 h-4 text-accent-fg" />
                   <span>Numbers Colour</span>
                 </label>
-                <span className="text-[11px] text-white/50">Custom color for timer digits & clock</span>
+                <span className="text-[11px] text-muted">Custom color for timer digits & clock</span>
               </div>
 
               {/* Live Preview Chip */}
               <div
-                className="px-3 py-1 rounded-lg font-mono font-bold text-xs bg-black/70 border border-white/20 tracking-tight shadow-inner"
+                className="px-3 py-1 rounded-lg font-mono font-bold text-xs bg-surface-2 border border-border tracking-tight shadow-inner"
                 style={{ color: localSettings.digitsColor || '#ffffff' }}
               >
                 25:00
@@ -104,7 +104,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       type="button"
                       onClick={() => updateField('digitsColor', preset.hex)}
                       className={`w-7 h-7 rounded-full transition-all flex items-center justify-center cursor-pointer border ${
-                        isSelected ? 'scale-110 border-white ring-2 ring-white/50 shadow-lg' : 'border-white/20 hover:scale-105'
+                        isSelected ? 'scale-110 border-accent ring-2 ring-accent/50 shadow-lg' : 'border-border hover:scale-105'
                       }`}
                       style={{ backgroundColor: preset.hex }}
                       title={preset.name}
@@ -120,7 +120,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               {/* Custom Color Native Picker & Hex Input */}
               <div className="flex items-center gap-2 shrink-0">
                 <label
-                  className="relative w-7 h-7 rounded-full border border-white/30 cursor-pointer overflow-hidden flex items-center justify-center hover:border-white transition-colors shadow-inner shrink-0"
+                  className="relative w-7 h-7 rounded-full border border-border cursor-pointer overflow-hidden flex items-center justify-center hover:border-accent transition-colors shadow-inner shrink-0"
                   title="Pick custom color"
                   style={{ backgroundColor: localSettings.digitsColor || '#ffffff' }}
                 >
@@ -136,7 +136,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   value={localSettings.digitsColor || '#ffffff'}
                   onChange={(e) => updateField('digitsColor', e.target.value)}
                   placeholder="#ffffff"
-                  className="w-20 bg-white/10 border border-white/15 rounded-xl px-2 py-1 text-center font-mono text-xs font-semibold focus:outline-none focus:border-white uppercase"
+                  className="w-20 bg-surface-2 border border-border rounded-xl px-2 py-1 text-center font-mono text-xs font-semibold text-primary focus:outline-none focus:border-accent uppercase"
                   maxLength={7}
                 />
               </div>
@@ -147,8 +147,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block">Focus Duration</label>
-                <span className="text-[11px] text-white/50">Length of each work session</span>
+                <label className="text-xs font-semibold block text-primary">Focus Duration</label>
+                <span className="text-[11px] text-muted">Length of each work session</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <input
@@ -157,16 +157,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   max={120}
                   value={localSettings.focusDuration}
                   onChange={(e) => updateField('focusDuration', Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-16 bg-white/10 border border-white/15 rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold focus:outline-none focus:border-white"
+                  className="w-16 bg-surface-2 border border-border rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold text-primary focus:outline-none focus:border-accent"
                 />
-                <span className="text-xs text-white/60 font-mono w-8 text-left">min</span>
+                <span className="text-xs text-muted font-mono w-8 text-left">min</span>
               </div>
             </div>
 
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block">Short Break</label>
-                <span className="text-[11px] text-white/50">Rest between sessions</span>
+                <label className="text-xs font-semibold block text-primary">Short Break</label>
+                <span className="text-[11px] text-muted">Rest between sessions</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <input
@@ -175,16 +175,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   max={30}
                   value={localSettings.shortBreak}
                   onChange={(e) => updateField('shortBreak', Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-16 bg-white/10 border border-white/15 rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold focus:outline-none focus:border-white"
+                  className="w-16 bg-surface-2 border border-border rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold text-primary focus:outline-none focus:border-accent"
                 />
-                <span className="text-xs text-white/60 font-mono w-8 text-left">min</span>
+                <span className="text-xs text-muted font-mono w-8 text-left">min</span>
               </div>
             </div>
 
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block">Long Break</label>
-                <span className="text-[11px] text-white/50">Extended rest interval</span>
+                <label className="text-xs font-semibold block text-primary">Long Break</label>
+                <span className="text-[11px] text-muted">Extended rest interval</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <input
@@ -193,16 +193,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   max={60}
                   value={localSettings.longBreak}
                   onChange={(e) => updateField('longBreak', Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-16 bg-white/10 border border-white/15 rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold focus:outline-none focus:border-white"
+                  className="w-16 bg-surface-2 border border-border rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold text-primary focus:outline-none focus:border-accent"
                 />
-                <span className="text-xs text-white/60 font-mono w-8 text-left">min</span>
+                <span className="text-xs text-muted font-mono w-8 text-left">min</span>
               </div>
             </div>
 
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block">Custom Timer Sprint</label>
-                <span className="text-[11px] text-white/50">Personal user-decided focus duration</span>
+                <label className="text-xs font-semibold block text-primary">Custom Timer Sprint</label>
+                <span className="text-[11px] text-muted">Personal user-decided focus duration</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <input
@@ -211,16 +211,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   max={360}
                   value={localSettings.customDuration || 45}
                   onChange={(e) => updateField('customDuration', Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-16 bg-white/10 border border-white/15 rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold focus:outline-none focus:border-white"
+                  className="w-16 bg-surface-2 border border-border rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold text-primary focus:outline-none focus:border-accent"
                 />
-                <span className="text-xs text-white/60 font-mono w-8 text-left">min</span>
+                <span className="text-xs text-muted font-mono w-8 text-left">min</span>
               </div>
             </div>
 
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block">Long Break After</label>
-                <span className="text-[11px] text-white/50">Number of pomodoro cycles</span>
+                <label className="text-xs font-semibold block text-primary">Long Break After</label>
+                <span className="text-[11px] text-muted">Number of pomodoro cycles</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <input
@@ -229,56 +229,56 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   max={12}
                   value={localSettings.longBreakAfter}
                   onChange={(e) => updateField('longBreakAfter', Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-16 bg-white/10 border border-white/15 rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold focus:outline-none focus:border-white"
+                  className="w-16 bg-surface-2 border border-border rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold text-primary focus:outline-none focus:border-accent"
                 />
-                <span className="text-xs text-white/60 font-mono w-8 text-left">slots</span>
+                <span className="text-xs text-muted font-mono w-8 text-left">slots</span>
               </div>
             </div>
           </div>
 
-          <div className="border-t border-white/10 pt-4 space-y-4">
+          <div className="border-t border-border/60 pt-4 space-y-4">
             {/* Auto Start Breakers */}
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block">Auto-start Breaks</label>
-                <span className="text-[11px] text-white/50">Begin break immediately after focus</span>
+                <label className="text-xs font-semibold block text-primary">Auto-start Breaks</label>
+                <span className="text-[11px] text-muted">Begin break immediately after focus</span>
               </div>
               <input
                 type="checkbox"
                 checked={localSettings.autoStartBreaks}
                 onChange={(e) => updateField('autoStartBreaks', e.target.checked)}
-                className="w-4 h-4 accent-teal-500 rounded cursor-pointer shrink-0"
+                className="w-4 h-4 accent-accent rounded cursor-pointer shrink-0"
               />
             </div>
 
             {/* Auto Start Pomodoros */}
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block">Auto-start Pomodoros</label>
-                <span className="text-[11px] text-white/50">Begin focus immediately after break</span>
+                <label className="text-xs font-semibold block text-primary">Auto-start Pomodoros</label>
+                <span className="text-[11px] text-muted">Begin focus immediately after break</span>
               </div>
               <input
                 type="checkbox"
                 checked={localSettings.autoStartPomodoros}
                 onChange={(e) => updateField('autoStartPomodoros', e.target.checked)}
-                className="w-4 h-4 accent-teal-500 rounded cursor-pointer shrink-0"
+                className="w-4 h-4 accent-accent rounded cursor-pointer shrink-0"
               />
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-white/10 bg-black/30 flex items-center justify-between">
+        <div className="p-4 border-t border-border/80 bg-surface-2/40 flex items-center justify-between">
           <button
             onClick={handleReset}
-            className="flex items-center gap-1.5 text-xs text-white/60 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 text-xs text-muted hover:text-primary transition-colors cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset to defaults</span>
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-white text-black font-semibold text-xs rounded-xl hover:bg-white/90 transition-colors"
+            className="px-4 py-1.5 bg-accent text-white font-semibold text-xs rounded-xl hover:bg-accent-hover transition-colors cursor-pointer shadow-sm"
           >
             Save & Close
           </button>

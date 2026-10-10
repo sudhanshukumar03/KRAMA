@@ -27,16 +27,16 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-background text-primary p-4">
-          <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+          <AlertCircle className="w-16 h-16 text-danger-fg mb-4" />
           <h1 className="text-2xl font-bold mb-2">Something went wrong</h1>
           <p className="text-secondary max-w-md text-center mb-6">
             An unexpected error occurred. Please try refreshing the page or contact support if the issue persists.
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-on-accent font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer active:scale-[0.98]"
           >
-            Refresh Page
+            Reload Cockpit
           </button>
         </div>
       );

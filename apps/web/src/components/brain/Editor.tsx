@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { EditorFormattingToolbar } from './EditorFormattingToolbar';
+import { useState, useRef, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   Star, FolderKanban, FolderInput, Copy, History, Sparkles, 
   ChevronDown, FileText, FileCode, CheckSquare, ListTree, Check, Plus, 
-  Heading1, Heading2, List, ListOrdered, Code, Quote, Minus, Link2,
-  X, ArrowUpRight, MoreHorizontal
+  Link2,
+  X, ArrowUpRight, MoreHorizontal, Trash2
 } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Content } from '@tiptap/react';
@@ -19,9 +20,9 @@ import { EntityMentionExtension } from '../../extensions/EntityMentionExtension'
 import { SelectionToTaskModal } from '../editor/SelectionToTaskModal';
 import type { MentionEntityItem } from '../editor/EntityMentionMenu';
 import { DocumentOutlinePanel } from '../editor/DocumentOutlinePanel';
-import type { DocumentWithRelations } from '../../types/schema';
+import type { DocumentType, DocumentWithRelations, ProjectWithRelations, IssueWithRelations } from '../../types/schema';
 import { CustomLink } from '../../extensions/CustomLink';
-import { cn } from '../../lib/utils';
+import { cn, errorMessage } from '../../lib/utils';
 import { BaseButton } from '../ui/BaseButton';
 import { toast } from 'sonner';
 import { IconPicker } from '../ui/IconPicker';
@@ -31,16 +32,42 @@ import { VersionHistoryModal } from './modals/VersionHistoryModal';
 import { AddEntityLinkModal } from './modals/AddEntityLinkModal';
 import { TAG_COLORS, getTagColor } from './helpers';
 import { api } from '../../api/client';
+import { DocumentSaveQueue, acquireDocumentSaveQueue, retainDocumentSaveQueue } from '../../lib/documentSaveQueue';
+import { useAuth } from '../../contexts/AuthContext';
 
 export interface EditorProps {
   page: DocumentWithRelations;
   pages: DocumentWithRelations[];
-  projects: any[];
+  projects: ProjectWithRelations[];
   onSelectDoc: (id: string) => void;
   onMoveDoc?: (doc: DocumentWithRelations) => void;
 }
 
-export function Editor({
+export function Editor(props: EditorProps) {
+  const documentQuery = useQuery({
+    queryKey: ['document', props.page.id],
+    queryFn: () => api.documents.get(props.page.id),
+    enabled: !!props.page.id,
+  });
+
+  if (documentQuery.isLoading) {
+    return <div className="flex-1 grid place-items-center text-secondary" role="status">Loading document...</div>;
+  }
+  if (!documentQuery.data) {
+    return (
+      <div className="flex-1 grid place-items-center text-secondary" role="alert">
+        <div className="text-center">
+          <p>Could not load this document.</p>
+          <button type="button" className="mt-2 underline text-accent-fg" onClick={() => void documentQuery.refetch()}>Try again</button>
+        </div>
+      </div>
+    );
+  }
+
+  return <LoadedEditor {...props} page={documentQuery.data} />;
+}
+
+function LoadedEditor({
   page,
   pages,
   projects,
@@ -64,17 +91,17 @@ export function Editor({
   const [isAddingTag, setIsAddingTag] = useState(false);
 
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSaveErrorToastRef = useRef<number>(0);
-  const currentDocIdRef = useRef(page.id);
-  const latestJsonRef = useRef<any>(page.contentJson);
-  const latestTitleRef = useRef(title);
-  latestTitleRef.current = title;
+  const { user, workspaceId } = useAuth();
+  const draftKey = `krama:document-draft:v1:${user?.id}:${workspaceId}:${page.id}`;
+  const [save] = useState(() => acquireDocumentSaveQueue(draftKey, () => new DocumentSaveQueue(page.id,
+    { content: page.contentJson || { type: 'doc', content: [] }, title: page.title || '', revision: page.updatedAt },
+    api.documents, draftKey, localStorage,
+    () => { void queryClient.invalidateQueries({ queryKey: ['documents'] }); })));
+  const saveState = useSyncExternalStore(save.subscribe, save.getSnapshot);
 
   // Fetch workspace tasks for entity linking and references
   const { data: tasks = [] } = useQuery({
-    queryKey: ['tasks'],
+    queryKey: ['issues'],
     queryFn: () => api.tasks.list()
   });
 
@@ -85,13 +112,13 @@ export function Editor({
       type: 'DOCUMENT',
       subtitle: p.documentType || 'SPEC',
     }));
-    const taskEntities: MentionEntityItem[] = tasks.map((t: any) => ({
+    const taskEntities: MentionEntityItem[] = tasks.map((t) => ({
       id: t.id,
       title: t.title,
       type: 'TASK',
       subtitle: t.status,
     }));
-    const projEntities: MentionEntityItem[] = projects.map((p: any) => ({
+    const projEntities: MentionEntityItem[] = projects.map((p) => ({
       id: p.id,
       title: p.name,
       type: 'PROJECT',
@@ -105,10 +132,12 @@ export function Editor({
   const mentionEntitiesRef = useRef(mentionEntities);
   mentionEntitiesRef.current = mentionEntities;
 
-  // Sync title when active document switches
   useEffect(() => {
-    setTitle(page.title || '');
-  }, [page.id, page.title]);
+    setTitle(save.title);
+    if (save.recovered) {
+      toast.info('Recovered your unsaved draft. Review it and choose Retry save.');
+    }
+  }, [save]);
 
   // Fetch links for current document
   const { data: linksData, refetch: refetchLinks } = useQuery({
@@ -119,8 +148,8 @@ export function Editor({
 
   // Listen for auto-link events from WikiLinks or @Mentions
   useEffect(() => {
-    const handleEntityLinked = async (e: any) => {
-      const { targetType, targetId } = e.detail || {};
+    const handleEntityLinked = async (e: Event) => {
+      const { targetType, targetId } = (e as CustomEvent<{ targetType?: string; targetId?: string }>).detail || {};
       if (targetType && targetId && page.id) {
         try {
           await api.documents.addLink(page.id, { targetType, targetId, linkType: 'REFERENCE' });
@@ -151,7 +180,7 @@ export function Editor({
 
   const handleToggleFavorite = async () => {
     try {
-      await api.documents.favorite(page.id);
+      await save.updateMetadata({ isFavorite: !page.isFavorite });
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast.success(page.isFavorite ? 'Removed from favorites' : 'Marked as favorite');
     } catch {
@@ -161,55 +190,35 @@ export function Editor({
 
   const handleDuplicate = async () => {
     try {
+      await save.flush();
       const copy = await api.documents.duplicate(page.id);
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       if (copy?.id) onSelectDoc(copy.id);
       toast.success(`Duplicated "${page.title}"`);
-    } catch (err: any) {
-      toast.error('Failed to duplicate document: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+    } catch (err) {
+      toast.error('Failed to duplicate document: ' + errorMessage(err, 'Unknown error'));
     }
   };
 
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle);
-    if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
-    titleDebounceRef.current = setTimeout(() => {
-      api.documents.update(page.id, { title: newTitle })
-        .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
-        .catch((err: any) => {
-          toast.error('Failed to update page title: ' + (err?.message || 'Unknown error'));
-        });
-    }, 500);
+    save.setTitle(newTitle);
   };
-
-  const handleTitleBlur = () => {
-    if (titleDebounceRef.current) {
-      clearTimeout(titleDebounceRef.current);
-      titleDebounceRef.current = null;
-    }
-    const clean = title.trim();
-    if (clean && clean !== page.title) {
-      api.documents.update(page.id, { title: clean })
-        .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
-        .catch((err: any) => {
-          toast.error('Failed to update page title: ' + (err?.message || 'Unknown error'));
-        });
-    }
-  };
+  const handleTitleBlur = () => { void save.flush().catch(() => {}); };
 
   const handleLinkProject = async (projectId: string | null) => {
     try {
-      await api.documents.update(page.id, { projectId: projectId || null, linkedProjectId: projectId || null });
+      await save.updateMetadata({ projectId: projectId || null, linkedProjectId: projectId || null });
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast.success(projectId ? 'Document linked to project' : 'Document unlinked from project');
-    } catch (err: any) {
-      toast.error('Failed to update project link: ' + (err?.message || 'Unknown error'));
+    } catch (err) {
+      toast.error('Failed to update project link: ' + errorMessage(err, 'Unknown error'));
     }
   };
 
-  const handleDocumentTypeChange = async (type: string) => {
+  const handleDocumentTypeChange = async (type: DocumentType) => {
     try {
-      await api.documents.update(page.id, { documentType: type });
+      await save.updateMetadata({ documentType: type });
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast.success(`Document type updated to ${type}`);
     } catch {
@@ -219,7 +228,7 @@ export function Editor({
 
   const handleStatusChange = async (status: string) => {
     try {
-      await api.documents.update(page.id, { statusBadges: [status] });
+      await save.updateMetadata({ statusBadges: [status] });
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast.success(`Lifecycle status set to ${status}`);
     } catch {
@@ -261,7 +270,8 @@ export function Editor({
     }
   };
 
-  const handleExport = (format: 'md' | 'spec') => {
+  const handleExport = async (format: 'md' | 'spec') => {
+    try { await save.flush(); } catch { toast.error('Save your changes before exporting.'); return; }
     const filename = `${page.title || 'document'}.${format === 'spec' ? 'spec.md' : 'md'}`;
     api.documents.export(page.id, format, filename)
       .then(() => toast.success(`Exported as ${format === 'spec' ? 'Architecture Spec' : 'Markdown'}`))
@@ -290,23 +300,9 @@ export function Editor({
       EntityMentionExtension.configure({
         getEntities: () => mentionEntitiesRef.current,
       }),
-    ] as any,
-    content: (page.contentJson ? page.contentJson as Content : ''),
-    onUpdate: ({ editor }) => {
-      const json = editor.getJSON();
-      latestJsonRef.current = json;
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        api.documents.updateContent(page.id, json)
-          .catch((err: any) => {
-            const now = Date.now();
-            if (now - lastSaveErrorToastRef.current > 4000) {
-              lastSaveErrorToastRef.current = now;
-              toast.error('Failed to save page content: ' + (err?.message || 'Unknown error'));
-            }
-          });
-      }, 500);
-    },
+    ],
+    content: save.content as Content,
+    onUpdate: ({ editor }) => { save.setContent(editor.getJSON()); },
     editorProps: {
       attributes: {
         class: 'prose prose-zinc dark:prose-invert max-w-none focus:outline-none min-h-[420px] text-primary leading-relaxed font-sans text-body',
@@ -349,8 +345,8 @@ export function Editor({
 
   // Listen for open task modal requests (e.g. from /task or selection bridge)
   useEffect(() => {
-    const handler = (e: any) => {
-      let taskTitle = e.detail?.defaultTitle || '';
+    const handler = (e: Event) => {
+      let taskTitle = (e as CustomEvent<{ defaultTitle?: string }>).detail?.defaultTitle || '';
       if (!taskTitle && editor) {
         const { from, to } = editor.state.selection;
         if (from !== to) {
@@ -375,7 +371,7 @@ export function Editor({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleTaskCreated = (task: any) => {
+  const handleTaskCreated = (task: IssueWithRelations) => {
     if (editor && !editor.isDestroyed) {
       const { from, to } = editor.state.selection;
       const content = [
@@ -404,58 +400,26 @@ export function Editor({
     refetchLinks();
   };
 
-  // Flush pending auto-save on switch or unmount to guarantee zero data loss
   useEffect(() => {
-    return () => {
-      if (debounceRef.current && currentDocIdRef.current) {
-        clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-        if (latestJsonRef.current) {
-          api.documents.updateContent(currentDocIdRef.current, latestJsonRef.current).catch(console.error);
-        }
-      }
-      if (titleDebounceRef.current && currentDocIdRef.current) {
-        clearTimeout(titleDebounceRef.current);
-        titleDebounceRef.current = null;
-        const clean = latestTitleRef.current.trim();
-        if (clean) {
-          api.documents.update(currentDocIdRef.current, { title: clean }).catch(console.error);
-        }
-      }
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (save.state !== 'saved') { event.preventDefault(); event.returnValue = ''; }
     };
-  }, []);
+    const release = retainDocumentSaveQueue(draftKey, save);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => { window.removeEventListener('beforeunload', onBeforeUnload); release(); };
+  }, [save, draftKey]);
 
-  // Sync content strictly on document ID switch, avoiding cursor jumps during debounced save
-  useEffect(() => {
-    if (currentDocIdRef.current !== page.id) {
-      // Flush previous document if dirty
-      if (debounceRef.current && currentDocIdRef.current) {
-        clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-        if (latestJsonRef.current) {
-          api.documents.updateContent(currentDocIdRef.current, latestJsonRef.current).catch(console.error);
-        }
-      }
-      if (titleDebounceRef.current && currentDocIdRef.current) {
-        clearTimeout(titleDebounceRef.current);
-        titleDebounceRef.current = null;
-        const clean = latestTitleRef.current.trim();
-        if (clean) {
-          api.documents.update(currentDocIdRef.current, { title: clean }).catch(console.error);
-        }
-      }
-
-      currentDocIdRef.current = page.id;
-      latestJsonRef.current = page.contentJson;
-      if (editor && !editor.isDestroyed) {
-        if (page.contentJson) {
-          editor.commands.setContent(page.contentJson as Content);
-        } else {
-          editor.commands.setContent('');
-        }
-      }
-    }
-  }, [page.id, page.contentJson, editor]);
+  const reloadSavedDocument = async () => {
+    if (!window.confirm('Discard your unsaved draft and load the latest saved document?')) return;
+    try {
+      await save.whenIdle();
+      const fresh = await api.documents.get(page.id);
+      await save.replaceFromServer({ content: fresh.contentJson, title: fresh.title || '', revision: fresh.updatedAt });
+      setTitle(fresh.title || '');
+      editor?.commands.setContent(fresh.contentJson as Content, { emitUpdate: false });
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+    } catch { toast.error('Could not load the saved document. Your draft is still available.'); }
+  };
 
   // Word count & metrics
   const textContent = editor ? editor.getText() : (page.title || '');
@@ -465,34 +429,42 @@ export function Editor({
 
   return (
     <div className="flex-1 flex h-full overflow-hidden relative">
-      <div className="flex-1 overflow-y-auto py-5 px-4 md:px-8 max-w-5xl mx-auto flex flex-col font-sans w-full">
+      <div className="flex-1 min-w-0 overflow-y-auto py-5 px-4 md:px-8 max-w-5xl mx-auto flex flex-col font-sans w-full">
+        <div className="flex flex-wrap items-center gap-2 mb-3 text-caption">
+          <span role="status" aria-live="polite" className={saveState === 'error' || saveState === 'conflict' ? 'text-danger-fg' : 'text-secondary'}>
+            {saveState === 'saved' ? 'Saved' : saveState === 'saving' ? 'Saving…' : saveState === 'conflict' ? 'Conflict — your changes are unsaved.' : saveState === 'error' ? 'Save failed — your changes are unsaved.' : 'Unsaved changes'}
+          </span>
+          {(saveState === 'error' || saveState === 'unsaved') && <button className="min-h-11 px-3 text-accent-fg underline" onClick={() => { void save.flush().catch(() => {}); }}>Retry save</button>}
+          {saveState === 'conflict' && <><button className="min-h-11 px-3 text-accent-fg underline" onClick={reloadSavedDocument}>Load saved version</button><button className="min-h-11 px-3 text-accent-fg underline" onClick={() => { const blob = new Blob([JSON.stringify({ title, content: editor?.getJSON() }, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'document-draft.json'; link.click(); URL.revokeObjectURL(url); }}>Download my draft</button></>}
+        </div>
         {/* Top Control Bar: Breadcrumbs on Left, Utility Actions on Right */}
-        <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-border">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-border">
           <div className="min-w-0 flex-1">
             <Breadcrumbs page={page} pages={pages} onSelect={onSelectDoc} />
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
             {/* Favorite Star Button */}
             <button
               onClick={handleToggleFavorite}
               className={cn("p-1.5 rounded-lg border transition-colors cursor-pointer shrink-0",
                 page.isFavorite
-                  ? "bg-amber-500/10 border-amber-500/30 text-amber-500 hover:bg-amber-500/20"
+                  ? "bg-warning-bg border-warning-border text-warning-fg hover:bg-warning-bg/80"
                   : "border-border bg-surface hover:bg-surface-hover text-muted hover:text-primary"
               )}
               title={page.isFavorite ? "Favorited" : "Star as favorite"}
             >
-              <Star className={cn("w-3.5 h-3.5", page.isFavorite && "fill-amber-500")} />
+              <Star className={cn("w-3.5 h-3.5", page.isFavorite && "fill-warning-fg")} />
             </button>
 
             {/* Project Linker */}
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-border bg-surface text-caption font-mono">
               <FolderKanban className="w-3.5 h-3.5 text-accent-fg shrink-0" />
               <select
+                aria-label="Linked project"
                 value={page.projectId || page.linkedProjectId || ''}
                 onChange={(e) => handleLinkProject(e.target.value || null)}
-                className="bg-transparent text-primary text-[11px] font-medium outline-none cursor-pointer max-w-[110px] truncate pr-1"
+                className="bg-transparent text-primary text-caption font-medium outline-none cursor-pointer max-w-[110px] truncate pr-1"
                 title="Link to project"
               >
                 <option value="" className="bg-surface text-secondary">No Project</option>
@@ -505,7 +477,7 @@ export function Editor({
             {/* Convert to Task Button */}
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('krama:open-task-modal'))}
-              className="px-2.5 py-1 rounded-lg border border-border bg-surface hover:bg-success-bg hover:border-success-border hover:text-success-fg text-secondary transition-all cursor-pointer text-[11px] font-mono font-bold flex items-center gap-1.5 shadow-2xs"
+              className="px-2.5 py-1 rounded-lg border border-border bg-surface hover:bg-success-bg hover:border-success-border hover:text-success-fg text-secondary transition-all cursor-pointer text-caption font-mono font-bold flex items-center gap-1.5 shadow-2xs"
               title="Convert Selection or Idea to Task (Ctrl+Shift+T)"
             >
               <CheckSquare className="w-3.5 h-3.5 text-success-fg" />
@@ -514,8 +486,9 @@ export function Editor({
 
             {/* Outline Button */}
             <button
+              aria-expanded={isOutlineOpen}
               onClick={() => setIsOutlineOpen(!isOutlineOpen)}
-              className={cn("px-2.5 py-1 rounded-lg border text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer text-[11px]",
+              className={cn("px-2.5 py-1 rounded-lg border text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer text-caption",
                 isOutlineOpen
                   ? "bg-surface-hover text-accent-fg border-accent/30"
                   : "border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary"
@@ -528,8 +501,10 @@ export function Editor({
 
             {/* AI Assistant Button */}
             <button
+              aria-label="AI Assist"
+              aria-expanded={isAiOpen}
               onClick={() => setIsAiOpen(!isAiOpen)}
-              className={cn("px-2.5 py-1 rounded-lg text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer text-[11px]",
+              className={cn("px-2.5 py-1 rounded-lg text-caption font-mono font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer text-caption",
                 isAiOpen
                   ? "bg-accent text-on-accent"
                   : "bg-accent-subtle hover:bg-accent/20 text-accent-fg border border-accent/30"
@@ -546,9 +521,11 @@ export function Editor({
                 className={cn(
                   "p-1.5 rounded-lg border transition-colors cursor-pointer",
                   isMoreMenuOpen
-                    ? "border-blue-500/30 bg-surface-hover text-primary"
+                    ? "border-accent/40 bg-surface-hover text-primary"
                     : "border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary"
                 )}
+                aria-label="More actions (Move, Duplicate, History, Export)"
+                aria-expanded={isMoreMenuOpen}
                 title="More actions (Move, Duplicate, History, Export)"
               >
                 <MoreHorizontal className="w-3.5 h-3.5 stroke-[1.5]" />
@@ -559,11 +536,11 @@ export function Editor({
                   <button
                     onClick={() => {
                       setIsMoreMenuOpen(false);
-                      onMoveDoc?.(page);
+                      void save.flush().then(() => onMoveDoc?.(page)).catch(() => toast.error('Save your changes before moving this document.'));
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-primary flex items-center gap-2 cursor-pointer"
                   >
-                    <FolderInput className="w-3.5 h-3.5 text-blue-500" />
+                    <FolderInput className="w-3.5 h-3.5 text-cat-projects" />
                     <span>Move Document...</span>
                   </button>
                   <button
@@ -573,7 +550,7 @@ export function Editor({
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-primary flex items-center gap-2 cursor-pointer"
                   >
-                    <Copy className="w-3.5 h-3.5 text-emerald-500" />
+                    <Copy className="w-3.5 h-3.5 text-accent-fg" />
                     <span>Duplicate Subtree</span>
                   </button>
                   <button
@@ -583,11 +560,11 @@ export function Editor({
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-primary flex items-center gap-2 cursor-pointer"
                   >
-                    <History className="w-3.5 h-3.5 text-purple-500" />
+                    <History className="w-3.5 h-3.5 text-cat-routines" />
                     <span>Version History</span>
                   </button>
                   <div className="my-1 border-t border-border" />
-                  <div className="px-3 py-1 text-[10px] text-muted uppercase font-bold tracking-wider">Export</div>
+                  <div className="px-3 py-1 text-badge text-muted uppercase font-bold tracking-wider">Export</div>
                   <button
                     onClick={() => {
                       setIsMoreMenuOpen(false);
@@ -595,7 +572,7 @@ export function Editor({
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-primary flex items-center gap-2 cursor-pointer"
                   >
-                    <FileText className="w-3.5 h-3.5 text-blue-500" />
+                    <FileText className="w-3.5 h-3.5 text-cat-projects" />
                     <span>Markdown (.md)</span>
                   </button>
                   <button
@@ -605,8 +582,38 @@ export function Editor({
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-surface-hover text-primary flex items-center gap-2 cursor-pointer"
                   >
-                    <FileCode className="w-3.5 h-3.5 text-purple-500" />
+                    <FileCode className="w-3.5 h-3.5 text-cat-tasks" />
                     <span>Full Spec (.spec.md)</span>
+                  </button>
+                  <div className="my-1 border-t border-border" />
+                  <button
+                    onClick={async () => {
+                      setIsMoreMenuOpen(false);
+                      if (!window.confirm(`Move "${page.title || 'Untitled'}" to Trash?`)) return;
+                      try {
+                        await save.flush();
+                        await api.documents.delete(page.id);
+                        queryClient.invalidateQueries({ queryKey: ['documents'] });
+                        toast.success(`Moved "${page.title || 'Untitled'}" to Trash`, {
+                          action: {
+                            label: 'Undo',
+                            onClick: async () => {
+                              await api.documents.restore(page.id);
+                              queryClient.invalidateQueries({ queryKey: ['documents'] });
+                              onSelectDoc(page.id);
+                            }
+                          }
+                        });
+                        const nextDoc = pages.find(p => p.id !== page.id);
+                        onSelectDoc(nextDoc?.id || '');
+                      } catch (err) {
+                        toast.error('Failed to delete document: ' + errorMessage(err, 'Unknown error'));
+                      }
+                    }}
+                    className="w-full text-left px-3 py-1.5 hover:bg-danger-bg text-danger-fg flex items-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Move to Trash</span>
                   </button>
                 </div>
               )}
@@ -622,7 +629,7 @@ export function Editor({
               <IconPicker
                 value={page.icon}
                 onChange={(newIcon) => {
-                  api.documents.update(page.id, { icon: newIcon })
+                  save.updateMetadata({ icon: newIcon })
                     .then(() => queryClient.invalidateQueries({ queryKey: ['documents'] }))
                     .catch(() => toast.error('Failed to update icon'));
                 }}
@@ -633,8 +640,8 @@ export function Editor({
             {/* Document Type Picker */}
             <select
               value={page.documentType || 'GENERAL'}
-              onChange={(e) => handleDocumentTypeChange(e.target.value)}
-              className="bg-surface-hover text-secondary hover:text-primary px-2.5 py-1 rounded-lg border border-border text-[11px] font-mono font-bold outline-none cursor-pointer"
+              onChange={(e) => handleDocumentTypeChange(e.target.value as DocumentType)}
+              className="bg-surface-hover text-secondary hover:text-primary px-2.5 py-1 rounded-lg border border-border text-caption font-mono font-bold outline-none cursor-pointer"
             >
               <option value="GENERAL">GENERAL</option>
               <option value="SPEC">SPEC</option>
@@ -649,7 +656,7 @@ export function Editor({
               value={page.statusBadges?.[0] || 'DRAFT'}
               onChange={(e) => handleStatusChange(e.target.value)}
               className={cn(
-                "px-2 py-1 rounded-lg border text-[11px] font-mono font-bold outline-none cursor-pointer transition-colors",
+                "px-2 py-1 rounded-lg border text-caption font-mono font-bold outline-none cursor-pointer transition-colors",
                 (page.statusBadges?.[0] === 'DRAFT' || !page.statusBadges?.[0]) && "bg-warning-bg text-warning-fg border-warning-border",
                 page.statusBadges?.[0] === 'IN_REVIEW' && "bg-accent-subtle text-accent-fg border-accent/30",
                 page.statusBadges?.[0] === 'ACCEPTED' && "bg-success-bg text-success-fg border-success-border",
@@ -663,20 +670,20 @@ export function Editor({
             </select>
 
             {/* Simple, clean word count & reading time */}
-            <span className="text-muted font-mono text-[11px] select-none">
+            <span className="text-muted font-mono text-caption select-none">
               {wordCount} words · {readTimeMins} min read
             </span>
           </div>
 
           {/* Tags */}
           <div className="flex flex-wrap items-center gap-1.5">
-            {page.tags?.map((item: any) => {
+            {page.tags?.map((item) => {
               const tag = item.tag || item;
               const colorClass = getTagColor(tag.color);
               return (
                 <span
                   key={tag.id}
-                  className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono border", colorClass.bg, colorClass.text, colorClass.border)}
+                  className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-caption font-mono border", colorClass.bg, colorClass.text, colorClass.border)}
                 >
                   <span>#{tag.name}</span>
                   <button
@@ -690,7 +697,7 @@ export function Editor({
             })}
 
             {isAddingTag ? (
-              <div className="inline-flex items-center gap-1 bg-surface border border-border rounded-md px-2 py-0.5 text-[11px] font-mono">
+              <div className="inline-flex items-center gap-1 bg-surface border border-border rounded-md px-2 py-0.5 text-caption font-mono">
                 <span>#</span>
                 <input
                   autoFocus
@@ -702,16 +709,16 @@ export function Editor({
                     if (e.key === 'Escape') setIsAddingTag(false);
                   }}
                   placeholder="tag name..."
-                  className="bg-transparent border-none outline-none text-primary w-24 text-[11px]"
+                  className="bg-transparent border-none outline-none text-primary w-24 text-caption"
                 />
-                <button onClick={handleAddTag} className="text-blue-600 hover:text-blue-500">
+                <button onClick={handleAddTag} className="text-accent-fg hover:text-accent">
                   <Check className="w-3 h-3" />
                 </button>
               </div>
             ) : (
               <button
                 onClick={() => setIsAddingTag(true)}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono text-muted hover:text-primary hover:bg-surface-hover border border-dashed border-border"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-caption font-mono text-muted hover:text-primary hover:bg-surface-hover border border-dashed border-border"
               >
                 <Plus className="w-3 h-3" />
                 <span>Tag</span>
@@ -723,83 +730,14 @@ export function Editor({
         {/* Writing Canvas Container */}
         <div className="flex-1 v4-card rounded-2xl border border-border shadow-xs bg-surface flex flex-col w-full overflow-hidden min-h-[580px] relative mb-8">
           {/* Command Ribbon */}
-          {editor && (
-            <div className="bg-surface-hover/80 backdrop-blur-md px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0 border-b border-border">
-              <div className="flex flex-wrap items-center gap-1">
-                <button
-                  onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer",
-                    editor.isActive('heading', { level: 1 }) ? "bg-blue-600 text-white" : "bg-surface text-primary border border-border hover:bg-surface-hover"
-                  )}
-                  title="Heading 1"
-                >
-                  <Heading1 className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer",
-                    editor.isActive('heading', { level: 2 }) ? "bg-blue-600 text-white" : "bg-surface text-primary border border-border hover:bg-surface-hover"
-                  )}
-                  title="Heading 2"
-                >
-                  <Heading2 className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().toggleBulletList().run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer",
-                    editor.isActive('bulletList') ? "bg-blue-600 text-white" : "bg-surface text-primary border border-border hover:bg-surface-hover"
-                  )}
-                  title="Bullet List"
-                >
-                  <List className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer",
-                    editor.isActive('orderedList') ? "bg-blue-600 text-white" : "bg-surface text-primary border border-border hover:bg-surface-hover"
-                  )}
-                  title="Ordered List"
-                >
-                  <ListOrdered className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer",
-                    editor.isActive('codeBlock') ? "bg-blue-600 text-white" : "bg-surface text-primary border border-border hover:bg-surface-hover"
-                  )}
-                  title="Code Block"
-                >
-                  <Code className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                  className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer",
-                    editor.isActive('blockquote') ? "bg-blue-600 text-white" : "bg-surface text-primary border border-border hover:bg-surface-hover"
-                  )}
-                  title="Blockquote"
-                >
-                  <Quote className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => editor.chain().focus().setHorizontalRule().run()}
-                  className="px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer bg-surface text-primary border border-border hover:bg-surface-hover"
-                  title="Horizontal Rule"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <span className="text-[11px] font-mono text-muted flex items-center gap-1">
-                <Check className="w-3 h-3 text-emerald-500" /> Auto-saved
-              </span>
-            </div>
-          )}
+          {editor && <EditorFormattingToolbar editor={editor} />}
 
           {/* Editor Area */}
           <div className="flex-1 p-6 md:p-8 flex flex-col justify-between overflow-y-auto relative">
             <div>
               <input
                 type="text"
+                aria-label="Document title"
                 value={title}
                 onChange={(e) => handleTitleChange(e.target.value)}
                 onBlur={handleTitleBlur}
@@ -831,7 +769,7 @@ export function Editor({
                 >
                   <Link2 className="w-4 h-4 text-accent-fg stroke-[1.75]" />
                   <span>References & Backlinks</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-hover border border-border text-muted font-mono font-bold">
+                  <span className="text-badge px-1.5 py-0.5 rounded-full bg-surface-hover border border-border text-muted font-mono font-bold">
                     {totalReferences}
                   </span>
                   <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200 text-muted", !isReferencesOpen && "-rotate-90")} />
@@ -845,12 +783,12 @@ export function Editor({
                 <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-accent-subtle border border-accent/20 mb-3 text-[12px] font-sans">
                   <div className="flex items-center gap-2">
                     <FolderKanban className="w-3.5 h-3.5 text-accent-fg shrink-0" />
-                    <span className="text-secondary text-[11px] font-mono">LINKED PROJECT:</span>
+                    <span className="text-secondary text-caption font-mono">LINKED PROJECT:</span>
                     <span className="font-semibold text-primary">{page.linkedProject.name}</span>
                   </div>
                   <button
                     onClick={() => navigate(`/app/projects/${page.linkedProject?.id}`)}
-                    className="text-accent-fg hover:text-accent font-bold flex items-center gap-1 text-[11px] cursor-pointer"
+                    className="text-accent-fg hover:text-accent font-bold flex items-center gap-1 text-caption cursor-pointer"
                   >
                     View Project <ArrowUpRight className="w-3 h-3" />
                   </button>
@@ -861,14 +799,14 @@ export function Editor({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-150">
                   {/* Incoming Backlinks */}
                   <div className="p-4 rounded-xl border border-border bg-surface">
-                    <span className="text-[11px] font-bold text-secondary uppercase tracking-wider block mb-2">
+                    <span className="text-caption font-bold text-secondary uppercase tracking-wider block mb-2">
                       Incoming Backlinks ({linksData?.incoming?.length || 0})
                     </span>
                     {(!linksData?.incoming || linksData.incoming.length === 0) ? (
                       <span className="text-muted text-[12px] italic">No documents currently reference this page.</span>
                     ) : (
                       <div className="space-y-1.5">
-                        {linksData.incoming.map((link: any) => {
+                        {linksData.incoming.map((link) => {
                           const sourceDoc = pages.find(p => p.id === link.sourceId);
                           return (
                             <div
@@ -879,7 +817,7 @@ export function Editor({
                               <span className="font-sans font-medium text-primary text-[13px] truncate">
                                 {sourceDoc?.title || `Doc #${link.sourceId.slice(0, 8)}`}
                               </span>
-                              <span className="text-[10px] font-mono text-accent-fg uppercase bg-accent-subtle px-1.5 py-0.5 rounded font-bold">
+                              <span className="text-badge font-mono text-accent-fg uppercase bg-accent-subtle px-1.5 py-0.5 rounded font-bold">
                                 {link.linkType}
                               </span>
                             </div>
@@ -891,14 +829,14 @@ export function Editor({
 
                   {/* Outgoing References */}
                   <div className="p-4 rounded-xl border border-border bg-surface">
-                    <span className="text-[11px] font-bold text-secondary uppercase tracking-wider block mb-2">
+                    <span className="text-caption font-bold text-secondary uppercase tracking-wider block mb-2">
                       Outgoing References ({linksData?.outgoing?.length || 0})
                     </span>
                     {(!linksData?.outgoing || linksData.outgoing.length === 0) ? (
                       <span className="text-muted text-[12px] italic">No outgoing entity links added yet.</span>
                     ) : (
                       <div className="space-y-1.5">
-                        {linksData.outgoing.map((link: any) => {
+                        {linksData.outgoing.map((link) => {
                           let label = `${link.targetType} #${link.targetId.slice(0, 8)}`;
                           let statusBadge = '';
                           if (link.targetType === 'DOCUMENT') {
@@ -906,7 +844,7 @@ export function Editor({
                           } else if (link.targetType === 'PROJECT') {
                             label = projects.find(p => p.id === link.targetId)?.name || label;
                           } else if (link.targetType === 'TASK') {
-                            const task = tasks.find((t: any) => t.id === link.targetId);
+                            const task = tasks.find((t) => t.id === link.targetId);
                             label = task ? task.title : label;
                             statusBadge = task?.status || '';
                           }
@@ -925,23 +863,23 @@ export function Editor({
                             <div
                               key={link.id}
                               onClick={handleLinkClick}
-                              className="flex items-center justify-between p-2 rounded-lg bg-surface-hover/50 hover:bg-blue-500/10 cursor-pointer transition-colors group"
+                              className="flex items-center justify-between p-2 rounded-lg bg-surface-hover/50 hover:bg-accent-subtle cursor-pointer transition-colors group"
                             >
                               <div className="flex items-center gap-2 min-w-0 flex-1">
-                                {link.targetType === 'DOCUMENT' && <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0" />}
-                                {link.targetType === 'PROJECT' && <FolderKanban className="w-3.5 h-3.5 text-purple-500 shrink-0" />}
-                                {link.targetType === 'TASK' && <CheckSquare className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                                {link.targetType === 'DOCUMENT' && <FileText className="w-3.5 h-3.5 text-cat-tasks shrink-0" />}
+                                {link.targetType === 'PROJECT' && <FolderKanban className="w-3.5 h-3.5 text-cat-projects shrink-0" />}
+                                {link.targetType === 'TASK' && <CheckSquare className="w-3.5 h-3.5 text-warning-fg shrink-0" />}
                                 <span className="font-sans font-medium text-primary text-[13px] truncate group-hover:text-accent-fg">
                                   {label}
                                 </span>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0 ml-2">
                                 {statusBadge && (
-                                  <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-surface border border-border text-secondary">
+                                  <span className="text-badge font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-surface border border-border text-secondary">
                                     {statusBadge}
                                   </span>
                                 )}
-                                <span className={cn("text-[10px] font-mono uppercase px-1.5 py-0.5 rounded font-bold",
+                                <span className={cn("text-badge font-mono uppercase px-1.5 py-0.5 rounded font-bold",
                                   link.targetType === 'DOCUMENT' && "text-accent-fg bg-accent-subtle",
                                   link.targetType === 'PROJECT' && "text-cat-timeblocks bg-cat-timeblocks-bg",
                                   link.targetType === 'TASK' && "text-warning-fg bg-warning-bg"
@@ -953,7 +891,7 @@ export function Editor({
                                     e.stopPropagation();
                                     handleDeleteLink(link.id);
                                   }}
-                                  className="p-1 text-muted hover:text-red-500 transition-colors"
+                                  className="p-1 text-muted hover:text-danger-fg transition-colors"
                                   title="Remove reference"
                                 >
                                   <X className="w-3.5 h-3.5" />
@@ -986,9 +924,11 @@ export function Editor({
         documentId={page.id}
         isOpen={isVersionModalOpen}
         onClose={() => setIsVersionModalOpen(false)}
-        onRestoreSuccess={(restoredContentJson) => {
-          if (restoredContentJson && editor && !editor.isDestroyed) {
-            editor.commands.setContent(restoredContentJson as Content);
+        beforeAction={() => save.flush()}
+        onRestoreSuccess={async (restoredDoc) => {
+          if (restoredDoc?.contentJson && editor && !editor.isDestroyed) {
+            await save.replaceFromServer({ content: restoredDoc.contentJson, title: title, revision: restoredDoc.updatedAt });
+            editor.commands.setContent(restoredDoc.contentJson as Content, { emitUpdate: false });
           }
           queryClient.invalidateQueries({ queryKey: ['documents'] });
         }}

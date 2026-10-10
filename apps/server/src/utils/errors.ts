@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { Response } from 'express';
 import { ZodError } from 'zod';
 import { logger } from './logger';
@@ -18,8 +19,11 @@ class AppError extends Error {
 }
 
 export function handleControllerError(res: Response, error: any, defaultMessage = 'Internal server error') {
+  if (error?.message?.startsWith('Conflict:')) {
+    return res.status(409).json({ success: false, code: 'CONFLICT', message: error.message });
+  }
   // 1. Zod validation error
-  if (error instanceof ZodError) {
+  if (error instanceof ZodError || (error?.name === 'ZodError' && Array.isArray(error.issues))) {
     const primaryMessage = error.issues[0]?.message || 'Validation failed';
     return res.status(400).json({
       success: false,
@@ -52,7 +56,7 @@ export function handleControllerError(res: Response, error: any, defaultMessage 
     return res.status(404).json({
       success: false,
       code: 'NOT_FOUND',
-      message: error.message || 'Requested resource was not found.',
+      message: 'Requested resource was not found.',
     });
   }
 
@@ -92,15 +96,18 @@ export function handleControllerError(res: Response, error: any, defaultMessage 
   }
 
   // 6. Log internal / unexpected errors
-  logger.error(defaultMessage, { error: error?.message || error, stack: error?.stack });
+  const requestId = randomUUID();
+  logger.error(defaultMessage, { requestId, error: error?.message || error, stack: error?.stack });
 
-  const statusCode = error?.statusCode || error?.status || 500;
+  const requestedStatus = Number(error?.statusCode || error?.status || 500);
+  const statusCode = Number.isInteger(requestedStatus) && requestedStatus >= 400 && requestedStatus < 600 ? requestedStatus : 500;
   const isDev = process.env.NODE_ENV === 'development';
 
   return res.status(statusCode).json({
     success: false,
-    code: error?.code || (statusCode >= 500 ? 'INTERNAL_SERVER_ERROR' : 'BAD_REQUEST'),
-    message: statusCode === 500 && !isDev ? defaultMessage : (error?.message || defaultMessage),
+    code: statusCode >= 500 && !isDev ? 'INTERNAL_SERVER_ERROR' : (error?.code || 'BAD_REQUEST'),
+    message: statusCode >= 500 && !isDev ? defaultMessage : (error?.message || defaultMessage),
+    ...(statusCode >= 500 ? { requestId } : {}),
     ...(isDev && statusCode >= 500 ? { stack: error?.stack } : {}),
   });
 }

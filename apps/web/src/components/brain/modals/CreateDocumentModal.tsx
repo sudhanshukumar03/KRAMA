@@ -3,16 +3,19 @@ import { useQueryClient } from '@tanstack/react-query';
 import { BookOpen, X, Plus } from 'lucide-react';
 import { api } from '../../../api/client';
 import { DOCUMENT_TEMPLATES } from '../../../lib/documentTemplates';
+import { useModalA11y } from '../../../hooks/useModalA11y';
 import { cn } from '../../../lib/utils';
 import { toast } from 'sonner';
+import type { DocumentType, ProjectWithRelations, Space } from '../../../types/schema';
 
 export interface CreateDocumentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  target: { parentId?: string; parentTitle?: string } | null;
-  projects: any[];
-  spaces: any[];
+  target: { parentId?: string; parentTitle?: string; projectId?: string } | null;
+  projects: ProjectWithRelations[];
+  spaces: Space[];
   activeWorkspaceId: string;
+  defaultSpaceId?: string;
   onSuccess: (newPageId: string) => void;
 }
 
@@ -23,26 +26,35 @@ export function CreateDocumentModal({
   projects,
   spaces,
   activeWorkspaceId,
+  defaultSpaceId,
   onSuccess,
 }: CreateDocumentModalProps) {
   const [title, setTitle] = useState('');
-  const [documentType, setDocumentType] = useState('SPEC');
+  const [documentType, setDocumentType] = useState<DocumentType>('SPEC');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('blank');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string>(() => {
+    return defaultSpaceId && defaultSpaceId !== 'ALL' ? defaultSpaceId : (spaces[0]?.id || '');
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const initialSpacesRef = useRef(spaces);
+  initialSpacesRef.current = spaces;
+
+  const modalRef = useModalA11y(isOpen, onClose);
 
   useEffect(() => {
     if (isOpen) {
       setTitle('');
       setDocumentType('SPEC');
       setSelectedTemplateId('blank');
-      setSelectedProjectId('');
+      setSelectedProjectId(target?.projectId || '');
+      setSelectedSpaceId(defaultSpaceId && defaultSpaceId !== 'ALL' ? defaultSpaceId : (initialSpacesRef.current[0]?.id || ''));
       const t = setTimeout(() => inputRef.current?.focus(), 60);
       return () => clearTimeout(t);
     }
-  }, [isOpen]);
+  }, [isOpen, target?.projectId, defaultSpaceId]);
 
   if (!isOpen) return null;
 
@@ -57,11 +69,11 @@ export function CreateDocumentModal({
 
     setIsSubmitting(true);
     try {
-      let defaultSpaceId = spaces[0]?.id;
-      if (!defaultSpaceId && spaces.length === 0) {
+      let targetSpaceId = selectedSpaceId || spaces[0]?.id;
+      if (!targetSpaceId && spaces.length === 0) {
         try {
           const createdSpace = await api.spaces.create({ name: 'General' });
-          defaultSpaceId = createdSpace.id;
+          targetSpaceId = createdSpace.id;
           queryClient.invalidateQueries({ queryKey: ['spaces'] });
         } catch {
           // Server will fallback to auto-provisioning
@@ -74,13 +86,14 @@ export function CreateDocumentModal({
       const newPage = await api.documents.create({
         title: cleanTitle,
         workspaceId: activeWorkspaceId || undefined,
-        spaceId: defaultSpaceId,
+        spaceId: targetSpaceId,
         parentId: target?.parentId || undefined,
         projectId: selectedProjectId || undefined,
         documentType: documentType || 'SPEC',
         contentJson: contentJson || undefined,
-        blocks: [],
       });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      if (selectedProjectId) queryClient.invalidateQueries({ queryKey: ['project', selectedProjectId] });
 
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       queryClient.invalidateQueries({ queryKey: ['spaces'] });
@@ -90,19 +103,25 @@ export function CreateDocumentModal({
         onSuccess(newPage.id);
       }
     } catch (err: any) {
-      toast.error('Failed to create document: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+      toast.error('Failed to create document: ' + (err?.message || 'Unknown error'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
       <div 
-        className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose();
-        }}
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-doc-title"
+        className="krama-dialog w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
       >
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
@@ -111,11 +130,11 @@ export function CreateDocumentModal({
               <BookOpen className="w-4 h-4 stroke-[1.75]" />
             </div>
             <div>
-              <h3 className="font-bold text-primary text-body leading-tight">
+              <h3 id="create-doc-title" className="font-bold text-primary text-body leading-tight">
                 {target?.parentTitle ? 'New Sub-document' : 'Create New Document'}
               </h3>
               {target?.parentTitle && (
-                <p className="text-[11px] font-mono text-secondary truncate max-w-[260px]">
+                <p className="text-caption font-mono text-secondary truncate max-w-[260px]">
                   Inside: <span className="text-primary font-medium">{target.parentTitle}</span>
                 </p>
               )}
@@ -133,7 +152,7 @@ export function CreateDocumentModal({
         {/* Form Body */}
         <form onSubmit={handleCreate} className="p-5 space-y-4">
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
+            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
               Document Name <span className="text-accent-fg">*</span>
             </label>
             <input
@@ -149,7 +168,7 @@ export function CreateDocumentModal({
 
           {/* Engineering Template Selector */}
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
+            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
               Template
             </label>
             <div className="grid grid-cols-3 gap-1.5">
@@ -157,7 +176,7 @@ export function CreateDocumentModal({
                 type="button"
                 onClick={() => setSelectedTemplateId('blank')}
                 className={cn(
-                  "py-1.5 px-2 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer text-center border truncate",
+                  "py-1.5 px-2 rounded-lg text-caption font-mono font-bold transition-all cursor-pointer text-center border truncate",
                   selectedTemplateId === 'blank'
                     ? "bg-accent text-on-accent border-accent shadow-xs"
                     : "bg-surface hover:bg-surface-hover text-secondary border-border"
@@ -172,20 +191,20 @@ export function CreateDocumentModal({
                   type="button"
                   onClick={() => {
                     setSelectedTemplateId(tmpl.id);
-                    const docType = tmpl.documentType || (tmpl as any).defaultDocType;
+                    const docType = tmpl.documentType || tmpl.defaultDocType;
                     if (docType) {
                       setDocumentType(docType);
                     }
                   }}
                   className={cn(
-                    "py-1.5 px-2 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer text-center border truncate",
+                    "py-1.5 px-2 rounded-lg text-caption font-mono font-bold transition-all cursor-pointer text-center border truncate",
                     selectedTemplateId === tmpl.id
                       ? "bg-accent text-on-accent border-accent shadow-xs"
                       : "bg-surface hover:bg-surface-hover text-secondary border-border"
                   )}
                   title={tmpl.description}
                 >
-                  {tmpl.label || (tmpl as any).name}
+                  {tmpl.label || tmpl.name}
                 </button>
               ))}
             </div>
@@ -193,24 +212,24 @@ export function CreateDocumentModal({
 
           {/* Document Type Selector */}
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
+            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
               Document Type
             </label>
             <div className="grid grid-cols-3 gap-1.5">
-              {[
+              {([
                 { id: 'SPEC', label: 'SPEC' },
                 { id: 'RFC', label: 'RFC' },
                 { id: 'GENERAL', label: 'GENERAL' },
                 { id: 'MEETING', label: 'MEETING' },
                 { id: 'IDEA', label: 'IDEA' },
                 { id: 'NOTE', label: 'NOTE' },
-              ].map((t) => (
+              ] as const).map((t) => (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => setDocumentType(t.id)}
                   className={cn(
-                    "py-1.5 px-2 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer text-center border",
+                    "py-1.5 px-2 rounded-lg text-caption font-mono font-bold transition-all cursor-pointer text-center border",
                     documentType === t.id
                       ? "bg-accent text-on-accent border-accent shadow-xs"
                       : "bg-surface hover:bg-surface-hover text-secondary border-border"
@@ -222,13 +241,31 @@ export function CreateDocumentModal({
             </div>
           </div>
 
+          {/* Knowledge Space Selector */}
+          {spaces.length > 0 && (
+            <div>
+              <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
+                Knowledge Space
+              </label>
+              <select
+                value={selectedSpaceId}
+                onChange={(e) => setSelectedSpaceId(e.target.value)}
+                className="w-full p-2 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent font-sans text-caption"
+              >
+                {spaces.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Optional Project Link */}
           {projects.length > 0 && (
             <div>
-              <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
+              <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
                 Link to Project (Optional)
               </label>
-              <select
+              <select aria-label="Link to Project (Optional)"
                 value={selectedProjectId}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
                 className="w-full p-2 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent font-sans text-caption"
@@ -243,8 +280,8 @@ export function CreateDocumentModal({
 
           {/* Footer Actions */}
           <div className="pt-3 border-t border-border flex items-center justify-between">
-            <span className="text-[11px] font-mono text-muted flex items-center gap-1">
-              <kbd className="bg-surface-hover px-1.5 py-0.5 rounded border border-border text-[10px]">Enter ↵</kbd> to create
+            <span className="text-caption font-mono text-muted flex items-center gap-1">
+              <kbd className="bg-surface-hover px-1.5 py-0.5 rounded border border-border text-badge">Enter ↵</kbd> to create
             </span>
             <div className="flex items-center gap-2">
               <button

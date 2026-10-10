@@ -1,20 +1,18 @@
-version: '3.8'
-
 services:
   db:
     image: pgvector/pgvector:pg15
     container_name: krama-postgres
     environment:
-      POSTGRES_USER: krama_user
-      POSTGRES_PASSWORD: krama_password
-      POSTGRES_DB: krama_os
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set}
     ports:
-      - "5435:5432"
+      - "127.0.0.1:5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U krama_user -d krama_os"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?POSTGRES_USER must be set} -d ${POSTGRES_DB:?POSTGRES_DB must be set}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,17 +20,32 @@ services:
   redis:
     image: redis:7-alpine
     container_name: krama-redis
-    command: redis-server --requirepass krama_redis_secret --appendonly yes
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "krama_redis_secret", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+      target: builder
+    user: node
+    working_dir: /app/apps/server
+    command: ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
 
   server:
     build:
@@ -40,16 +53,30 @@ services:
       dockerfile: apps/server/Dockerfile
     container_name: krama-server
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
-      - DATABASE_URL=postgresql://krama_user:krama_password@db:5432/krama_os?schema=public
-      - REDIS_URL=redis://:krama_redis_secret@redis:6379
-      - JWT_SECRET=krama_super_secret_jwt_key
-      - PORT=3000
-      - FRONTEND_URL=http://localhost:8080
-      - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL must be set}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      PORT: 3000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:${WEB_PORT:-8080}}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-10}
+      REFRESH_RATE_LIMIT_MAX: ${REFRESH_RATE_LIMIT_MAX:-30}
+      AI_RATE_LIMIT_PER_MIN: ${AI_RATE_LIMIT_PER_MIN:-20}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
+      UNSPLASH_ACCESS_KEY: ${UNSPLASH_ACCESS_KEY:-}
+      CALENDARIFIC_API_KEY: ${CALENDARIFIC_API_KEY:-}
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:
@@ -62,11 +89,14 @@ services:
     container_name: krama-worker
     command: ["node", "dist/worker.js"]
     environment:
-      - DATABASE_URL=postgresql://krama_user:krama_password@db:5432/krama_os?schema=public
-      - REDIS_URL=redis://:krama_redis_secret@redis:6379
-      - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL must be set}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:
@@ -78,7 +108,7 @@ services:
       dockerfile: apps/web/Dockerfile
     container_name: krama-web
     ports:
-      - "8080:80"
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
     depends_on:
       - server
 

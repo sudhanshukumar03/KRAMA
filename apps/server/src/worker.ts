@@ -1,11 +1,10 @@
 import { notificationsWorker } from './workers/notifications.worker';
 import { habitStreakWorker } from './workers/habitStreak.worker';
-import { sprintReportWorker } from './workers/sprintReport.worker';
 import { analyticsWorker } from './workers/analytics.worker';
 import { embeddingWorker } from './workers/embedding.worker';
 import { documentVersionWorker } from './workers/documentVersion.worker';
 
-import { habitStreakQueue, sprintReportQueue, analyticsQueue } from './queues';
+import { habitStreakQueue, analyticsQueue } from './queues';
 
 // Schedule repeatable jobs safely
 const scheduleJobs = async () => {
@@ -18,17 +17,11 @@ const scheduleJobs = async () => {
     });
 
     // Nightly at 1 AM UTC
-    await analyticsQueue.upsertJobScheduler('aggregate-analytics-job', {
+    await analyticsQueue.removeJobScheduler('aggregate-analytics-job');
+    await analyticsQueue.upsertJobScheduler('ai-prompt-retention-job', {
       pattern: '0 1 * * *'
     }, {
-      name: 'aggregate-analytics'
-    });
-
-    // Weekly on Sunday at 2 AM UTC
-    await sprintReportQueue.upsertJobScheduler('generate-sprint-reports-job', {
-      pattern: '0 2 * * 0'
-    }, {
-      name: 'generate-sprint-reports'
+      name: 'ai-prompt-retention'
     });
 
     console.log('[Worker] Repeatable jobs scheduled.');
@@ -45,7 +38,6 @@ const shutdown = async () => {
   await Promise.allSettled([
     notificationsWorker.close(),
     habitStreakWorker.close(),
-    sprintReportWorker.close(),
     analyticsWorker.close(),
     embeddingWorker.close(),
     documentVersionWorker.close(),

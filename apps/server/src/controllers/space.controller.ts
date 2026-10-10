@@ -3,7 +3,7 @@ import { prisma } from '../prisma';
 
 export const listSpaces = async (req: Request, res: Response) => {
   try {
-    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    const workspaceId = (req as any).workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
 
     const spaces = await prisma.space.findMany({
@@ -19,13 +19,20 @@ export const listSpaces = async (req: Request, res: Response) => {
 
 export const createSpace = async (req: Request, res: Response) => {
   try {
-    const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    const workspaceId = (req as any).workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
     if (!workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
     
     const { name, icon, metadata } = req.body;
+    const trimmedName = typeof name === 'string' ? name.trim() : '';
+    if (!trimmedName) {
+      return res.status(400).json({ message: 'Space name is required' });
+    }
+    if (trimmedName.length > 100) {
+      return res.status(400).json({ message: 'Space name must be 100 characters or fewer' });
+    }
     const space = await prisma.space.create({
       data: {
-        name,
+        name: trimmedName,
         icon,
         metadata: metadata || {},
         workspaceId
@@ -50,9 +57,23 @@ export const updateSpace = async (req: Request, res: Response) => {
     if (!space) return res.status(404).json({ message: 'Space not found' });
 
     const { name, icon, metadata } = req.body;
+    // Only validate/apply name when the caller actually sends one; an omitted
+    // name leaves it unchanged, but an explicit empty/blank name is rejected
+    // rather than silently wiping the space's title.
+    let nameUpdate: string | undefined;
+    if (name !== undefined) {
+      const trimmedName = typeof name === 'string' ? name.trim() : '';
+      if (!trimmedName) {
+        return res.status(400).json({ message: 'Space name cannot be empty' });
+      }
+      if (trimmedName.length > 100) {
+        return res.status(400).json({ message: 'Space name must be 100 characters or fewer' });
+      }
+      nameUpdate = trimmedName;
+    }
     const updated = await prisma.space.update({
       where: { id: space.id },
-      data: { name, icon, metadata }
+      data: { name: nameUpdate, icon, metadata }
     });
     return res.status(200).json(updated);
   } catch (error) {
@@ -78,13 +99,11 @@ export const deleteSpace = async (req: Request, res: Response) => {
     await prisma.$transaction(async (tx) => {
       const projects = await tx.project.findMany({ where: { spaceId: space.id }, select: { id: true } });
       const projectIds = projects.map(p => p.id);
-      let sprintIds: string[] = [];
-      if (projectIds.length > 0) {
-        const sprints = await tx.sprint.findMany({ where: { projectId: { in: projectIds } }, select: { id: true } });
-        sprintIds = sprints.map(s => s.id);
-      }
 
-      await tx.space.update({ 
+      const docs = await tx.document.findMany({ where: { spaceId: space.id }, select: { id: true } });
+      const docIds = docs.map(d => d.id);
+
+      await tx.space.update({
         where: { id: space.id },
         data: { deletedAt: now }
       });
@@ -104,18 +123,18 @@ export const deleteSpace = async (req: Request, res: Response) => {
         data: { deletedAt: now, lastEditedById: userId }
       });
 
+      // Purge embeddings for the space's documents. Soft-deleting the documents
+      // doesn't fire the FK cascade (that's hard-delete only), so without this the
+      // chunks linger and can still surface in grounded AI / RAG answers — the same
+      // gap fixed in DocumentService.deepDelete.
+      if (docIds.length > 0) {
+        await tx.knowledgeChunk.deleteMany({ where: { documentId: { in: docIds } } });
+      }
+
       if (projectIds.length > 0) {
-        await tx.sprint.updateMany({
-          where: { projectId: { in: projectIds }, deletedAt: null },
-          data: { deletedAt: now, updatedBy: userId }
-        });
-        
         await tx.task.updateMany({
           where: {
-            OR: [
-              { projectId: { in: projectIds } },
-              { sprintId: { in: sprintIds } }
-            ],
+            projectId: { in: projectIds },
             deletedAt: null
           },
           data: { deletedAt: now, updatedBy: userId }

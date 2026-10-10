@@ -1,9 +1,10 @@
+import { focusStorageKey } from '../lib/focusStorage';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../api/client';
 import { useQueryClient } from '@tanstack/react-query';
-import { useFocusSchedule } from '../hooks/useFocusSchedule';
+import { useFocusSchedule, type CompleteSessionParams } from '../hooks/useFocusSchedule';
 import { io, Socket } from 'socket.io-client';
 import { toast } from 'sonner';
 import { TimerLayoutStandby } from './focus/TimerLayoutStandby';
@@ -80,15 +81,20 @@ function playAudioChime() {
 }
 
 export const FocusPage: React.FC = () => {
+  const { user } = useAuth();
+  return <AccountFocusPage key={user?.id ?? 'anonymous'} />;
+};
+
+const AccountFocusPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, accessToken, status } = useAuth();
+  const { user, accessToken, status, workspaceId } = useAuth();
   const queryClient = useQueryClient();
-  const { schedule, refetchSchedule, completeSession } = useFocusSchedule();
+  const { schedule, refetchSchedule, completeSession, isCompleting } = useFocusSchedule();
 
   // Settings
   const [settings, setSettings] = useState<TimerSettings>(() => {
     try {
-      const saved = localStorage.getItem('krama.focus.settings');
+      const saved = localStorage.getItem(focusStorageKey(user?.id, 'settings'));
       if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
     } catch { }
     return DEFAULT_SETTINGS;
@@ -97,7 +103,7 @@ export const FocusPage: React.FC = () => {
   // Wallpaper
   const [wallpaper, setWallpaper] = useState<WallpaperConfig>(() => {
     try {
-      const saved = localStorage.getItem('krama.focus.wallpaper');
+      const saved = localStorage.getItem(focusStorageKey(user?.id, 'wallpaper'));
       if (saved) return JSON.parse(saved);
     } catch { }
     return DEFAULT_WALLPAPER;
@@ -106,7 +112,7 @@ export const FocusPage: React.FC = () => {
   // Layout
   const [layout, setLayout] = useState<LayoutName>(() => {
     try {
-      const saved = localStorage.getItem('krama.focus.layout') as LayoutName;
+      const saved = localStorage.getItem(focusStorageKey(user?.id, 'layout')) as LayoutName;
       if (saved && ['standby', 'centered', 'overlay', 'sidebar', 'card', 'zen'].includes(saved)) {
         return saved;
       }
@@ -143,11 +149,11 @@ export const FocusPage: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Guarantee black canvas and prevent body bounce/scroll on Focus page
+  // Guarantee canvas background and prevent body bounce/scroll on Focus page
   useEffect(() => {
     const origBg = document.body.style.backgroundColor;
     const origOverflow = document.body.style.overflow;
-    document.body.style.backgroundColor = '#000000';
+    document.body.style.backgroundColor = 'var(--bg-base)';
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.backgroundColor = origBg;
@@ -158,7 +164,7 @@ export const FocusPage: React.FC = () => {
   // Operating Mode
   const [operatingMode, setOperatingMode] = useState<OperatingMode>(() => {
     try {
-      const saved = localStorage.getItem('krama.focus.mode') as OperatingMode;
+      const saved = localStorage.getItem(focusStorageKey(user?.id, 'mode')) as OperatingMode;
       if (saved === 'manual' || saved === 'planner') return saved;
     } catch { }
     return 'planner';
@@ -174,6 +180,13 @@ export const FocusPage: React.FC = () => {
   const [duration, setDuration] = useState<number>(() => settings.focusDuration * 60);
   const [isActive, setIsActive] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
+  const sessionRef = useRef<{ id: string; startTime: Date; elapsedMs: number; runningSince: number | null; targetSeconds: number; slot: SessionSlot | null; type: TimerMode } | null>(null);
+  const pendingStorageKey = `krama.focus.unsaved.${user?.id}.${workspaceId}`;
+  const [pendingCompletion, setPendingCompletion] = useState<CompleteSessionParams | null>(() => {
+    try { const saved = JSON.parse(localStorage.getItem(pendingStorageKey) || 'null'); return saved?.completionId && saved?.startTime && saved?.duration ? saved : null; } catch { return null; }
+  });
+  const pendingCompletionRef = useRef<CompleteSessionParams | null>(pendingCompletion);
+  const completionInFlightRef = useRef(false);
   const targetEndTimeRef = useRef<number | null>(null);
   const timeLeftRef = useRef<number>(timeLeft);
   // Stable refs so countdown tick always reads latest values (avoids stale closure)
@@ -242,17 +255,21 @@ export const FocusPage: React.FC = () => {
     });
 
     sock.on('notification', (data: any) => {
-      toast(data.title, { description: data.message });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      toast(data.title, { description: data.message });
+    });
+    sock.on('connect_error', (error) => {
+      if (error.message.includes('Token expired')) {
+        api.auth.refresh().catch(() => window.dispatchEvent(new Event('krama:logout')));
+      }
+    });
+    sock.on('session:ended', ({ reason }: { reason: string }) => {
+      if (reason === 'revoked') window.dispatchEvent(new Event('krama:logout'));
+      else api.auth.refresh({ reuseExisting: reason === 'rotated' }).catch(() => window.dispatchEvent(new Event('krama:logout')));
     });
 
-    sock.on('task:updated', () => {
-      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
-    });
-
-    sock.on('focus:session:completed', () => {
-      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
-    });
+    const refreshSchedule = () => queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+    for (const event of ['connect', 'task:created', 'task:updated', 'task:deleted', 'project:updated', 'project:deleted', 'project:restored', 'planner:changed', 'preferences:updated', 'focus:session:completed']) sock.on(event, refreshSchedule);
 
     socketRef.current = sock;
 
@@ -283,34 +300,39 @@ export const FocusPage: React.FC = () => {
         setLayout(user.metadata.focusLayout as LayoutName);
       } else {
         setLayout('standby');
-        localStorage.setItem('krama.focus.layout', 'standby');
+        localStorage.setItem(focusStorageKey(user?.id, 'layout'), 'standby');
       }
     }
   }, [user]);
 
-  // Sync schedule plan into local timer machine state from React Query cache
+  // Keep an active/paused session and an unsaved completion bound to its original
+  // task. Apply incoming schedule changes only when the timer is idle.
   useEffect(() => {
-    if (schedule?.plan && schedule.plan.length > 0) {
-      setPlan(schedule.plan);
-      // Initialize slot and countdown if timer is idle and plan was not set yet
-      if (!isActiveRef.current && planRef.current.length === 0) {
-        setCurrentSlotIndex(0);
-        const firstSlot = schedule.plan[0];
-        if (firstSlot) {
-          setMode(firstSlot.type);
-          const initialSecs = firstSlot.durationMin * 60;
-          setTimeLeft(initialSecs);
-          setDuration(initialSecs);
-        }
-      }
-    } else if (schedule && (!schedule.plan || schedule.plan.length === 0)) {
-      setPlan([]);
+    if (!schedule || sessionRef.current || pendingCompletionRef.current || completionInFlightRef.current) return;
+    const incoming = schedule.plan || [];
+    const previous = planRef.current[currentSlotIndexRef.current];
+    const sameSlot = (slot: SessionSlot) => previous && slot.taskId === previous.taskId && slot.timeBlockId === previous.timeBlockId && slot.type === previous.type && slot.label === previous.label;
+    const match = incoming.findIndex(sameSlot);
+    const nextIndex = match >= 0 ? match : 0;
+    setPlan(incoming);
+    setCurrentSlotIndex(nextIndex);
+    if (operatingModeRef.current === 'planner' && incoming[nextIndex]) {
+      const slot = incoming[nextIndex]; setMode(slot.type);
+      setTimeLeft(slot.durationMin * 60); setDuration(slot.durationMin * 60);
     }
-  }, [schedule]);
+  }, [schedule, pendingCompletion]);
 
   // Timer complete — uses refs for stable values, no stale closure risk
   const handleCompleteSession = useCallback(async () => {
-    const snap_startTime = startTime;
+    if (completionInFlightRef.current) return;
+    const activeSession = sessionRef.current;
+    if (!activeSession && !pendingCompletionRef.current) return;
+    completionInFlightRef.current = true;
+    if (activeSession?.runningSince !== null && activeSession?.runningSince !== undefined) {
+      activeSession.elapsedMs += Math.max(0, Date.now() - activeSession.runningSince);
+      activeSession.runningSince = null;
+    }
+    const snap_startTime = activeSession?.startTime || startTime;
     const snap_duration = duration;
     const snap_settings = settingsRef.current;
     const snap_operatingMode = operatingModeRef.current;
@@ -318,31 +340,36 @@ export const FocusPage: React.FC = () => {
     const snap_slotIndex = currentSlotIndexRef.current;
     const snap_mode = modeRef.current;
 
-    const elapsedSeconds = snap_startTime
-      ? Math.max(1, Math.floor((Date.now() - snap_startTime.getTime()) / 1000))
-      : snap_duration;
+    const elapsedSeconds = activeSession ? Math.max(1, Math.min(activeSession.targetSeconds, Math.floor(activeSession.elapsedMs / 1000))) : snap_duration;
 
     // Trigger audio chime
     if (snap_settings.soundEnabled) {
       playAudioChime();
     }
 
-    const currentSlot = snap_operatingMode === 'planner' ? snap_plan[snap_slotIndex] : null;
-
+    const currentSlot = activeSession?.slot;
+    const payload = pendingCompletionRef.current || {
+      completionId: activeSession!.id, startTime: (snap_startTime || new Date()).toISOString(),
+      endTime: new Date().toISOString(), duration: elapsedSeconds, type: activeSession?.type || snap_mode,
+      taskId: currentSlot?.taskId || undefined, projectId: currentSlot?.projectId || undefined,
+    };
+    pendingCompletionRef.current = payload;
+    setPendingCompletion(payload);
+    try { localStorage.setItem(pendingStorageKey, JSON.stringify(payload)); } catch { /* The in-memory draft remains available. */ }
+    targetEndTimeRef.current = null; setIsActive(false);
     try {
-      await completeSession({
-        startTime: (snap_startTime || new Date()).toISOString(),
-        endTime: new Date().toISOString(),
-        duration: elapsedSeconds,
-        type: snap_mode,
-        taskId: currentSlot?.taskId || undefined,
-        projectId: currentSlot?.projectId || undefined,
-      });
+      await completeSession(payload);
     } catch {
-      // Error notifications and retries are managed by useMutation
+      // Keep the identical payload and slot for explicit retry; never advance on failure.
+      completionInFlightRef.current = false;
+      return;
     }
+    completionInFlightRef.current = false;
+    pendingCompletionRef.current = null; setPendingCompletion(null); sessionRef.current = null;
+    try { localStorage.removeItem(pendingStorageKey); } catch { }
 
     setStartTime(null);
+    sessionRef.current = null;
     targetEndTimeRef.current = null;
 
     // Planner auto-advance or Manual reset
@@ -362,7 +389,9 @@ export const FocusPage: React.FC = () => {
             (nextSlot.type === 'pomodoro' && snap_settings.autoStartPomodoros);
 
           if (shouldAutoStart) {
-            setStartTime(new Date());
+            const began = new Date();
+            sessionRef.current = { id: crypto.randomUUID(), startTime: began, elapsedMs: 0, runningSince: Date.now(), targetSeconds: secs, slot: nextSlot, type: nextSlot.type };
+            setStartTime(began);
             targetEndTimeRef.current = Date.now() + secs * 1000;
             setIsActive(true);
           } else {
@@ -385,13 +414,12 @@ export const FocusPage: React.FC = () => {
       const defaultSecs =
         snap_mode === 'pomodoro'
           ? snap_settings.focusDuration * 60
-          : snap_mode === 'short_break'
-            ? snap_settings.shortBreak * 60
-            : snap_settings.longBreak * 60;
+          : snap_mode === 'short_break' ? snap_settings.shortBreak * 60
+            : snap_mode === 'custom' ? snap_settings.customDuration * 60 : snap_settings.longBreak * 60;
       setTimeLeft(defaultSecs);
       setDuration(defaultSecs);
     }
-  }, [startTime, duration, completeSession]);
+  }, [startTime, duration, completeSession, pendingStorageKey]);
 
   // Drift-free countdown loop using timestamp deltas
   useEffect(() => {
@@ -459,9 +487,11 @@ export const FocusPage: React.FC = () => {
   }, [timeLeft, mode, clock]);
 
   const handleSkip = useCallback(() => {
+    if (pendingCompletionRef.current || completionInFlightRef.current) return;
     targetEndTimeRef.current = null;
     setIsActive(false);
     setStartTime(null);
+    sessionRef.current = null;
     if (operatingMode === 'planner' && plan.length > 0) {
       // Linear advance — same logic as handleCompleteSession, no wrap-around
       const nextIndex = currentSlotIndex + 1;
@@ -485,76 +515,39 @@ export const FocusPage: React.FC = () => {
     }
   }, [operatingMode, plan, currentSlotIndex, settings.focusDuration]);
 
-  // Global Keyboard Shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-
-      if (e.code === 'Enter' || e.key === 'Enter' || e.code === 'Space') {
-        if (mode !== 'clock') {
-          e.preventDefault();
-          setIsActive((prev) => {
-            if (!prev) {
-              if (!startTime) setStartTime(new Date());
-              targetEndTimeRef.current = Date.now() + timeLeftRef.current * 1000;
-              return true;
-            } else {
-              targetEndTimeRef.current = null;
-              return false;
-            }
-          });
-        }
-      } else if (e.key === 'Escape') {
-        if (showWallpaperModal) {
-          e.preventDefault();
-          setShowWallpaperModal(false);
-        } else if (showSettingsModal) {
-          e.preventDefault();
-          setShowSettingsModal(false);
-        } else if (isFullscreen) {
-          if (document.fullscreenElement) {
-            document.exitFullscreen().catch(() => { });
-          }
-        }
-      } else if (e.key.toLowerCase() === 'w' && !e.ctrlKey && !e.metaKey) {
-        setShowWallpaperModal((prev) => !prev);
-      } else if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey) {
-        setShowSettingsModal((prev) => !prev);
-      } else if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey) {
-        if (operatingModeRef.current === 'planner') {
-          e.preventDefault();
-          handleSkip();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [startTime, showWallpaperModal, showSettingsModal, mode, isFullscreen, handleSkip]);
-
   // Control handlers
-  const handleStart = () => {
-    if (mode === 'clock') return;
-    if (!startTime) setStartTime(new Date());
-    targetEndTimeRef.current = Date.now() + timeLeft * 1000;
+  const handleStart = useCallback(() => {
+    if (isActiveRef.current || mode === 'clock' || pendingCompletionRef.current || completionInFlightRef.current) return;
+    if (!sessionRef.current) {
+      const began = new Date();
+      sessionRef.current = { id: crypto.randomUUID(), startTime: began, elapsedMs: 0, runningSince: null, targetSeconds: duration, slot: operatingModeRef.current === 'planner' ? planRef.current[currentSlotIndexRef.current] || null : null, type: modeRef.current };
+      setStartTime(began);
+    }
+    sessionRef.current.runningSince = Date.now();
+    targetEndTimeRef.current = Date.now() + timeLeftRef.current * 1000;
     setIsActive(true);
-  };
+  }, [mode, duration]);
 
-  const handlePause = () => {
+  const handlePause = useCallback(() => {
+    const active = sessionRef.current;
+    if (active?.runningSince !== null && active?.runningSince !== undefined) {
+      active.elapsedMs += Math.max(0, Date.now() - active.runningSince); active.runningSince = null;
+    }
+    if (targetEndTimeRef.current) { const remaining = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000)); timeLeftRef.current = remaining; setTimeLeft(remaining); }
     targetEndTimeRef.current = null;
     setIsActive(false);
-  };
+  }, []);
 
   const handleStop = () => {
+    if (pendingCompletionRef.current || completionInFlightRef.current) return;
     targetEndTimeRef.current = null;
     setIsActive(false);
-    setStartTime(null);
     // In planner mode, let handleCompleteSession handle the advance + reset.
     // In manual mode, reset the current slot.
     if (operatingModeRef.current === 'planner' && planRef.current.length > 0) {
       handleCompleteSession();
     } else {
+      setStartTime(null); sessionRef.current = null;
       const secs =
         modeRef.current === 'pomodoro'
           ? settingsRef.current.focusDuration * 60
@@ -571,14 +564,16 @@ export const FocusPage: React.FC = () => {
   };
 
   const handleChangeMode = (newMode: TimerMode) => {
+    if (pendingCompletionRef.current || completionInFlightRef.current) return;
     if (operatingMode === 'planner') {
       setOperatingMode('manual');
-      localStorage.setItem('krama.focus.mode', 'manual');
+      localStorage.setItem(focusStorageKey(user?.id, 'mode'), 'manual');
     }
     targetEndTimeRef.current = null;
     setMode(newMode);
     setIsActive(false);
     setStartTime(null);
+    sessionRef.current = null;
     let secs = 0;
     if (newMode === 'pomodoro') {
       secs = settings.focusDuration * 60;
@@ -599,14 +594,15 @@ export const FocusPage: React.FC = () => {
     const validMins = Math.max(1, mins);
     const updated = { ...settings, customDuration: validMins };
     setSettings(updated);
-    localStorage.setItem('krama.focus.settings', JSON.stringify(updated));
-    if (mode === 'custom' && !isActive) {
+    localStorage.setItem(focusStorageKey(user?.id, 'settings'), JSON.stringify(updated));
+    if (mode === 'custom' && !isActive && !sessionRef.current && !pendingCompletionRef.current) {
       setTimeLeft(validMins * 60);
       setDuration(validMins * 60);
     }
   };
 
   const handleSelectSlot = (idx: number) => {
+    if (pendingCompletionRef.current || completionInFlightRef.current) return;
     targetEndTimeRef.current = null;
     const targetSlot = plan[idx];
     if (!targetSlot) return;
@@ -617,24 +613,27 @@ export const FocusPage: React.FC = () => {
     setDuration(secs);
     setIsActive(false);
     setStartTime(null);
+    sessionRef.current = null;
   };
 
   const handleToggleMode = () => {
+    if (pendingCompletionRef.current || completionInFlightRef.current) return;
     if (operatingMode === 'planner') {
       setOperatingMode('manual');
-      localStorage.setItem('krama.focus.mode', 'manual');
+      localStorage.setItem(focusStorageKey(user?.id, 'mode'), 'manual');
       // Directly reset timer — can't call handleChangeMode here because
       // operatingMode state hasn't updated yet (it still reads 'planner')
       targetEndTimeRef.current = null;
       setMode('pomodoro');
       setIsActive(false);
       setStartTime(null);
+    sessionRef.current = null;
       const secs = settingsRef.current.focusDuration * 60;
       setTimeLeft(secs);
       setDuration(secs);
     } else {
       setOperatingMode('planner');
-      localStorage.setItem('krama.focus.mode', 'planner');
+      localStorage.setItem(focusStorageKey(user?.id, 'mode'), 'planner');
       refetchSchedule().then((res) => {
         const planData = res.data?.plan;
         if (planData && planData.length > 0) {
@@ -654,8 +653,8 @@ export const FocusPage: React.FC = () => {
 
   const handleSaveSettings = (newSettings: TimerSettings) => {
     setSettings(newSettings);
-    localStorage.setItem('krama.focus.settings', JSON.stringify(newSettings));
-    if (!isActive) {
+    localStorage.setItem(focusStorageKey(user?.id, 'settings'), JSON.stringify(newSettings));
+    if (!isActive && !sessionRef.current && !pendingCompletionRef.current) {
       const secs =
         mode === 'pomodoro'
           ? newSettings.focusDuration * 60
@@ -684,15 +683,56 @@ export const FocusPage: React.FC = () => {
 
   const handleSelectWallpaper = (newWallpaper: WallpaperConfig) => {
     setWallpaper(newWallpaper);
-    localStorage.setItem('krama.focus.wallpaper', JSON.stringify(newWallpaper));
+    localStorage.setItem(focusStorageKey(user?.id, 'wallpaper'), JSON.stringify(newWallpaper));
     api.auth.updatePreferences({ focusWallpaper: newWallpaper }).catch(() => { });
   };
 
   const handleSelectLayout = (newLayout: LayoutName) => {
     setLayout(newLayout);
-    localStorage.setItem('krama.focus.layout', newLayout);
+    localStorage.setItem(focusStorageKey(user?.id, 'layout'), newLayout);
     api.auth.updatePreferences({ focusLayout: newLayout }).catch(() => { });
   };
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Dialog dismissal must work even when a modal control has focus.
+      if (e.key === 'Escape') {
+        if (showWallpaperModal || showSettingsModal || showLayoutModal) {
+          e.preventDefault();
+          setShowWallpaperModal(false);
+          setShowSettingsModal(false);
+          setShowLayoutModal(false);
+        } else if (isFullscreen && document.fullscreenElement) {
+          document.exitFullscreen().catch(() => { });
+        }
+        return;
+      }
+
+      const target = e.target as HTMLElement;
+      if (target.closest('input, textarea, select, button, a, [contenteditable=true], [role=button]')) return;
+      if (showSettingsModal || showWallpaperModal || showLayoutModal) return;
+
+      if (e.code === 'Enter' || e.key === 'Enter' || e.code === 'Space') {
+        if (mode !== 'clock') {
+          e.preventDefault();
+          if (isActiveRef.current) handlePause(); else handleStart();
+        }
+      } else if (e.key.toLowerCase() === 'w' && !e.ctrlKey && !e.metaKey) {
+        setShowWallpaperModal((prev) => !prev);
+      } else if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey) {
+        setShowSettingsModal((prev) => !prev);
+      } else if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey) {
+        if (operatingModeRef.current === 'planner') {
+          e.preventDefault();
+          handleSkip();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showWallpaperModal, showSettingsModal, showLayoutModal, mode, isFullscreen, handleSkip, handleStart, handlePause]);
 
   // Get active wallpaper background styling
   const getWallpaperStyle = (): React.CSSProperties => {
@@ -741,7 +781,7 @@ export const FocusPage: React.FC = () => {
     soundEnabled: settings.soundEnabled,
     onToggleSound: () => setSettings((prev) => {
       const updated = { ...prev, soundEnabled: !prev.soundEnabled };
-      localStorage.setItem('krama.focus.settings', JSON.stringify(updated));
+      localStorage.setItem(focusStorageKey(user?.id, 'settings'), JSON.stringify(updated));
       return updated;
     }),
     onOpenSettings: () => setShowSettingsModal(true),
@@ -790,6 +830,12 @@ export const FocusPage: React.FC = () => {
       ) : (
         <TimerLayoutStandby {...layoutProps} />
       )}
+
+      {pendingCompletion && <div role={isCompleting ? 'status' : 'alert'} className="fixed bottom-4 left-4 right-4 z-[150] mx-auto max-w-lg rounded-xl border border-border bg-surface p-4 text-primary shadow-xl select-text">
+        <p className="text-sm font-medium">{isCompleting ? 'Saving your session...' : 'Your session has not been saved.'}</p>
+        <p className="text-xs text-secondary mt-1">Your work time is retained. Save it before starting another session.</p>
+        {!isCompleting && <button type="button" onClick={() => void handleCompleteSession()} className="min-h-11 mt-3 px-4 rounded-lg bg-accent text-on-accent text-sm">Retry saving session</button>}
+      </div>}
 
       {/* Timer Layout Gallery Modal */}
       {showLayoutModal && (

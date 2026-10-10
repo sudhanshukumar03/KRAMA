@@ -7,3 +7,6 @@ dist
 apps/server/dist
 apps/web/dist
 .env
+# Exclude credentials in every workspace package and environment variant.
+**/.env*
+**/node_modules

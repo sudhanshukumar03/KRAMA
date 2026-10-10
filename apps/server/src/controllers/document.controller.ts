@@ -1,20 +1,44 @@
+import { getDocumentGraph } from '../services/documentGraph.service';
+import { importDocumentSpecContent } from '../services/documentSpec.service';
+import { sendBrainAiStream } from '../services/documentAi.service';
+import { randomUUID } from 'node:crypto';
 import { Request, Response } from 'express';
 import { prisma } from '../prisma';
+import { UpdateDocumentMetadataSchema } from '@krama/validation';
 import { Prisma } from '@prisma/client';
 
+import { saveDocumentContent, queueDocumentEmbedding, snapshotDocument } from '../services/documentContent.service';
 import { DocumentService } from '../services/document.service';
-import { extractMarkdown, extractPlainText, calculateCounts } from '../utils/tiptap';
-import { documentVersionQueue, embeddingQueue } from '../queues';
+import { documentVersionQueue } from '../queues';
 import { redisService } from '../services/redis.service';
-import Groq from 'groq-sdk';
-import { GoogleGenAI } from '@google/genai';
+
+function documentErrorResponse(error: unknown, defaultStatus = 400): { status: number; payload: { message: string; requestId?: string } } {
+  const fields = error && typeof error === 'object' ? error as Record<string, unknown> : {};
+  const message = typeof fields.message === 'string' ? fields.message : undefined;
+  const databaseFailure = String(fields.name || '').startsWith('Prisma') ||
+    /^(?:P\d{4}|[0-9A-Z]{5}|ECONN\w*|ETIMEDOUT|EHOST\w*)$/.test(String(fields.code || ''));
+  const requestedStatus = Number(fields.statusCode || fields.status || (databaseFailure ? 500 : defaultStatus));
+  const status = Number.isInteger(requestedStatus) && requestedStatus >= 400 && requestedStatus < 600 ? requestedStatus : 500;
+  if (status < 500) return { status, payload: { message: message || 'Unable to complete document operation' } };
+  const requestId = randomUUID();
+  console.error(`[Document operation] Unexpected failure ${requestId}`, error);
+  return { status, payload: {
+    message: process.env.NODE_ENV === 'development' ? (message || 'Internal server error') : 'Internal server error',
+    requestId,
+  } };
+}
+
+function handleDocumentError(res: Response, error: unknown, defaultStatus = 400) {
+  const { status, payload } = documentErrorResponse(error, defaultStatus);
+  return res.status(status).json(payload);
+}
 
 /**
  * Helper to ensure the target document belongs to the active workspace.
  */
-const verifyDocWorkspace = async (docId: string, req: Request): Promise<{ ok: boolean; doc?: any }> => {
-  const workspaceId = (req as any).workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
-  const userId = (req as any).user?.id;
+const verifyDocWorkspace = async (docId: string, req: Request): Promise<{ ok: boolean; doc?: Prisma.DocumentGetPayload<{ include: { space: true } }> }> => {
+  const workspaceId = req.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+  const userId = req.user?.id;
   const doc = await prisma.document.findUnique({
     where: { id: docId },
     include: { space: true }
@@ -32,69 +56,13 @@ const verifyDocWorkspace = async (docId: string, req: Request): Promise<{ ok: bo
   return { ok: true, doc };
 };
 
-export const getDocuments = async (req: Request, res: Response) => {
-  try {
-    const spaceId = req.params.spaceId as string;
-    const userId = (req as any).user?.id;
-
-    if (!spaceId) {
-      return res.status(400).json({ message: 'Space ID is required' });
-    }
-
-    const space = await prisma.space.findUnique({
-      where: { id: spaceId },
-      select: { workspaceId: true }
-    });
-    if (!space) {
-      return res.status(404).json({ message: 'Space not found' });
-    }
-
-    if (userId) {
-      const isMember = await prisma.workspaceMember.findFirst({
-        where: { workspaceId: space.workspaceId, userId }
-      });
-      if (!isMember) {
-        return res.status(403).json({ message: 'Forbidden' });
-      }
-    }
-
-    const folderId = req.query.folderId as string | undefined;
-    const parentId = req.query.parentId as string | undefined;
-    const projectId = req.query.projectId as string | undefined;
-
-    const where: any = { 
-      spaceId,
-      deletedAt: null 
-    };
-
-    if (folderId !== undefined) {
-      where.folderId = folderId === 'null' ? null : folderId;
-    }
-    if (parentId !== undefined) {
-      where.parentId = parentId === 'null' ? null : parentId;
-    }
-    if (projectId !== undefined) {
-      where.projectId = projectId;
-    }
-
-    const documents = await prisma.document.findMany({
-      where,
-      include: { tags: { include: { tag: true } } },
-      orderBy: { updatedAt: 'desc' }
-    });
-
-    res.status(200).json(documents);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
-};
 
 export const getWorkspaceDocuments = async (req: Request, res: Response) => {
   try {
-    let workspaceId = (req as any).workspaceId || req.body?.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
-    if (!workspaceId && (req as any).user?.id) {
+    let workspaceId = req.workspaceId || req.body?.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    if (!workspaceId && req.user?.id) {
       const member = await prisma.workspaceMember.findFirst({
-        where: { userId: (req as any).user.id }
+        where: { userId: req.user.id }
       });
       if (member) workspaceId = member.workspaceId;
     }
@@ -103,27 +71,49 @@ export const getWorkspaceDocuments = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Workspace ID is required' });
     }
 
-    const documents = await prisma.document.findMany({
-      where: {
-        space: { workspaceId },
-        deletedAt: null
+    const isDeleted = req.query.deleted === 'true';
+    const spaceId = req.query.spaceId as string | undefined;
+    const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
+    const rawLimit = Number(req.query.limit ?? 200);
+    const pageSize = Number.isFinite(rawLimit) ? Math.max(1, Math.min(200, Math.floor(rawLimit))) : 200;
+
+    const where: Prisma.DocumentWhereInput = {
+      space: {
+        workspaceId,
+        ...(isDeleted ? {} : { deletedAt: null }),
+        ...(spaceId && spaceId !== 'ALL' ? { id: spaceId } : {}),
       },
-      include: { tags: { include: { tag: true } } },
-      orderBy: { updatedAt: 'desc' }
+      deletedAt: isDeleted ? { not: null } : null,
+      ...(cursor ? { id: { gt: cursor } } : {}),
+    };
+
+    const documents = await prisma.document.findMany({
+      where,
+      select: {
+        id: true, spaceId: true, folderId: true, parentId: true, projectId: true,
+        title: true, subtitle: true, icon: true, statusBadges: true, documentType: true,
+        isFavorite: true, wordCount: true, charCount: true, deletedAt: true,
+        createdById: true, lastEditedById: true, createdAt: true, updatedAt: true,
+        tags: { include: { tag: true } },
+      },
+      orderBy: { id: 'asc' },
+      take: pageSize + 1,
     });
 
-    res.status(200).json(documents);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    const hasMore = documents.length > pageSize;
+    const items = hasMore ? documents.slice(0, pageSize) : documents;
+    res.status(200).json({ items, nextCursor: hasMore ? items[items.length - 1]?.id ?? null : null });
+  } catch (error) {
+    handleDocumentError(res, error, 500);
   }
 };
 
 export const createWorkspaceDocument = async (req: Request, res: Response) => {
   try {
-    let workspaceId = (req as any).workspaceId || req.body?.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
-    if (!workspaceId && (req as any).user?.id) {
+    let workspaceId = req.workspaceId || req.body?.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    if (!workspaceId && req.user?.id) {
       const member = await prisma.workspaceMember.findFirst({
-        where: { userId: (req as any).user.id }
+        where: { userId: req.user.id }
       });
       if (member) workspaceId = member.workspaceId;
     }
@@ -133,21 +123,44 @@ export const createWorkspaceDocument = async (req: Request, res: Response) => {
     }
 
     const { title, folderId, parentId, projectId, documentType, spaceId, contentJson } = req.body;
-    const userId = (req as any).user?.id || 'system';
+    const userId = req.user?.id || 'system';
 
     if (!title) {
       return res.status(400).json({ message: 'Title is required' });
     }
 
-    // Determine target space: provided spaceId or the first default space in workspace
+    // If parentId is provided, inherit the parent document's spaceId to preserve tree consistency
     let targetSpaceId = spaceId;
+    if (parentId) {
+      const parentDoc = await prisma.document.findFirst({
+        where: { id: parentId, deletedAt: null },
+        select: { spaceId: true, space: { select: { workspaceId: true } } }
+      });
+      if (!parentDoc) {
+        return res.status(400).json({ message: 'Parent document not found or has been deleted' });
+      }
+      if (parentDoc.space?.workspaceId !== workspaceId) {
+        return res.status(403).json({ message: 'Parent document belongs to a different workspace' });
+      }
+      targetSpaceId = parentDoc.spaceId;
+    }
+
+    if (projectId) {
+      const proj = await prisma.project.findFirst({
+        where: { id: projectId, workspaceId, deletedAt: null }
+      });
+      if (!proj) {
+        return res.status(400).json({ message: 'Target project must belong to the active workspace' });
+      }
+    }
+
     if (targetSpaceId) {
-      const exists = await prisma.space.findFirst({ where: { id: targetSpaceId, workspaceId } });
+      const exists = await prisma.space.findFirst({ where: { id: targetSpaceId, workspaceId, deletedAt: null } });
       if (!exists) targetSpaceId = undefined;
     }
     if (!targetSpaceId) {
       let space = await prisma.space.findFirst({
-        where: { workspaceId }
+        where: { workspaceId, deletedAt: null }
       });
       if (!space) {
         space = await prisma.space.create({
@@ -171,16 +184,9 @@ export const createWorkspaceDocument = async (req: Request, res: Response) => {
       contentJson,
     });
 
-    if (doc.contentMarkdown) {
-      embeddingQueue.add('embed-document', {
-        documentId: doc.id,
-        content: doc.contentMarkdown,
-      }).catch(console.error);
-    }
-
     res.status(201).json(doc);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -198,94 +204,54 @@ export const getDocumentById = async (req: Request, res: Response) => {
     });
 
     res.status(200).json(document);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error, 500);
   }
 };
 
-export const createDocument = async (req: Request, res: Response) => {
-  try {
-    const { spaceId } = req.params;
-    const { title, folderId, parentId, projectId, documentType, contentJson } = req.body;
-    const userId = (req as any).user?.id; // Assuming auth middleware sets req.user
-
-    if (!spaceId || typeof spaceId !== 'string') {
-      return res.status(400).json({ message: 'Space ID is required' });
-    }
-
-    const space = await prisma.space.findUnique({
-      where: { id: spaceId },
-      select: { workspaceId: true }
-    });
-    if (!space) {
-      return res.status(404).json({ message: 'Space not found' });
-    }
-
-    if (userId) {
-      const isMember = await prisma.workspaceMember.findFirst({
-        where: { workspaceId: space.workspaceId, userId }
-      });
-      if (!isMember) {
-        return res.status(403).json({ message: 'Forbidden' });
-      }
-    }
-
-    if (!title) {
-      return res.status(400).json({ message: 'Title is required' });
-    }
-
-    const doc = await DocumentService.createDocument({
-      spaceId,
-      folderId,
-      parentId,
-      projectId,
-      title,
-      createdById: userId,
-      documentType,
-      contentJson,
-    });
-
-    if (doc.contentMarkdown) {
-      embeddingQueue.add('embed-document', {
-        documentId: doc.id,
-        content: doc.contentMarkdown,
-      }, {
-        jobId: `embed-doc-${doc.id}`,
-        delay: 2000,
-      }).catch(console.error);
-    }
-
-    res.status(201).json(doc);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
-  }
-};
 
 export const updateDocumentMetadata = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { ok } = await verifyDocWorkspace(id, req);
-    if (!ok) return res.status(404).json({ message: 'Document not found' });
+    const { ok, doc } = await verifyDocWorkspace(id, req);
+    if (!ok || !doc || doc.deletedAt) return res.status(404).json({ message: 'Document not found' });
 
-    const { title, subtitle, statusBadges, documentType, isFavorite, icon, projectId, linkedProjectId } = req.body;
+    const metadata = UpdateDocumentMetadataSchema.parse(req.body);
+    const { title, subtitle, statusBadges, documentType, isFavorite, icon, projectId, linkedProjectId, expectedUpdatedAt } = metadata;
     const project = projectId !== undefined ? projectId : linkedProjectId;
 
-    const updated = await prisma.document.update({
-      where: { id },
-      data: {
-        title,
-        subtitle,
-        statusBadges,
-        documentType,
-        isFavorite,
-        icon,
-        ...(project !== undefined ? { projectId: project } : {})
-      },
-    });
+    if (project) {
+      const proj = await prisma.project.findFirst({
+        where: { id: project, workspaceId: doc.space?.workspaceId, deletedAt: null }
+      });
+      if (!proj) {
+        return res.status(400).json({ message: 'Target project must belong to the active workspace' });
+      }
+    }
+
+    const data = {
+      title, subtitle, statusBadges, documentType, isFavorite, icon,
+      ...(project !== undefined ? { projectId: project } : {})
+    };
+    let updated;
+    if (expectedUpdatedAt) {
+      // Return the revision from this exact write, not a subsequent read that
+      // could observe another writer's newer revision.
+      const rows = await prisma.document.updateManyAndReturn({
+        where: { id, updatedAt: new Date(expectedUpdatedAt), deletedAt: null }, data,
+      });
+      if (!rows.length) return res.status(409).json({ message: 'Document was modified elsewhere. Your draft has not been saved.' });
+      updated = rows[0]!;
+    } else {
+      updated = await prisma.document.update({ where: { id }, data });
+    }
 
     res.status(200).json(updated);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'ZodError' && 'issues' in error && Array.isArray(error.issues)) {
+      return res.status(400).json({ message: error.issues[0]?.message || 'Invalid document metadata', errors: error.issues });
+    }
+    return handleDocumentError(res, error, 500);
   }
 };
 
@@ -302,8 +268,8 @@ export const moveDocument = async (req: Request, res: Response) => {
 
     const doc = await DocumentService.moveDocument(id, targetFolderId, targetParentId);
     res.status(200).json(doc);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -316,7 +282,7 @@ export const duplicateDocument = async (req: Request, res: Response) => {
     const { ok } = await verifyDocWorkspace(id, req);
     if (!ok) return res.status(404).json({ message: 'Document not found' });
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
@@ -325,8 +291,8 @@ export const duplicateDocument = async (req: Request, res: Response) => {
     const duplicated = await prisma.document.findUnique({ where: { id: duplicatedId } });
     
     res.status(201).json(duplicated);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -345,8 +311,8 @@ export const toggleFavorite = async (req: Request, res: Response) => {
     });
 
     res.status(200).json(updated);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -361,8 +327,8 @@ export const deleteDocument = async (req: Request, res: Response) => {
 
     await DocumentService.deepDelete(id);
     res.status(200).json({ message: 'Deleted successfully' });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error, 500);
   }
 };
 
@@ -377,8 +343,54 @@ export const restoreDocument = async (req: Request, res: Response) => {
 
     await DocumentService.deepRestore(id);
     res.status(200).json({ message: 'Restored successfully' });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error, 500);
+  }
+};
+
+export const purgeDocument = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ message: 'Document ID is required' });
+    }
+    const { ok } = await verifyDocWorkspace(id, req);
+    if (!ok) return res.status(404).json({ message: 'Document not found' });
+
+    // Hard delete document and all its relations recursively
+    await prisma.$transaction(async (tx) => {
+      const collectIds = async (docId: string): Promise<string[]> => {
+        const children = await tx.document.findMany({ where: { parentId: docId }, select: { id: true } });
+        let ids = [docId];
+        for (const child of children) {
+          const childIds = await collectIds(child.id);
+          ids = ids.concat(childIds);
+        }
+        return ids;
+      };
+
+      const allIds = await collectIds(id);
+
+      await tx.knowledgeChunk.deleteMany({ where: { documentId: { in: allIds } } });
+      await tx.documentVersion.deleteMany({ where: { documentId: { in: allIds } } });
+      await tx.entityLink.deleteMany({
+        where: {
+          OR: [
+            { sourceType: 'DOCUMENT', sourceId: { in: allIds } },
+            { targetType: 'DOCUMENT', targetId: { in: allIds } }
+          ]
+        }
+      });
+      await tx.documentTag.deleteMany({ where: { documentId: { in: allIds } } });
+
+      for (const docId of allIds.reverse()) {
+        await tx.document.delete({ where: { id: docId } }).catch(() => {});
+      }
+    });
+
+    res.status(200).json({ message: 'Permanently deleted' });
+  } catch (error) {
+    handleDocumentError(res, error, 500);
   }
 };
 
@@ -391,38 +403,19 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
     const { ok } = await verifyDocWorkspace(id, req);
     if (!ok) return res.status(404).json({ message: 'Document not found' });
 
-    const { contentJson } = req.body;
-    const userId = (req as any).user?.id || 'system';
+    const { contentJson, expectedUpdatedAt } = req.body;
+    const userId = req.user?.id || 'system';
 
-    const plainText = extractPlainText(contentJson);
-    const contentMarkdown = extractMarkdown(contentJson);
-    const { wordCount, charCount } = calculateCounts(plainText);
-
-    const updated = await prisma.document.update({
-      where: { id },
-      data: {
-        contentJson,
-        contentMarkdown,
-        wordCount,
-        charCount,
-        lastEditedById: userId,
-      }
-    });
-
-    if (contentMarkdown) {
-      embeddingQueue.add('embed-document', {
-        documentId: id,
-        content: contentMarkdown,
-      }, {
-        jobId: `embed-doc-${id}`,
-        delay: 2000,
-      }).catch(console.error);
-    }
+    const updated = await saveDocumentContent(id, contentJson, userId, expectedUpdatedAt);
+    const { wordCount, charCount } = updated;
+    queueDocumentEmbedding(updated).catch(console.error);
 
     // Handle autosave versioning: 50 mutations or 5 min idle (safe against Redis errors)
     try {
       const mutations = await redisService.incr(`doc:${id}:mutations`);
-      const idleJobId = `idle-snapshot-${id}`;
+      const idleKey = `doc:${id}:idle-job`;
+      const pendingJobId = await redisService.get(idleKey);
+      const idleJobId = `idle-snapshot-${id}-${randomUUID()}`;
       
       if (mutations >= 50) {
         await documentVersionQueue.add('snapshot', {
@@ -433,13 +426,13 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
         await redisService.del(`doc:${id}:mutations`);
         
         // Clear any pending idle snapshot since we just took one
-        const pendingIdleJob = await documentVersionQueue.getJob(idleJobId);
+        const pendingIdleJob = pendingJobId ? await documentVersionQueue.getJob(pendingJobId) : null;
         if (pendingIdleJob) {
           await pendingIdleJob.remove();
         }
       } else {
         // Debounce a 5-minute idle snapshot
-        const pendingIdleJob = await documentVersionQueue.getJob(idleJobId);
+        const pendingIdleJob = pendingJobId ? await documentVersionQueue.getJob(pendingJobId) : null;
         if (pendingIdleJob) {
           await pendingIdleJob.remove().catch(() => {});
         }
@@ -451,18 +444,19 @@ export const updateDocumentContent = async (req: Request, res: Response) => {
           jobId: idleJobId,
           delay: 5 * 60 * 1000 // 5 minutes
         });
+        await redisService.set(idleKey, idleJobId, 10 * 60);
       }
     } catch (redisErr) {
       console.warn('[updateDocumentContent] Redis versioning skipped:', redisErr);
     }
 
-    res.status(200).json({ 
-      updatedAt: updated.updatedAt, 
-      wordCount, 
-      charCount 
+    res.status(200).json({
+      updatedAt: updated?.updatedAt,
+      wordCount,
+      charCount
     });
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -478,8 +472,8 @@ export const getVersions = async (req: Request, res: Response) => {
       orderBy: { versionNumber: 'desc' }
     });
     res.status(200).json(versions);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -490,32 +484,14 @@ export const createVersion = async (req: Request, res: Response) => {
     const { ok, doc } = await verifyDocWorkspace(id, req);
     if (!ok || !doc) return res.status(404).json({ message: 'Document not found' });
 
-    const userId = (req as any).user?.id || 'system';
+    const userId = req.user?.id || 'system';
 
-    // Cancel any pending idle snapshot
-    const idleJobId = `idle-snapshot-${id}`;
-    try {
-      const pendingIdleJob = await documentVersionQueue.getJob(idleJobId);
-      if (pendingIdleJob) {
-        await pendingIdleJob.remove().catch(() => {});
-      }
-
-      // Create snapshot immediately via queue
-      await documentVersionQueue.add('snapshot', {
-        documentId: id,
-        userId,
-        contentJson: doc.contentJson
-      });
-
-      // Reset mutation counter
-      await redisService.del(`doc:${id}:mutations`);
-    } catch (qErr) {
-      console.warn('[createVersion] Queue error:', qErr);
-    }
-
-    res.status(201).json({ message: 'Version snapshot created' });
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    const version = await prisma.$transaction(tx => snapshotDocument(tx, id, userId));
+    // The successful response means the row is persisted, even if Redis is down.
+    redisService.del(`doc:${id}:mutations`).catch(() => {});
+    res.status(201).json(version);
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -532,8 +508,8 @@ export const getVersion = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Not found' });
     }
     res.status(200).json(version);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -543,7 +519,7 @@ export const restoreVersion = async (req: Request, res: Response) => {
     const { ok, doc: currentDoc } = await verifyDocWorkspace(id, req);
     if (!ok || !currentDoc) return res.status(404).json({ message: 'Document not found' });
 
-    const userId = (req as any).user?.id || 'system';
+    const userId = req.user?.id || 'system';
     
     const versionToRestore = await prisma.documentVersion.findUnique({
       where: { id: versionId }
@@ -553,45 +529,21 @@ export const restoreVersion = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Version not found' });
     }
 
-    // Snapshot current state first
-    try {
-      await documentVersionQueue.add('snapshot', {
-        documentId: id,
-        userId,
-        contentJson: currentDoc.contentJson
-      });
-    } catch (qErr) {
-      console.warn('[restoreVersion] Snapshot queue error:', qErr);
-    }
-
-    // Restore
-    const plainText = extractPlainText(versionToRestore.contentJson);
-    const contentMarkdown = extractMarkdown(versionToRestore.contentJson);
-    const { wordCount, charCount } = calculateCounts(plainText);
-
-    const updated = await prisma.document.update({
-      where: { id },
-      data: {
-        contentJson: versionToRestore.contentJson as any,
-        contentMarkdown,
-        wordCount,
-        charCount,
-        lastEditedById: userId,
-      }
-    });
+    const updated = await saveDocumentContent(id, versionToRestore.contentJson, userId, currentDoc.updatedAt.toISOString(), true);
+    queueDocumentEmbedding(updated).catch(console.error);
 
     res.status(200).json(updated);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
 export const getWorkspaceTags = async (req: Request, res: Response) => {
   try {
-    let id = req.params.id as string; // workspaceId
-    const userId = (req as any).user?.id;
+    let id: string | undefined = req.params.id as string; // workspaceId
+    const userId = req.user?.id;
     if (!id || id === 'undefined' || id === 'null') {
-      id = (req as any).workspaceId;
+      id = req.workspaceId;
     }
     if (!id && userId) {
       const member = await prisma.workspaceMember.findFirst({
@@ -614,8 +566,8 @@ export const getWorkspaceTags = async (req: Request, res: Response) => {
       orderBy: { name: 'asc' }
     });
     res.status(200).json(tags);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -655,8 +607,8 @@ export const addDocumentTag = async (req: Request, res: Response) => {
     });
 
     res.status(200).json(tag);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -671,8 +623,8 @@ export const removeDocumentTag = async (req: Request, res: Response) => {
       where: { documentId_tagId: { documentId: id, tagId } }
     });
     res.status(200).json({ message: 'Removed' });
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -689,24 +641,43 @@ export const getDocumentLinks = async (req: Request, res: Response) => {
       where: { targetType: 'DOCUMENT', targetId: id }
     });
     res.status(200).json({ outgoing, incoming });
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
 export const addDocumentLink = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { ok } = await verifyDocWorkspace(id, req);
-    if (!ok) return res.status(404).json({ message: 'Document not found' });
+    const { ok, doc } = await verifyDocWorkspace(id, req);
+    if (!ok || !doc) return res.status(404).json({ message: 'Document not found' });
 
     const { targetType, targetId, linkType } = req.body;
-    const userId = (req as any).user?.id || 'system';
+    const userId = req.user?.id || 'system';
 
-    if (targetType === 'DOCUMENT' && targetId) {
+    if (!targetId || !['DOCUMENT', 'PROJECT', 'TASK'].includes(targetType)) {
+      return res.status(400).json({ message: 'A valid targetType (DOCUMENT | PROJECT | TASK) and targetId are required' });
+    }
+
+    // Every link target must live in the same workspace as the source document.
+    // Previously only DOCUMENT targets were checked, so a document could be linked
+    // to a project/task from another workspace (or to a non-existent id), leaking
+    // cross-workspace references into the graph and backlinks.
+    const workspaceId = doc.space?.workspaceId;
+    if (targetType === 'DOCUMENT') {
       const targetCheck = await verifyDocWorkspace(targetId, req);
       if (!targetCheck.ok) {
         return res.status(400).json({ message: 'Target document must belong to the active workspace' });
+      }
+    } else if (targetType === 'PROJECT') {
+      const project = await prisma.project.findUnique({ where: { id: targetId }, select: { workspaceId: true, deletedAt: true } });
+      if (!project || project.deletedAt || project.workspaceId !== workspaceId) {
+        return res.status(400).json({ message: 'Target project must belong to the active workspace' });
+      }
+    } else if (targetType === 'TASK') {
+      const task = await prisma.task.findUnique({ where: { id: targetId }, select: { workspaceId: true, deletedAt: true } });
+      if (!task || task.deletedAt || task.workspaceId !== workspaceId) {
+        return res.status(400).json({ message: 'Target task must belong to the active workspace' });
       }
     }
 
@@ -732,8 +703,8 @@ export const addDocumentLink = async (req: Request, res: Response) => {
       }
     });
     res.status(201).json(link);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -753,8 +724,8 @@ export const removeLink = async (req: Request, res: Response) => {
 
     await prisma.entityLink.delete({ where: { id: linkId } });
     res.status(200).json({ message: 'Removed' });
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -769,8 +740,8 @@ export const createTaskFromDocument = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Task title is required' });
     }
 
-    const userId = (req as any).user?.id || 'system';
-    const workspaceId = (req as any).workspaceId || req.body.workspaceId;
+    const userId = req.user?.id || 'system';
+    const workspaceId = req.workspaceId || req.body.workspaceId;
 
     const result = await DocumentService.createTaskFromDocument(
       id,
@@ -785,17 +756,17 @@ export const createTaskFromDocument = async (req: Request, res: Response) => {
     );
 
     res.status(201).json(result);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
 export const searchDocuments = async (req: Request, res: Response) => {
   try {
-    let id = req.params.id as string; // workspaceId
-    const userId = (req as any).user?.id;
+    let id: string | undefined = req.params.id as string; // workspaceId
+    const userId = req.user?.id;
     if (!id || id === 'undefined' || id === 'null') {
-      id = (req as any).workspaceId;
+      id = req.workspaceId;
     }
     if (!id && userId) {
       const member = await prisma.workspaceMember.findFirst({
@@ -813,7 +784,7 @@ export const searchDocuments = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { q, type, projectId, status } = req.query;
+    const { q, type, projectId, status, tag } = req.query;
     if (!q) return res.status(200).json([]);
 
     const queryStr = String(q).trim();
@@ -827,26 +798,45 @@ export const searchDocuments = async (req: Request, res: Response) => {
     const statusFilter = status && status !== 'ALL' 
       ? Prisma.sql`AND ${String(status)} = ANY(d."statusBadges")` 
       : Prisma.empty;
+    const tagFilter = tag && tag !== 'ALL'
+      ? Prisma.sql`AND EXISTS (
+          SELECT 1 FROM "DocumentTag" dt
+          JOIN "Tag" t ON dt."tagId" = t.id
+          WHERE dt."documentId" = d.id AND t.name ILIKE ${String(tag).trim()}
+        )`
+      : Prisma.empty;
 
-    // Use raw query with plainto_tsquery for syntax-safe ranked search against tsvector
+    // The `searchVector` column is populated via document_search_vector_trigger and
+    // indexed with GIN (Document_searchVector_gin_idx). We match directly against
+    // searchVector @@ plainto_tsquery, and OR in a title ILIKE so short/partial
+    // words (e.g. "arch" → "architecture") that produce no lexemes still match.
+    const likePattern = `%${queryStr}%`;
     const results = await prisma.$queryRaw`
       SELECT d.id, d.title, d.subtitle, d.icon, d."documentType", d."statusBadges", d."projectId", d."updatedAt",
              ts_headline('english', d."contentMarkdown", plainto_tsquery('english', ${queryStr}), 'MaxFragments=1, MaxWords=20') as snippet
       FROM "Document" d
       JOIN "Space" s ON d."spaceId" = s.id
       WHERE s."workspaceId" = ${id}
+        AND s."deletedAt" IS NULL
         AND d."deletedAt" IS NULL
-        AND d."searchVector" @@ plainto_tsquery('english', ${queryStr})
+        AND (
+          (d."searchVector" IS NOT NULL AND d."searchVector" @@ plainto_tsquery('english', ${queryStr}))
+          OR d.title ILIKE ${likePattern}
+        )
         ${typeFilter}
         ${projectFilter}
         ${statusFilter}
-      ORDER BY ts_rank(d."searchVector", plainto_tsquery('english', ${queryStr})) DESC
+        ${tagFilter}
+      ORDER BY ts_rank(
+                 coalesce(d."searchVector", to_tsvector('english', coalesce(d.title, ''))),
+                 plainto_tsquery('english', ${queryStr})
+               ) DESC
       LIMIT 25;
     `;
 
     res.status(200).json(results);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -867,8 +857,9 @@ export const exportDocument = async (req: Request, res: Response) => {
     if (!doc) return res.status(404).json({ message: 'Document not found' });
 
     if (format === 'md') {
+      const safeFilename = encodeURIComponent((doc.title || 'document').replace(/[^\w\s.-]/g, '_').trim());
       res.setHeader('Content-Type', 'text/markdown');
-      res.setHeader('Content-Disposition', `attachment; filename="${doc.title}.md"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}.md"; filename*=UTF-8''${safeFilename}.md`);
       return res.status(200).send(doc.contentMarkdown);
     }
 
@@ -895,21 +886,22 @@ title: ${doc.title}
 subtitle: ${doc.subtitle || ''}
 documentType: ${doc.documentType}
 statusBadges: [${doc.statusBadges.join(', ')}]
-tags: [${doc.tags.map((t: any) => t.tag.name).join(', ')}]
+tags: [${doc.tags.map((t) => t.tag.name).join(', ')}]
 wordCount: ${doc.wordCount}
 ---
 
 `;
       const specContent = yamlFrontmatter + doc.contentMarkdown + '\n' + treeMd;
 
+      const safeFilename = encodeURIComponent((doc.title || 'document').replace(/[^\w\s.-]/g, '_').trim());
       res.setHeader('Content-Type', 'text/markdown');
-      res.setHeader('Content-Disposition', `attachment; filename="${doc.title}-spec.md"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}-spec.md"; filename*=UTF-8''${safeFilename}-spec.md`);
       return res.status(200).send(specContent);
     }
 
     res.status(400).json({ message: 'Unsupported format' });
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
@@ -936,20 +928,21 @@ function annotateHeadingsWithAnchors(markdown: string): { annotatedMd: string; a
   return { annotatedMd: annotatedLines.join('\n'), anchors };
 }
 
+
 export const aiAsk = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const { question } = req.body;
     const { ok, doc } = await verifyDocWorkspace(id, req);
-    if (!ok || !doc) return res.status(404).json({ message: 'Document not found' });
+    if (!ok || !doc || doc.deletedAt || doc.space.deletedAt) return res.status(404).json({ message: 'Document not found' });
 
     // Fetch 1-hop reference links
     const outgoing = await prisma.entityLink.findMany({ where: { sourceType: 'DOCUMENT', sourceId: id, linkType: 'REFERENCE' }});
     const incoming = await prisma.entityLink.findMany({ where: { targetType: 'DOCUMENT', targetId: id, linkType: 'REFERENCE' }});
-    const refIds = [...outgoing.map(l => l.targetId), ...incoming.map(l => l.sourceId)];
+    const refIds = [...outgoing.filter(l => l.targetType === 'DOCUMENT').map(l => l.targetId), ...incoming.filter(l => l.sourceType === 'DOCUMENT').map(l => l.sourceId)];
     
     const references = await prisma.document.findMany({
-      where: { id: { in: refIds }, deletedAt: null },
+      where: { id: { in: refIds }, deletedAt: null, space: { workspaceId: doc.space.workspaceId, deletedAt: null, workspace: { deletedAt: null } } },
       select: { title: true, contentMarkdown: true }
     });
 
@@ -970,63 +963,13 @@ export const aiAsk = async (req: Request, res: Response) => {
     const availableAnchorsList = allAnchors.length > 0 ? `Available section anchor citations: ${allAnchors.slice(0, 25).join(', ')}` : '';
     const systemPrompt = `You are an AI assistant grounded ONLY in the following knowledge base content:\n\n${contextText}\n\n${availableAnchorsList}\n\nAnswer the user's question accurately. When citing information, you MUST cite the specific document section using its anchor slug like [#section-title] where applicable.`;
 
-    if (process.env.GEMINI_API_KEY) {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-3.8-flash',
-        contents: question,
-        config: {
-          systemInstruction: systemPrompt
-        }
-      });
-
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      for await (const chunk of responseStream) {
-        const text = chunk.text || '';
-        if (text) {
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
-        }
-      }
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
-    }
-
-    if (process.env.GROQ_API_KEY) {
-      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-      const stream = await groq.chat.completions.create({
-        model: 'openai/gpt-oss-20b',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: question }
-        ],
-        stream: true
-      });
-
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      for await (const chunk of stream) {
-        const text = chunk.choices[0]?.delta?.content || '';
-        if (text) {
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
-        }
-      }
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
-    }
-
-    throw new Error('Neither GEMINI_API_KEY nor GROQ_API_KEY is configured.');
-  } catch (error: any) {
+    await sendBrainAiStream(res, systemPrompt, question);
+  } catch (error) {
     if (!res.headersSent) {
-      res.status(500).json({ message: error.message });
+      handleDocumentError(res, error, 500);
     } else {
-      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      const { payload } = documentErrorResponse(error, 500);
+      res.write(`data: ${JSON.stringify({ error: payload.message, requestId: payload.requestId })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
     }
@@ -1047,63 +990,13 @@ export const aiCompose = async (req: Request, res: Response) => {
 
     const userPrompt = selection ? `Selection: ${selection}\n\nInstruction: ${instruction}` : instruction;
 
-    if (process.env.GEMINI_API_KEY) {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-3.8-flash',
-        contents: userPrompt,
-        config: {
-          systemInstruction: systemPrompt
-        }
-      });
-
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      for await (const chunk of responseStream) {
-        const text = chunk.text || '';
-        if (text) {
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
-        }
-      }
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
-    }
-
-    if (process.env.GROQ_API_KEY) {
-      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-      const stream = await groq.chat.completions.create({
-        model: 'openai/gpt-oss-20b',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: selection ? `Selection: ${selection}` : instruction }
-        ],
-        stream: true
-      });
-
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      for await (const chunk of stream) {
-        const text = chunk.choices[0]?.delta?.content || '';
-        if (text) {
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
-        }
-      }
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
-    }
-
-    throw new Error('Neither GEMINI_API_KEY nor GROQ_API_KEY is configured.');
-  } catch (error: any) {
+    await sendBrainAiStream(res, systemPrompt, userPrompt);
+  } catch (error) {
     if (!res.headersSent) {
-      res.status(500).json({ message: error.message });
+      handleDocumentError(res, error, 500);
     } else {
-      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      const { payload } = documentErrorResponse(error, 500);
+      res.write(`data: ${JSON.stringify({ error: payload.message, requestId: payload.requestId })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
     }
@@ -1112,10 +1005,10 @@ export const aiCompose = async (req: Request, res: Response) => {
 
 export const importDocumentSpec = async (req: Request, res: Response) => {
   try {
-    let workspaceId = (req as any).workspaceId || req.body?.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
-    if (!workspaceId && (req as any).user?.id) {
+    let workspaceId = req.workspaceId || req.body?.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+    if (!workspaceId && req.user?.id) {
       const member = await prisma.workspaceMember.findFirst({
-        where: { userId: (req as any).user.id }
+        where: { userId: req.user.id }
       });
       if (member) workspaceId = member.workspaceId;
     }
@@ -1129,204 +1022,48 @@ export const importDocumentSpec = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Spec file content is required' });
     }
 
-    const userId = (req as any).user?.id || 'system';
+    const userId = req.user?.id || 'system';
+
+    // Validate and resolve a parent before creating a space or any imported rows.
+    // Parent-scoped lookup intentionally returns the same result for missing and foreign parents.
+    let targetSpaceId = spaceId;
+    if (parentId) {
+      const parent = await prisma.document.findFirst({
+        where: { id: parentId, deletedAt: null, space: { workspaceId, deletedAt: null } },
+        select: { spaceId: true },
+      });
+      if (!parent) {
+        return res.status(400).json({ message: 'Parent document was not found in the active workspace' });
+      }
+      targetSpaceId = parent.spaceId;
+    }
 
     // Find or create default space
-    let targetSpaceId = spaceId;
     if (targetSpaceId) {
-      const exists = await prisma.space.findFirst({ where: { id: targetSpaceId, workspaceId } });
+      const exists = await prisma.space.findFirst({ where: { id: targetSpaceId, workspaceId, deletedAt: null } });
       if (!exists) targetSpaceId = undefined;
     }
     if (!targetSpaceId) {
-      let space = await prisma.space.findFirst({ where: { workspaceId } });
+      let space = await prisma.space.findFirst({ where: { workspaceId, deletedAt: null } });
       if (!space) {
         space = await prisma.space.create({ data: { name: 'General', workspaceId } });
       }
       targetSpaceId = space.id;
     }
 
-    // 1. Parse YAML frontmatter if present
-    let rawContent = content;
-    let title = 'Imported Specification';
-    let subtitle = '';
-    let documentType: any = 'SPEC';
-    let statusBadges: string[] = ['LIVE SPECIFICATION'];
-    let tagsList: string[] = [];
-
-    const frontmatterMatch = rawContent.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
-    if (frontmatterMatch) {
-      const fmText = frontmatterMatch[1] || '';
-      rawContent = frontmatterMatch[2] || '';
-
-      const titleMatch = fmText.match(/^title:\s*(.*)$/m);
-      if (titleMatch && titleMatch[1]?.trim()) title = titleMatch[1].trim();
-
-      const subtitleMatch = fmText.match(/^subtitle:\s*(.*)$/m);
-      if (subtitleMatch && subtitleMatch[1]?.trim()) subtitle = subtitleMatch[1].trim();
-
-      const typeMatch = fmText.match(/^documentType:\s*(.*)$/m);
-      if (typeMatch && typeMatch[1]?.trim()) {
-        const t = typeMatch[1].trim().toUpperCase();
-        if (['SPEC', 'NOTE', 'MEETING', 'IDEA', 'RFC', 'GENERAL'].includes(t)) {
-          documentType = t;
-        }
-      }
-
-      const badgesMatch = fmText.match(/^statusBadges:\s*\[(.*?)\]/m);
-      if (badgesMatch && badgesMatch[1]) {
-        statusBadges = badgesMatch[1].split(',').map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
-      }
-
-      const tagsMatch = fmText.match(/^tags:\s*\[(.*?)\]/m);
-      if (tagsMatch && tagsMatch[1]) {
-        tagsList = tagsMatch[1].split(',').map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
-      }
-    }
-
-    // Helper to turn markdown into simple ProseMirror TipTap document
-    const markdownToTipTapJson = (md: string) => {
-      const paragraphs = md.split(/\n\s*\n/).filter(p => p.trim());
-      const contentNodes: any[] = [];
-      for (const p of paragraphs) {
-        const trimmed = p.trim();
-        if (trimmed.startsWith('# ')) {
-          contentNodes.push({ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: trimmed.slice(2).trim() }] });
-        } else if (trimmed.startsWith('## ')) {
-          contentNodes.push({ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: trimmed.slice(3).trim() }] });
-        } else if (trimmed.startsWith('### ')) {
-          contentNodes.push({ type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: trimmed.slice(4).trim() }] });
-        } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-          const items = trimmed.split('\n').filter(l => l.trim().startsWith('- ') || l.trim().startsWith('* '));
-          contentNodes.push({
-            type: 'bulletList',
-            content: items.map(it => ({
-              type: 'listItem',
-              content: [{ type: 'paragraph', content: [{ type: 'text', text: it.replace(/^[-*]\s*/, '').trim() }] }]
-            }))
-          });
-        } else if (trimmed.startsWith('```')) {
-          contentNodes.push({
-            type: 'codeBlock',
-            content: [{ type: 'text', text: trimmed.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '') }]
-          });
-        } else {
-          contentNodes.push({
-            type: 'paragraph',
-            content: [{ type: 'text', text: trimmed }]
-          });
-        }
-      }
-      return {
-        type: 'doc',
-        content: contentNodes.length > 0 ? contentNodes : [{ type: 'paragraph', content: [{ type: 'text', text: md }] }]
-      };
-    };
-
-    // Split root markdown vs nested child headings (## Heading)
-    const childSections = rawContent.split(/\n(?=##\s+)/);
-    const rootBodyMd = childSections[0] || '';
-
-    // Create root document
-    const rootDoc = await DocumentService.createDocument({
-      spaceId: targetSpaceId,
-      parentId: parentId || undefined,
-      title,
-      subtitle: subtitle || undefined,
-      documentType,
-      statusBadges: statusBadges.length > 0 ? statusBadges : ['LIVE SPECIFICATION'],
-      contentJson: markdownToTipTapJson(rootBodyMd),
-      createdById: userId,
-    });
-
-    // Attach tags to rootDoc
-    for (const tagName of tagsList) {
-      let tag = await prisma.tag.findUnique({
-        where: { workspaceId_name: { workspaceId, name: tagName.toLowerCase() } }
-      });
-      if (!tag) {
-        tag = await prisma.tag.create({
-          data: { workspaceId, name: tagName.toLowerCase() }
-        });
-      }
-      await prisma.documentTag.upsert({
-        where: { documentId_tagId: { documentId: rootDoc.id, tagId: tag.id } },
-        create: { documentId: rootDoc.id, tagId: tag.id },
-        update: {}
-      });
-    }
-
-    // Process nested child sections (up to depth 2: ## Child, depth 3: ### Grandchild)
-    let totalImported = 1;
-    const rootDepth = await DocumentService.getDepth(rootDoc.id);
-
-    if (rootDepth < 3) {
-      for (let i = 1; i < childSections.length; i++) {
-        const section = childSections[i] || '';
-        const lines = section.split('\n');
-        const headingLine = lines[0] || '';
-        const childTitle = headingLine.replace(/^##\s+/, '').trim() || `Child Document ${i}`;
-
-        // Grandchild sections inside this child section
-        const grandchildSections = lines.slice(1).join('\n').split(/\n(?=###\s+)/);
-        const childBodyMd = grandchildSections[0] || '';
-
-        const childDoc = await DocumentService.createDocument({
-          spaceId: targetSpaceId,
-          parentId: rootDoc.id,
-          title: childTitle,
-          documentType: 'SPEC',
-          statusBadges: ['SUB-SPEC'],
-          contentJson: markdownToTipTapJson(childBodyMd),
-          createdById: userId,
-        });
-        totalImported++;
-
-        // Process grandchildren if depth allows
-        const childDepth = rootDepth + 1;
-        if (childDepth < 3) {
-          for (let j = 1; j < grandchildSections.length; j++) {
-            const gcSection = grandchildSections[j] || '';
-            const gcLines = gcSection.split('\n');
-            const gcHeading = gcLines[0] || '';
-            const gcTitle = gcHeading.replace(/^###\s+/, '').trim() || `Grandchild Document ${j}`;
-            const gcBodyMd = gcLines.slice(1).join('\n');
-
-            await DocumentService.createDocument({
-              spaceId: targetSpaceId,
-              parentId: childDoc.id,
-              title: gcTitle,
-              documentType: 'SPEC',
-              statusBadges: ['SUB-SPEC'],
-              contentJson: markdownToTipTapJson(gcBodyMd),
-              createdById: userId,
-            });
-            totalImported++;
-          }
-        }
-      }
-    }
-
-    const fullRoot = await prisma.document.findUnique({
-      where: { id: rootDoc.id },
-      include: { tags: { include: { tag: true } } }
-    });
-
-    res.status(201).json({
-      document: fullRoot,
-      totalImported,
-      message: `Successfully imported spec "${title}" with ${totalImported} documents.`
-    });
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    const imported = await importDocumentSpecContent(content, targetSpaceId, workspaceId, userId, parentId);
+    res.status(201).json(imported);
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };
 
 export const getWorkspaceGraph = async (req: Request, res: Response) => {
   try {
-    let id = req.params.id as string; // workspaceId
-    const userId = (req as any).user?.id;
+    let id: string | undefined = req.params.id as string; // workspaceId
+    const userId = req.user?.id;
     if (!id || id === 'undefined' || id === 'null') {
-      id = (req as any).workspaceId;
+      id = req.workspaceId;
     }
     if (!id && userId) {
       const member = await prisma.workspaceMember.findFirst({
@@ -1345,121 +1082,9 @@ export const getWorkspaceGraph = async (req: Request, res: Response) => {
     }
 
     const rootId = (req.query.rootId as string) || undefined;
-    const maxDepth = Math.min(parseInt((req.query.depth as string) || '2', 10), 2); // Depth capped at 2
-    const maxNodesCap = 150; // Cap at 150 nodes
-
-    let docIdsToInclude: Set<string> = new Set();
-
-    if (rootId) {
-      // BFS traversal starting from rootId up to maxDepth
-      const visited = new Set<string>([rootId]);
-      let currentQueue: string[] = [rootId];
-      let currentDepth = 0;
-
-      while (currentQueue.length > 0 && currentDepth <= maxDepth && visited.size < maxNodesCap) {
-        const nextQueue: string[] = [];
-        for (const currentId of currentQueue) {
-          if (visited.size >= maxNodesCap) break;
-          // Find connected entity links (outgoing & incoming for DOCUMENT)
-          const links = await prisma.entityLink.findMany({
-            where: {
-              OR: [
-                { sourceType: 'DOCUMENT', sourceId: currentId },
-                { targetType: 'DOCUMENT', targetId: currentId }
-              ]
-            }
-          });
-          for (const l of links) {
-            const neighborId = l.sourceId === currentId ? (l.targetType === 'DOCUMENT' ? l.targetId : null) : l.sourceId;
-            if (neighborId && !visited.has(neighborId)) {
-              visited.add(neighborId);
-              nextQueue.push(neighborId);
-              if (visited.size >= maxNodesCap) break;
-            }
-          }
-        }
-        currentQueue = nextQueue;
-        currentDepth++;
-      }
-      docIdsToInclude = visited;
-    } else {
-      const docs = await prisma.document.findMany({
-        where: {
-          space: { workspaceId: id },
-          deletedAt: null
-        },
-        take: maxNodesCap,
-        select: { id: true }
-      });
-      docIdsToInclude = new Set(docs.map(d => d.id));
-    }
-
-    // Retrieve documents metadata
-    const docs = await prisma.document.findMany({
-      where: { id: { in: Array.from(docIdsToInclude) }, deletedAt: null },
-      select: { id: true, title: true, documentType: true }
-    });
-
-    const docIds = docs.map(d => d.id);
-
-    // Retrieve links connecting these documents
-    const rawLinks = await prisma.entityLink.findMany({
-      where: {
-        OR: [
-          { sourceType: 'DOCUMENT', sourceId: { in: docIds } },
-          { targetType: 'DOCUMENT', targetId: { in: docIds } }
-        ]
-      }
-    });
-
-    // Gather external entities (PROJECT and TASK) linked to these documents
-    const projectIds = new Set<string>();
-    const taskIds = new Set<string>();
-    for (const l of rawLinks) {
-      if (l.targetType === 'PROJECT') projectIds.add(l.targetId);
-      if (l.sourceType === 'PROJECT') projectIds.add(l.sourceId);
-      if (l.targetType === 'TASK') taskIds.add(l.targetId);
-      if (l.sourceType === 'TASK') taskIds.add(l.sourceId);
-    }
-
-    const projects = projectIds.size > 0 ? await prisma.project.findMany({
-      where: { id: { in: Array.from(projectIds) } },
-      select: { id: true, name: true }
-    }) : [];
-
-    const tasks = taskIds.size > 0 ? await prisma.task.findMany({
-      where: { id: { in: Array.from(taskIds) } },
-      select: { id: true, title: true }
-    }) : [];
-
-    // Construct nodes list
-    const nodes: any[] = docs.map(d => ({
-      id: d.id,
-      title: d.title,
-      type: 'DOCUMENT',
-      documentType: d.documentType
-    }));
-
-    for (const p of projects) {
-      if (nodes.length < maxNodesCap) {
-        nodes.push({ id: p.id, title: p.name, type: 'PROJECT' });
-      }
-    }
-
-    for (const t of tasks) {
-      if (nodes.length < maxNodesCap) {
-        nodes.push({ id: t.id, title: t.title, type: 'TASK' });
-      }
-    }
-
-    const nodeIds = new Set(nodes.map(n => n.id));
-    const links = rawLinks.filter(l => nodeIds.has(l.sourceId) && nodeIds.has(l.targetId));
-
-    res.status(200).json({
-      nodes: nodes.slice(0, maxNodesCap),
-      links
-    });
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    const maxDepth = Math.min(parseInt((req.query.depth as string) || '2', 10), 2);
+    res.status(200).json(await getDocumentGraph(id, rootId, maxDepth));
+  } catch (error) {
+    handleDocumentError(res, error);
   }
 };

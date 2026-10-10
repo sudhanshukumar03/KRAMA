@@ -1,32 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { GlobalErrorBoundary } from './ui/GlobalErrorBoundary';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
+import { LoadingState } from './ui/LoadingState';
 
 import { Sidebar } from './Sidebar';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
-import { KanbanBoard } from './KanbanBoard';
-import { BrainWorkspace } from './BrainWorkspace';
 import { Dashboard } from './Dashboard';
 import { CommandPalette } from './CommandPalette';
-
-import { Goals } from './Goals';
-import { Projects } from './Projects';
-import { SprintView } from './SprintView';
-import { ProjectDetail } from './ProjectDetail';
-import { PlannerPage } from './planner/PlannerPage';
-import { HabitTracker } from './HabitTracker';
-import { AnalyticsPage } from './AnalyticsPage';
-
-import { AIAssistant } from './AIAssistant';
 import { NotificationCenter } from './NotificationCenter';
 import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun, PanelLeftOpen } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 
+const KanbanBoard = lazy(() => import('./KanbanBoard').then(m => ({ default: m.KanbanBoard })));
+const BrainWorkspace = lazy(() => import('./BrainWorkspace').then(m => ({ default: m.BrainWorkspace })));
+const Goals = lazy(() => import('./Goals').then(m => ({ default: m.Goals })));
+const Projects = lazy(() => import('./Projects').then(m => ({ default: m.Projects })));
+const ProjectDetail = lazy(() => import('./ProjectDetail').then(m => ({ default: m.ProjectDetail })));
+const PlannerPage = lazy(() => import('./planner/PlannerPage').then(m => ({ default: m.PlannerPage })));
+const HabitTracker = lazy(() => import('./HabitTracker').then(m => ({ default: m.HabitTracker })));
+const AnalyticsPage = lazy(() => import('./AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
+const AIAssistant = lazy(() => import('./AIAssistant').then(m => ({ default: m.AIAssistant })));
+
 export function AppShell() {
  const navigate = useNavigate();
  const location = useLocation();
- const isFlushRoute = location.pathname === '/app' || location.pathname === '/app/' || location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/sprint') || location.pathname.startsWith('/app/operations') || location.pathname.startsWith('/app/planner') || location.pathname.startsWith('/app/timeline') || location.pathname.startsWith('/app/goals') || location.pathname.startsWith('/app/habits') || location.pathname.startsWith('/app/projects') || location.pathname.startsWith('/app/brain') || location.pathname.startsWith('/app/analytics');
+ const isFlushRoute = location.pathname === '/app' || location.pathname === '/app/' || location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/planner') || location.pathname.startsWith('/app/timeline') || location.pathname.startsWith('/app/goals') || location.pathname.startsWith('/app/habits') || location.pathname.startsWith('/app/projects') || location.pathname.startsWith('/app/brain') || location.pathname.startsWith('/app/analytics');
  const { toggleTheme, resolvedTheme } = useTheme();
  const [activePrefix, setActivePrefix] = useState<'g' | 'e' | 't' | 's' | null>(null);
  const [showCheatsheet, setShowCheatsheet] = useState(false);
@@ -69,6 +68,7 @@ export function AppShell() {
  let timeoutId: ReturnType<typeof setTimeout>;
 
  const handleKeyDown = (e: KeyboardEvent) => {
+ if (e.defaultPrevented) return;
  // Notion-style Sidebar toggle with Ctrl+\ or Cmd+\
  if ((e.metaKey || e.ctrlKey) && (e.key === '\\' || e.code === 'Backslash')) {
  e.preventDefault();
@@ -128,7 +128,6 @@ export function AppShell() {
  if (key === 'w') navigate('/app/planner');
  else if (key === 't') navigate('/app/timeline');
  else if (key === 'k') navigate('/app/board');
- else if (key === 's') navigate('/app/sprint');
  else if (key === 'h') navigate('/app/habits');
  } else if (activePrefix === 't') {
  if (key === 't') toggleTheme();
@@ -235,6 +234,7 @@ export function AppShell() {
  <div className="md:hidden flex items-center justify-between p-3 bg-sidebar backdrop-blur-2xl border-b border-border z-40 shrink-0">
  <div className="flex items-center gap-2">
  <button
+ aria-label="Open navigation"
  onClick={() => setMobileMenuOpen(true)}
  className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover transition-colors"
  >
@@ -263,27 +263,32 @@ export function AppShell() {
  "flex-1 min-w-0 w-full relative animate-in fade-in duration-150",
  isFlushRoute ? "h-full overflow-hidden flex flex-col p-0" : "overflow-y-auto p-6 md:p-10 bg-canvas"
  )}>
- <GlobalErrorBoundary><Routes>
- <Route path="/" element={<Dashboard />} />
- <Route path="/brain/*" element={<BrainWorkspace />} />
- <Route path="/goals/*" element={<Goals />} />
- <Route path="/projects" element={<Projects />} />
- <Route path="/projects/:id" element={<ProjectDetail />} />
- <Route path="/board/*" element={<KanbanBoard />} />
- <Route path="/kanban/*" element={<KanbanBoard />} />
- <Route path="/tasks/*" element={<Navigate to="/app/board" replace />} />
- <Route path="/sprint/*" element={<SprintView />} />
- <Route path="/operations/*" element={<Navigate to="/app/sprint?tab=operations" replace />} />
- <Route path="/planner/*" element={<PlannerPage />} />
- <Route path="/timeline/*" element={<Navigate to="/app/planner?mode=day" replace />} />
- <Route path="/habits/*" element={<HabitTracker />} />
- <Route path="/analytics/*" element={<AnalyticsPage />} />
- <Route path="/decisions" element={<Navigate to="/app/brain" replace />} />
- <Route path="/graph" element={<Navigate to="/app/brain" replace />} />
- </Routes></GlobalErrorBoundary>
+ <GlobalErrorBoundary>
+  <Suspense fallback={<LoadingState variant="default" />}>
+   <Routes>
+    <Route path="/" element={<Dashboard />} />
+    <Route path="/brain/*" element={<BrainWorkspace />} />
+    <Route path="/goals/*" element={<Goals />} />
+    <Route path="/projects" element={<Projects />} />
+    <Route path="/projects/:id" element={<ProjectDetail />} />
+    <Route path="/board/*" element={<KanbanBoard />} />
+    <Route path="/kanban/*" element={<KanbanBoard />} />
+    <Route path="/tasks/*" element={<Navigate to="/app/board" replace />} />
+    <Route path="/planner/*" element={<PlannerPage />} />
+    <Route path="/timeline/*" element={<Navigate to="/app/planner?mode=day" replace />} />
+    <Route path="/habits/*" element={<HabitTracker />} />
+    <Route path="/analytics/*" element={<AnalyticsPage />} />
+    <Route path="/decisions" element={<Navigate to="/app/brain" replace />} />
+    <Route path="/graph" element={<Navigate to="/app/brain" replace />} />
+    <Route path="*" element={<Navigate to="/app" replace />} />
+   </Routes>
+  </Suspense>
+ </GlobalErrorBoundary>
  </main>
  </div>
- <AIAssistant />
+ <Suspense fallback={null}>
+  <AIAssistant />
+ </Suspense>
 
  {/* NEW: Visual Two-Key Chord HUD Indicator */}
  {activePrefix && (
@@ -299,7 +304,7 @@ export function AppShell() {
  </div>
  <div className="text-[10px] text-muted pl-2 border-l border-white/10">
  {activePrefix === 'g' ? 'D (Dash), B (Brain), G (Goals), P (Proj)' : 
- activePrefix === 'e' ? 'W (Plan), T (Time), K (Board), S (Sprint), H (Habit)' :
+ activePrefix === 'e' ? 'W (Plan), T (Time), K (Board), H (Habit)' :
  activePrefix === 's' ? 'A (AI Assistant)' : 'T (Toggle Theme)'}
  </div>
  </div>
@@ -337,7 +342,7 @@ export function AppShell() {
  <div className="flex items-center justify-between"><span className="text-primary">Dashboard</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">G D</span></div>
  <div className="flex items-center justify-between"><span className="text-primary">Knowledge Brain</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">G B</span></div>
  <div className="flex items-center justify-between"><span className="text-primary">Execution Kanban</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">G E</span></div>
- <div className="flex items-center justify-between"><span className="text-primary">Projects & Sprints</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">G P</span></div>
+ <div className="flex items-center justify-between"><span className="text-primary">Projects</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">G P</span></div>
  <div className="flex items-center justify-between"><span className="text-primary">Goal</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">G G</span></div>
  </div>
 
@@ -346,7 +351,6 @@ export function AppShell() {
  <div className="flex items-center justify-between"><span className="text-primary">Planner</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">E W</span></div>
  <div className="flex items-center justify-between"><span className="text-primary">Schedule</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">E T</span></div>
  <div className="flex items-center justify-between"><span className="text-primary">Kanban Board</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">E K</span></div>
- <div className="flex items-center justify-between"><span className="text-primary">Sprint</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">E S</span></div>
  <div className="flex items-center justify-between"><span className="text-primary">Habit</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">E H</span></div>
  <div className="flex items-center justify-between"><span className="text-primary">Toggle Theme</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">T T</span></div>
  </div>

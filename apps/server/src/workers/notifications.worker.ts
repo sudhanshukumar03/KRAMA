@@ -4,30 +4,15 @@ import { connection } from '../lib/redis';
 
 import { prisma } from '../prisma';
 import { socketService } from '../services/socket.service';
+import { awardTaskCompletion } from '../services/completionAward';
 
 export const notificationsWorker = new Worker(
   QUEUE_NAMES.NOTIFICATIONS,
   async (job) => {
-    const { taskId, workspaceId, userId } = job.data;
+    const { taskId } = job.data;
     console.log(`[Worker:Notifications] Processing task completion for task ${taskId}`);
 
-    // Update productivity score (+10)
-    await prisma.workspace.update({
-      where: { id: workspaceId },
-      data: { productivityScore: { increment: 10 } },
-    });
-
-    // Create Notification
-    const task = await prisma.task.findUnique({ where: { id: taskId } });
-    
-    const notification = await prisma.notification.create({
-      data: {
-        userId,
-        workspaceId,
-        title: 'Task Completed',
-        message: `You earned 10 points for completing: ${task?.title || 'a task'}!`,
-      },
-    });
+    const notification = await awardTaskCompletion(prisma, job.data, job.id);
 
     socketService.emitToUser(notification.userId, 'notification', notification);
 

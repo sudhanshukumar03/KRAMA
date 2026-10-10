@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Command } from 'cmdk';
 import { useNavigate } from 'react-router-dom';
-import { FileText, KanbanSquare, Target, Search, Brain, Calendar, Clock, Plus, ArrowRight, Zap, Rocket, ListChecks, FolderKanban, Loader2, Timer, TrendingUp, Layers } from 'lucide-react';
+import { FileText, KanbanSquare, Target, Search, Brain, Calendar, Plus, ArrowRight, Zap, Rocket, ListChecks, FolderKanban, Loader2, Timer, TrendingUp, Layers } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { cn } from '../lib/utils';
@@ -54,9 +54,9 @@ export function CommandPalette() {
  const navigate = useNavigate();
 
  // Fallback local data for when no search query is active
- const { data: pages = [] } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
+ const { data: pages = [] } = useQuery({ queryKey: ['documents'], queryFn: () => api.documents.list() });
  const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
- const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
+ const { data: goals = [] } = useQuery({ queryKey: ['goals', 'lite'], queryFn: api.goals.listLite });
  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
 
  useEffect(() => {
@@ -147,7 +147,7 @@ export function CommandPalette() {
  <Command 
  onClick={(e) => e.stopPropagation()}
  shouldFilter={!hasSearchQuery}
- className={cn("w-full max-w-2xl bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-180 ease-out select-none",
+ className={cn("w-full max-w-2xl bg-surface border border-border rounded-2xl [box-shadow:0_25px_50px_-12px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.08)] overflow-hidden flex flex-col transition-all duration-180 ease-out select-none",
  animateIn ?"scale-100 opacity-100" :"scale-[0.98] opacity-0"
  )}
  onKeyDown={(e) => {
@@ -287,13 +287,7 @@ export function CommandPalette() {
  >
  <KanbanSquare className="w-4 h-4 text-secondary" /> Kanban Execution Board
  </Command.Item>
- <Command.Item 
- onSelect={() => runCommand(() => navigate('/app/sprint'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
- >
- <Clock className="w-4 h-4 text-secondary" /> Active Sprint Burndown
- </Command.Item>
- <Command.Item 
+ <Command.Item
  onSelect={() => runCommand(() => navigate('/app/planner'))}
  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
@@ -365,14 +359,14 @@ export function CommandPalette() {
  {issues.map((issue) => (
  <Command.Item 
  key={issue.id}
- onSelect={() => runCommand(() => navigate(`/app/board`))}
+ onSelect={() => runCommand(() => navigate(`/app/board?task=${encodeURIComponent(issue.id)}`))}
  className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <div className="flex items-center gap-2.5 truncate">
  <span className="truncate">{issue.title}</span>
  </div>
  <span className="text-[10px] font-mono capitalize text-secondary bg-surface-hover px-1.5 py-0.5 rounded border border-border">
- {issue.status.replace('_', ' ')}
+ {issue.status?.replaceAll('_', ' ')}
  </span>
  </Command.Item>
  ))}
@@ -386,7 +380,7 @@ export function CommandPalette() {
  {goals.map((goal) => (
  <Command.Item 
  key={goal.id}
- onSelect={() => runCommand(() => navigate(`/app/goals`))}
+ onSelect={() => runCommand(() => navigate(`/app/goals?goal=${encodeURIComponent(goal.id)}`))}
  className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-success-fg transition-colors duration-100"
  >
  <div className="flex items-center gap-2.5 truncate">

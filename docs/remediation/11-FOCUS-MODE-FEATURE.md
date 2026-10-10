@@ -131,3 +131,7 @@ The feature was implemented across two phases:
 - [x] All 5 timer layouts + Standby layout render cleanly with drop-shadow digits over backgrounds.
 - [x] Legacy `FocusTimerWidget.tsx` is completely deleted.
 - [x] Phase B borderless refactor applied and verified end-to-end.
+
+## Cross-section audit follow-up — 2026-10-07
+
+The later connected-flow repair pass closed the Focus integration findings: schedules reflect current tasks/blocks, linked task identity and exclusions are correct, local-day accounting agrees with Analytics, retries cannot duplicate completions, pauses do not count as work, and failed saves remain available after reload. All 24 connected flow checks passed, including an injected outage and successful explicit retry.

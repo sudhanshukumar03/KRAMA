@@ -1,12 +1,13 @@
 import type { Router } from 'express';
 import express from 'express';
-import { listGoals, getGoal, createGoal, updateGoal, deleteGoal, restoreGoal } from '../controllers/goal.controller';
+import { listGoals, listGoalsLite, getGoal, createGoal, updateGoal, deleteGoal, restoreGoal } from '../controllers/goal.controller';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
 
 const router: Router = express.Router();
 
 const ensureWorkspaceId = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const workspaceId = req.headers['x-workspace-id'] || req.query.workspaceId;
+  if (workspaceId && req.body?.workspaceId && req.body.workspaceId !== workspaceId) return res.status(403).json({ message: 'Workspace scope mismatch' });
   if (!req.body) req.body = {}; if (workspaceId && !req.body.workspaceId) {
     req.body.workspaceId = workspaceId;
   }
@@ -17,6 +18,8 @@ router.use(requireAuth);
 router.use(ensureWorkspaceId);
 
 router.get('/', requireWorkspaceRole('VIEWER'), listGoals);
+// `/lite` must precede `/:id` so the param route doesn't capture it as an id.
+router.get('/lite', requireWorkspaceRole('VIEWER'), listGoalsLite);
 router.get('/:id', requireWorkspaceRole('VIEWER'), getGoal);
 router.post('/', requireWorkspaceRole('MEMBER'), createGoal);
 router.patch('/:id', requireWorkspaceRole('MEMBER'), updateGoal);

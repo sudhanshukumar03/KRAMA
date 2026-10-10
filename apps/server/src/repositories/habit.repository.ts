@@ -4,13 +4,14 @@ import type { Habit, Prisma } from '@prisma/client';
 import type { TxClient } from './user.repository';
 
 class HabitRepository implements BaseRepository<Habit, Prisma.HabitUncheckedCreateInput, Prisma.HabitUncheckedUpdateInput> {
-  async findById(id: string, tx?: TxClient): Promise<Habit | null> {
+  async findById(id: string, tx?: TxClient, userId?: string): Promise<Habit | null> {
     return (tx || prisma).habit.findUnique({
       where: { id },
       include: {
         completions: {
+          ...(userId ? { where: { userId } } : {}),
           orderBy: { completedAt: 'desc' },
-          take: 30, // Last 30 completions
+          ...(userId ? {} : { take: 120 }),
         }
       }
     });
@@ -20,7 +21,7 @@ class HabitRepository implements BaseRepository<Habit, Prisma.HabitUncheckedCrea
     return (tx || prisma).habit.findMany(options || {});
   }
 
-  async findManyByWorkspace(workspaceId: string, tx?: TxClient): Promise<Habit[]> {
+  async findManyByWorkspace(workspaceId: string, tx?: TxClient, userId?: string): Promise<Habit[]> {
     return (tx || prisma).habit.findMany({
       where: {
         workspaceId,
@@ -28,8 +29,9 @@ class HabitRepository implements BaseRepository<Habit, Prisma.HabitUncheckedCrea
       },
       include: {
         completions: {
+          ...(userId ? { where: { userId } } : {}),
           orderBy: { completedAt: 'desc' },
-          take: 30, // Limit to recent completions
+          ...(userId ? {} : { take: 120 }),
         }
       },
       orderBy: { createdAt: 'desc' },
@@ -40,9 +42,9 @@ class HabitRepository implements BaseRepository<Habit, Prisma.HabitUncheckedCrea
     return (tx || prisma).habit.create({ data });
   }
 
-  async update(id: string, data: Prisma.HabitUncheckedUpdateInput, tx?: TxClient): Promise<Habit> {
+  async update(id: string, data: Prisma.HabitUncheckedUpdateInput, tx?: TxClient, guard?: Prisma.HabitWhereUniqueInput): Promise<Habit> {
     return (tx || prisma).habit.update({
-      where: { id },
+      where: guard || { id },
       data,
     });
   }
@@ -58,19 +60,21 @@ class HabitRepository implements BaseRepository<Habit, Prisma.HabitUncheckedCrea
     return (tx || prisma).habitCompletion.create({ data });
   }
 
-  async removeCompletionToday(habitId: string, targetDate: Date, tx?: TxClient): Promise<void> {
+  async removeCompletionToday(habitId: string, userId: string, targetDate: Date, tx?: TxClient): Promise<void> {
     await (tx || prisma).habitCompletion.deleteMany({
       where: {
         habitId,
+        userId,
         date: targetDate,
       }
     });
   }
 
-  async getCompletionCountToday(habitId: string, targetDate: Date, tx?: TxClient): Promise<number> {
+  async getCompletionCountToday(habitId: string, userId: string, targetDate: Date, tx?: TxClient): Promise<number> {
     return (tx || prisma).habitCompletion.count({
       where: {
         habitId,
+        userId,
         date: targetDate,
       }
     });

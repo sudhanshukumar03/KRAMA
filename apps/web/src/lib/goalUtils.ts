@@ -1,4 +1,5 @@
 import type { GoalWithRelations } from '../types/schema';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 
 export type GoalPace = {
   status: 'completed' | 'unknown' | 'on_track' | 'behind' | 'stalled' | 'ahead' | 'past_due';
@@ -7,65 +8,61 @@ export type GoalPace = {
   badge: string;
   projectedDate: Date | null;
   daysRemaining: number;
+  isDueToday: boolean;
 };
 
 // Helper to compute pace strictly from real snapshot deltas or creation timestamps
-export function computeGoalPace(goal: GoalWithRelations): GoalPace {
-  const rawStatus = (goal as any).metadata?.status || (goal as any).status;
-  if (rawStatus === 'COMPLETED' || goal.progress >= 100) {
-    return { status: 'completed', requiredPace: 0, actualPace: 0, badge: 'Completed', projectedDate: null, daysRemaining: 0 };
+export function computeGoalPace(goal: Omit<GoalWithRelations, 'targetDate'> & { targetDate?: string | Date | null }, today = new Date()): GoalPace {
+  const metadata = goal.metadata && typeof goal.metadata === 'object' && !Array.isArray(goal.metadata)
+    ? goal.metadata : {};
+  const effectiveStatus = metadata.status ?? (goal as GoalWithRelations & { status?: string }).status;
+  // Deadlines are calendar dates. Preserve their stored day rather than shifting
+  // UTC midnight into the preceding day in western timezones.
+  const targetDate = goal.targetDate instanceof Date
+    ? (Number.isFinite(goal.targetDate.getTime()) ? goal.targetDate.toISOString() : null)
+    : goal.targetDate;
+  const target = targetDate ? parseISO(targetDate.slice(0, 10)) : null;
+  const dayDifference = target && Number.isFinite(target.getTime()) ? differenceInCalendarDays(target, today) : null;
+  const isDueToday = dayDifference === 0;
+  const daysRemaining = Math.max(0, dayDifference ?? 0);
+  const deadline = { daysRemaining, isDueToday };
+
+  if (effectiveStatus === 'COMPLETED') {
+    return { status: 'completed', requiredPace: 0, actualPace: 0, badge: 'Completed', projectedDate: null, ...deadline };
   }
-  if (rawStatus === 'PAUSED' || rawStatus === 'CANCELED') {
-    return { status: 'stalled', requiredPace: 0, actualPace: 0, badge: rawStatus === 'PAUSED' ? 'Paused' : 'Canceled', projectedDate: null, daysRemaining: 0 };
-  }
-  
-  if (!goal.targetDate) {
-    return { status: 'unknown', requiredPace: 0, actualPace: 0, badge: 'No Target Date', projectedDate: null, daysRemaining: 0 };
+  if (effectiveStatus === 'PAUSED' || effectiveStatus === 'CANCELED') {
+    return { status: 'stalled', requiredPace: 0, actualPace: 0, badge: effectiveStatus === 'PAUSED' ? 'Paused' : 'Canceled', projectedDate: null, ...deadline };
   }
 
-  const today = new Date();
-  const target = new Date(goal.targetDate);
-  const daysRemaining = Math.max(0, Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+  if (goal.progress >= 100) {
+    return { status: 'completed', requiredPace: 0, actualPace: 0, badge: 'Completed', projectedDate: null, ...deadline };
+  }
   
-  const requiredPace = daysRemaining > 0 ? (100 - goal.progress) / daysRemaining : Infinity;
+  if (dayDifference === null) {
+    return { status: 'unknown', requiredPace: 0, actualPace: 0, badge: 'No Target Date', projectedDate: null, ...deadline };
+  }
+
+  const requiredPace = dayDifference >= 0 ? (100 - goal.progress) / Math.max(1, daysRemaining) : Infinity;
 
   let actualPace = 0;
-
   if (goal.snapshots && goal.snapshots.length >= 2) {
     const sorted = [...goal.snapshots].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    // Bug #2 fix: deduplicate to one entry per calendar day (keep latest snapshot of each day)
-    // This prevents same-day updates from producing an artificially tiny daysDiff (e.g. 0→max 1)
-    // that inflates actualPace massively.
-    const dedupedByDay = Object.values(
-      sorted.reduce((acc, s) => {
-        const dayKey = new Date(s.date).toISOString().split('T')[0];
-        if (!acc[dayKey] || new Date(s.date).getTime() > new Date(acc[dayKey].date).getTime()) {
-          acc[dayKey] = s;
-        }
-        return acc;
-      }, {} as Record<string, typeof sorted[0]>)
-    ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    if (dedupedByDay.length >= 2) {
-      const oldest = dedupedByDay[0];
-      const newest = dedupedByDay[dedupedByDay.length - 1];
-      const daysDiff = Math.max(1, Math.ceil((new Date(newest.date).getTime() - new Date(oldest.date).getTime()) / (1000 * 60 * 60 * 24)));
-      const progressGained = newest.progress - oldest.progress;
-      actualPace = Math.max(0, progressGained / daysDiff);
-    }
-    // If all snapshots are from today (only 1 deduped day), fall through to creation-based calc below
-  }
-
-  if (actualPace === 0 && goal.progress > 0) {
-    // Fallback: compute genuine pace from creation timestamp to current date
+    const oldest = sorted[0];
+    const newest = sorted[sorted.length - 1];
+    const daysDiff = Math.max(1, Math.ceil((new Date(newest.date).getTime() - new Date(oldest.date).getTime()) / (1000 * 60 * 60 * 24)));
+    const progressGained = newest.progress - oldest.progress;
+    actualPace = Math.max(0, progressGained / daysDiff);
+  } else if (goal.progress > 0) {
+    // If fewer than 2 snapshots exist, compute genuine actual pace from creation timestamp to current date
     const created = goal.createdAt ? new Date(goal.createdAt) : new Date();
     const daysSinceCreation = Math.max(1, Math.ceil((today.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
     actualPace = Math.max(0, goal.progress / daysSinceCreation);
+  } else {
+    actualPace = 0;
   }
 
   let status: 'on_track' | 'behind' | 'stalled' | 'ahead' | 'past_due' = 'on_track';
-  if (daysRemaining === 0 && goal.progress < 100) {
+  if (dayDifference < 0 && goal.progress < 100) {
     status = 'past_due';
   } else if (actualPace === 0 && goal.progress < 100) {
     status = 'stalled';
@@ -87,6 +84,23 @@ export function computeGoalPace(goal: GoalWithRelations): GoalPace {
     actualPace, 
     badge: status === 'past_due' ? (actualPace === 0 ? 'Stalled / Past Due' : 'Past Due') : status.replace('_', ' '), 
     projectedDate,
-    daysRemaining
+    ...deadline
   };
+}
+
+export function goalMetadata(value: unknown): import('../types/schema').GoalMetadata {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const raw = value as Record<string, unknown>;
+  const result: import('../types/schema').GoalMetadata = { ...raw };
+  for (const key of ['whyStatement', 'description', 'category', 'status', 'unit'] as const) {
+    if (typeof raw[key] !== 'string') delete result[key];
+  }
+  for (const key of ['targetValue', 'currentValue', 'weight'] as const) {
+    if (typeof raw[key] !== 'number') delete result[key];
+  }
+  for (const key of ['measurable', 'isPinned'] as const) {
+    if (typeof raw[key] !== 'boolean') delete result[key];
+  }
+  if (raw.progressMode !== 'auto' && raw.progressMode !== 'manual') delete result.progressMode;
+  return result;
 }

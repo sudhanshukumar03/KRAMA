@@ -6,7 +6,8 @@ import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middlewar
 const router: Router = express.Router();
 
 router.use(requireAuth);
-router.use(requireWorkspaceRole('MEMBER'));
+// Notifications are per-user reads; any workspace member including VIEWER may access.
+router.use(requireWorkspaceRole('VIEWER'));
 
 router.get('/', getNotifications);
 router.patch('/read-all', markAllAsRead);

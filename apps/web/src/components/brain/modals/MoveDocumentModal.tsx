@@ -3,6 +3,7 @@ import { FolderInput, X } from 'lucide-react';
 import { api } from '../../../api/client';
 import type { DocumentWithRelations } from '../../../types/schema';
 import { BaseButton } from '../../ui/BaseButton';
+import { useModalA11y } from '../../../hooks/useModalA11y';
 import { getDocDepth, getSubtreeDepth, isDescendantOf } from '../helpers';
 import { toast } from 'sonner';
 
@@ -23,6 +24,8 @@ export function MoveDocumentModal({
 }: MoveDocumentModalProps) {
   const [targetParentId, setTargetParentId] = useState<string>('ROOT');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const modalRef = useModalA11y(isOpen, onClose);
 
   useEffect(() => {
     if (doc) {
@@ -49,21 +52,32 @@ export function MoveDocumentModal({
       onSuccess();
       onClose();
     } catch (err: any) {
-      toast.error('Failed to move document: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+      toast.error('Failed to move document: ' + (err?.message || 'Unknown error'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="move-doc-title"
+        className="krama-dialog w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
+      >
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
           <div className="flex items-center gap-2">
             <FolderInput className="w-4 h-4 text-accent-fg" />
-            <span className="font-bold text-primary text-body">Move Document</span>
+            <span id="move-doc-title" className="font-bold text-primary text-body">Move Document</span>
           </div>
-          <button onClick={onClose} className="p-1 text-muted hover:text-primary">
+          <button aria-label="Close move document" onClick={onClose} className="p-1 text-muted hover:text-primary">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -74,8 +88,8 @@ export function MoveDocumentModal({
           </p>
 
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5">Target Parent</label>
-            <select
+            <label htmlFor="move-document-parent" className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5">Target Parent</label>
+            <select id="move-document-parent"
               value={targetParentId}
               onChange={(e) => setTargetParentId(e.target.value)}
               className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent font-mono text-caption"

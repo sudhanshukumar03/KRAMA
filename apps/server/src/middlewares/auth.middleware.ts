@@ -16,36 +16,40 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
   const token = authHeader.split(' ')[1];
 
   try {
-    const payload = jwt.decode(token as string, JWT_SECRET as string);
-    if (payload.exp < Date.now()) {
+    const payload = jwt.decode(token as string, JWT_SECRET as string, false, 'HS256');
+    // exp is a NumericDate (seconds); compare against ms epoch. jwt-simple also
+    // enforces this internally, so this is defense-in-depth.
+    if (payload.exp * 1000 < Date.now()) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
     const { sub: userId, sessionId, email, name } = payload;
+    if (typeof userId !== 'string' || !userId || typeof sessionId !== 'string' || !sessionId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
 
-    // Check Redis (Fast path)
+    // Require shared Redis availability, reject cached revocations, and use the
+    // database as the authority for active status and session ownership.
     const cacheKey = `session_revoked:${sessionId}`;
-    const cachedStatus = await redisService.get(cacheKey);
+    const cachedStatus = await redisService.getShared(cacheKey);
 
     if (cachedStatus === 'true') {
       return res.status(401).json({ message: 'Unauthorized' });
-    } else if (cachedStatus !== 'false') {
+    } else {
       const dbSession = await prisma.session.findUnique({
         where: { id: sessionId },
-        select: { revokedAt: true }
+        select: { userId: true, revokedAt: true }
       });
 
-      if (!dbSession || dbSession.revokedAt !== null) {
+      if (!dbSession || dbSession.userId !== userId || dbSession.revokedAt !== null) {
         await redisService.set(cacheKey, 'true', 3600); // cache revoked status for 1 hour
         return res.status(401).json({ message: 'Unauthorized' });
-      } else {
-        await redisService.set(cacheKey, 'false', 300); // cache valid status for 5 minutes
       }
     }
 
     req.user = { id: userId, email, name, sessionId } as RequestUser;
     next();
-  } catch (error) {
+  } catch {
     // Hide whether it's expired or invalid signature
     return res.status(401).json({ message: 'Unauthorized' });
   }

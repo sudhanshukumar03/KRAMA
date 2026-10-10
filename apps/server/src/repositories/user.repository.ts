@@ -1,8 +1,8 @@
 import type { BaseRepository } from './base.repository';
-import { prisma } from '../prisma';
+import { prisma, type TxClient } from '../prisma';
 import type { User, Prisma } from '@prisma/client';
 
-export type TxClient = Omit<Prisma.TransactionClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
+export type { TxClient };
 
 class UserRepository implements BaseRepository<User, Prisma.UserCreateInput, Prisma.UserUpdateInput> {
   async findById(id: string, tx?: TxClient): Promise<User | null> {

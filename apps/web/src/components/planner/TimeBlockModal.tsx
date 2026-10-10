@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Calendar as CalendarIcon, Clock, Briefcase, User, GraduationCap, HeartPulse, Shield, Grid, Trash2 } from 'lucide-react';
-import type { TimeBlockType } from '../../types/planner';
+import type { TimeBlockType, TimeBlockInput, TimeBlock, PlannerTask, PlannerProject } from '../../types/planner';
+import { formatBlockTime, formatLocalDate } from '../../lib/utils';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 interface TimeBlockModalProps {
  open: boolean;
  onClose: () => void;
- onSubmit: (data: any) => void;
+ onSubmit: (data: TimeBlockInput) => void;
  defaultDate: Date;
  isSubmitting: boolean;
- tasks?: any[];
- projects?: any[];
- editingBlock?: any;
+ tasks?: Pick<PlannerTask, 'id' | 'title'>[];
+ projects?: PlannerProject[];
+ editingBlock?: TimeBlock | null;
  onDelete?: () => void;
 }
 
@@ -21,6 +23,7 @@ const TYPES: { value: TimeBlockType; label: string; icon: React.ReactNode; color
  { value: 'STUDY', label: 'Study', icon: <GraduationCap className="w-3.5 h-3.5" />, color: 'bg-success-tint text-success' },
  { value: 'HEALTH', label: 'Health', icon: <HeartPulse className="w-3.5 h-3.5" />, color: 'bg-danger-bg text-danger-fg' },
  { value: 'ADMIN', label: 'Admin', icon: <Shield className="w-3.5 h-3.5" />, color: 'bg-warning-tint text-warning' },
+ { value: 'OTHER', label: 'Other', icon: <Clock className="w-3.5 h-3.5" />, color: 'bg-surface-2 text-muted' },
 ];
 
 export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitting, tasks = [], projects = [], editingBlock, onDelete }: TimeBlockModalProps) {
@@ -34,42 +37,27 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  const [notes, setNotes] = useState('');
  const [error, setError] = useState('');
  const prevOpenRef = useRef(false);
+ const editingIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const justOpened = open && !prevOpenRef.current;
     prevOpenRef.current = open;
+    const changedDocument = editingIdRef.current !== editingBlock?.id;
+    editingIdRef.current = editingBlock?.id;
 
-    if (justOpened || (open && editingBlock?.id)) {
+    if (justOpened || (open && changedDocument)) {
       if (editingBlock) {
         setTitle(editingBlock.title || '');
         if (editingBlock.date) {
           setDateStr(editingBlock.date.includes('T') ? editingBlock.date.split('T')[0] : editingBlock.date);
         } else {
-          setDateStr(defaultDate.toISOString().split('T')[0]);
+          setDateStr(formatLocalDate(defaultDate) || '');
         }
         
-        // Handle either ISO string or 'HH:mm' string
-        if (editingBlock.startTime) {
-          if (editingBlock.startTime.includes('T')) {
-            const d = new Date(editingBlock.startTime);
-            setStartTime(`${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`);
-          } else {
-            setStartTime(editingBlock.startTime);
-          }
-        } else {
-          setStartTime('09:00');
-        }
-
-        if (editingBlock.endTime) {
-          if (editingBlock.endTime.includes('T')) {
-            const d = new Date(editingBlock.endTime);
-            setEndTime(`${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`);
-          } else {
-            setEndTime(editingBlock.endTime);
-          }
-        } else {
-          setEndTime('10:00');
-        }
+        // Times are stored as UTC wall-clock; read them back with UTC accessors
+        // (formatBlockTime) so an edit round-trip preserves the entered time.
+        setStartTime(editingBlock.startTime ? (formatBlockTime(editingBlock.startTime) || '09:00') : '09:00');
+        setEndTime(editingBlock.endTime ? (formatBlockTime(editingBlock.endTime) || '10:00') : '10:00');
 
         setType(editingBlock.type || 'WORK');
         setTaskId(editingBlock.taskId || '');
@@ -77,7 +65,7 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
         setNotes(editingBlock.notes || '');
       } else {
         setTitle('');
-        setDateStr(defaultDate.toISOString().split('T')[0]);
+        setDateStr(formatLocalDate(defaultDate) || '');
         setStartTime('09:00');
         setEndTime('10:00');
         setType('WORK');
@@ -89,11 +77,13 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
     }
   }, [open, defaultDate, editingBlock]);
 
+ const dialogRef = useModalA11y(open, onClose);
+
  if (!open) return null;
 
  const handleSubmit = (e: React.FormEvent) => {
  e.preventDefault();
- if (!title.trim()) return;
+ if (isSubmitting || !title.trim()) return;
 
  if (startTime >= endTime) {
  setError('End time must be after start time');
@@ -101,33 +91,40 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  }
 
  const data: any = {
- title,
- date: new Date(`${dateStr}T12:00:00`).toISOString(),
+ title: title.trim(),
+ // Canonical UTC noon so the day bucket is stable regardless of timezone.
+ date: new Date(`${dateStr}T12:00:00.000Z`).toISOString(),
  startTime,
  endTime,
  type,
  };
- if (taskId) data.taskId = taskId;
- if (projectId) data.projectId = projectId;
- if (notes) data.notes = notes;
+    if (editingBlock?.id) {
+      data.taskId = taskId || null;
+      data.projectId = projectId || null;
+      data.notes = notes.trim() || null;
+    } else {
+      if (taskId) data.taskId = taskId;
+      if (projectId) data.projectId = projectId;
+      if (notes.trim()) data.notes = notes.trim();
+    }
 
  onSubmit(data);
  };
 
  return (
- <div className="absolute inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150" onClick={onClose}>
- <div className="bg-surface border border-border rounded-2xl w-full max-w-md shadow-2xl animate-in slide-in-from-bottom-4 duration-200" onClick={e => e.stopPropagation()}>
- 
+ <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150" onClick={onClose}>
+ <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="timeblock-modal-title" tabIndex={-1} className="krama-dialog w-full max-w-md animate-in slide-in-from-bottom-4 duration-200 outline-none max-h-[calc(100dvh-2rem)] overflow-y-auto" onClick={e => e.stopPropagation()}>
+
  {/* Header */}
- <div className="flex items-center justify-between p-4 border-b border-border bg-surface-hover/50 rounded-t-2xl">
- <h2 className="text-sm font-bold text-primary">{editingBlock?.id ? 'Edit Time Block' : 'Add Time Block'}</h2>
+ <div className="flex items-center justify-between p-4 border-b border-border bg-surface-hover/50">
+ <h2 id="timeblock-modal-title" className="text-sm font-bold text-primary">{editingBlock?.id ? 'Edit Time Block' : 'Add Time Block'}</h2>
  <div className="flex items-center gap-2">
  {editingBlock?.id && onDelete && (
- <button onClick={onDelete} className="p-1.5 rounded-lg text-danger-fg hover:bg-danger-bg transition-colors" type="button">
+ <button onClick={onDelete} aria-label="Delete time block" className="p-1.5 rounded-lg text-danger-fg hover:bg-danger-bg transition-colors" type="button">
  <Trash2 className="w-4 h-4" />
  </button>
  )}
- <button onClick={onClose} className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-surface-hover transition-colors">
+ <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-surface-hover transition-colors">
  <X className="w-4 h-4" />
  </button>
  </div>
@@ -135,7 +132,7 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
 
  <form onSubmit={handleSubmit} className="p-4 space-y-4">
  {error && (
- <div className="p-3 text-xs font-medium text-danger-fg bg-danger-bg rounded-lg border border-danger-border">
+ <div role="alert" className="p-3 text-xs font-medium text-danger-fg bg-danger-bg rounded-lg border border-danger-border">
  {error}
  </div>
  )}
@@ -143,6 +140,9 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  <div>
  <input
  autoFocus
+ aria-label="Time block title"
+ required
+ maxLength={200}
  type="text"
  placeholder="What are you working on?"
  value={title}
@@ -156,8 +156,9 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  <button
  key={t.value}
  type="button"
+ aria-pressed={type === t.value}
  onClick={() => setType(t.value)}
- className={`px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wide uppercase transition-all flex items-center gap-1.5 ${type === t.value ? t.color + ' ring-2 ring-offset-1 ring-current' : 'bg-slate-50 text-muted hover:bg-surface-hover border border-border'}`}
+ className={`px-3 py-1.5 rounded-full text-label font-bold tracking-wide uppercase transition-all flex items-center gap-1.5 ${type === t.value ? t.color + ' ring-2 ring-offset-1 ring-current' : 'bg-surface-2 text-muted hover:bg-surface-hover border border-border'}`}
  >
  {t.icon}
  {t.label}
@@ -165,50 +166,54 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  ))}
  </div>
 
- <div className="grid grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
  <div>
- <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
+ <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
  <CalendarIcon size={12} /> Date
  </label>
  <input
  type="date"
  required
+ aria-label="Date"
  value={dateStr}
  onChange={e => setDateStr(e.target.value)}
- className="w-full px-3 py-2 rounded-xl border border-border focus:outline-none focus:border-accent/20 text-sm font-medium text-primary"
+ className="w-full min-w-0 px-3 py-2 rounded-lg border border-border bg-surface-hover text-sm font-mono font-medium text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
  />
  </div>
  <div>
- <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
+ <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
  <Clock size={12} /> Time
  </label>
  <div className="flex items-center gap-2">
  <input
  type="time"
  required
+ aria-label="Start time"
  value={startTime}
  onChange={e => setStartTime(e.target.value)}
- className="w-full px-2 py-2 rounded-xl border border-border focus:outline-none focus:border-accent/20 text-sm font-medium text-primary text-center"
+ className="w-full min-w-0 px-2 py-2 rounded-lg border border-border bg-surface-hover text-sm font-mono font-medium text-primary text-center focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
  />
  <span className="text-muted font-medium">-</span>
  <input
  type="time"
  required
+ aria-label="End time"
  value={endTime}
  onChange={e => setEndTime(e.target.value)}
- className="w-full px-2 py-2 rounded-xl border border-border focus:outline-none focus:border-accent/20 text-sm font-medium text-primary text-center"
+ className="w-full min-w-0 px-2 py-2 rounded-lg border border-border bg-surface-hover text-sm font-mono font-medium text-primary text-center focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
  />
  </div>
  </div>
  </div>
 
- <div className="grid grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
  <div>
- <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">Task</label>
+ <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">Task</label>
  <select
+ aria-label="Task"
  value={taskId}
  onChange={e => setTaskId(e.target.value)}
- className="w-full px-3 py-2 rounded-xl border border-border focus:outline-none focus:border-accent/20 text-sm"
+ className="w-full min-w-0 px-3 py-2 rounded-lg border border-border bg-surface-hover text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm"
  >
  <option value="">None</option>
  {tasks?.map(t => (
@@ -217,27 +222,41 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  </select>
  </div>
  <div>
- <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">Project</label>
+ <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">Project</label>
  <select
+ aria-label="Project"
  value={projectId}
  onChange={e => setProjectId(e.target.value)}
- className="w-full px-3 py-2 rounded-xl border border-border focus:outline-none focus:border-accent/20 text-sm"
+ className="w-full min-w-0 px-3 py-2 rounded-lg border border-border bg-surface-hover text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm"
  >
  <option value="">None</option>
  {projects?.map(p => (
  <option key={p.id} value={p.id}>{p.name}</option>
  ))}
  </select>
- </div>
- </div>
+          </div>
+        </div>
 
+        <div>
+          <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">
+            Notes
+          </label>
+          <textarea
+            aria-label="Notes"
+ value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="Add optional notes or context..."
+            rows={2}
+            className="w-full min-w-0 px-3 py-2 rounded-lg border border-border bg-surface-hover text-primary placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm resize-none"
+          />
+        </div>
  <div className="pt-2">
  <button
  type="submit"
  disabled={isSubmitting}
- className="w-full bg-accent hover:bg-accent-hover text-white font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+ className="krama-btn krama-btn-primary w-full py-2.5 text-xs font-semibold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
  >
- {isSubmitting ? 'Saving...' : editingBlock ? 'Save Changes' : 'Create Time Block'}
+ {isSubmitting ? 'Saving...' : editingBlock?.id ? 'Save Changes' : 'Create Time Block'}
  </button>
  </div>
  </form>

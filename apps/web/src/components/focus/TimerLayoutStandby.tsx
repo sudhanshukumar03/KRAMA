@@ -175,9 +175,9 @@ export const TimerLayoutStandby: React.FC<TimerLayoutProps> = ({
           </div>
 
           {operatingMode === 'planner' && (
-            <div className="flex items-center gap-2 p-1 bg-black/50 backdrop-blur-2xl rounded-full border border-emerald-500/20 shadow-2xl px-3">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-              <span className="text-[11px] font-mono text-emerald-300 tracking-wide">
+            <div className="flex items-center gap-2 p-1 bg-black/50 backdrop-blur-2xl rounded-full border border-success-border shadow-2xl px-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-success-fg animate-pulse shrink-0" />
+              <span className="text-[11px] font-mono text-success-fg tracking-wide">
                 {mode === 'pomodoro' ? 'Focus' : mode === 'short_break' ? 'Short Break' : mode === 'long_break' ? 'Long Break' : 'Break'}
               </span>
               {taskTitle && (
@@ -186,7 +186,7 @@ export const TimerLayoutStandby: React.FC<TimerLayoutProps> = ({
                   <span className="text-[11px] font-mono text-white/70 max-w-[200px] truncate">{taskTitle}</span>
                 </>
               )}
-              <span className="text-[10px] font-mono text-white/40 ml-1">({currentSlotIndex + 1}/{totalSlots})</span>
+              {totalSlots > 0 && <span className="text-[10px] font-mono text-white/40 ml-1">({currentSlotIndex + 1}/{totalSlots})</span>}
             </div>
           )}
         </div>

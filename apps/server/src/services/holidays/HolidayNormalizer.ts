@@ -8,8 +8,11 @@ export class HolidayNormalizer {
 
   public static normalizeType(typeString: string): { type: HolidayType; isPublicHoliday: boolean } {
     const ts = typeString.toLowerCase();
+    if (ts.includes('restricted') || ts.includes('optional')) {
+      return { type: 'OPTIONAL', isPublicHoliday: false };
+    }
     
-    if (ts.includes('national holiday') || ts.includes('public')) {
+    if (ts.includes('national holiday') || ts.includes('public') || ts.includes('gazetted')) {
       return { type: 'NATIONAL', isPublicHoliday: true };
     }
     if (ts.includes('state') || ts.includes('local')) {
@@ -27,10 +30,6 @@ export class HolidayNormalizer {
     if (ts.includes('observance') || ts.includes('season')) {
       return { type: 'OBSERVANCE', isPublicHoliday: false };
     }
-    if (ts.includes('optional')) {
-      return { type: 'OPTIONAL', isPublicHoliday: false };
-    }
-    
     return { type: 'OTHER', isPublicHoliday: false };
   }
 }

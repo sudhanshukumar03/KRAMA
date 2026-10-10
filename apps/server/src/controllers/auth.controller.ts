@@ -1,8 +1,10 @@
+import { socketService } from '../services/socket.service';
 import type { Request, Response } from 'express';
 import { SignupSchema, LoginSchema } from '@krama/validation';
-import { authService } from '../services/auth.service';
+import { authService, PasswordChangeError } from '../services/auth.service';
 import { prisma } from '../prisma';
 import { userAuthSelect } from '../utils/selectors';
+import { isValidTimerPreferences } from '../services/focusTimer.service';
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -21,6 +23,10 @@ export const signup = async (req: Request, res: Response) => {
 
     return res.status(201).json({
       accessToken: result.accessToken,
+      // Also returned in-body so non-cookie clients (e.g. mobile or CLI apps)
+      // can persist and replay it via req.body.refreshToken. The web app ignores
+      // this and relies on the httpOnly cookie.
+      refreshToken: result.refreshToken,
       user: result.user,
     });
   } catch (error: any) {
@@ -52,6 +58,8 @@ export const login = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       accessToken: result.accessToken,
+      // See signup: in-body copy for non-cookie clients.
+      refreshToken: result.refreshToken,
       user: result.user,
     });
   } catch (error: any) {
@@ -85,8 +93,13 @@ export const refresh = async (req: Request, res: Response) => {
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    return res.status(200).json({ accessToken: result.accessToken });
-  } catch (error: any) {
+    return res.status(200).json({
+      accessToken: result.accessToken,
+      // See signup: in-body copy for non-cookie clients so they can persist
+      // the rotated refresh token.
+      refreshToken: result.refreshToken,
+    });
+  } catch {
     return res.status(401).json({ message: 'Invalid or expired refresh token' });
   }
 };
@@ -150,7 +163,13 @@ export const updatePreferences = async (req: Request, res: Response) => {
     const userId = req.user.id;
     const { timerPreferences, locationConfig, weeklyCapacityMinutes, focusWallpaper, focusLayout } = req.body;
 
-    if (!timerPreferences && !locationConfig && weeklyCapacityMinutes === undefined && !focusWallpaper && !focusLayout) {
+    if (timerPreferences !== undefined) {
+      if (!isValidTimerPreferences(timerPreferences)) {
+        return res.status(400).json({ message: 'Timer preferences must use supported whole-minute values within the allowed range' });
+      }
+    }
+
+    if (timerPreferences === undefined && !locationConfig && weeklyCapacityMinutes === undefined && !focusWallpaper && !focusLayout) {
       return res.status(400).json({ message: 'No valid fields provided' });
     }
 
@@ -160,12 +179,12 @@ export const updatePreferences = async (req: Request, res: Response) => {
     const currentMetadata = (user.metadata as Record<string, any>) || {};
     
     const updateData: any = {};
-    if (timerPreferences || focusWallpaper || focusLayout) {
+    if (timerPreferences !== undefined || focusWallpaper || focusLayout) {
       updateData.metadata = {
         ...currentMetadata,
-        ...(timerPreferences ? {
+        ...(timerPreferences !== undefined ? {
           timerPreferences: {
-            ...(currentMetadata.timerPreferences || {}),
+            ...currentMetadata.timerPreferences,
             ...timerPreferences
           }
         } : {}),
@@ -174,10 +193,13 @@ export const updatePreferences = async (req: Request, res: Response) => {
       };
     }
     if (locationConfig) {
-      updateData.countryCode = locationConfig.countryCode;
-      updateData.regionCode = locationConfig.regionCode;
+      updateData.countryCode = locationConfig.countryCode || 'IN';
+      updateData.regionCode = locationConfig.regionCode ? locationConfig.regionCode : null;
     }
     if (weeklyCapacityMinutes !== undefined) {
+      if (!Number.isInteger(weeklyCapacityMinutes) || weeklyCapacityMinutes < 0 || weeklyCapacityMinutes > 10080) {
+        return res.status(400).json({ message: 'Weekly capacity must be whole minutes between 0 and 10080' });
+      }
       updateData.weeklyCapacityMinutes = weeklyCapacityMinutes;
     }
 
@@ -187,9 +209,24 @@ export const updatePreferences = async (req: Request, res: Response) => {
       select: userAuthSelect
     });
 
+    socketService.emitToUser(userId, 'preferences:updated', {});
     return res.status(200).json({ user: updatedUser });
   } catch (error) {
     console.error('Error updating user preferences', error);
     return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const changePassword = async (req: Request, res: Response) => {
+  if (!req.user?.id || !req.user.sessionId) return res.status(401).json({ message: 'Unauthorized' });
+  try {
+    await authService.changePassword(req.user.id, req.user.sessionId, req.body);
+    res.clearCookie('krama_refresh', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
+    return res.status(200).json({ message: 'Password changed. Sign in with your new password.' });
+  } catch (error: any) {
+    if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.issues });
+    if (error instanceof PasswordChangeError) return res.status(error.status).json({ message: error.message });
+    console.error('Password change failed');
+    return res.status(500).json({ message: 'Unable to change password. Try again.' });
   }
 };
