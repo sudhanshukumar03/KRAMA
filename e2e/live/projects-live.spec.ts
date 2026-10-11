@@ -155,6 +155,11 @@ test('timeline, refresh-safe edits and project-linked Brain creation persist', a
   expect(documents.find((d: any) => d.title === 'Connected project document').projectId).toBe(project.id);
   await page.goto(`/app/projects/${project.id}`);
   await expect(page.getByText('Connected project document', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: /Docs/ }).first().click();
+  const linkedDocument = page.getByRole('link', { name: 'Open document Connected project document', exact: true });
+  await linkedDocument.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(new RegExp('/app/brain\\?doc=' + documents.find((d: any) => d.title === 'Connected project document').id));
   await page.goto(`/app/brain?projectId=${secondaryProject.id}`);
   await expect(page.getByText('This project is unavailable in the current workspace', { exact: true })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);

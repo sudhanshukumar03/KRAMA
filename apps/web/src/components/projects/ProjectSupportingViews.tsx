@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Calendar, FolderKanban } from 'lucide-react';
 import type { DocumentWithRelations, IssueWithRelations, ProjectWithRelations } from '../../types/schema';
 import { cn } from '../../lib/utils';
@@ -11,9 +11,10 @@ export function ProjectDocuments({ documents, projectId }: { documents: Document
   const navigate = useNavigate();
   return (<div className="max-w-6xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-150 font-sans mt-6">
             {documents.map((doc) => (
-              <div
+              <Link
                 key={doc.id}
-                onClick={() => navigate(`/app/brain?doc=${doc.id}`)}
+                to={`/app/brain?doc=${encodeURIComponent(doc.id)}`}
+                aria-label={`Open document ${doc.title}`}
                 className="krama-card p-6 hover:border-cat-routines transition-all cursor-pointer group flex flex-col justify-between shadow-xs hover:shadow-md min-h-[180px] gap-5 relative overflow-hidden"
               >
                 <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-cat-routines opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -27,7 +28,7 @@ export function ProjectDocuments({ documents, projectId }: { documents: Document
                   <span className="tabular-nums">Updated {new Date(doc.updatedAt).toLocaleDateString()}</span>
                   <span className="text-cat-routines font-bold group-hover:underline flex items-center gap-1">Open Doc <ArrowRight className="w-3.5 h-3.5 stroke-[1.5]" /></span>
                 </div>
-              </div>
+              </Link>
             ))}
             {documents.length === 0 && (
               <div className="col-span-full py-16 bg-surface/50 rounded-2xl border border-border border-dashed flex flex-col items-center justify-center gap-3">
