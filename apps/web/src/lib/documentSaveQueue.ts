@@ -47,6 +47,7 @@ export class DocumentSaveQueue {
     try { this.storage?.setItem(this.key, JSON.stringify({ content: this.content, title: this.title, revision: this.revision })); } catch { /* Best effort draft storage. */ }
   }
   private schedule() {
+    this.recovered = false;
     this.generation++; this.persist();
     if (this.state !== 'conflict') this.emit('unsaved');
     clearTimeout(this.timer);
@@ -83,6 +84,7 @@ export class DocumentSaveQueue {
    * new revision. Clear dirty flags only for the draft actually acknowledged.
    */
   flush() {
+    this.recovered = false;
     clearTimeout(this.timer); this.timer = undefined;
     return this.enqueue(async () => {
       const generation = this.generation;
@@ -111,11 +113,15 @@ export class DocumentSaveQueue {
     clearTimeout(this.timer); this.timer = undefined;
     await this.tail;
     this.content = draft.content; this.title = draft.title; this.revision = draft.revision;
-    this.bodyDirty = this.titleDirty = false;
+    this.bodyDirty = this.titleDirty = this.recovered = false;
     try { this.storage?.removeItem(this.key); } catch { /* Best effort. */ }
     this.emit('saved');
   }
-  dispose() { clearTimeout(this.timer); this.timer = undefined; if (this.bodyDirty || this.titleDirty) void this.flush().catch(() => {}); }
+  dispose() {
+    clearTimeout(this.timer); this.timer = undefined;
+    // Reopening a stored draft is for review; cleanup must not silently save it.
+    if (!this.recovered && (this.bodyDirty || this.titleDirty)) void this.flush().catch(() => {});
+  }
 }
 
 // Keep a departing editor's queue available while its final save is pending.

@@ -110,7 +110,9 @@ test('failed browser save recovers its draft after reload and can retry', async 
   await page.goto('/app/brain?doc=doc-1'); await page.locator('.tiptap').fill('Recover this draft');
   await expect(page.getByRole('status').filter({ hasText: /Save failed/ })).toBeVisible();
   await page.reload(); await expect(page.locator('.tiptap')).toHaveText('Recover this draft');
-  fail = false; await page.getByRole('button', { name: 'Retry save' }).click();
+  const retry = page.getByRole('button', { name: 'Retry save' });
+  await expect(retry).toBeVisible();
+  fail = false; await retry.click();
   await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible();
   expect(saved).toEqual(content('Recover this draft'));
 });

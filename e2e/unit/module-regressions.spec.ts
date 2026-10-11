@@ -175,6 +175,24 @@ test('network failure retains title and content for explicit retry', async () =>
 });
 
 
+test('recovered drafts wait for review instead of saving during editor cleanup', async () => {
+  const drafts = storage();
+  drafts.setItem('recovered-draft', JSON.stringify({ ...initial, content: content('Recovered body') }));
+  let writes = 0;
+  const queue = new DocumentSaveQueue('doc-1', initial, {
+    update: async () => { writes++; return {}; },
+    updateContent: async () => { writes++; return { updatedAt: 'saved-revision' }; },
+  }, 'recovered-draft', drafts);
+  queue.dispose(); await queue.whenIdle();
+  expect(writes).toBe(0);
+  expect(queue.state).toBe('unsaved');
+  expect(drafts.getItem('recovered-draft')).not.toBeNull();
+  await queue.flush();
+  expect(writes).toBe(2); expect(queue.state).toBe('saved');
+  expect(drafts.getItem('recovered-draft')).toBeNull();
+});
+
+
 test('conflicts retain drafts and block automatic overwrites; explicit reload resolves them', async () => {
   const drafts = storage(); let attempts = 0;
   const api = { update: async () => ({}), updateContent: async () => { attempts++; throw { status: 409 }; } };
