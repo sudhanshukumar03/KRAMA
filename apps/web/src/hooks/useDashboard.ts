@@ -7,7 +7,8 @@ export function useDashboard() {
     queryFn: async () => {
       return api.dashboard.get();
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
   });
 }

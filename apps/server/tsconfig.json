@@ -7,9 +7,9 @@
     "outDir": "./dist",
     "noEmit": false,
 
-    // Environment Settings — tsx handles module resolution at runtime
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    // Emit modules that Node can execute directly in the production container.
+    "module": "Node20",
+    "moduleResolution": "Node16",
     "target": "ESNext",
     "lib": ["ESNext"],
     "types": ["node"],

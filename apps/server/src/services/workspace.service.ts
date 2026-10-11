@@ -1,5 +1,6 @@
 import { workspaceRepository } from '../repositories/workspace.repository';
 import { runInTransaction, prisma } from '../prisma';
+import { socketService } from './socket.service';
 
 class WorkspaceService {
   async listWorkspaces(userId: string) {
@@ -52,7 +53,7 @@ class WorkspaceService {
 
     const now = new Date();
 
-    return runInTransaction(async (tx) => {
+    const result = await runInTransaction(async (tx) => {
       // 1. Soft-delete the workspace itself
       await tx.workspace.update({
         where: { id },
@@ -85,16 +86,6 @@ class WorkspaceService {
         data: { deletedAt: now, updatedBy: userId }
       });
 
-      await tx.sprint.updateMany({
-        where: { workspaceId: id, deletedAt: null },
-        data: { deletedAt: now, updatedBy: userId }
-      });
-
-      await tx.dailyLog.updateMany({
-        where: { workspaceId: id, deletedAt: null },
-        data: { deletedAt: now, updatedBy: userId }
-      });
-
       // 3. Cascade to indirect children (Documents are space-scoped)
       const spaces = await tx.space.findMany({ where: { workspaceId: id }, select: { id: true } });
       const spaceIds = spaces.map((s: any) => s.id);
@@ -108,6 +99,8 @@ class WorkspaceService {
 
       return { success: true };
     });
+    socketService.disconnectWorkspace(id);
+    return result;
   }
 
   async exportWorkspace(id: string) {
@@ -116,22 +109,41 @@ class WorkspaceService {
       throw new Error('Workspace not found');
     }
 
-    const data = await prisma.workspace.findUnique({
-      where: { id },
+    return prisma.$transaction(async tx => {
+    const data = await tx.workspace.findUniqueOrThrow({
+      where: { id, deletedAt: null },
       include: {
         members: {
           select: { role: true, user: { select: { id: true, name: true, email: true } } }
         },
-        goals: { where: { deletedAt: null } },
-        projects: { where: { deletedAt: null } },
-        spaces: { where: { deletedAt: null } },
-        tasks: { where: { deletedAt: null } },
-        sprints: { where: { deletedAt: null } },
-        habits: { where: { deletedAt: null } },
+        goals: { include: { snapshots: true } },
+        projects: { include: { milestones: true } },
+        spaces: { include: { folders: true, documents: { include: { versions: true, tags: { where: { tag: { workspaceId: id } } } } } } },
+        tasks: { include: { comments: true, labels: { where: { label: { workspaceId: id } } } } },
+        habits: { include: { completions: true } },
+        timeBlocks: true, focusSessions: true, dailyLogs: true, sprints: true,
+        sprintReports: true, tags: true, labels: true, activityLogs: true,
+        notifications: true,
       }
     });
-
-    return data;
+    const ids: Record<string, Set<string>> = {
+      DOCUMENT: new Set(data.spaces.flatMap(space => space.documents.map(doc => doc.id))),
+      TASK: new Set(data.tasks.map(task => task.id)), PROJECT: new Set(data.projects.map(project => project.id)),
+    };
+    const links = await tx.entityLink.findMany({ where: { OR: Object.entries(ids).flatMap(([entityType, entityIds]) => {
+      const type = entityType as 'DOCUMENT' | 'TASK' | 'PROJECT';
+      return [
+        { sourceType: type, sourceId: { in: [...entityIds] } },
+        { targetType: type, targetId: { in: [...entityIds] } },
+      ];
+    }) } });
+    return {
+      format: 'krama-workspace-backup', formatVersion: 2, exportedAt: new Date().toISOString(),
+      includesTrash: true, workspace: data,
+      entityLinks: links.filter(link => ids[link.sourceType]?.has(link.sourceId) && ids[link.targetType]?.has(link.targetId)),
+      excluded: ['Authentication secrets and sessions', 'Regenerable search vectors and embeddings', 'AI provider telemetry'],
+    };
+    }, { isolationLevel: 'RepeatableRead', timeout: 30000 });
   }
 }
 

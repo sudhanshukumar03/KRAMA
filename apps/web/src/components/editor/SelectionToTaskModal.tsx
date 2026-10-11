@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckSquare, X, ArrowUpRight } from 'lucide-react';
 import { api } from '../../api/client';
+import { useModalA11y } from '../../hooks/useModalA11y';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -26,6 +27,8 @@ export function SelectionToTaskModal({
   const [status, setStatus] = useState<'TODO' | 'IN_PROGRESS' | 'DONE'>('TODO');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const modalRef = useModalA11y(isOpen, onClose);
 
   useEffect(() => {
     if (isOpen) {
@@ -65,19 +68,25 @@ export function SelectionToTaskModal({
         onSuccess(result.task);
       }
     } catch (err: any) {
-      toast.error('Failed to create task: ' + (err?.response?.data?.message || err?.message || 'Unknown error'));
+      toast.error('Failed to create task: ' + (err?.message || 'Unknown error'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
       <div 
-        className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose();
-        }}
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-task-title"
+        className="krama-dialog w-full max-w-md shadow-2xl overflow-hidden flex flex-col font-sans"
       >
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
@@ -86,7 +95,7 @@ export function SelectionToTaskModal({
               <CheckSquare className="w-4 h-4 stroke-[1.75]" />
             </div>
             <div>
-              <h3 className="font-bold text-primary text-body leading-tight">
+              <h3 id="create-task-title" className="font-bold text-primary text-body leading-tight">
                 Create Execution Task
               </h3>
               <p className="text-[11px] font-mono text-secondary">
@@ -107,7 +116,7 @@ export function SelectionToTaskModal({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
             <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
-              Task Title <span className="text-emerald-500">*</span>
+              Task Title <span className="text-danger-fg">*</span>
             </label>
             <input
               ref={inputRef}
@@ -115,7 +124,7 @@ export function SelectionToTaskModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Implement schema migration..."
-              className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-sans text-body transition-all"
+              className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 font-sans text-body transition-all"
               autoFocus
             />
           </div>
@@ -133,9 +142,9 @@ export function SelectionToTaskModal({
                     type="button"
                     onClick={() => setPriority(p)}
                     className={cn(
-                      "py-1.5 px-2 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer text-center border",
+                      "py-1.5 px-2 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer text-center border active:scale-[0.98]",
                       priority === p
-                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                        ? "bg-accent text-on-accent border-accent shadow-xs"
                         : "bg-surface hover:bg-surface-hover text-secondary border-border"
                     )}
                   >
@@ -157,9 +166,9 @@ export function SelectionToTaskModal({
                     type="button"
                     onClick={() => setStatus(s)}
                     className={cn(
-                      "py-1.5 px-2 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer text-center border",
+                      "py-1.5 px-2 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer text-center border active:scale-[0.98]",
                       status === s
-                        ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                        ? "bg-accent text-on-accent border-accent shadow-xs"
                         : "bg-surface hover:bg-surface-hover text-secondary border-border"
                     )}
                   >
@@ -179,7 +188,7 @@ export function SelectionToTaskModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-2 rounded-xl border border-border text-caption font-medium hover:bg-surface-hover transition-colors cursor-pointer"
+                className="px-3.5 py-2 rounded-xl border border-border text-caption font-medium hover:bg-surface-hover transition-colors cursor-pointer active:scale-[0.98]"
               >
                 Cancel
               </button>
@@ -187,10 +196,10 @@ export function SelectionToTaskModal({
                 type="submit"
                 disabled={isSubmitting || !title.trim()}
                 className={cn(
-                  "px-4 py-2 rounded-xl text-caption font-bold flex items-center gap-1.5 transition-all shadow-xs",
+                  "px-4 py-2 rounded-xl text-caption font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-[0.98]",
                   title.trim() && !isSubmitting
-                    ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
-                    : "bg-emerald-600/40 text-white/60 cursor-not-allowed"
+                    ? "bg-accent hover:bg-accent-hover text-on-accent cursor-pointer"
+                    : "bg-accent/40 text-on-accent/60 cursor-not-allowed"
                 )}
               >
                 <ArrowUpRight className="w-3.5 h-3.5 stroke-[2]" />

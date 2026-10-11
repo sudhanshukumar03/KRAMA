@@ -9,8 +9,37 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: krama
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d krama"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/krama?schema=public"
+      REDIS_URL: "redis://localhost:6379"
+      JWT_SECRET: "ci-only-test-signing-secret-at-least-forty-eight-characters-long"
+      TEST_DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/krama_integration_test?schema=public"
+      TEST_REDIS_URL: "redis://localhost:6379/15"
 
     steps:
     - name: Checkout Code
@@ -30,25 +59,61 @@ jobs:
     - name: Install Dependencies
       run: pnpm install --frozen-lockfile
 
-    - name: Lint Frontend
-      run: pnpm --filter client run lint
+    - name: Lint Workspace
+      run: pnpm -r run lint
 
     - name: Generate Prisma Client
       run: pnpm --filter server exec prisma generate
-      env:
-        DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/krama?schema=public"
 
-    - name: Build Shared Packages
-      run: pnpm --filter "./packages/*" run build
+    # CI uses a disposable database recreated from the current Prisma schema.
+    - name: Prepare Test Database
+      run: pnpm --filter server exec prisma db push
 
-    - name: TypeScript Check (Backend)
-      run: pnpm --filter server exec tsc --noEmit
+    - name: Build Monorepo Packages
+      run: pnpm -r build
 
-    - name: Run Backend Tests
-      run: pnpm --filter server run test || echo "Tests not configured yet"
+    - name: Check Test and Config Types
+      run: pnpm exec tsc --noEmit -p tsconfig.json
 
-    - name: TypeScript Check (Frontend)
-      run: pnpm --filter client exec tsc -b
+    - name: Run Validation Unit Tests
+      run: pnpm --filter @krama/validation test
 
-    - name: Docker Compose Smoke Test
-      run: docker compose -f docker-compose.prod.yml build --progress=plain
+    - name: Run Backend Integration & Unit Tests
+      run: |
+        pnpm --filter server test
+        pnpm --filter server test:integration
+        pnpm --filter server test:startup
+
+    - name: Install Chromium
+      run: pnpm exec playwright install --with-deps chromium
+
+    - name: Run Frontend Module and Mocked Browser Tests
+      run: pnpm test:ui
+
+    - name: Upload Browser Failure Artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: browser-test-results
+        path: test-results/
+        retention-days: 7
+        if-no-files-found: ignore
+
+  production-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Compose requires these settings even when only building images. These
+    # disposable values are never used to start services or access user data.
+    env:
+      POSTGRES_PASSWORD: ci-build-only-postgres-password
+      REDIS_PASSWORD: ci-build-only-redis-password
+      JWT_SECRET: ci-build-only-signing-secret-at-least-forty-eight-characters-long
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Validate Production Compose
+      run: docker compose -f docker-compose.prod.yml config --quiet
+
+    - name: Build Production Images
+      run: docker compose --progress=plain -f docker-compose.prod.yml build migrate server web

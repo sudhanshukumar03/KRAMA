@@ -16,7 +16,7 @@ export function LandingPage() {
  
  <div className="flex items-center gap-4">
  <span className="hidden sm:flex items-center gap-1.5 text-badge text-success-fg bg-success-bg px-2.5 py-1 rounded-md border border-success-border">
- <span className="w-1.5 h-1.5 rounded-full bg-success-fg animate-pulse" /> Local Workspace Synced
+ <span className="w-1.5 h-1.5 rounded-full bg-success-fg" /> Local-first workspace
  </span>
  <BaseButton onClick={() => navigate('/app')} size="md" className="shadow-2xs group">
  Open App <ArrowRight className="w-4 h-4 ml-1.5 group-hover:translate-x-0.5 transition-transform duration-150" />
@@ -96,7 +96,7 @@ export function LandingPage() {
  </div>
  <div>
  <div className="text-card-title text-primary">KRM-102: Migrate storage engine to SQLite WAL</div>
- <div className="text-caption text-secondary">Sprint 14 • Execution Board</div>
+ <div className="text-caption text-secondary">This Week • Execution Board</div>
  </div>
  </div>
  <span className="text-badge text-danger-fg bg-danger-bg px-2 py-0.5 rounded border border-danger-border">Urgent</span>

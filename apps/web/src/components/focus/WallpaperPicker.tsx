@@ -1,4 +1,7 @@
+import { useAuth } from '../../contexts/AuthContext';
+import { focusStorageKey } from '../../lib/focusStorage';
 import React, { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { X, Upload, Check, ExternalLink, Sparkles, Palette, Loader2, Trash2 } from 'lucide-react';
 import { api } from '../../api/client';
 import { toast } from 'sonner';
@@ -23,6 +26,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
   onSelectLayout,
   onClose,
 }) => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'curated' | 'gradients' | 'unsplash' | 'upload'>(() => {
     return currentWallpaper.type === 'upload' ? 'upload' : 'curated';
   });
@@ -31,11 +35,14 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
   const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
   const [unsplashNotConfigured, setUnsplashNotConfigured] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const uploadCapabilities = useQuery({ queryKey: ['upload-capabilities'], queryFn: api.upload.capabilities, enabled: activeTab === 'upload' });
+  const canUpload = uploadCapabilities.data?.uploadAvailable === true;
+  const uploadsComingSoon = uploadCapabilities.isSuccess && !canUpload;
 
   // Saved uploaded wallpapers history
   const [customWallpapers, setCustomWallpapers] = useState<WallpaperConfig[]>(() => {
     try {
-      const saved = localStorage.getItem('krama.focus.custom_wallpapers');
+      const saved = localStorage.getItem(focusStorageKey(user?.id, 'custom_wallpapers'));
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
@@ -64,7 +71,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
 
     api.focusSessions
       .getWallpaper(unsplashCategory)
-      .then((data: any) => {
+      .then((data) => {
         if (!isMounted) return;
         if (data?.error === 'UNSPLASH_NOT_CONFIGURED') {
           setUnsplashNotConfigured(true);
@@ -89,6 +96,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!canUpload) return;
 
     try {
       setIsUploading(true);
@@ -103,7 +111,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
         const updated = [newWp, ...customWallpapers.filter((w) => w.value !== res.url)];
         setCustomWallpapers(updated);
         try {
-          localStorage.setItem('krama.focus.custom_wallpapers', JSON.stringify(updated));
+          localStorage.setItem(focusStorageKey(user?.id, 'custom_wallpapers'), JSON.stringify(updated));
         } catch { }
 
         onSelectWallpaper(newWp);
@@ -121,7 +129,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
     const updated = customWallpapers.filter((w) => w.value !== wallpaperValue);
     setCustomWallpapers(updated);
     try {
-      localStorage.setItem('krama.focus.custom_wallpapers', JSON.stringify(updated));
+      localStorage.setItem(focusStorageKey(user?.id, 'custom_wallpapers'), JSON.stringify(updated));
     } catch { }
 
     // If removing the currently active wallpaper, restore default
@@ -141,16 +149,16 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl bg-neutral-900/90 backdrop-blur-2xl border border-white/15 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] text-white">
+      <div className="w-full max-w-2xl krama-dialog rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] text-primary">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/10">
+        <div className="flex items-center justify-between p-6 border-b border-border/80">
           <div className="flex items-center gap-2">
-            <Palette className="w-5 h-5 text-teal-400" />
-            <h2 className="text-base font-semibold">Wallpaper & Layout</h2>
+            <Palette className="w-5 h-5 text-accent-fg" />
+            <h2 className="text-base font-semibold text-primary">Wallpaper & Layout</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-full hover:bg-surface-hover text-muted hover:text-primary transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -160,10 +168,10 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Quick Layout Switcher */}
           {onSelectLayout && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/5 border border-white/10">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-surface-2/60 border border-border">
               <div>
-                <span className="text-xs font-semibold text-white block">Timer Layout</span>
-                <span className="text-[11px] text-white/50">Choose typography & positioning</span>
+                <span className="text-xs font-semibold text-primary block">Timer Layout</span>
+                <span className="text-[11px] text-muted">Choose typography & positioning</span>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {(['standby', 'centered', 'card', 'overlay', 'sidebar', 'zen'] as const).map((l) => (
@@ -173,8 +181,8 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                     onClick={() => onSelectLayout(l)}
                     className={`px-3 py-1 rounded-xl text-xs font-medium capitalize transition-all cursor-pointer ${
                       currentLayout === l
-                        ? 'bg-teal-500 text-black font-semibold shadow-md'
-                        : 'text-white/70 hover:text-white hover:bg-white/10'
+                        ? 'bg-accent text-white font-semibold shadow-md'
+                        : 'text-secondary hover:text-primary hover:bg-surface-hover'
                     }`}
                   >
                     {l === 'standby' ? 'Standby' : l === 'centered' ? 'Centered' : l === 'card' ? 'Card' : l === 'overlay' ? 'Overlay' : l === 'sidebar' ? 'Sidebar' : 'Zen'}
@@ -187,35 +195,35 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
           <div>
             {/* Wallpaper Source Tabs */}
             <div className="flex items-center justify-center mb-5">
-              <div className="flex gap-1 p-1 bg-white/5 rounded-xl border border-white/10">
+              <div className="flex gap-1 p-1 bg-surface-2 rounded-xl border border-border">
                 <button
                   onClick={() => setActiveTab('curated')}
-                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
-                    activeTab === 'curated' ? 'bg-white text-black font-semibold' : 'text-white/70 hover:text-white'
+                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all cursor-pointer ${
+                    activeTab === 'curated' ? 'bg-surface text-primary shadow-xs font-semibold' : 'text-secondary hover:text-primary'
                   }`}
                 >
                   Curated
                 </button>
                 <button
                   onClick={() => setActiveTab('gradients')}
-                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
-                    activeTab === 'gradients' ? 'bg-white text-black font-semibold' : 'text-white/70 hover:text-white'
+                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all cursor-pointer ${
+                    activeTab === 'gradients' ? 'bg-surface text-primary shadow-xs font-semibold' : 'text-secondary hover:text-primary'
                   }`}
                 >
                   Gradients
                 </button>
                 <button
                   onClick={() => setActiveTab('unsplash')}
-                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
-                    activeTab === 'unsplash' ? 'bg-white text-black font-semibold' : 'text-white/70 hover:text-white'
+                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all cursor-pointer ${
+                    activeTab === 'unsplash' ? 'bg-surface text-primary shadow-xs font-semibold' : 'text-secondary hover:text-primary'
                   }`}
                 >
                   Photos
                 </button>
                 <button
                   onClick={() => setActiveTab('upload')}
-                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
-                    activeTab === 'upload' ? 'bg-white text-black font-semibold' : 'text-white/70 hover:text-white'
+                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all cursor-pointer ${
+                    activeTab === 'upload' ? 'bg-surface text-primary shadow-xs font-semibold' : 'text-secondary hover:text-primary'
                   }`}
                 >
                   Upload
@@ -241,8 +249,8 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                       }
                       className={`group relative h-32 rounded-2xl overflow-hidden border text-left transition-all duration-300 ${
                         isSelected
-                          ? 'border-teal-400 ring-2 ring-teal-400/50 shadow-xl scale-[1.02]'
-                          : 'border-white/15 hover:border-white/40 hover:scale-[1.01]'
+                          ? 'border-accent ring-2 ring-accent/50 shadow-xl scale-[1.02]'
+                          : 'border-border hover:border-border-strong hover:scale-[1.01]'
                       }`}
                     >
                       <img
@@ -260,7 +268,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                         </span>
                       </div>
                       {isSelected && (
-                        <div className="absolute top-2.5 right-2.5 z-10 w-5 h-5 rounded-full bg-teal-400 text-black flex items-center justify-center shadow-lg font-bold">
+                        <div className="absolute top-2.5 right-2.5 z-10 w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center shadow-lg font-bold">
                           <Check className="w-3.5 h-3.5 stroke-[3]" />
                         </div>
                       )}
@@ -279,7 +287,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                     <button
                       key={g.id}
                       onClick={() => onSelectWallpaper({ type: 'gradient', value: g.id })}
-                      className="group relative h-24 rounded-2xl overflow-hidden border border-white/15 p-3 flex flex-col justify-end text-left hover:scale-[1.03] transition-all"
+                      className="group relative h-24 rounded-2xl overflow-hidden border border-border p-3 flex flex-col justify-end text-left hover:scale-[1.03] transition-all cursor-pointer"
                       style={{ background: g.css }}
                     >
                       <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
@@ -287,7 +295,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                         {g.name}
                       </span>
                       {isSelected && (
-                        <div className="absolute top-2 right-2 z-10 w-5 h-5 rounded-full bg-white text-black flex items-center justify-center shadow-md">
+                        <div className="absolute top-2 right-2 z-10 w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center shadow-md">
                           <Check className="w-3.5 h-3.5 stroke-[3]" />
                         </div>
                       )}
@@ -306,10 +314,10 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                     <button
                       key={cat}
                       onClick={() => setUnsplashCategory(cat)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium capitalize transition-all shrink-0 ${
+                      className={`px-3 py-1 rounded-full text-xs font-medium capitalize transition-all shrink-0 cursor-pointer ${
                         unsplashCategory === cat
-                          ? 'bg-white text-black font-semibold'
-                          : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'
+                          ? 'bg-accent text-white font-semibold'
+                          : 'bg-surface-2 text-secondary hover:text-primary hover:bg-surface-hover border border-border'
                       }`}
                     >
                       {cat}
@@ -319,7 +327,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
 
                 {/* Loading state */}
                 {isLoadingPhotos && (
-                  <div className="h-48 flex items-center justify-center text-white/50 gap-2">
+                  <div className="h-48 flex items-center justify-center text-muted gap-2">
                     <Loader2 className="w-5 h-5 animate-spin" />
                     <span className="text-xs">Fetching wallpapers...</span>
                   </div>
@@ -327,15 +335,15 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
 
                 {/* Not configured warning */}
                 {!isLoadingPhotos && unsplashNotConfigured && (
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center">
-                    <Sparkles className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                    <h4 className="text-sm font-semibold mb-1">Unsplash API Key Not Configured</h4>
-                    <p className="text-xs text-white/60 max-w-sm mx-auto mb-4">
-                      Add <code className="bg-black/40 px-1.5 py-0.5 rounded text-white font-mono">UNSPLASH_ACCESS_KEY</code> in server <code className="bg-black/40 px-1.5 py-0.5 rounded text-white font-mono">.env</code> to enable live Unsplash browsing.
+                  <div className="bg-surface-2 border border-border rounded-2xl p-6 text-center">
+                    <Sparkles className="w-8 h-8 text-warning-fg mx-auto mb-2" />
+                    <h4 className="text-sm font-semibold mb-1 text-primary">Unsplash API Key Not Configured</h4>
+                    <p className="text-xs text-muted max-w-sm mx-auto mb-4">
+                      Add <code className="bg-surface-3 px-1.5 py-0.5 rounded text-primary font-mono border border-border">UNSPLASH_ACCESS_KEY</code> in server <code className="bg-surface-3 px-1.5 py-0.5 rounded text-primary font-mono border border-border">.env</code> to enable live Unsplash browsing.
                     </p>
                     <button
                       onClick={() => setActiveTab('gradients')}
-                      className="px-4 py-2 bg-white text-black text-xs font-semibold rounded-xl hover:bg-white/90 transition-colors"
+                      className="px-4 py-2 bg-accent text-white text-xs font-semibold rounded-xl hover:bg-accent-hover transition-colors cursor-pointer shadow-sm"
                     >
                       Use Bundled Gradients
                     </button>
@@ -415,10 +423,10 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                           <div
                             key={wp.value + idx}
                             onClick={() => onSelectWallpaper(wp)}
-                            className={`group relative h-36 rounded-2xl overflow-hidden border transition-all cursor-pointer bg-black/40 ${
+                            className={`group relative h-36 rounded-2xl overflow-hidden border transition-all cursor-pointer bg-surface-2/40 ${
                               isSelected
-                                ? 'border-teal-400 ring-2 ring-teal-400/30 shadow-lg'
-                                : 'border-white/15 hover:border-white/30 hover:scale-[1.01]'
+                                ? 'border-accent ring-2 ring-accent/30 shadow-lg'
+                                : 'border-border hover:border-border-strong hover:scale-[1.01]'
                             }`}
                           >
                             <img
@@ -431,7 +439,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                             {/* Top row: Active indicator & Delete button */}
                             <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10">
                               {isSelected ? (
-                                <span className="flex items-center gap-1 text-[11px] font-semibold bg-teal-400 text-black px-2.5 py-0.5 rounded-full shadow-md">
+                                <span className="flex items-center gap-1 text-[11px] font-semibold bg-accent text-white px-2.5 py-0.5 rounded-full shadow-md">
                                   <Check className="w-3.5 h-3.5 stroke-[3]" />
                                   <span>Active</span>
                                 </span>
@@ -447,7 +455,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                                   e.stopPropagation();
                                   handleRemoveWallpaper(wp.value);
                                 }}
-                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-black/70 hover:bg-red-500 text-white/80 hover:text-white transition-all cursor-pointer shadow-lg backdrop-blur-md border border-white/10 hover:border-red-400 text-xs font-medium"
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-surface-1/80 hover:bg-danger-fg text-primary hover:text-white transition-all cursor-pointer shadow-lg backdrop-blur-md border border-border hover:border-danger-border text-xs font-medium active:scale-[0.98]"
                                 title="Remove this wallpaper"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -467,26 +475,28 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                 )}
 
                 {/* Upload New Wallpaper Card */}
-                <div className="border-2 border-dashed border-white/20 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-white/40 transition-colors bg-white/[0.02]">
-                  <Upload className="w-8 h-8 text-white/60 mb-2" />
-                  <h4 className="text-sm font-semibold mb-1">Upload Wallpaper</h4>
-                  <p className="text-xs text-white/50 max-w-xs mb-4">
-                    Upload any JPG, PNG, or WebP photo to set as your personal focus background.
+                <div className="border-2 border-dashed border-border rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-accent/40 transition-colors bg-surface-2/30">
+                  <Upload className="w-8 h-8 text-muted mb-2" />
+                  <h4 className="text-sm font-semibold mb-1 text-primary">Upload Wallpaper</h4>
+                  {uploadsComingSoon && <span className="mb-2 rounded-full border border-border bg-surface px-2 py-1 text-xs font-medium text-secondary">Coming soon</span>}
+                  <p className="text-xs text-muted max-w-xs mb-4">
+                    {uploadCapabilities.isError ? 'Upload availability could not be checked.' : uploadCapabilities.isLoading ? 'Checking upload availability…' : uploadsComingSoon ? 'Custom wallpaper uploads are coming soon. Use built-in wallpapers or gradients for now.' : 'Upload a JPG, PNG, GIF or WebP photo (up to 10 MB) as your focus background.'}
                   </p>
-                  <label className="cursor-pointer px-4 py-2 bg-white text-black font-semibold text-xs rounded-xl hover:bg-white/90 transition-all flex items-center gap-2">
+                  {uploadCapabilities.isError && <button className="text-accent text-xs mb-3" onClick={() => uploadCapabilities.refetch()}>Try again</button>}
+                  <label className={`px-4 py-2 bg-accent text-white font-semibold text-xs rounded-xl flex items-center gap-2 shadow-sm ${canUpload && !isUploading ? 'cursor-pointer hover:bg-accent-hover' : 'opacity-50 cursor-not-allowed'}`}>
                     {isUploading ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         <span>Uploading...</span>
                       </>
                     ) : (
-                      <span>Choose File</span>
+                      <span>{uploadsComingSoon ? 'Coming soon' : 'Choose File'}</span>
                     )}
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
                       onChange={handleFileUpload}
-                      disabled={isUploading}
+                      disabled={isUploading || !canUpload}
                       className="hidden"
                     />
                   </label>
@@ -497,11 +507,11 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-white/10 bg-black/30 flex items-center justify-between text-xs text-white/50">
+        <div className="p-4 border-t border-border/80 bg-surface-2/40 flex items-center justify-between text-xs text-muted">
           <span>Saved to your personal preferences automatically</span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-white text-black font-semibold rounded-xl hover:bg-white/90 transition-colors"
+            className="px-4 py-1.5 bg-accent text-white font-semibold rounded-xl hover:bg-accent-hover transition-colors cursor-pointer shadow-sm"
           >
             Done
           </button>

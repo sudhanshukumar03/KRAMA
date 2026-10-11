@@ -2,6 +2,7 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { prisma } from '../prisma';
 import { requireWorkspaceRole } from '../middlewares/rbac.middleware';
+import { assertIntegrationEnvironment } from '../testing/testEnvironment';
 
 describe('Tier 1: Document RBAC & Role Checking', () => {
   let workspace: any;
@@ -11,6 +12,7 @@ describe('Tier 1: Document RBAC & Role Checking', () => {
   let outsiderUser: any;
 
   before(async () => {
+    assertIntegrationEnvironment();
     // Setup test users
     const timestamp = Date.now();
     ownerUser = await prisma.user.create({
@@ -43,13 +45,23 @@ describe('Tier 1: Document RBAC & Role Checking', () => {
 
   after(async () => {
     if (workspace) {
-      await prisma.workspaceMember.deleteMany({ where: { workspaceId: workspace.id } });
-      await prisma.workspace.delete({ where: { id: workspace.id } });
+      await prisma.workspaceMember.deleteMany({ where: { workspaceId: workspace.id } }).catch(() => {});
+      await prisma.workspace.delete({ where: { id: workspace.id } }).catch(() => {});
     }
     const userIds = [ownerUser?.id, memberUser?.id, viewerUser?.id, outsiderUser?.id].filter(Boolean);
     if (userIds.length > 0) {
-      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+      await prisma.user.deleteMany({ where: { id: { in: userIds } } }).catch(() => {});
     }
+    await prisma.$disconnect().catch(() => {});
+    await (globalThis as any).pool?.end?.().catch(() => {});
+    try {
+      const { redisService } = await import('../services/redis.service');
+      await redisService.client.quit().catch(() => {});
+    } catch {}
+    try {
+      const { connection } = await import('../lib/redis');
+      await connection.quit().catch(() => {});
+    } catch {}
   });
 
   function createMockContext(userId: string, workspaceId: string) {
