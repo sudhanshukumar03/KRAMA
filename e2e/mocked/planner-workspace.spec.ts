@@ -295,3 +295,38 @@ test('Focus setup owns keyboard shortcuts without opening another modal', async 
   await page.keyboard.press('Escape');
   await expect(setup).toBeHidden();
 });
+
+test('a delayed earlier session response cannot clear a newer unsaved task session', async ({ page }) => {
+  await scheduledFocusMock(page, 1, true);
+  let releaseFirst!: () => void;
+  const firstResponse = new Promise<void>(resolve => { releaseFirst = resolve; });
+  let requests = 0;
+  await page.route('**/api/v1/focus-sessions', async route => {
+    const payload = route.request().postDataJSON();
+    requests++;
+    if (requests === 1) await firstResponse;
+    if (payload.taskId === 't2') return route.fulfill({ status: 503, json: { message: 'Save unavailable' } });
+    return route.fulfill({ json: { session: { id: payload.completionId } } });
+  });
+  await page.goto('/focus?task=t1&block=b1&date=' + day);
+  await page.getByRole('button', { name: 'Use this plan' }).click();
+  await page.clock.install();
+  await page.getByTitle('Click or press Enter to start', { exact: true }).click();
+  await page.clock.fastForward(60000);
+  await expect.poll(() => requests).toBe(1);
+  await changeFocusSelection(page, 't2', 'b3');
+  await page.getByRole('button', { name: 'Retry saving session' }).click();
+  const setup = page.getByRole('dialog', { name: 'Plan your focus time' });
+  await setup.getByLabel('Session plan').selectOption('custom');
+  await setup.getByLabel('Work minutes').fill('1');
+  await setup.getByLabel('Break minutes').fill('0');
+  await setup.getByRole('button', { name: 'Use this plan' }).click();
+  await page.getByTitle('Click or press Enter to start', { exact: true }).click();
+  await page.clock.fastForward(60000);
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('krama.focus.unsaved.u1.ws1') || 'null')?.taskId)).toBe('t2');
+  const oldResponse = page.waitForResponse(response => response.url().endsWith('/focus-sessions') && response.status() === 200);
+  releaseFirst(); await oldResponse;
+  await page.clock.runFor(4000);
+  await expect(page.getByRole('button', { name: 'Retry saving session' })).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('krama.focus.unsaved.u1.ws1') || 'null')?.taskId)).toBe('t2');
+});

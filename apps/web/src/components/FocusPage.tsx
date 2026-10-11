@@ -403,7 +403,12 @@ const AccountFocusPage: React.FC = () => {
     }
     completionInFlightRef.current = false;
     pendingCompletionRef.current = null; setPendingCompletion(null); sessionRef.current = null;
-    try { localStorage.removeItem(pendingStorageKey); } catch { }
+    try {
+      // A response from an unmounted task may arrive after another task saves
+      // its recovery draft. Acknowledge only this completion's stored payload.
+      const saved = JSON.parse(localStorage.getItem(pendingStorageKey) || 'null');
+      if (saved?.completionId === payload.completionId) localStorage.removeItem(pendingStorageKey);
+    } catch { /* Keep recovery data if storage cannot be read safely. */ }
 
     setStartTime(null);
     sessionRef.current = null;
