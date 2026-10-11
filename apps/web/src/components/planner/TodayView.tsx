@@ -26,6 +26,8 @@ interface Props {
   data: PlannerData;
   onToggleTask?: (task: PlannerTask, e: React.MouseEvent) => void;
   onClickTask?: (task: PlannerTask) => void;
+  onEditTask?: (task: PlannerTask) => void;
+  onFocusTimeBlock?: (block: TimeBlock) => void;
   onClickTimeBlock?: (block: TimeBlock) => void;
   onDeleteTimeBlock?: (block: TimeBlock) => void;
   onAddTask?: (day: Date) => void;
@@ -43,6 +45,8 @@ export function TodayView({
   onToggleTask,
   onClickTask,
   onClickTimeBlock,
+  onEditTask,
+  onFocusTimeBlock,
   onDeleteTimeBlock,
   onAddTask,
   onAddTimeBlock,
@@ -237,11 +241,11 @@ export function TodayView({
                       <div
                         role="button"
                         tabIndex={0}
-                        onClick={() => onClickTimeBlock && onClickTimeBlock(tb)}
+                        onClick={() => (onFocusTimeBlock || onClickTimeBlock)?.(tb)}
                         onKeyDown={(e) => {
                           if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
                             e.preventDefault();
-                            if (onClickTimeBlock) onClickTimeBlock(tb);
+                            (onFocusTimeBlock || onClickTimeBlock)?.(tb);
                           }
                         }}
                         className={cn(
@@ -349,6 +353,7 @@ export function TodayView({
                               if (onClickTimeBlock) onClickTimeBlock(tb);
                             }}
                             className="w-7 h-7 rounded-lg text-muted hover:text-primary hover:bg-surface-hover flex items-center justify-center transition-colors"
+                            aria-label={`Edit time block ${tb.title}`}
                             title="Edit time block"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -521,7 +526,7 @@ export function TodayView({
           </div>
         </div>
 
-        <TodayTasks day={day} planner={planner} onToggleTask={onToggleTask} onClickTask={onClickTask} canAddTimeBlock={!!onAddTimeBlock} />
+        <TodayTasks day={day} planner={planner} onToggleTask={onToggleTask} onClickTask={onClickTask} onEditTask={onEditTask} canAddTimeBlock={!!onAddTimeBlock} />
 
       </div>
     </div>

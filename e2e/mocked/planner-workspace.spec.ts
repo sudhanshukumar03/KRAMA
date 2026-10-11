@@ -117,3 +117,111 @@ test('day-view task completion preserves its version and linked time-block draft
   await expect(dialog.getByLabel('Time block title', { exact: true })).toHaveValue(task.title);
   await expect(dialog.getByLabel('Task', { exact: true })).toHaveValue(task.id);
 });
+
+async function scheduledFocusMock(page: Page, minutes = 60) {
+  await mock(page);
+  const storedTask = { ...task, version: 7, estimateMinutes: minutes, projectId: 'p1', project: { id: 'p1', name: 'Launch' } };
+  let storedBlock = { ...block, taskId: task.id, endTime: new Date(new Date(block.startTime).getTime() + minutes * 60000).toISOString() };
+  let nextBlock = { ...block, id: 'b2', title: 'Next scheduled task', startTime: storedBlock.endTime, endTime: new Date(new Date(storedBlock.endTime).getTime() + 3600000).toISOString() };
+  const state = { completions: [] as Record<string, unknown>[], updates: [] as Record<string, unknown>[], extensions: [] as Record<string, unknown>[], failExtension: false };
+  await page.route('**/api/v1/auth/me', route => route.fulfill({ json: { user: { id: 'u1', name: 'Tester', metadata: { focusLayout: 'sidebar', timerPreferences: { focusDuration: 25 } }, memberships: [{ workspaceId: 'ws1', role: 'OWNER', workspace: { id: 'ws1', name: 'Test' } }] } } }));
+  await page.route('**/api/v1/planner/week*', route => route.fulfill({ json: { ...planner, tasks: [storedTask], timeBlocks: [storedBlock, nextBlock] } }));
+  await page.route('**/api/v1/tasks/t1', route => {
+    if (route.request().method() === 'PATCH') { const update = route.request().postDataJSON(); state.updates.push(update); Object.assign(storedTask, update, { version: storedTask.version + 1 }); }
+    return route.fulfill({ json: storedTask });
+  });
+  await page.route('**/api/v1/focus-sessions/schedule', route => route.fulfill({ json: { mode: 'empty', plan: [] } }));
+  await page.route('**/api/v1/focus-sessions', route => { state.completions.push(route.request().postDataJSON()); return route.fulfill({ json: { session: { id: 'saved-session' } } }); });
+  await page.route('**/api/v1/planner/time-blocks/b1/extend', route => {
+    const input = route.request().postDataJSON(); state.extensions.push(input);
+    if (state.failExtension) return route.fulfill({ status: 503, json: { message: 'Extension unavailable. Please retry.' } });
+    const endTime = new Date(new Date(storedBlock.endTime).getTime() + input.minutes * 60000).toISOString();
+    storedBlock = { ...storedBlock, endTime };
+    nextBlock = { ...nextBlock, startTime: endTime, endTime: new Date(new Date(endTime).getTime() + 3600000).toISOString() };
+    return route.fulfill({ json: { block: storedBlock, rescheduledBlock: nextBlock } });
+  });
+  return state;
+}
+
+test('Planner task click opens the reserved Focus duration and completes the versioned task', async ({ page }) => {
+  const state = await scheduledFocusMock(page);
+  await page.goto('/app/planner?mode=day&date=' + day);
+  await page.getByRole('button', { name: task.title, exact: true }).click();
+  await expect(page).toHaveURL(/focus\?.*task=t1.*block=b1/);
+  const setup = page.getByRole('dialog', { name: 'Plan your focus time' });
+  await expect(setup).toContainText('60 minutes reserved');
+  await setup.getByRole('button', { name: 'Use this plan' }).click();
+  await expect(page).toHaveTitle(/60:00/);
+  await page.clock.install();
+  await page.getByTitle('Click or press Enter to start', { exact: true }).click();
+  await page.clock.fastForward(60 * 60000);
+  const decision = page.getByRole('dialog', { name: 'Is this task done?' });
+  await expect(decision).toBeVisible();
+  expect(state.completions).toHaveLength(1);
+  expect(state.completions[0]).toMatchObject({ duration: 3600, taskId: 't1', projectId: 'p1', type: 'custom' });
+  await decision.getByRole('button', { name: 'Mark task done' }).click();
+  await expect.poll(() => state.updates).toEqual([{ status: 'DONE', version: 7 }]);
+  await expect(page.getByText('Task completed', { exact: true }).first()).toBeVisible();
+});
+
+test('multi-hour Focus blocks support a custom split without changing account defaults', async ({ page }) => {
+  await scheduledFocusMock(page, 240); await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/focus?task=t1&block=b1&date=' + day);
+  const setup = page.getByRole('dialog', { name: 'Plan your focus time' });
+  await expect(setup).toContainText('240 minutes reserved');
+  await expect(setup.getByLabel('Work minutes')).toHaveValue('45');
+  await setup.getByLabel('Session plan').selectOption('custom');
+  await setup.getByLabel('Work minutes').fill('30');
+  await setup.getByLabel('Break minutes').fill('0');
+  expect(await setup.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await setup.getByRole('button', { name: 'Use this plan' }).click();
+  await expect(page).toHaveTitle(/30:00/);
+  await expect(page.getByText(/Session 1 of 8/)).toBeVisible();
+  await page.clock.install(); await page.getByTitle('Click or press Enter to start', { exact: true }).click();
+  await page.clock.fastForward(30 * 60000);
+  const decision = page.getByRole('dialog', { name: 'Is this task done?' });
+  await decision.getByRole('button', { name: 'Continue to next session' }).click();
+  await expect(page).toHaveTitle(/30:00/);
+  await expect(page.getByText(/Session 2 of 8/)).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('dialog', { name: 'Plan your focus time' })).toBeVisible();
+  await page.getByRole('button', { name: 'Resume session plan' }).click();
+  await expect(page.getByText(/Session 2 of 8/)).toBeVisible();
+  await page.getByTitle('Click or press Enter to start', { exact: true }).click();
+  await page.clock.fastForward(10 * 60000);
+  await page.getByTitle('Click or press Enter to pause', { exact: true }).click();
+  await page.reload();
+  await expect(page).toHaveTitle(/20:00/);
+  expect(await page.evaluate(() => localStorage.getItem('krama.focus.u1.settings'))).toBeNull();
+});
+
+test('Focus overrun requires explicit next-block rescheduling and retains the decision on failure', async ({ page }) => {
+  const state = await scheduledFocusMock(page);
+  await page.goto('/focus?task=t1&block=b1&date=' + day);
+  await page.getByRole('button', { name: 'Use this plan' }).click();
+  await page.clock.install(); await page.getByTitle('Click or press Enter to start', { exact: true }).click();
+  await page.clock.fastForward(60 * 60000);
+  const decision = page.getByRole('dialog', { name: 'Is this task done?' });
+  const extend = decision.getByRole('button', { name: 'Reschedule next block and extend' });
+  await expect(extend).toBeDisabled();
+  await decision.getByLabel('Reschedule next block').check();
+  state.failExtension = true; await extend.click();
+  await expect(decision.getByRole('alert')).toContainText('Extension unavailable');
+  await expect(page).toHaveTitle(/00:00/);
+  state.failExtension = false; await extend.click();
+  await expect(decision).toBeHidden(); await expect(page).toHaveTitle(/15:00/);
+  expect(state.extensions[0].extensionId).toBe(state.extensions[1].extensionId);
+  expect(state.extensions.at(-1)).toMatchObject({ minutes: 15, rescheduleBlockId: 'b2', expectedEndTime: day + 'T10:00:00.000Z' });
+  expect(state.completions).toHaveLength(1);
+});
+
+test('weekly task titles open Focus with Enter while the edit action retains task details', async ({ page }) => {
+  await scheduledFocusMock(page);
+  await page.goto('/app/planner?mode=plan&date=' + day);
+  await page.getByRole('button', { name: 'Edit task ' + task.title, exact: true }).click();
+  await expect(page.getByRole('dialog').getByLabel('Directive Title *', { exact: true })).toHaveValue(task.title);
+  await page.keyboard.press('Escape');
+  const title = page.getByRole('button', { name: task.title, exact: true });
+  await title.focus(); await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: 'Plan your focus time' })).toContainText('60 minutes reserved');
+});

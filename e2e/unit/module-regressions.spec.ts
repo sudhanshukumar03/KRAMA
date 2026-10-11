@@ -1,3 +1,4 @@
+import { buildScheduledSessions } from '../../apps/web/src/components/focus/runtime';
 import { test, expect } from '@playwright/test';
 import { DocumentSaveQueue, acquireDocumentSaveQueue, retainDocumentSaveQueue } from '../../apps/web/src/lib/documentSaveQueue';
 import { WeekQuerySchema, TimeBlockSchema } from '../../packages/validation/src/planner';
@@ -273,3 +274,15 @@ test('spatial repulsion matches original forces and benchmark', () => {
   console.log({ originalMs: measure(original), spatialMs: measure(applyLocalRepulsion) });
 });
 
+
+test('scheduled Focus sessions preserve arbitrary budgets and user-designed splits', () => {
+  expect(buildScheduledSessions(60, 30, 0)).toEqual([{ type: 'custom', durationMin: 30 }, { type: 'custom', durationMin: 30 }]);
+  for (const minutes of [1, 30, 60, 73, 120, 240, 720, 1440]) {
+    const sessions = buildScheduledSessions(minutes, 45, 5);
+    expect(sessions.reduce((total, item) => total + item.durationMin, 0)).toBe(minutes);
+    expect(sessions.at(-1)?.type).toBe('custom');
+    expect(sessions.every(item => item.durationMin > 0 && item.durationMin <= 45)).toBe(true);
+  }
+  expect(() => buildScheduledSessions(60, 0, 5)).toThrow();
+  expect(() => buildScheduledSessions(1441, 30, 5)).toThrow();
+});

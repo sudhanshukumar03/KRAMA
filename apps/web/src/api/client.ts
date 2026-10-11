@@ -8,7 +8,7 @@ import type {
 } from '../types/schema';
 import type { FocusScheduleData } from '../components/focus/types';
 import { toast } from 'sonner';
-import type { PlannerData, TimeBlock, TimeBlockInput, TimeBlockUpdate, Milestone, MilestoneInput, MilestoneUpdate, MilestoneRange, HolidayCalendar } from '../types/planner';
+import type { PlannerData, TimeBlock, TimeBlockInput, TimeBlockUpdate, TimeBlockExtensionInput, TimeBlockExtensionResult, Milestone, MilestoneInput, MilestoneUpdate, MilestoneRange, HolidayCalendar } from '../types/planner';
 
 const API_BASE = '/api/v1';
 
@@ -513,6 +513,7 @@ export const api = {
     },
     createTimeBlock: (data: TimeBlockInput) => fetchApi<TimeBlock>('/planner/time-blocks', { method: 'POST', body: JSON.stringify(data) }),
     updateTimeBlock: (id: string, data: TimeBlockUpdate) => fetchApi<TimeBlock>(`/planner/time-blocks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    extendTimeBlock: (id: string, data: TimeBlockExtensionInput) => fetchApi<TimeBlockExtensionResult>(`/planner/time-blocks/${id}/extend`, { method: 'POST', body: JSON.stringify(data) }),
     deleteTimeBlock: (id: string) => fetchApi<void>(`/planner/time-blocks/${id}`, { method: 'DELETE' }),
     getMilestones: (start: string, end: string, workspaceId?: string | null) => {
       let url = `/planner/milestones?start=${start}&end=${end}`;

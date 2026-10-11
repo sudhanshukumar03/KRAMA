@@ -48,6 +48,8 @@ export interface TimeBlock {
 
 // Request dates are JSON strings; validated service dates are Date objects.
 export type TimeBlockInput = Pick<TimeBlock, 'title' | 'date' | 'startTime' | 'endTime' | 'type' | 'taskId' | 'projectId' | 'notes'>;
+export interface TimeBlockExtensionInput { extensionId: string; minutes: number; expectedEndTime: string; resumeAt?: string; rescheduleBlockId?: string; }
+export interface TimeBlockExtensionResult { block: TimeBlock; rescheduledBlock: TimeBlock | null; }
 export type TimeBlockUpdate = Partial<TimeBlockInput>;
 // A prefilled creation form does not have a persisted block ID yet.
 export type TimeBlockDraft = Partial<TimeBlockInput> & { id?: string };

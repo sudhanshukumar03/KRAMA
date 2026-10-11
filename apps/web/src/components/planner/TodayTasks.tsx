@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { AlertTriangle, Calendar, CalendarCheck, Check, CheckCircle2, Circle, Clock, Layers, Search, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, Calendar, CalendarCheck, Check, CheckCircle2, Circle, Clock, Edit3, Layers, Search, Trash2, XCircle } from "lucide-react";
 import type { useTodayPlanner } from '../../hooks/useTodayPlanner';
 import type { PlannerTask } from '../../types/planner';
 import { cn } from '../../lib/utils';
@@ -8,10 +8,11 @@ interface Props {
   planner: ReturnType<typeof useTodayPlanner>;
   onToggleTask?: (task: PlannerTask, event: React.MouseEvent) => void;
   onClickTask?: (task: PlannerTask) => void;
+  onEditTask?: (task: PlannerTask) => void;
   canAddTimeBlock: boolean;
 }
 /** Render task execution and backlog; the parent hook owns requests and writes. */
-export function TodayTasks({ day, planner, onToggleTask, onClickTask, canAddTimeBlock }: Props) {
+export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask, canAddTimeBlock }: Props) {
   const { isViewingToday, updateTaskMutation, createTaskMutation, deleteTaskMutation, filteredBacklogTasks, handleScheduleForToday, handleUnschedule, handleRescheduleAllOverdue, handleCreateInlineTask, handleTimeBlockFromTask, todayTasks, carriedOverTasks, backlogTasks, activeTaskTab, setActiveTaskTab, backlogSearch, setBacklogSearch, inlineTaskTitle, setInlineTaskTitle } = planner;
   return (<>
         {/* RIGHT COLUMN (5 cols): TASKS & SCHEDULING PANEL */}
@@ -139,6 +140,7 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, canAddTime
                             >
                               {task.title}
                             </button>
+                            {onEditTask && <button type="button" aria-label={`Edit task ${task.title}`} onClick={() => onEditTask(task)} className="min-h-11 min-w-11 shrink-0 flex items-center justify-center rounded-lg hover:bg-surface-hover"><Edit3 size={14} /></button>}
                             {task.project?.name && (
                               <span className="text-badge font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border shrink-0">
                                 {task.project.name}
@@ -255,6 +257,7 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, canAddTime
                                 )}
                               </span>
                             </button>
+                            {onEditTask && <button type="button" aria-label={`Edit task ${task.title}`} onClick={() => onEditTask(task)} className="min-h-11 min-w-11 shrink-0 flex items-center justify-center rounded-lg hover:bg-surface-hover"><Edit3 size={14} /></button>}
                           </div>
 
                           {/* Quick Task Actions: Time Block, Unschedule, Delete */}
@@ -355,6 +358,7 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, canAddTime
                           </span>
                         </button>
 
+                        {onEditTask && <button type="button" aria-label={`Edit task ${task.title}`} onClick={() => onEditTask(task)} className="min-h-11 min-w-11 shrink-0 flex items-center justify-center rounded-lg hover:bg-surface-hover"><Edit3 size={14} /></button>}
                         {/* Actions to schedule into day */}
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button

@@ -636,3 +636,46 @@ test('malformed preference bodies return 400 without changing the account', asyn
   const after = await prisma.user.findUniqueOrThrow({ where: { id: fixture.user.id } });
   assert.deepEqual(after, before);
 });
+
+test('Focus extension requires consent, preserves next-block duration, and rejects stale retries', async () => {
+  const context = { userId: fixture.user.id, workspaceId: fixture.workspace.id };
+  const first = await plannerService.createTimeBlock(context, { title: 'Focus extension', date: new Date('2026-11-04T12:00:00Z'), startTime: '09:00', endTime: '10:00', type: 'WORK' });
+  const next = await plannerService.createTimeBlock(context, { title: 'Next task', date: new Date('2026-11-04T12:00:00Z'), startTime: '10:00', endTime: '11:00', type: 'WORK' });
+  const input = { extensionId: crypto.randomUUID(), minutes: 15, expectedEndTime: first.endTime.toISOString() };
+  await assert.rejects(plannerService.extendTimeBlock({ ...context, id: first.id }, input), (error: any) => error.statusCode === 409);
+  assert.equal((await prisma.timeBlock.findUniqueOrThrow({ where: { id: first.id } })).endTime.toISOString(), input.expectedEndTime);
+  const [result, concurrentReplay] = await Promise.all([
+    plannerService.extendTimeBlock({ ...context, id: first.id }, { ...input, rescheduleBlockId: next.id }),
+    plannerService.extendTimeBlock({ ...context, id: first.id }, { ...input, rescheduleBlockId: next.id }),
+  ]);
+  assert.equal(concurrentReplay.block.endTime.toISOString(), result.block.endTime.toISOString());
+  assert.equal(result.block.endTime.toISOString(), '2026-11-04T10:15:00.000Z');
+  assert.equal(result.rescheduledBlock?.startTime.toISOString(), '2026-11-04T10:15:00.000Z');
+  assert.equal(result.rescheduledBlock?.endTime.toISOString(), '2026-11-04T11:15:00.000Z');
+  const replay = await plannerService.extendTimeBlock({ ...context, id: first.id }, { ...input, rescheduleBlockId: next.id });
+  assert.equal(replay.block.endTime.toISOString(), result.block.endTime.toISOString());
+  assert.equal(await prisma.activityLog.count({ where: { id: input.extensionId } }), 1);
+  await assert.rejects(plannerService.extendTimeBlock({ ...context, id: first.id }, { ...input, extensionId: crypto.randomUUID(), rescheduleBlockId: next.id }), (error: any) => error.statusCode === 409);
+  await assert.rejects(plannerService.extendTimeBlock({ userId: fixture.user.id, workspaceId: foreignWorkspace.id, id: first.id }, input), (error: any) => error.statusCode === 403);
+});
+
+test('Focus extension rolls back if moving the next block creates another conflict', async () => {
+  const context = { userId: fixture.user.id, workspaceId: fixture.workspace.id };
+  const date = new Date('2026-11-05T12:00:00Z');
+  const first = await plannerService.createTimeBlock(context, { title: 'Focus', date, startTime: '09:00', endTime: '10:00', type: 'WORK' });
+  const next = await plannerService.createTimeBlock(context, { title: 'Next', date, startTime: '10:00', endTime: '11:00', type: 'WORK' });
+  await plannerService.createTimeBlock(context, { title: 'Third', date, startTime: '11:00', endTime: '12:00', type: 'MEETING' });
+  await assert.rejects(plannerService.extendTimeBlock({ ...context, id: first.id }, { extensionId: crypto.randomUUID(), minutes: 15, expectedEndTime: first.endTime.toISOString(), rescheduleBlockId: next.id }), (error: any) => error.statusCode === 409);
+  assert.equal((await prisma.timeBlock.findUniqueOrThrow({ where: { id: first.id } })).endTime.toISOString(), '2026-11-05T10:00:00.000Z');
+  assert.equal((await prisma.timeBlock.findUniqueOrThrow({ where: { id: next.id } })).startTime.toISOString(), '2026-11-05T10:00:00.000Z');
+});
+
+test('Focus extension handles a late finish and refuses crossing midnight', async () => {
+  const context = { userId: fixture.user.id, workspaceId: fixture.workspace.id };
+  const date = new Date('2026-11-06T12:00:00Z');
+  const block = await plannerService.createTimeBlock(context, { title: 'Late focus', date, startTime: '09:00', endTime: '10:00', type: 'WORK' });
+  const result = await plannerService.extendTimeBlock({ ...context, id: block.id }, { extensionId: crypto.randomUUID(), minutes: 15, expectedEndTime: block.endTime.toISOString(), resumeAt: '2026-11-06T10:30:00.000Z' });
+  assert.equal(result.block.endTime.toISOString(), '2026-11-06T10:45:00.000Z');
+  const late = await plannerService.createTimeBlock(context, { title: 'Night focus', date, startTime: '23:00', endTime: '23:50', type: 'WORK' });
+  await assert.rejects(plannerService.extendTimeBlock({ ...context, id: late.id }, { extensionId: crypto.randomUUID(), minutes: 15, expectedEndTime: late.endTime.toISOString() }), (error: any) => error.statusCode === 400);
+});

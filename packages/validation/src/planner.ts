@@ -52,6 +52,14 @@ export const TimeBlockSchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
 });
 
+export const TimeBlockExtensionSchema = z.object({
+  extensionId: z.string().uuid(),
+  minutes: z.number().int().min(1).max(240),
+  expectedEndTime: z.string().datetime(),
+  resumeAt: z.string().datetime().optional(),
+  rescheduleBlockId: z.string().min(1).optional(),
+}).strict();
+
 export const TimeBlockUpdateSchema = TimeBlockSchema.partial();
 
 export const MilestoneSchema = z.object({

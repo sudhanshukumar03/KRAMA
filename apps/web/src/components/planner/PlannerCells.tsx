@@ -1,5 +1,6 @@
+import { Link } from 'react-router-dom';
 import { format } from "date-fns";
-import { Plus, CheckCircle2, Circle, Target, Trash2, Flag } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Target, Trash2, Flag, Edit3 } from "lucide-react";
 import { memo } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { cn, formatBlockTime } from "../../lib/utils";
@@ -9,7 +10,7 @@ import type { PlannerTask, TimeBlock, Milestone, GoalDeadline } from "../../type
 
 function safeTimeFormat(isoString: string) { return formatBlockTime(isoString); }
 
-export const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, onClickTask, onToggleTask, onDeleteTask }: { task: PlannerTask, onClickTask?: (task: PlannerTask) => void, onToggleTask?: (task: PlannerTask, e: React.MouseEvent) => void, onDeleteTask?: (task: PlannerTask) => void }) {
+export const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, onClickTask, onEditTask, onToggleTask, onDeleteTask }: { task: PlannerTask, onClickTask?: (task: PlannerTask) => void, onEditTask?: (task: PlannerTask) => void, onToggleTask?: (task: PlannerTask, e: React.MouseEvent) => void, onDeleteTask?: (task: PlannerTask) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `task-${task.id}`,
     data: { type: 'Task', task }
@@ -41,8 +42,8 @@ export const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, onC
           <Circle size={12} className="text-muted group-hover:text-accent/60 transition-colors" />
         )}
       </button>
-      <div
-        className="flex-1 min-w-0"
+      <button type="button" aria-label={task.title}
+        className="flex-1 min-w-0 text-left"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();
@@ -52,7 +53,8 @@ export const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, onC
         <span className={"text-badge font-medium leading-snug block " + (isDone ? "text-muted line-through" : "text-primary group-hover:text-primary")}>
           {task.title}
         </span>
-      </div>
+      </button>
+      {onEditTask && <button type="button" aria-label={`Edit task ${task.title}`} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onEditTask(task); }} className="min-h-8 min-w-8 flex items-center justify-center rounded hover:bg-surface-hover"><Edit3 size={12} /></button>}
       {onDeleteTask && (
         <button
           type="button"
@@ -77,7 +79,7 @@ export const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, onC
   );
 });
 
-export function DroppableTaskCell({ day, tasks, dateKeyFn, onClickTask, onToggleTask, onAddTask, onDeleteTask }: { day: Date, tasks: PlannerTask[], dateKeyFn: (d: Date) => string, onClickTask?: (task: PlannerTask) => void, onToggleTask?: (task: PlannerTask, e: React.MouseEvent) => void, onAddTask?: (d: Date) => void, onDeleteTask?: (task: PlannerTask) => void }) {
+export function DroppableTaskCell({ day, tasks, dateKeyFn, onClickTask, onEditTask, onToggleTask, onAddTask, onDeleteTask }: { day: Date, tasks: PlannerTask[], dateKeyFn: (d: Date) => string, onClickTask?: (task: PlannerTask) => void, onEditTask?: (task: PlannerTask) => void, onToggleTask?: (task: PlannerTask, e: React.MouseEvent) => void, onAddTask?: (d: Date) => void, onDeleteTask?: (task: PlannerTask) => void }) {
   const dKey = dateKeyFn(day);
   const { isOver, setNodeRef } = useDroppable({
     id: `task-drop-${dKey}`,
@@ -90,7 +92,7 @@ export function DroppableTaskCell({ day, tasks, dateKeyFn, onClickTask, onToggle
       className={`relative group border-r border-border last:border-r-0 p-2 pb-6 flex flex-col gap-1 min-h-[48px] transition-colors ${isOver ? 'bg-accent/10' : ''}`}
     >
       {tasks.map((task: PlannerTask) => (
-        <MatrixTaskComponent key={task.id} task={task} onClickTask={onClickTask} onToggleTask={onToggleTask} onDeleteTask={onDeleteTask} />
+        <MatrixTaskComponent key={task.id} task={task} onClickTask={onClickTask} onEditTask={onEditTask} onToggleTask={onToggleTask} onDeleteTask={onDeleteTask} />
       ))}
 
       {onAddTask && (
@@ -185,6 +187,7 @@ export const DroppableTimeBlock = memo(function DroppableTimeBlock({ block, task
       <div className="text-badge font-semibold leading-tight text-primary line-clamp-2">
         {block.title}
       </div>
+      {!block.isExternal && !['MEETING', 'PERSONAL'].includes(block.type) && <Link aria-label={'Focus on ' + block.title} to={'/focus?' + new URLSearchParams({ block: block.id, date: block.date.slice(0, 10), ...(block.taskId ? { task: block.taskId } : {}) })} onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()} className="min-h-8 inline-flex items-center text-accent underline">Focus</Link>}
       {block.taskId && (
         <div className="mt-1 bg-surface-hover rounded px-1.5 py-0.5 text-badge font-medium text-secondary truncate flex items-center gap-1 border border-border">
           <CheckCircle2 size={8} className="text-accent" />

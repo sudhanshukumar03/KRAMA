@@ -40,6 +40,7 @@ interface Props {
   onAddTask?: (day?: Date) => void;
   onAddRoutine?: (day?: Date) => void;
   onToggleTask?: (task: PlannerTask, e: React.MouseEvent) => void;
+  onEditTask?: (task: PlannerTask) => void;
   onClickTask?: (task: PlannerTask) => void;
   onClickTimeBlock?: (block: TimeBlock) => void;
   onDeleteTask?: (task: PlannerTask) => void;
@@ -71,6 +72,7 @@ export function PlannerMatrix({
   onAddRoutine,
   onToggleTask,
   onClickTask,
+  onEditTask,
   onClickTimeBlock,
   onDeleteTask,
   onDeleteTimeBlock,
@@ -341,7 +343,7 @@ export function PlannerMatrix({
                              (!t.scheduledDate && t.dueDate && isSameDay((parseLocalDate(t.dueDate) ?? new Date(NaN)), day))
                     );
                     return (
-                      <DroppableTaskCell key={dateKey(day)} day={day} tasks={dayTasks} dateKeyFn={dateKey} onClickTask={onClickTask} onToggleTask={onToggleTask} onAddTask={onAddTask} onDeleteTask={onDeleteTask} />
+                      <DroppableTaskCell key={dateKey(day)} day={day} tasks={dayTasks} dateKeyFn={dateKey} onClickTask={onClickTask} onEditTask={onEditTask} onToggleTask={onToggleTask} onAddTask={onAddTask} onDeleteTask={onDeleteTask} />
                     );
                   })}
                 </div>

@@ -1,4 +1,4 @@
-import { getClockDisplay, playAudioChime } from './focus/runtime';
+import { getClockDisplay, playAudioChime, buildScheduledSessions, plannerResumeTime } from './focus/runtime';
 import { focusStorageKey, readPendingFocusPreferences, rememberFocusPreferences, acknowledgeFocusPreferences, enqueueFocusPreferences } from '../lib/focusStorage';
 import type { PreferencesInput } from '@krama/types/api';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -9,6 +9,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useFocusSchedule, type CompleteSessionParams } from '../hooks/useFocusSchedule';
 import { io, Socket } from 'socket.io-client';
 import { toast } from 'sonner';
+import { usePlannerFocus } from '../hooks/usePlannerFocus';
+import { PlannerFocusDialog } from './focus/PlannerFocusDialog';
+import { errorMessage } from '../lib/utils';
 import { TimerLayoutStandby } from './focus/TimerLayoutStandby';
 import { TimerLayoutCentered } from './focus/TimerLayoutCentered';
 import { TimerLayoutOverlay } from './focus/TimerLayoutOverlay';
@@ -51,6 +54,20 @@ const AccountFocusPage: React.FC = () => {
   useEffect(() => { preferencesMounted.current = true; return () => { preferencesMounted.current = false; }; }, []);
   const queryClient = useQueryClient();
   const { schedule, refetchSchedule, completeSession, isCompleting } = useFocusSchedule();
+
+  const plannerFocus = usePlannerFocus();
+  const selectedSlotRef = useRef<SessionSlot | null>(null);
+  const selectedBlockEndRef = useRef<string | undefined>(undefined);
+  const appliedSelection = useRef('');
+  const [selectedSessions, setSelectedSessions] = useState<Pick<SessionSlot, 'type' | 'durationMin'>[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedDialog, setSelectedDialog] = useState<'setup' | 'decision' | null>(null);
+  const [selectedFinished, setSelectedFinished] = useState(false);
+  const [selectedBusy, setSelectedBusy] = useState(false);
+  const selectedWrite = useRef(false);
+  const selectedExtensionIntent = useRef<import('../types/planner').TimeBlockExtensionInput | null>(null);
+  const [selectedError, setSelectedError] = useState('');
+  const selectedPlanKey = 'krama.focus.plan.' + user?.id + '.' + plannerFocus.key;
 
   // Settings
   const [settings, setSettings] = useState<TimerSettings>(() => {
@@ -276,10 +293,49 @@ const AccountFocusPage: React.FC = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (!plannerFocus.requested || plannerFocus.loading || plannerFocus.invalid || appliedSelection.current === plannerFocus.key) return;
+    if (plannerFocus.task?.status === 'DONE' || plannerFocus.task?.status === 'CANCELED') { setSelectedFinished(true); return; }
+    appliedSelection.current = plannerFocus.key;
+    const task = plannerFocus.task, block = plannerFocus.block;
+    selectedBlockEndRef.current = block?.endTime;
+    selectedSlotRef.current = { index: 0, type: 'custom', durationMin: plannerFocus.totalMinutes, taskId: task?.id || null, taskTitle: task?.title || block?.title || 'Scheduled focus', projectId: block?.projectId || task?.projectId || null, projectName: task?.project?.name || null, label: task?.title || block?.title || 'Scheduled focus', timeBlockId: block?.id || null };
+    let sessions = buildScheduledSessions(plannerFocus.totalMinutes, plannerFocus.totalMinutes <= 60 ? plannerFocus.totalMinutes : 45, plannerFocus.totalMinutes <= 60 ? 0 : 5);
+    let index = 0, finished = false;
+    let restoredSession = false;
+    try {
+      const extension = JSON.parse(localStorage.getItem(selectedPlanKey + '.extension') || 'null');
+      if (extension?.extensionId && Number.isInteger(extension.minutes) && extension.minutes > 0 && extension.expectedEndTime) selectedExtensionIntent.current = extension;
+      const saved = JSON.parse(localStorage.getItem(selectedPlanKey) || 'null');
+      if (saved && (saved.blockEndTime === block?.endTime || saved.blockEndTime === selectedExtensionIntent.current?.expectedEndTime) && Array.isArray(saved.sessions) && saved.sessions.length && saved.sessions.every((item: Pick<SessionSlot, 'type' | 'durationMin'>) => ['custom', 'short_break'].includes(item.type) && Number.isInteger(item.durationMin) && item.durationMin > 0 && item.durationMin <= 1440) && Number.isInteger(saved.index) && saved.index >= 0 && saved.index < saved.sessions.length) { sessions = saved.sessions; index = saved.index; finished = saved.finished === true;
+        const active = saved.session;
+        if (!pendingCompletionRef.current && active?.id && active.slot?.taskId === selectedSlotRef.current.taskId && active.slot?.timeBlockId === selectedSlotRef.current.timeBlockId && typeof active.elapsedMs === 'number' && active.elapsedMs >= 0 && Number.isInteger(active.targetSeconds) && active.targetSeconds > 0 && active.targetSeconds <= 86400 && Number.isFinite(new Date(active.startTime).getTime()) && ['custom', 'short_break'].includes(active.type) && (active.runningSince === null || (Number.isFinite(active.runningSince) && Number.isFinite(saved.deadline))) && typeof saved.remaining === 'number' && saved.remaining >= 0 && saved.remaining <= active.targetSeconds) {
+          sessionRef.current = { ...active, startTime: new Date(active.startTime) };
+          const running = typeof active.runningSince === 'number' && Number.isFinite(active.runningSince);
+          const remaining = running ? Math.max(0, Math.ceil((saved.deadline - Date.now()) / 1000)) : saved.remaining;
+          timeLeftRef.current = remaining; modeRef.current = active.type;
+          setMode(active.type); setDuration(active.targetSeconds); setTimeLeft(remaining); setStartTime(new Date(active.startTime));
+          targetEndTimeRef.current = running ? saved.deadline : null; setIsActive(running);
+          restoredSession = true;
+        }
+      }
+    } catch { /* A new bounded plan remains available when storage is unavailable. */ }
+    setSelectedSessions(sessions); setSelectedIndex(index);
+    setSelectedDialog(restoredSession ? null : finished ? 'decision' : 'setup');
+    setOperatingMode('manual');
+    if (!pendingCompletionRef.current && !restoredSession) { setMode(sessions[index].type); setDuration(sessions[index].durationMin * 60); setTimeLeft(finished ? 0 : sessions[index].durationMin * 60); }
+  }, [plannerFocus.key, plannerFocus.requested, plannerFocus.loading, plannerFocus.invalid, plannerFocus.task, plannerFocus.block, plannerFocus.totalMinutes, selectedPlanKey]);
+
+  useEffect(() => {
+    if (selectedSessions.length && appliedSelection.current === plannerFocus.key) {
+      try { localStorage.setItem(selectedPlanKey, JSON.stringify({ sessions: selectedSessions, index: selectedIndex, blockEndTime: selectedBlockEndRef.current, finished: timeLeft === 0 && !pendingCompletion, session: sessionRef.current, remaining: timeLeft, deadline: targetEndTimeRef.current })); } catch { /* In-memory choices still work. */ }
+    }
+  }, [selectedSessions, selectedIndex, selectedPlanKey, plannerFocus.key, timeLeft, pendingCompletion, isActive]);
+
   // Keep an active/paused session and an unsaved completion bound to its original
   // task. Apply incoming schedule changes only when the timer is idle.
   useEffect(() => {
-    if (!schedule || sessionRef.current || pendingCompletionRef.current || completionInFlightRef.current) return;
+    if (plannerFocus.requested || !schedule || sessionRef.current || pendingCompletionRef.current || completionInFlightRef.current) return;
     const incoming = schedule.plan || [];
     const previous = planRef.current[currentSlotIndexRef.current];
     const sameSlot = (slot: SessionSlot) => previous && slot.taskId === previous.taskId && slot.timeBlockId === previous.timeBlockId && slot.type === previous.type && slot.label === previous.label;
@@ -291,7 +347,7 @@ const AccountFocusPage: React.FC = () => {
       const slot = incoming[nextIndex]; setMode(slot.type);
       setTimeLeft(slot.durationMin * 60); setDuration(slot.durationMin * 60);
     }
-  }, [schedule, pendingCompletion]);
+  }, [schedule, pendingCompletion, plannerFocus.requested]);
 
   // Timer complete — uses refs for stable values, no stale closure risk
   const handleCompleteSession = useCallback(async () => {
@@ -342,6 +398,11 @@ const AccountFocusPage: React.FC = () => {
     setStartTime(null);
     sessionRef.current = null;
     targetEndTimeRef.current = null;
+
+    if (selectedSlotRef.current) {
+      timeLeftRef.current = 0; setTimeLeft(0); setSelectedDialog('decision');
+      return;
+    }
 
     // Planner auto-advance or Manual reset
     if (snap_operatingMode === 'planner' && snap_plan.length > 0) {
@@ -458,6 +519,7 @@ const AccountFocusPage: React.FC = () => {
   }, [timeLeft, mode, clock]);
 
   const handleSkip = useCallback(() => {
+    if (selectedSlotRef.current) return;
     if (pendingCompletionRef.current || completionInFlightRef.current) return;
     targetEndTimeRef.current = null;
     setIsActive(false);
@@ -488,16 +550,17 @@ const AccountFocusPage: React.FC = () => {
 
   // Control handlers
   const handleStart = useCallback(() => {
+    if (plannerFocus.requested && (plannerFocus.loading || plannerFocus.invalid || selectedDialog || selectedFinished || timeLeftRef.current <= 0 || selectedBusy)) return;
     if (isActiveRef.current || mode === 'clock' || pendingCompletionRef.current || completionInFlightRef.current) return;
     if (!sessionRef.current) {
       const began = new Date();
-      sessionRef.current = { id: crypto.randomUUID(), startTime: began, elapsedMs: 0, runningSince: null, targetSeconds: duration, slot: operatingModeRef.current === 'planner' ? planRef.current[currentSlotIndexRef.current] || null : null, type: modeRef.current };
+      sessionRef.current = { id: crypto.randomUUID(), startTime: began, elapsedMs: 0, runningSince: null, targetSeconds: duration, slot: selectedSlotRef.current || (operatingModeRef.current === 'planner' ? planRef.current[currentSlotIndexRef.current] || null : null), type: modeRef.current };
       setStartTime(began);
     }
     sessionRef.current.runningSince = Date.now();
     targetEndTimeRef.current = Date.now() + timeLeftRef.current * 1000;
     setIsActive(true);
-  }, [mode, duration]);
+  }, [mode, duration, plannerFocus.requested, plannerFocus.loading, plannerFocus.invalid, selectedDialog, selectedFinished, selectedBusy]);
 
   const handlePause = useCallback(() => {
     const active = sessionRef.current;
@@ -515,7 +578,7 @@ const AccountFocusPage: React.FC = () => {
     setIsActive(false);
     // In planner mode, let handleCompleteSession handle the advance + reset.
     // In manual mode, reset the current slot.
-    if (operatingModeRef.current === 'planner' && planRef.current.length > 0) {
+    if (selectedSlotRef.current || (operatingModeRef.current === 'planner' && planRef.current.length > 0)) {
       handleCompleteSession();
     } else {
       setStartTime(null); sessionRef.current = null;
@@ -535,6 +598,7 @@ const AccountFocusPage: React.FC = () => {
   };
 
   const handleChangeMode = (newMode: TimerMode) => {
+    if (plannerFocus.requested) { toast.info("Use the task session plan, or return to Planner."); return; }
     if (pendingCompletionRef.current || completionInFlightRef.current) return;
     if (operatingMode === 'planner') {
       setOperatingMode('manual');
@@ -561,7 +625,59 @@ const AccountFocusPage: React.FC = () => {
     setDuration(secs);
   };
 
+  const prepareSelectedSession = (next: Pick<SessionSlot, 'type' | 'durationMin'>) => {
+    targetEndTimeRef.current = null; sessionRef.current = null; setStartTime(null); setIsActive(false);
+    const seconds = next.durationMin * 60;
+    timeLeftRef.current = seconds; modeRef.current = next.type;
+    setMode(next.type); setTimeLeft(seconds); setDuration(seconds);
+    setSelectedDialog(null); setSelectedError('');
+  };
+  const configureSelected = (work: number, rest: number) => {
+    if (sessionRef.current || pendingCompletionRef.current || selectedWrite.current) return;
+    try { const sessions = buildScheduledSessions(plannerFocus.totalMinutes, work, rest); setSelectedSessions(sessions); setSelectedIndex(0); prepareSelectedSession(sessions[0]); } catch (error) { setSelectedError(errorMessage(error, 'Could not configure sessions')); }
+  };
+  const finishSelectedTask = async () => {
+    if (selectedWrite.current) return;
+    selectedWrite.current = true; setSelectedBusy(true); setSelectedError('');
+    try {
+      if (plannerFocus.task) {
+        const fresh = await api.tasks.get(plannerFocus.task.id);
+        await api.tasks.update(fresh.id, { status: 'DONE', version: fresh.version });
+      }
+      setSelectedFinished(true); setSelectedDialog(null); selectedSlotRef.current = null;
+      localStorage.removeItem(selectedPlanKey);
+      await Promise.all(['planner', 'focus-schedule', 'issues', 'dashboard'].map(key => queryClient.invalidateQueries({ queryKey: [key] })));
+      toast.success('Task completed');
+    } catch (error) { setSelectedError(errorMessage(error, 'Could not complete task')); }
+    finally { selectedWrite.current = false; setSelectedBusy(false); }
+  };
+  const extendSelected = async (minutes: number, rescheduleBlockId?: string) => {
+    if (selectedWrite.current || !plannerFocus.block) return;
+    selectedWrite.current = true; setSelectedBusy(true); setSelectedError('');
+    try {
+      const previousIntent = selectedExtensionIntent.current;
+      const input = previousIntent && previousIntent.minutes === minutes && previousIntent.rescheduleBlockId === rescheduleBlockId ? previousIntent : { extensionId: crypto.randomUUID(), minutes, expectedEndTime: plannerFocus.block.endTime, resumeAt: plannerResumeTime(plannerFocus.date), rescheduleBlockId };
+      selectedExtensionIntent.current = input;
+      try { localStorage.setItem(selectedPlanKey + '.extension', JSON.stringify(input)); } catch { /* Keep the same intent in memory for retry. */ }
+      const result = await api.planner.extendTimeBlock(plannerFocus.block.id, input);
+      selectedExtensionIntent.current = null;
+      try { localStorage.removeItem(selectedPlanKey + '.extension'); } catch { }
+      selectedBlockEndRef.current = result.block.endTime;
+      queryClient.setQueryData(['planner', 'focus-selection', workspaceId, plannerFocus.date], (previous: import('../types/planner').PlannerData | undefined) => previous ? { ...previous, timeBlocks: previous.timeBlocks.map(block => block.id === result.block.id ? result.block : block.id === result.rescheduledBlock?.id ? result.rescheduledBlock : block) } : previous);
+      const next = { type: 'custom' as const, durationMin: minutes };
+      setSelectedSessions(previous => [...previous, next]); setSelectedIndex(selectedSessions.length);
+      prepareSelectedSession(next);
+      await queryClient.invalidateQueries({ queryKey: ['planner'] });
+      toast.success(rescheduleBlockId ? 'Next block rescheduled. Extra focus time is ready.' : 'Extra focus time is ready.');
+    } catch (error) {
+      if (error && typeof error === 'object' && 'status' in error && error.status === 409) { selectedExtensionIntent.current = null; try { localStorage.removeItem(selectedPlanKey + '.extension'); } catch { } }
+      setSelectedError(errorMessage(error, 'Could not extend focus time')); void plannerFocus.refetch();
+    }
+    finally { selectedWrite.current = false; setSelectedBusy(false); }
+  };
+
   const handleSetCustomDuration = (mins: number) => {
+    if (plannerFocus.requested) { if (!sessionRef.current && selectedIndex === 0 && !pendingCompletionRef.current) configureSelected(mins, 0); return; }
     const validMins = Math.max(1, mins);
     const updated = { ...settings, customDuration: validMins };
     setSettings(updated);
@@ -573,6 +689,7 @@ const AccountFocusPage: React.FC = () => {
   };
 
   const handleSelectSlot = (idx: number) => {
+    if (plannerFocus.requested) return;
     if (pendingCompletionRef.current || completionInFlightRef.current) return;
     targetEndTimeRef.current = null;
     const targetSlot = plan[idx];
@@ -588,6 +705,7 @@ const AccountFocusPage: React.FC = () => {
   };
 
   const handleToggleMode = () => {
+    if (plannerFocus.requested) return;
     if (pendingCompletionRef.current || completionInFlightRef.current) return;
     if (operatingMode === 'planner') {
       setOperatingMode('manual');
@@ -625,7 +743,7 @@ const AccountFocusPage: React.FC = () => {
   const handleSaveSettings = (newSettings: TimerSettings) => {
     setSettings(newSettings);
     localStorage.setItem(focusStorageKey(user?.id, 'settings'), JSON.stringify(newSettings));
-    if (!isActive && !sessionRef.current && !pendingCompletionRef.current) {
+    if (!plannerFocus.requested && !isActive && !sessionRef.current && !pendingCompletionRef.current) {
       const secs =
         mode === 'pomodoro'
           ? newSettings.focusDuration * 60
@@ -729,8 +847,8 @@ const AccountFocusPage: React.FC = () => {
   };
 
   const activeSlot = operatingMode === 'planner' ? plan[currentSlotIndex] : null;
-  const currentTaskTitle = activeSlot?.taskTitle || null;
-  const currentProjectName = activeSlot?.projectName || null;
+  const currentTaskTitle = selectedSlotRef.current?.taskTitle || activeSlot?.taskTitle || null;
+  const currentProjectName = selectedSlotRef.current?.projectName || activeSlot?.projectName || null;
 
   const layoutProps = {
     timeLeft,
@@ -746,7 +864,7 @@ const AccountFocusPage: React.FC = () => {
     totalSlots: plan.length,
     plan,
     clock,
-    customDuration: settings.customDuration || 45,
+    customDuration: plannerFocus.requested ? duration / 60 : settings.customDuration || 45,
     digitsColor: settings.digitsColor || '#ffffff',
     onStart: handleStart,
     onPause: handlePause,
@@ -808,10 +926,17 @@ const AccountFocusPage: React.FC = () => {
         <TimerLayoutStandby {...layoutProps} />
       )}
 
+      {plannerFocus.requested && !selectedDialog && <div className="fixed bottom-4 left-4 right-4 z-[120] mx-auto max-w-lg rounded-xl border border-border bg-surface p-3 text-primary shadow-xl select-text">
+        <p className="text-sm font-medium">{plannerFocus.loading ? 'Loading scheduled task…' : plannerFocus.invalid ? 'This scheduled task is unavailable. Return to Planner.' : selectedFinished ? 'Task completed' : (currentTaskTitle || 'Scheduled focus') + ' · Session ' + (selectedIndex + 1) + ' of ' + selectedSessions.length}</p>
+        {!plannerFocus.loading && !plannerFocus.invalid && !selectedFinished && <button type="button" disabled={isActive || !!sessionRef.current || !!pendingCompletion || selectedBusy} onClick={() => setSelectedDialog(timeLeft === 0 ? 'decision' : 'setup')} className="min-h-11 mt-1 px-3 rounded-lg border border-border disabled:opacity-50">{timeLeft === 0 ? 'Review session' : 'Configure sessions'}</button>}
+        <button type="button" disabled={selectedBusy} onClick={() => navigate('/app/planner?mode=day&date=' + plannerFocus.date)} className="min-h-11 ml-3 underline">Back to Planner</button>
+      </div>}
+      {plannerFocus.requested && selectedDialog && !pendingCompletion && !plannerFocus.loading && !plannerFocus.invalid && <PlannerFocusDialog key={selectedDialog + selectedIndex} kind={selectedDialog} title={currentTaskTitle || 'Scheduled focus'} totalMinutes={plannerFocus.totalMinutes} next={selectedSessions[selectedIndex + 1]} block={plannerFocus.block} blocks={plannerFocus.blocks} busy={selectedBusy} error={selectedError} canComplete={!!plannerFocus.task} date={plannerFocus.date} onClose={() => setSelectedDialog(null)} started={selectedIndex > 0} onResume={() => prepareSelectedSession(selectedSessions[selectedIndex])} onConfigure={configureSelected} onDone={() => void finishSelectedTask()} onContinue={() => { const next = selectedSessions[selectedIndex + 1]; if (next) { setSelectedIndex(index => index + 1); prepareSelectedSession(next); } }} onExtend={(minutes, blockId) => void extendSelected(minutes, blockId)} />}
+
       {pendingCompletion && <div role={isCompleting ? 'status' : 'alert'} className="fixed bottom-4 left-4 right-4 z-[150] mx-auto max-w-lg rounded-xl border border-border bg-surface p-4 text-primary shadow-xl select-text">
         <p className="text-sm font-medium">{isCompleting ? 'Saving your session...' : 'Your session has not been saved.'}</p>
         <p className="text-xs text-secondary mt-1">Your work time is retained. Save it before starting another session.</p>
-        {!isCompleting && <button type="button" onClick={() => void handleCompleteSession()} className="min-h-11 mt-3 px-4 rounded-lg bg-accent text-on-accent text-sm">Retry saving session</button>}
+        {!isCompleting && <button type="button" disabled={plannerFocus.requested && (plannerFocus.loading || plannerFocus.invalid)} onClick={() => void handleCompleteSession()} className="min-h-11 mt-3 px-4 rounded-lg bg-accent text-on-accent text-sm">Retry saving session</button>}
       </div>}
 
       {/* Timer Layout Gallery Modal */}

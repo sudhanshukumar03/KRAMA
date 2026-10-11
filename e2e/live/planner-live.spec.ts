@@ -99,14 +99,14 @@ test('live planner scheduling, recovery, routines, milestones and workspace isol
   await page.evaluate(id => localStorage.setItem('krama_active_workspace', id), workspaceId);
   await page.goto(`/app/planner?mode=day&date=${movedDay}`);
   await expect(page.getByText('Synthetic work block', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Edit time block', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit time block Synthetic work block', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit Time Block' });
   await expect(dialog.getByLabel('Start time')).toHaveValue('09:00');
   await dialog.getByLabel('Time block title').fill('Browser saved work block');
   await dialog.getByRole('button', { name: 'Save Changes', exact: true }).click(); await expect(dialog).toBeHidden();
   await page.reload(); await expect(page.getByText('Browser saved work block', { exact: true })).toBeVisible();
   await page.goto(`/app/planner?mode=plan&date=${day}`);
-  await page.getByRole('button', { name: 'Synthetic planner task', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit task Synthetic planner task', exact: true }).click();
   const taskDialog = page.getByRole('dialog');
   await expect(taskDialog.getByLabel('Description', { exact: true })).toHaveValue('Preserve this task detail');
   await expect(taskDialog.getByRole('combobox').filter({ has: page.locator(`option[value="${project.id}"]`) })).toHaveValue(project.id);
@@ -127,6 +127,42 @@ test('live planner scheduling, recovery, routines, milestones and workspace isol
   await json('DELETE', `planner/milestones/${milestone.id}`);
   console.log('LIVE PASS: browser edit/reload persistence and block/milestone deletion');
 });
+test('live Planner selection configures Focus, saves time, reschedules the next block and marks the task done', async ({ page }) => {
+  const date = '2026-11-07';
+  const task = await json('POST', 'tasks', { title: 'Live scheduled Focus task', scheduledDate: date + 'T12:00:00.000Z' }, 201);
+  const block = await json('POST', 'planner/time-blocks', { title: 'Live Focus reservation', taskId: task.id, date, startTime: '09:00', endTime: '10:00', type: 'WORK' }, 201);
+  const next = await json('POST', 'planner/time-blocks', { title: 'Live next reservation', date, startTime: '10:00', endTime: '11:00', type: 'WORK' }, 201);
+  await json('PATCH', 'auth/me/preferences', { focusLayout: 'sidebar' });
+  await page.goto('/login'); await page.getByLabel('Email', { exact: true }).fill(email); await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click(); await page.waitForURL(/\/app(?:\/|$)/);
+  await page.evaluate(id => localStorage.setItem('krama_active_workspace', id), workspaceId);
+  await page.goto('/app/planner?mode=day&date=' + date);
+  await page.getByRole('button', { name: task.title, exact: true }).click();
+  const setup = page.getByRole('dialog', { name: 'Plan your focus time' });
+  await expect(setup).toContainText('60 minutes reserved'); await setup.getByRole('button', { name: 'Use this plan' }).click();
+  await expect(page).toHaveTitle(/60:00/);
+  await page.clock.install({ time: new Date(Date.now() - 75 * 60000) }); await page.getByTitle('Click or press Enter to start', { exact: true }).click();
+  await page.clock.fastForward(60 * 60000);
+  let decision = page.getByRole('dialog', { name: 'Is this task done?' }); await expect(decision).toBeVisible();
+  const { prisma } = await import('../../apps/server/src/prisma');
+  const sessions = await prisma.focusSession.findMany({ where: { userId, taskId: task.id } });
+  expect(sessions).toHaveLength(1); expect(sessions[0].duration).toBe(3600);
+  await decision.getByLabel('Reschedule next block').check();
+  await decision.getByRole('button', { name: 'Reschedule next block and extend' }).click();
+  await expect(decision).toBeHidden(); await expect(page).toHaveTitle(/15:00/);
+  const updatedBlock = await prisma.timeBlock.findUniqueOrThrow({ where: { id: block.id } });
+  const updatedNext = await prisma.timeBlock.findUniqueOrThrow({ where: { id: next.id } });
+  expect(updatedBlock.endTime.toISOString()).toBe(date + 'T10:15:00.000Z');
+  expect(updatedNext.startTime.toISOString()).toBe(date + 'T10:15:00.000Z');
+  expect(updatedNext.endTime.toISOString()).toBe(date + 'T11:15:00.000Z');
+  await page.getByTitle('Click or press Enter to start', { exact: true }).click(); await page.clock.fastForward(15 * 60000);
+  decision = page.getByRole('dialog', { name: 'Is this task done?' }); await expect(decision).toBeVisible();
+  await decision.getByRole('button', { name: 'Mark task done' }).click();
+  await expect.poll(async () => (await prisma.task.findUniqueOrThrow({ where: { id: task.id } })).status).toBe('DONE');
+  expect(await prisma.focusSession.count({ where: { userId, taskId: task.id } })).toBe(2);
+  console.log('LIVE PASS: reserved duration, connected session logging, atomic next-block reschedule and task completion');
+});
+
 test.afterAll(async () => {
   if (!userId) { await api?.dispose(); return; }
   const { prisma } = await import('../../apps/server/src/prisma');

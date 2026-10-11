@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
-import { TimeBlockSchema, TimeBlockUpdateSchema, MilestoneSchema, MilestoneUpdateSchema, RoutineOccurrenceSchema, WeekQuerySchema } from '@krama/validation';
+import { TimeBlockSchema, TimeBlockUpdateSchema, TimeBlockExtensionSchema, MilestoneSchema, MilestoneUpdateSchema, RoutineOccurrenceSchema, WeekQuerySchema } from '@krama/validation';
 import { plannerService, PlannerError, type PlannerContext } from '../services/planner.service';
 import { handleControllerError } from '../utils/errors';
 
@@ -46,6 +46,12 @@ router.post('/time-blocks', async (req: Request, res: Response) => {
   } catch (error) {
     return respondError(res, error, 'Unable to create time block');
   }
+});
+
+router.post('/time-blocks/:id/extend', async (req: Request, res: Response) => {
+  try {
+    return res.status(200).json(await plannerService.extendTimeBlock(context(req), TimeBlockExtensionSchema.parse(req.body)));
+  } catch (error) { return respondError(res, error, 'Unable to extend time block'); }
 });
 
 router.patch('/time-blocks/:id', async (req: Request, res: Response) => {

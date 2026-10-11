@@ -6,6 +6,7 @@ import { socketService } from '../services/socket.service';
 import {
   TimeBlockSchema,
   TimeBlockUpdateSchema,
+  TimeBlockExtensionSchema,
   MilestoneSchema,
   MilestoneUpdateSchema,
   RoutineOccurrenceSchema,
@@ -440,6 +441,48 @@ async function createTimeBlock(context: PlannerContext, body: ReturnType<typeof 
     return (result.block);
 }
 
+/** Extend a reservation and optionally move one conflicting block atomically. */
+async function extendTimeBlock(context: PlannerContext, body: ReturnType<typeof TimeBlockExtensionSchema.parse>) {
+  const workspaceId = await resolveWorkspace(context);
+  if (!context.id) throw new PlannerError(404, { message: 'Time block not found' });
+  const result = await writePlannerBlock(async tx => {
+    const receipt = await tx.activityLog.findUnique({ where: { id: body.extensionId } });
+    const intent = JSON.stringify({ minutes: body.minutes, expectedEndTime: body.expectedEndTime, resumeAt: body.resumeAt || null, rescheduleBlockId: body.rescheduleBlockId || null });
+    if (receipt) {
+      const metadata = receipt.metadata as { intent?: string; result?: { block: Record<string, unknown>; rescheduledBlock: Record<string, unknown> | null } } | null;
+      if (receipt.userId !== context.userId || receipt.workspaceId !== workspaceId || receipt.entityId !== context.id || receipt.action !== 'FOCUS_BLOCK_EXTENDED' || metadata?.intent !== intent || !metadata.result) throw new PlannerError(409, { message: 'Extension identifier is already used for another change.' });
+      const restore = (value: Record<string, unknown>) => ({ ...value, date: new Date(value.date as string), startTime: new Date(value.startTime as string), endTime: new Date(value.endTime as string), createdAt: new Date(value.createdAt as string), updatedAt: new Date(value.updatedAt as string) });
+      return { block: restore(metadata.result.block), rescheduledBlock: metadata.result.rescheduledBlock ? restore(metadata.result.rescheduledBlock) : null } as { block: Awaited<ReturnType<typeof tx.timeBlock.findUniqueOrThrow>>; rescheduledBlock: Awaited<ReturnType<typeof tx.timeBlock.findUniqueOrThrow>> | null };
+    }
+    const block = await tx.timeBlock.findFirst({ where: { id: context.id, userId: context.userId, workspaceId } });
+    if (!block) throw new PlannerError(404, { message: 'Time block not found' });
+    if (block.endTime.toISOString() !== body.expectedEndTime) throw new PlannerError(409, { message: 'This block changed. Refresh before extending.' });
+    const resumeAt = body.resumeAt ? new Date(body.resumeAt) : block.endTime;
+    if (resumeAt.toISOString().slice(0, 10) !== block.date.toISOString().slice(0, 10)) throw new PlannerError(400, { message: 'Resume time must be on the scheduled day.' });
+    const endTime = new Date(Math.max(block.endTime.getTime(), resumeAt.getTime()) + body.minutes * 60000);
+    if (endTime.toISOString().slice(0, 10) !== block.date.toISOString().slice(0, 10)) throw new PlannerError(400, { message: 'Extension must fit within the same day. Reschedule in Planner.' });
+    const blocks = await tx.timeBlock.findMany({ where: { userId: context.userId, workspaceId, date: block.date, id: { not: block.id } }, orderBy: { startTime: 'asc' } });
+    const conflicts = blocks.filter(next => next.startTime < endTime && next.endTime > block.startTime);
+    let rescheduledBlock = null;
+    if (conflicts.length) {
+      const next = conflicts[0]!;
+      if (conflicts.length !== 1 || next.id !== body.rescheduleBlockId || next.startTime < block.endTime) throw new PlannerError(409, { code: 'FOCUS_EXTENSION_CONFLICT', message: 'Extension overlaps another block. Reschedule it explicitly or adjust Planner.' });
+      const nextEnd = new Date(endTime.getTime() + next.endTime.getTime() - next.startTime.getTime());
+      if (nextEnd.toISOString().slice(0, 10) !== block.date.toISOString().slice(0, 10) || blocks.some(other => other.id !== next.id && other.startTime < nextEnd && other.endTime > endTime)) throw new PlannerError(409, { message: 'Moving the next block would cause another overlap or cross midnight. Adjust Planner first.' });
+      rescheduledBlock = await tx.timeBlock.update({ where: { id: next.id }, data: { startTime: endTime, endTime: nextEnd } });
+    } else if (body.rescheduleBlockId) {
+      throw new PlannerError(409, { message: 'The next block changed. Refresh before rescheduling.' });
+    }
+    const updated = await tx.timeBlock.update({ where: { id: block.id }, data: { endTime } });
+    const result = { block: updated, rescheduledBlock };
+    // A lost HTTP response must not extend or move reservations a second time.
+    await tx.activityLog.create({ data: { id: body.extensionId, userId: context.userId, workspaceId, action: 'FOCUS_BLOCK_EXTENDED', entityType: 'TimeBlock', entityId: block.id, metadata: { intent, result: JSON.parse(JSON.stringify(result)) } } });
+    return result;
+  });
+  socketService.emitToUser(context.userId, 'planner:changed', { workspaceId });
+  return result;
+}
+
 async function updateTimeBlock(context: PlannerContext, body: ReturnType<typeof TimeBlockUpdateSchema.parse>) {
     const userId = context.userId;
     if (!userId) throw new PlannerError(401, { message: 'Unauthorized' });
@@ -729,4 +772,4 @@ async function hasWorkspaceAccess(userId: string, workspaceId: string) {
   return !!await prisma.workspaceMember.findUnique({ where: { userId_workspaceId: { userId, workspaceId } }, select: { id: true } });
 }
 
-export const plannerService = { getWeek, createTimeBlock, updateTimeBlock, deleteTimeBlock, updateRoutineOccurrence, listMilestones, createMilestone, updateMilestone, deleteMilestone, hasWorkspaceAccess };
+export const plannerService = { getWeek, createTimeBlock, extendTimeBlock, updateTimeBlock, deleteTimeBlock, updateRoutineOccurrence, listMilestones, createMilestone, updateMilestone, deleteMilestone, hasWorkspaceAccess };

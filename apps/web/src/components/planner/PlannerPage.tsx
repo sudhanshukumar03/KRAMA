@@ -248,6 +248,23 @@ export function PlannerPage() {
     });
   };
 
+  const handleFocusTask = (task: PlannerTask) => {
+    const taskDay = (task.scheduledDate || task.dueDate || format(viewDay, 'yyyy-MM-dd')).slice(0, 10);
+    const candidates = (mergedData?.timeBlocks || []).filter(item => item.taskId === task.id && !item.isExternal && !['MEETING', 'PERSONAL'].includes(item.type) && item.date.slice(0, 10) === taskDay).sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const now = new Date(), nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const block = (taskDay === format(now, 'yyyy-MM-dd') ? candidates.find(item => Number(item.endTime.slice(11, 13)) * 60 + Number(item.endTime.slice(14, 16)) > nowMinutes) : candidates[0]) || candidates[0];
+    const date = (block?.date || task.scheduledDate || task.dueDate || format(viewDay, 'yyyy-MM-dd')).slice(0, 10);
+    const params = new URLSearchParams({ task: task.id, date });
+    if (block) params.set('block', block.id);
+    navigate('/focus?' + params);
+  };
+  const handleFocusBlock = (block: TimeBlock) => {
+    if (block.isExternal || block.type === 'MEETING' || block.type === 'PERSONAL') return handleEditTimeBlock(block);
+    const params = new URLSearchParams({ block: block.id, date: block.date.slice(0, 10) });
+    if (block.taskId) params.set('task', block.taskId);
+    navigate('/focus?' + params);
+  };
+
   const handleClickTask = async (task: PlannerTask) => {
     const request = ++taskRequest.current;
     try {
@@ -480,7 +497,8 @@ export function PlannerPage() {
                   onAddTask={handleAddTask}
                   onAddRoutine={handleAddRoutine}
                   onToggleTask={handleToggleTask}
-                  onClickTask={handleClickTask}
+                  onClickTask={handleFocusTask}
+                  onEditTask={handleClickTask}
                   onDeleteTask={(task) => deleteTaskMutation.mutate(task.id)}
                   onDeleteTimeBlock={(block) => deleteTimeBlockMutation.mutate(block.id)}
                   onDeleteRoutine={(routine) => deleteRoutineMutation.mutate(routine.id)}
@@ -502,8 +520,10 @@ export function PlannerPage() {
                 day={viewDay}
                 data={mergedData}
                 onToggleTask={handleToggleTask}
-                onClickTask={handleClickTask}
+                onClickTask={handleFocusTask}
                 onClickTimeBlock={handleEditTimeBlock}
+                onFocusTimeBlock={handleFocusBlock}
+                onEditTask={handleClickTask}
                 onAddTask={handleAddTask}
                 onAddTimeBlock={handleAddTimeBlock}
                 onDeleteTimeBlock={(block) => deleteTimeBlockMutation.mutate(block.id)}
