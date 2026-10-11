@@ -17,6 +17,10 @@ export class DocumentSaveQueue {
   recovered = false;
   private bodyDirty = false;
   private titleDirty = false;
+  /**
+   * Each body/title edit increments this counter. A completed request must not mark a newer
+   * draft as saved when the user typed while that request was still in flight.
+   */
   private generation = 0;
   private tail: Promise<unknown> = Promise.resolve();
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -60,6 +64,8 @@ export class DocumentSaveQueue {
         this.persist(); this.emit(conflict ? 'conflict' : 'error'); throw error;
       }
     });
+    // Keep the queue usable after a request fails, while returning the rejection
+    // through next to its caller. Conflict state still blocks later writes.
     this.tail = next.catch(() => {});
     return next;
   }
@@ -72,6 +78,10 @@ export class DocumentSaveQueue {
       this.onSaved?.(); return result;
     });
   }
+  /**
+   * Snapshot the current draft, then save title before body using each response's
+   * new revision. Clear dirty flags only for the draft actually acknowledged.
+   */
   flush() {
     clearTimeout(this.timer); this.timer = undefined;
     return this.enqueue(async () => {

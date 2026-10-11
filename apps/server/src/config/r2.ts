@@ -2,6 +2,11 @@ import { S3Client } from '@aws-sdk/client-s3';
 import dotenv from 'dotenv';
 dotenv.config();
 
+/**
+ * Check configuration shape without contacting R2. Missing or placeholder values
+ * keep uploads unavailable, allowing the personal workspace to run without R2.
+ * A true result does not itself verify bucket permissions or network access.
+ */
 export function isR2Configured() {
   const keys = ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET_NAME', 'R2_PUBLIC_URL'];
   if (!keys.every(key => process.env[key]?.trim() && !/dummy|your_|change_me/i.test(process.env[key]!))) return false;

@@ -23,6 +23,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Own the UI session state while the API client coordinates token rotation.
+ * Bootstrap uses the refresh cookie; cached data is cleared on account changes.
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const authActionVersion = useRef(0);

@@ -8,6 +8,10 @@ import { useAuth } from '../contexts/AuthContext';
 import type { FocusScheduleData, TimerMode } from '../components/focus/types';
 import { toast } from 'sonner';
 
+/**
+ * duration is active work/break time in seconds, not endTime minus startTime.
+ * Keep completionId and the payload unchanged when retrying a failed save.
+ */
 export interface CompleteSessionParams {
   completionId: string;
   startTime: string;
@@ -45,7 +49,6 @@ export function useFocusSchedule() {
       // Invalidate relevant queries across KRAMA
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
     },
     onError: (err: any) => {

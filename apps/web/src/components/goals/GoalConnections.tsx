@@ -12,6 +12,10 @@ interface Props {
   linkHabitMutation: LinkAction; unlinkHabitMutation: LinkAction; logHabitMutation: LinkAction;
 }
 
+/**
+ * Render project/habit links using the drawer's selection state and mutations.
+ * The parent keeps link operations and goal queries synchronized.
+ */
 export function GoalConnections({ goalId, linkedProjects, unlinkedProjects, selectedProjectIdToLink, setSelectedProjectIdToLink, linkProjectMutation, unlinkProjectMutation, linkedHabits, unlinkedHabits, selectedHabitIdToLink, setSelectedHabitIdToLink, linkHabitMutation, unlinkHabitMutation, logHabitMutation }: Props) {
   const navigate = useNavigate();
   return <>

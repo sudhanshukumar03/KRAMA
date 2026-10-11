@@ -4,6 +4,11 @@ import { GoogleGenAI } from '@google/genai';
 import { GROQ_MODEL, GEMINI_MODEL } from './ai.service';
 import { streamWithFallback, type TextStreamProvider } from '../lib/providerStream';
 
+/**
+ * Adapt configured text providers to the document SSE protocol.
+ * Cancel provider work when the client disconnects and release its listener.
+ * Delay SSE headers until text is available so early failures can return JSON.
+ */
 export async function sendBrainAiStream(res: Response, systemPrompt: string, prompt: string) {
   const controller = new AbortController();
   const onDisconnect = () => { if (!res.writableEnded) controller.abort(); };

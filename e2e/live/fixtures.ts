@@ -52,7 +52,7 @@ export const test = base.extend<{ account: LiveAccount }, { backendResources: vo
       const workspaceIds = new Set(workspaces.map(workspace => workspace.id));
       const documents = await prisma.document.findMany({ where: { space: { workspaceId: { in: [...workspaceIds] } } }, select: { id: true } });
       const documentIds = new Set(documents.map(document => document.id));
-      for (const queue of [queues.notificationsQueue, queues.habitStreakQueue, queues.analyticsQueue, queues.embeddingQueue, queues.documentVersionQueue]) {
+      for (const queue of [queues.notificationsQueue, queues.habitStreakQueue, queues.aiRetentionQueue, queues.embeddingQueue, queues.documentVersionQueue]) {
         for (const job of await queue.getJobs(['waiting', 'delayed', 'failed', 'completed'])) {
           if (job.data?.userId === userId || workspaceIds.has(job.data?.workspaceId) || documentIds.has(job.data?.documentId)) await job.remove();
         }
@@ -73,7 +73,7 @@ export const test = base.extend<{ account: LiveAccount }, { backendResources: vo
     await Promise.all([
       queues.notificationsQueue.close(),
       queues.habitStreakQueue.close(),
-      queues.analyticsQueue.close(),
+      queues.aiRetentionQueue.close(),
       queues.embeddingQueue.close(),
       queues.documentVersionQueue.close(),
     ]);

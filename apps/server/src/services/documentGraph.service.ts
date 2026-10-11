@@ -1,6 +1,11 @@
 import { prisma } from '../prisma';
 import type { DocumentType } from '@prisma/client';
 
+/**
+ * Build a bounded graph for one workspace, optionally starting at a document.
+ * Linked IDs are navigation hints; workspace-scoped record queries decide which
+ * nodes may be included, including when old links cross workspace boundaries.
+ */
 export async function getDocumentGraph(id: string, rootId?: string, maxDepth = 2) {
     const maxNodesCap = 150; // Cap at 150 nodes
 

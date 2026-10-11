@@ -17,16 +17,10 @@ COPY apps/web/package.json ./apps/web/package.json
 COPY apps/server/package.json ./apps/server/package.json
 
 # Install dependencies
-ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN pnpm --filter client... install --frozen-lockfile --ignore-scripts
 
 COPY packages ./packages
 COPY apps/web ./apps/web
-COPY apps/server/prisma ./apps/server/prisma
-COPY apps/server/prisma.config.ts ./apps/server/prisma.config.ts
-
-# Frontend schema types depend on the generated Prisma client.
-RUN pnpm --filter server exec prisma generate
 
 # Build the frontend
 RUN pnpm --filter client... run build

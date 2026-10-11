@@ -66,7 +66,6 @@ export function QuickCaptureModal({ open, onClose, defaultMode = 'task', default
         queryClient.invalidateQueries({ queryKey: ['planner'] });
         queryClient.invalidateQueries({ queryKey: ['issues'] });
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
-        queryClient.invalidateQueries({ queryKey: ['analytics'] });
       } else if (mode === 'note') {
         await api.documents.create({ title, documentType: 'NOTE', contentJson: buildContentJson(content) });
         toast.success('Note created in Brain');

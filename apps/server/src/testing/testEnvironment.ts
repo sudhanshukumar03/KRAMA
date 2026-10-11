@@ -1,3 +1,7 @@
+/**
+ * Require a dedicated test database and nonzero Redis database before test setup
+ * can mutate records or queues. Compare targets with the application stores.
+ */
 export function validateIntegrationTargets(env: NodeJS.ProcessEnv) {
   if (!env.TEST_DATABASE_URL || !env.TEST_REDIS_URL) throw new Error('Integration tests require TEST_DATABASE_URL and TEST_REDIS_URL.');
   const database = new URL(env.TEST_DATABASE_URL);

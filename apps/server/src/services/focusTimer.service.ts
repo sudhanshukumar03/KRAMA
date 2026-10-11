@@ -59,6 +59,11 @@ export function isValidTimerPreferences(value: unknown): value is TimerPreferenc
   });
 }
 
+/**
+ * Build today's bounded work/break plan from live Planner records and tasks.
+ * Slots and capacity use minutes; stored Focus session durations use seconds.
+ * Calendar-date rows and actual session timestamps require different day bounds.
+ */
 export async function buildFocusSchedule(
   userId: string,
   workspaceId: string,
@@ -73,7 +78,7 @@ export async function buildFocusSchedule(
   // deployed in another timezone would otherwise build the wrong day's
   // schedule. Resolve the user's timezone, derive their local date key, and
   // keep canonical UTC calendar bounds for task/block dates. Completed session
-  // timestamps use local instant boundaries, matching Analytics.
+  // timestamps use local instant boundaries, matching Dashboard reporting.
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { weeklyCapacityMinutes: true, metadata: true, countryCode: true }

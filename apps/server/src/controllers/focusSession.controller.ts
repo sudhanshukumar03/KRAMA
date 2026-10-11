@@ -4,6 +4,11 @@ import { createHash } from 'node:crypto';
 import { buildFocusSchedule } from '../services/focusTimer.service';
 import { socketService } from '../services/socket.service';
 
+/**
+ * Save a completion and its activity together. Reusing the identifier returns
+ * the existing session only when the account, workspace and payload agree;
+ * a conflicting reuse returns 409 instead of recording a second session.
+ */
 export const completeFocusSession = async (req: Request, res: Response) => {
   try {
     const workspaceId = (req as any).workspaceId || req.headers['x-workspace-id'] || req.body?.workspaceId;

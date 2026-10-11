@@ -44,6 +44,11 @@ function isWriteConflict(error: unknown): boolean {
     'kind' in error.cause && error.cause.kind === 'TransactionWriteConflict';
 }
 
+/**
+ * Overlap checks and block writes share a serializable transaction so two
+ * concurrent edits cannot both reserve a time slot that initially looked free.
+ * Retry serialization conflicts at most twice before returning a recoverable 409.
+ */
 async function writePlannerBlock<T>(write: (tx: TxClient) => Promise<T>): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -57,10 +62,9 @@ async function writePlannerBlock<T>(write: (tx: TxClient) => Promise<T>): Promis
     }
   }
 }
-// Soft-IDOR guard: a block may link a task and/or project, but the caller must
-// not be able to attach one that lives in another workspace. Verifies each
-// supplied id belongs to the block's workspace before it is saved. An empty
-// `workspaceId` (membership-less local user) can't be scoped, so it is skipped.
+// Verify linked records against the workspace resolved from membership above.
+// Run these reads inside the block transaction so link validation and saving
+// use the same database snapshot.
 async function verifyBlockLinks(
   workspaceId: string,
   taskId: string | null,
@@ -289,6 +293,8 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
       }).map((t) => ({
         id: t.id,
         title: t.title,
+        version: t.version,
+        projectId: t.projectId,
         status: t.status,
         completed: t.status === 'DONE',
         scheduledDate: t.scheduledDate ? (t.scheduledDate instanceof Date ? t.scheduledDate.toISOString() : new Date(t.scheduledDate).toISOString()) : null,
@@ -323,6 +329,8 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
     const unscheduledTasks = tasks.filter((t) => !t.scheduledDate && !t.dueDate && t.status !== 'DONE' && t.status !== 'CANCELED').map((t) => ({
       id: t.id,
       title: t.title,
+        version: t.version,
+        projectId: t.projectId,
       status: t.status,
       completed: t.status === 'DONE',
       scheduledDate: null,

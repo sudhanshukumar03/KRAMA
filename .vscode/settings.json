@@ -1,7 +1,0 @@
-{
-  "css.lint.unknownAtRules": "ignore",
-  "[css]": {
-    "editor.formatOnSave": true
-  },
-  "prisma.pinToPrisma6": false
-}

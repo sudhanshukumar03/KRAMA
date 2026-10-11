@@ -26,7 +26,9 @@ import { LocationSettingsModal } from './LocationSettingsModal';
 import { CapacitySettingsModal } from './CapacitySettingsModal';
 import { IssueEditModal } from '../KanbanBoard';
 import { useAuth } from '../../contexts/AuthContext';
-import { parseLocalDate } from '../../lib/utils';
+import type { PlannerTask, TimeBlock, TimeBlockDraft, Milestone, RoutineOccurrence } from '../../types/planner';
+import type { IssueWithRelations, TaskUpdateInput } from '../../types/schema';
+import { parseLocalDate, errorMessage } from '../../lib/utils';
 
 export function PlannerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -69,17 +71,17 @@ export function PlannerPage() {
   } = usePlannerWeek(viewDay);
 
   const [timeBlockModalOpen, setTimeBlockModalOpen] = useState(false);
-  const [editingTimeBlock, setEditingTimeBlock] = useState<any | null>(null);
+  const [editingTimeBlock, setEditingTimeBlock] = useState<TimeBlockDraft | null>(null);
   const [routineModalOpen, setRoutineModalOpen] = useState(false);
   const [milestoneModalOpen, setMilestoneModalOpen] = useState(false);
-  const [editingMilestone, setEditingMilestone] = useState<any | null>(null);
+  const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
   const [milestoneDefaultDate, setMilestoneDefaultDate] = useState<Date>(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [captureOpen, setCaptureOpen] = useState(false);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [capacityModalOpen, setCapacityModalOpen] = useState(false);
   const [captureDate, setCaptureDate] = useState<Date | undefined>(undefined);
-  const [editingTask, setEditingTask] = useState<any | null>(null);
+  const [editingTask, setEditingTask] = useState<IssueWithRelations | null>(null);
   const taskRequest = useRef(0);
   const activeWorkspace = useRef(workspaceId);
   activeWorkspace.current = workspaceId;
@@ -98,9 +100,9 @@ export function PlannerPage() {
 
   const mergedData = useMemo(() => {
     if (!data) return data;
-    const taskMap = new Map<string, any>();
-    allIssues.forEach((task: any) => taskMap.set(task.id, task));
-    (data.tasks || []).forEach((task: any) => taskMap.set(task.id, { ...taskMap.get(task.id), ...task }));
+    const taskMap = new Map<string, PlannerTask>();
+    allIssues.forEach(task => taskMap.set(task.id, { ...task, completed: task.status === "DONE" }));
+    (data.tasks || []).forEach((task: PlannerTask) => taskMap.set(task.id, { ...taskMap.get(task.id), ...task }));
     return {
       ...data,
       tasks: Array.from(taskMap.values()),
@@ -108,7 +110,7 @@ export function PlannerPage() {
   }, [data, allIssues]);
 
  const updateTaskMutation = useMutation({
- mutationFn: ({ id, data }: { id: string; data: any }) => api.tasks.update(id, data),
+ mutationFn: ({ id, data }: { id: string; data: TaskUpdateInput }) => api.tasks.update(id, data),
  onSuccess: () => {
  queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
@@ -116,13 +118,12 @@ export function PlannerPage() {
  queryClient.invalidateQueries({ queryKey: ['tasks'] });
  queryClient.invalidateQueries({ queryKey: ['projects'] });
  queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['goal'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
       queryClient.invalidateQueries({ queryKey: ['project'] });
  },
- onError: (err: any) => {
- toast.error('Failed to update task: ' + (err?.message || 'Unknown error'));
+ onError: (err) => {
+ toast.error('Failed to update task: ' + errorMessage(err, 'Unknown error'));
  }
  });
 
@@ -135,14 +136,13 @@ export function PlannerPage() {
  queryClient.invalidateQueries({ queryKey: ['tasks'] });
  queryClient.invalidateQueries({ queryKey: ['projects'] });
  queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['goal'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
       queryClient.invalidateQueries({ queryKey: ['project'] });
  toast.success('Task deleted');
  },
- onError: (err: any) => {
- toast.error('Failed to delete task: ' + (err?.message || 'Unknown error'));
+ onError: (err) => {
+ toast.error('Failed to delete task: ' + errorMessage(err, 'Unknown error'));
  }
  });
 
@@ -154,8 +154,8 @@ export function PlannerPage() {
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       toast.success('Routine unpinned from planner');
     },
-    onError: (err: any) => {
-      toast.error('Failed to unpin routine: ' + (err?.message || 'Unknown error'));
+    onError: (err) => {
+      toast.error('Failed to unpin routine: ' + errorMessage(err, 'Unknown error'));
     }
   });
 
@@ -183,7 +183,7 @@ export function PlannerPage() {
     const targetIso = new Date(`${dateStr}T12:00:00.000Z`).toISOString();
     updateTaskMutation.mutate({
       id: taskId,
-      data: { scheduledDate: targetIso }
+      data: { scheduledDate: targetIso, version: allIssues.find(task => task.id === taskId)?.version }
     }, {
       onSuccess: () => toast.success(`Task scheduled for ${dateStr}`),
       onError: () => toast.error('Failed to schedule task')
@@ -202,27 +202,27 @@ export function PlannerPage() {
           const targetIso = new Date(`${dateOnly}T12:00:00.000Z`).toISOString();
           updateTaskMutation.mutate({
             id: taskId,
-            data: { scheduledDate: targetIso }
+            data: { scheduledDate: targetIso, version: allIssues.find(task => task.id === taskId)?.version }
           });
         }
       },
-      onError: (err: any) => toast.error(err?.message || 'Failed to link task')
+      onError: (err) => toast.error(errorMessage(err, 'Failed to link task'))
     });
   };
 
- const handleToggleRoutine = (occ: any) => {
+ const handleToggleRoutine = (occ: RoutineOccurrence) => {
  toggleRoutineMutation.mutate(occ, {
  onError: () => toast.error('Failed to update routine'),
  });
  };
 
-  const handleAddTimeBlock = (day?: Date, initialData?: any) => {
+  const handleAddTimeBlock = (day?: Date, initialData?: TimeBlockDraft) => {
     setEditingTimeBlock(initialData || null);
     if (day) setSelectedDay(day);
     setTimeBlockModalOpen(true);
   };
 
-  const handleEditTimeBlock = (block: any) => {
+  const handleEditTimeBlock = (block: TimeBlock) => {
     setEditingTimeBlock(block);
     if (block.date || block.startTime) {
       setSelectedDay(new Date(block.date || block.startTime));
@@ -239,16 +239,16 @@ export function PlannerPage() {
     setRoutineModalOpen(true);
   };
 
-  const handleToggleTask = (task: any, e: React.MouseEvent) => {
+  const handleToggleTask = (task: PlannerTask, e: React.MouseEvent) => {
     e.stopPropagation();
     const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
-    updateTaskMutation.mutate({ id: task.id, data: { status: newStatus } }, {
+    updateTaskMutation.mutate({ id: task.id, data: { status: newStatus, version: task.version } }, {
       onSuccess: () => toast.success(newStatus === 'DONE' ? 'Task completed' : 'Task restored'),
       onError: () => toast.error('Failed to update task')
     });
   };
 
-  const handleClickTask = async (task: any) => {
+  const handleClickTask = async (task: PlannerTask) => {
     const request = ++taskRequest.current;
     try {
       const fullTask = await api.tasks.get(task.id);
@@ -264,16 +264,16 @@ export function PlannerPage() {
     setMilestoneModalOpen(true);
   };
 
-  const handleEditMilestone = (milestone: any) => {
+  const handleEditMilestone = (milestone: Milestone) => {
     setEditingMilestone(milestone);
     setMilestoneModalOpen(true);
   };
 
-  const handleToggleMilestone = (milestone: any) => {
+  const handleToggleMilestone = (milestone: Milestone) => {
     updateMilestoneMutation.mutate({ id: milestone.id, data: { completed: !milestone.completed } });
   };
 
-  const handleDeleteMilestone = (milestone: any) => {
+  const handleDeleteMilestone = (milestone: Milestone) => {
     deleteMilestoneMutation.mutate(milestone.id, {
       onSuccess: () => {
         setMilestoneModalOpen(false);
@@ -389,8 +389,8 @@ export function PlannerPage() {
           editingBlock={editingTimeBlock}
           tasks={mergedData?.tasks || []}
           projects={data?.projects || []}
-          onDelete={editingTimeBlock ? () => {
-            deleteTimeBlockMutation.mutate(editingTimeBlock.id, {
+          onDelete={editingTimeBlock?.id ? () => {
+            deleteTimeBlockMutation.mutate(editingTimeBlock.id!, {
               onSuccess: () => {
                 toast.success('Time block deleted');
                 setTimeBlockModalOpen(false);
@@ -407,7 +407,7 @@ export function PlannerPage() {
                   setTimeBlockModalOpen(false);
                   setEditingTimeBlock(null);
                 },
-                onError: (err: any) => {
+                onError: (err) => {
                   toast.error(err?.message || 'Failed to update time block');
                 }
               });
@@ -417,7 +417,7 @@ export function PlannerPage() {
                   toast.success('Time block created');
                   setTimeBlockModalOpen(false);
                 },
-                onError: (err: any) => {
+                onError: (err) => {
                   toast.error(err?.message || 'Failed to create time block');
                 }
               });
@@ -429,7 +429,7 @@ export function PlannerPage() {
           <IssueEditModal
             open={!!editingTask}
             issue={editingTask}
-            allIssues={mergedData?.tasks || []}
+            allIssues={allIssues}
             projects={data.projects}
             onClose={() => setEditingTask(null)}
             isSubmitting={updateTaskMutation.isPending}

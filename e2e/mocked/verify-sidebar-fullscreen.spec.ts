@@ -53,6 +53,57 @@ test.describe('Sidebar Layout Fullscreen Verification', () => {
   });
 
 
+  test('retired Analytics links redirect to Dashboard without requesting its API', async ({ page }) => {
+    const analyticsRequests: string[] = [];
+    page.on('request', request => {
+      if (request.url().includes('/api/v1/analytics')) analyticsRequests.push(request.url());
+    });
+    await page.route('**/api/v1/**', async route => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.includes('/auth/')) return route.fallback();
+      const data = path.endsWith('/dashboard') ? {
+        stats: { totalProjects: 0, totalTasks: 0, totalHabits: 0, totalNotes: 0, totalGoals: 0 },
+        today: { tasks: [], overdueTaskIds: [], focusMinutes: 12, focusSessions: [] },
+        habits: [], goals: [], projects: [], activity: [], focus: { sessions: [] },
+        features: { aiInsights: false, quickCapture: true }, dateKey: '2026-10-11',
+      } : path.endsWith('/workspaces') ? [{ id: 'ws-1', name: 'Personal workspace' }] : [];
+      await route.fulfill({ status: 200, json: data });
+    });
+    await page.goto('/app/analytics');
+    await expect(page).toHaveURL(/\/app\/?$/);
+    await expect(page.getByRole('heading', { name: "Today's Focus", exact: true })).toBeVisible();
+    await expect(page.getByText('12 min of your focus time today', { exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Analytics/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Analytics', exact: true })).toHaveCount(0);
+    expect(analyticsRequests).toEqual([]);
+    await page.getByRole('button', { name: 'Start Focus', exact: true }).click();
+    await expect(page).toHaveURL(/\/focus$/);
+    await expect(page.getByRole('button', { name: 'Settings and options' })).toBeVisible();
+  });
+
+
+  test('Focus settings retain local changes and show a recoverable account-sync failure', async ({ page }) => {
+    await page.route('**/socket.io/**', route => route.abort());
+    let attempts = 0;
+    await page.route('**/api/v1/auth/me/preferences', route => {
+      attempts++;
+      return route.fulfill({ status: attempts === 1 ? 503 : 200, json: { message: attempts === 1 ? 'Temporary outage' : 'Saved' } });
+    });
+    await page.goto('/focus');
+    await page.getByRole('button', { name: 'Settings and options' }).click();
+    await page.getByRole('button', { name: /^Customize/ }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Focus Duration', { exact: true }).fill('45');
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(page.getByText('Settings saved on this device. Account sync failed; try saving again.', { exact: true })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('krama.focus.mock-user-1.settings') || '{}').focusDuration)).toBe(45);
+    await page.getByRole('button', { name: 'Settings and options' }).click();
+    await page.getByRole('button', { name: /^Customize/ }).click();
+    await expect(dialog.getByLabel('Focus Duration', { exact: true })).toHaveValue('45');
+    await dialog.getByRole('button', { name: 'Save & Close', exact: true }).click();
+    await expect.poll(() => attempts).toBe(2);
+  });
+
   for (const width of [390, 1440]) {
     test(`personal password dialog validates, recovers and signs out at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });

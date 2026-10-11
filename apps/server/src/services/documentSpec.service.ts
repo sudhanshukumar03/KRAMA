@@ -2,6 +2,11 @@ import { prisma } from '../prisma';
 import { DocumentService } from './document.service';
 import type { DocumentType, Prisma } from '@prisma/client';
 
+/**
+ * Import supported frontmatter and turn level-two/three headings into children.
+ * The controller must authorize the workspace, target space and parent first;
+ * this service performs parsing and document creation, not membership checks.
+ */
 export async function importDocumentSpecContent(content: string, targetSpaceId: string, workspaceId: string, userId: string, parentId?: string) {
     // 1. Parse YAML frontmatter if present
     let rawContent = content;

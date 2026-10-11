@@ -23,5 +23,3 @@ export interface HolidayProviderInput {
 export interface HolidayProvider {
   getHolidays(input: HolidayProviderInput): Promise<ExternalHoliday[]>;
 }
-
-

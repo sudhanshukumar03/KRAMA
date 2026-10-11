@@ -142,6 +142,7 @@ export function CreateDocumentModal({
           </div>
           <button 
             type="button"
+            aria-label="Close new document"
             onClick={onClose} 
             className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-surface-hover transition-colors cursor-pointer"
           >
@@ -152,10 +153,11 @@ export function CreateDocumentModal({
         {/* Form Body */}
         <form onSubmit={handleCreate} className="p-5 space-y-4">
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
+            <label htmlFor="new-document-name" className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
               Document Name <span className="text-accent-fg">*</span>
             </label>
             <input
+              id="new-document-name"
               ref={inputRef}
               type="text"
               value={title}
@@ -244,10 +246,11 @@ export function CreateDocumentModal({
           {/* Knowledge Space Selector */}
           {spaces.length > 0 && (
             <div>
-              <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
+              <label htmlFor="new-document-space" className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
                 Knowledge Space
               </label>
               <select
+                id="new-document-space"
                 value={selectedSpaceId}
                 onChange={(e) => setSelectedSpaceId(e.target.value)}
                 className="w-full p-2 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent font-sans text-caption"

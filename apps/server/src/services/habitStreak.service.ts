@@ -175,9 +175,9 @@ function weeklyBestStreak(counts: Map<string, number>, target: number, todayKey:
 
 // --- Public API --------------------------------------------------------------
 
-// Current streak. `cadence: 'weekly'` counts consecutive on-target weeks;
-// anything else (incl. undefined) uses the original per-scheduled-day logic, so
-// existing daily callers/tests are unaffected.
+// Weekly cadence counts consecutive weeks meeting the target; daily cadence
+// counts completed scheduled days. The unfinished current day/week is a grace
+// period, so a streak only breaks when a past required period was missed.
 export function calculateHabitStreak(habit: StreakHabit, now: Date, timeZone: string): number {
   const dayKeys = completedDayKeys(habit);
   if (dayKeys.size === 0) return 0;

@@ -14,6 +14,10 @@ export async function documentLinkExists(tx: Prisma.TransactionClient, workspace
     return Boolean(target);
 }
 
+/**
+ * Synchronize inline mentions while retaining separately created entity links.
+ * Only REFERENCE links that disappeared from the body are eligible for removal.
+ */
 export async function reconcileDocumentLinks(tx: Prisma.TransactionClient, documentId: string, workspaceId: string, previous: any, content: any, userId: string) {
   const links = extractEntityLinks(content);
   for (const link of links) {
@@ -39,6 +43,10 @@ export async function lockDocument(tx: Prisma.TransactionClient, id: string) {
   return doc;
 }
 
+/**
+ * Allocate version numbers under the document lock. A queue job ID generates
+ * a stable snapshot ID, so retrying that job reuses its previously saved version.
+ */
 export async function snapshotDocument(tx: Prisma.TransactionClient, id: string, userId: string, content?: any, jobId?: string) {
   const doc = await lockDocument(tx, id);
   const snapshotId = jobId ? `snapshot-${createHash('sha256').update(`${id}/${jobId}`).digest('hex')}` : randomUUID();
@@ -48,6 +56,11 @@ export async function snapshotDocument(tx: Prisma.TransactionClient, id: string,
   return tx.documentVersion.create({ data: { id: snapshotId, documentId: id, versionNumber: (latest?.versionNumber ?? 0) + 1, contentJson: content ?? doc.contentJson, editedById: userId } });
 }
 
+/**
+ * Save the body, Markdown, counts and inline links in one locked transaction.
+ * expectedUpdatedAt is the editor's last server revision; a mismatch rejects
+ * a stale save before any changes are committed.
+ */
 export async function saveDocumentContent(id: string, contentJson: any, userId: string, expectedUpdatedAt?: string, snapshotBefore = false) {
   return prisma.$transaction(async tx => {
     const doc = await lockDocument(tx, id);
@@ -66,6 +79,11 @@ export async function queueDocumentEmbedding(doc: { id: string; contentMarkdown:
   return embeddingQueue.add('embed-document', { documentId: doc.id, content: doc.contentMarkdown ?? '' }, { jobId: `embed-doc-${doc.id}-${randomUUID()}`, delay: 2000 });
 }
 
+/**
+ * Replace derived search chunks only if their source body still matches.
+ * An embedding request may finish after a newer edit, so this check happens
+ * again under the document lock immediately before writing the index.
+ */
 export async function commitDocumentIndex(documentId: string, content: string, embedded: { text: string; vector: string }[]) {
   return prisma.$transaction(async tx => {
     const doc = await lockDocument(tx, documentId);

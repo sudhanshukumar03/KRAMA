@@ -71,6 +71,10 @@ export function errorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Normalize fields used by the project UI while retaining unrelated metadata.
+ * Older or malformed tags must not be treated as an array of strings.
+ */
 export function projectMetadata(value: unknown): { targetDate?: string; tags: string[]; [key: string]: unknown } {
   const raw = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
   return { ...raw, targetDate: typeof raw.targetDate === 'string' ? raw.targetDate : undefined,

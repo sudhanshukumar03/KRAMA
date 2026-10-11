@@ -11,6 +11,11 @@ export function shiftDay(key: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+/**
+ * Convert real timestamps into the user's reporting day and local midnight.
+ * Legacy numeric offsets use Date.getTimezoneOffset() minutes; an explicit IANA
+ * timezone takes precedence and can account for daylight-saving transitions.
+ */
 export function reportingClock(user: { metadata?: any; countryCode?: string | null } | null, requestedZone?: string, requestedOffset?: string) {
   const offset = requestedOffset === undefined ? null : Number(requestedOffset);
   if (offset !== null && (!Number.isInteger(offset) || Math.abs(offset) > 840)) throw new Error('Invalid timezone offset');
@@ -25,6 +30,10 @@ export function reportingClock(user: { metadata?: any; countryCode?: string | nu
     const parts = Object.fromEntries(formatter.formatToParts(date).map(p => [p.type, p.value]));
     return `${parts.year}-${parts.month}-${parts.day}`;
   };
+  /**
+   * Resolve wall-clock midnight back to an instant using the timezone formatter.
+   * Compute the next day's boundary separately: a local day may be 23 or 25 hours.
+   */
   const dayStart = (key: string) => {
     if (!validDayKey(key)) throw new Error('Invalid date');
     const wallTime = Date.parse(`${key}T00:00:00.000Z`);

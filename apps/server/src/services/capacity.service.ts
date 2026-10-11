@@ -30,6 +30,10 @@ function durationMinutes(start: Date, end: Date) {
   return Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
 }
 
+/**
+ * All totals are minutes. Occupied time is the union of the block intervals,
+ * so overlapping records cannot consume the same capacity twice.
+ */
 export function calculateCapacity(weeklyCapacityMinutes: number, blocks: TimeBlockInput[]) {
   const merged = mergeIntervals(
     blocks.map((block) => ({ start: block.startTime, end: block.endTime }))

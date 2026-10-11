@@ -19,13 +19,12 @@ const Projects = lazy(() => import('./Projects').then(m => ({ default: m.Project
 const ProjectDetail = lazy(() => import('./ProjectDetail').then(m => ({ default: m.ProjectDetail })));
 const PlannerPage = lazy(() => import('./planner/PlannerPage').then(m => ({ default: m.PlannerPage })));
 const HabitTracker = lazy(() => import('./HabitTracker').then(m => ({ default: m.HabitTracker })));
-const AnalyticsPage = lazy(() => import('./AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
 const AIAssistant = lazy(() => import('./AIAssistant').then(m => ({ default: m.AIAssistant })));
 
 export function AppShell() {
  const navigate = useNavigate();
  const location = useLocation();
- const isFlushRoute = location.pathname === '/app' || location.pathname === '/app/' || location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/planner') || location.pathname.startsWith('/app/timeline') || location.pathname.startsWith('/app/goals') || location.pathname.startsWith('/app/habits') || location.pathname.startsWith('/app/projects') || location.pathname.startsWith('/app/brain') || location.pathname.startsWith('/app/analytics');
+ const isFlushRoute = location.pathname === '/app' || location.pathname === '/app/' || location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/planner') || location.pathname.startsWith('/app/timeline') || location.pathname.startsWith('/app/goals') || location.pathname.startsWith('/app/habits') || location.pathname.startsWith('/app/projects') || location.pathname.startsWith('/app/brain');
  const { toggleTheme, resolvedTheme } = useTheme();
  const [activePrefix, setActivePrefix] = useState<'g' | 'e' | 't' | 's' | null>(null);
  const [showCheatsheet, setShowCheatsheet] = useState(false);
@@ -277,7 +276,6 @@ export function AppShell() {
     <Route path="/planner/*" element={<PlannerPage />} />
     <Route path="/timeline/*" element={<Navigate to="/app/planner?mode=day" replace />} />
     <Route path="/habits/*" element={<HabitTracker />} />
-    <Route path="/analytics/*" element={<AnalyticsPage />} />
     <Route path="/decisions" element={<Navigate to="/app/brain" replace />} />
     <Route path="/graph" element={<Navigate to="/app/brain" replace />} />
     <Route path="*" element={<Navigate to="/app" replace />} />

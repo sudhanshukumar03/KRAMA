@@ -29,7 +29,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
@@ -62,6 +61,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       else api.auth.refresh({ reuseExisting: reason === 'rotated' }).catch(() => window.dispatchEvent(new Event('krama:logout')));
     });
 
+    // Socket events announce committed changes. Refetch the affected query families
+    // so Board, Planner, Focus, reporting and Goals read their own current records.
     const invalidateTasksAndGoals = () => {
       queryClient.invalidateQueries({ queryKey: ['task'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
@@ -69,7 +70,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
     };
 
@@ -84,7 +84,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     };
@@ -101,7 +100,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       queryClient.invalidateQueries({ queryKey: ['goals'] });
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
     };
 
     socketInstance.on('habit:created', invalidateHabitsAndGoals);
@@ -119,7 +117,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       if (data?.goalId) {
         queryClient.invalidateQueries({ queryKey: ['goal', data.goalId] });
       }
@@ -133,7 +130,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketInstance.on('focus:session:completed', () => {
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
     });
 
     setSocket(socketInstance);

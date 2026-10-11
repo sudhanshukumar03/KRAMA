@@ -4,6 +4,10 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import { domainEventBus } from './events/eventBus';
 
+/**
+ * Reuse the pool and client during development reloads to avoid opening a new
+ * set of database connections whenever a module is loaded again.
+ */
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
   pool: pg.Pool | undefined;
@@ -36,6 +40,10 @@ export type PostCommitPublisher = (type: string, payload: any) => void;
 
 export type TxClient = Omit<Prisma.TransactionClient, '$transaction'>;
 
+/**
+ * Collect domain events while writing, then publish them only after commit.
+ * If the transaction rolls back, subscribers never see its tentative changes.
+ */
 export const runInTransaction = async <T>(
   fn: (tx: TxClient, publishAfterCommit: PostCommitPublisher) => Promise<T>
 ): Promise<T> => {

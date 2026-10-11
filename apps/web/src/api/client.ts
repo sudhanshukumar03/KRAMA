@@ -4,7 +4,7 @@ import type {
   AuthUser, AuthResponse, PreferencesInput, TaskComment, Notification, TaskCreateInput, FocusCompletionInput,
   DocumentWithRelations, DocumentDetail, DocumentVersion, DocumentVersionSummary, DocumentMetadataInput,
   DocumentCreateInput, DocumentContentResult, DocumentSearchResult, DocumentGraph, Tag, EntityLink,
-  FocusSession, WallpaperResponse, AnalyticsDay, FocusHistory, DashboardData, AiConfiguration, AiResponse, WorkspaceExport
+  FocusSession, WallpaperResponse, DashboardData, AiConfiguration, AiResponse, WorkspaceExport
 } from '../types/schema';
 import type { FocusScheduleData } from '../components/focus/types';
 import { toast } from 'sonner';
@@ -22,6 +22,10 @@ let sessionGeneration = 0;
 // persisting access tokens in browser storage. Account changes stay local.
 const sessionChannel = typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined'
   ? new BroadcastChannel('krama.session.v1') : null;
+/**
+ * Decode identity hints for coordination between browser tabs only.
+ * The server still verifies JWT signatures and session ownership on requests.
+ */
 function tokenIdentity(token: string | null): { sub: string; exp: number } | null {
   try {
     if (!token) return null;
@@ -79,6 +83,10 @@ function setAccessToken(token: string | null) {
 // The single in-flight refresh promise to prevent race conditions during concurrent 401s
 let refreshPromise: Promise<string | null> | null = null;
 
+/**
+ * Ignore a late refresh result after an explicit login/logout changed accounts.
+ * The generation counter prevents old asynchronous work from restoring a session.
+ */
 async function doRefresh(): Promise<string | null> {
   const generation = sessionGeneration;
   const previousToken = currentAccessToken;
@@ -215,6 +223,10 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
   return executeRequest();
 }
 
+/**
+ * Read newline-delimited SSE events from document AI endpoints.
+ * Keep an unfinished line between reads because network chunks may split an event.
+ */
 async function streamDocumentAi(
   url: string,
   body: Record<string, unknown>,
@@ -487,10 +499,6 @@ export const api = {
     complete: (data: FocusCompletionInput) => fetchApi<{ session: FocusSession }>('/focus-sessions', { method: 'POST', body: JSON.stringify(data) }),
     getSchedule: () => fetchApi<FocusScheduleData>('/focus-sessions/schedule'),
     getWallpaper: (category: string) => fetchApi<WallpaperResponse>(`/focus-sessions/wallpaper?category=${encodeURIComponent(category)}`),
-  },
-  analytics: {
-    overview: (range: string) => fetchApi<AnalyticsDay[]>(`/analytics/overview?range=${range}`, { method: 'GET' }),
-    focusHistory: (range: string, cursor?: string) => fetchApi<FocusHistory>(`/analytics/focus-history?range=${range}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { method: 'GET' })
   },
   planner: {
     getWeek: (start: string, end: string, workspaceId?: string | null) => {

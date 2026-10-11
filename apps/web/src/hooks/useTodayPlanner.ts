@@ -5,10 +5,17 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
-import { blockMinutesOfDay, formatBlockTime, parseLocalDate } from "../lib/utils";
+import type { PlannerData, PlannerTask, TimeBlock, TimeBlockDraft } from "../types/planner";
+import type { TaskCreateInput, TaskUpdateInput } from "../types/schema";
+import { blockMinutesOfDay, formatBlockTime, parseLocalDate, errorMessage } from "../lib/utils";
 
 
-export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data: any; onAddTimeBlock?: (day: Date, initialData?: any) => void }) {
+/**
+ * Combine the selected day's Planner data with workspace tasks and backlog.
+ * Task mutations invalidate connected views because the same records also feed
+ * Focus schedules, project progress, goals and reporting.
+ */
+export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data: PlannerData; onAddTimeBlock?: (day: Date, initialData?: TimeBlockDraft) => void }) {
   const queryClient = useQueryClient();
   const { workspaceId } = useAuth();
   const navigate = useNavigate();
@@ -44,7 +51,7 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
 
   // Task Mutations
   const updateTaskMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => api.tasks.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: TaskUpdateInput }) => api.tasks.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -52,18 +59,17 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['goal'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
       queryClient.invalidateQueries({ queryKey: ['project'] });
     },
-    onError: (err: any) => {
-      toast.error('Failed to update task: ' + (err?.message || 'Unknown error'));
+    onError: (err) => {
+      toast.error('Failed to update task: ' + errorMessage(err, 'Unknown error'));
     }
   });
 
   const createTaskMutation = useMutation({
-    mutationFn: (taskData: any) => api.tasks.create(taskData),
+    mutationFn: (taskData: TaskCreateInput) => api.tasks.create(taskData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -71,15 +77,14 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['goal'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
       queryClient.invalidateQueries({ queryKey: ['project'] });
       toast.success(`Task added for ${isViewingToday ? 'today' : format(day, 'MMM d')}`);
       setInlineTaskTitle('');
     },
-    onError: (err: any) => {
-      toast.error('Failed to create task: ' + (err?.message || 'Unknown error'));
+    onError: (err) => {
+      toast.error('Failed to create task: ' + errorMessage(err, 'Unknown error'));
     }
   });
 
@@ -92,19 +97,18 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['goal'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
       queryClient.invalidateQueries({ queryKey: ['project'] });
       toast.success('Task deleted');
     },
-    onError: (err: any) => {
-      toast.error('Failed to delete task: ' + (err?.message || 'Unknown error'));
+    onError: (err) => {
+      toast.error('Failed to delete task: ' + errorMessage(err, 'Unknown error'));
     }
   });
 
   const taskList = useMemo(() => {
-    return allIssues.length > 0 ? allIssues : (data?.tasks || []);
+    return allIssues.length > 0 ? allIssues.map(task => ({ ...task, completed: task.status === "DONE" })) : data.tasks;
   }, [allIssues, data?.tasks]);
 
   const rawBlocks = useMemo(() => {
@@ -117,8 +121,8 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
       // Drop synthesized holiday pseudo-blocks (isExternal): they have ids like
       // "holiday-<name>" with no real row, so their Edit/Delete controls 404.
       // PlannerMatrix applies the same filter.
-      .filter((b: any) => !b.isExternal)
-      .filter((b: any) => {
+      .filter((b) => !b.isExternal)
+      .filter((b) => {
         try {
           if (b.date) return isSameDay((parseLocalDate(b.date) ?? new Date(NaN)), day);
           if (b.startTime) return isSameDay((parseLocalDate(b.startTime) ?? new Date(NaN)), day);
@@ -127,7 +131,7 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
           return false;
         }
       })
-      .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }, [rawBlocks, day]);
 
   // Tasks categorized for Today View:
@@ -135,11 +139,11 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
   // 2. Carried-over (past overdue)
   // 3. Unscheduled Backlog (available to schedule)
   const { todayTasks, carriedOverTasks, backlogTasks } = useMemo(() => {
-    const todayList: any[] = [];
-    const carriedList: any[] = [];
-    const backlogList: any[] = [];
+    const todayList: PlannerTask[] = [];
+    const carriedList: PlannerTask[] = [];
+    const backlogList: PlannerTask[] = [];
 
-    taskList.forEach((t: any) => {
+    taskList.forEach((t) => {
       const isCompleted = t.status === 'DONE' || t.status === 'CANCELED';
       const tDateStr = t.scheduledDate || t.dueDate;
 
@@ -174,15 +178,15 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
   const filteredBacklogTasks = useMemo(() => {
     if (!backlogSearch.trim()) return backlogTasks;
     const q = backlogSearch.toLowerCase();
-    return backlogTasks.filter((t: any) => 
-      t.title.toLowerCase().includes(q) || 
+    return backlogTasks.filter((t) =>
+      t.title.toLowerCase().includes(q) ||
       (t.project?.name && t.project.name.toLowerCase().includes(q))
     );
   }, [backlogTasks, backlogSearch]);
 
   // Total Focus Minutes
   const totalFocusMinutes = useMemo(() => {
-    return timeBlocks.reduce((acc: number, tb: any) => {
+    return timeBlocks.reduce((acc, tb) => {
       const start = new Date(tb.startTime).getTime();
       const end = new Date(tb.endTime).getTime();
       const diffMins = Math.max(0, Math.round((end - start) / 60000));
@@ -192,8 +196,8 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
 
   const focusHours = Math.floor(totalFocusMinutes / 60);
   const focusMinutesRemainder = totalFocusMinutes % 60;
-  const focusTimeString = focusHours > 0 
-    ? `${focusHours}h ${focusMinutesRemainder > 0 ? `${focusMinutesRemainder}m` : ''}` 
+  const focusTimeString = focusHours > 0
+    ? `${focusHours}h ${focusMinutesRemainder > 0 ? `${focusMinutesRemainder}m` : ''}`
     : `${focusMinutesRemainder}m`;
 
   const timeString = currentTime.toLocaleTimeString('en-US', {
@@ -222,7 +226,7 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
     return rem > 0 ? `${h}h ${rem}m` : `${h}h`;
   };
 
-  const getNextAvailableSlot = (blocks: any[], forDay: Date) => {
+  const getNextAvailableSlot = (blocks: TimeBlock[], forDay: Date) => {
     const intervals: { start: number; end: number }[] = [];
     for (const b of blocks) {
       const sMin = blockMinutesOfDay(b.startTime);
@@ -269,19 +273,19 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
   };
 
   // Actions
-  const handleScheduleForToday = (task: any) => {
+  const handleScheduleForToday = (task: PlannerTask) => {
     updateTaskMutation.mutate({
       id: task.id,
-      data: { scheduledDate: targetDateIso }
+      data: { scheduledDate: targetDateIso, version: task.version }
     }, {
       onSuccess: () => toast.success(`Scheduled "${task.title}" for ${isViewingToday ? 'today' : format(day, 'MMM d')}`)
     });
   };
 
-  const handleUnschedule = (task: any) => {
+  const handleUnschedule = (task: PlannerTask) => {
     updateTaskMutation.mutate({
       id: task.id,
-      data: { scheduledDate: null }
+      data: { scheduledDate: null, version: task.version }
     }, {
       onSuccess: () => toast.success(`Moved "${task.title}" to backlog`)
     });
@@ -290,10 +294,10 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
   const handleRescheduleAllOverdue = async () => {
     const whenLabel = isViewingToday ? 'today' : format(day, 'MMM d');
     const results = await Promise.allSettled(
-      carriedOverTasks.map((t: any) =>
+      carriedOverTasks.map((t) =>
         updateTaskMutation.mutateAsync({
           id: t.id,
-          data: { scheduledDate: targetDateIso }
+          data: { scheduledDate: targetDateIso, version: t.version }
         })
       )
     );
@@ -317,7 +321,7 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
     });
   };
 
-  const handleTimeBlockFromTask = (task: any) => {
+  const handleTimeBlockFromTask = (task: PlannerTask) => {
     if (onAddTimeBlock) {
       const slot = getNextAvailableSlot(timeBlocks, day);
       onAddTimeBlock(day, {
@@ -336,7 +340,7 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
   // back to the week payload passed in via `data`.
   const dayMilestones = useMemo(() => {
     const source = dayPlannerData?.milestones ?? data?.milestones ?? [];
-    return source.filter((m: any) => {
+    return source.filter((m) => {
       try {
         return m.date && isSameDay((parseLocalDate(m.date) ?? new Date(NaN)), day);
       } catch {
@@ -349,7 +353,7 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
   // (goals are edited from the Goals page, not the planner).
   const dayGoalDeadlines = useMemo(() => {
     const source = dayPlannerData?.goalDeadlines ?? data?.goalDeadlines ?? [];
-    return source.filter((g: any) => {
+    return source.filter((g) => {
       try {
         return g.targetDate && isSameDay((parseLocalDate(g.targetDate) ?? new Date(NaN)), day);
       } catch {

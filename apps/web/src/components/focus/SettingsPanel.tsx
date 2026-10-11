@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Sliders, RotateCcw, Palette, Check } from 'lucide-react';
 import type { TimerSettings } from './types';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 interface SettingsPanelProps {
   settings: TimerSettings;
@@ -37,6 +38,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onSaveSettings,
   onClose,
 }) => {
+  const dialogRef = useModalA11y(true, onClose);
   const [localSettings, setLocalSettings] = useState<TimerSettings>({ 
     ...DEFAULT_SETTINGS,
     ...settings 
@@ -55,12 +57,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-lg krama-dialog rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-primary">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="timer-config-title" className="w-full max-w-lg krama-dialog rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-primary">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-border/80 shrink-0">
           <div className="flex items-center gap-2.5">
             <Sliders className="w-5 h-5 text-accent-fg" />
-            <h2 className="text-base font-semibold">Timer Configuration</h2>
+            <h2 id="timer-config-title" className="text-base font-semibold">Timer Configuration</h2>
           </div>
           <button
             onClick={onClose}
@@ -126,6 +128,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 >
                   <input
                     type="color"
+                    aria-label="Custom timer color"
                     value={localSettings.digitsColor || '#ffffff'}
                     onChange={(e) => updateField('digitsColor', e.target.value)}
                     className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
@@ -133,6 +136,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 </label>
                 <input
                   type="text"
+                  aria-label="Timer color hex code"
                   value={localSettings.digitsColor || '#ffffff'}
                   onChange={(e) => updateField('digitsColor', e.target.value)}
                   placeholder="#ffffff"
@@ -147,16 +151,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block text-primary">Focus Duration</label>
+                <label htmlFor="timer-focus-duration" className="text-xs font-semibold block text-primary">Focus Duration</label>
                 <span className="text-[11px] text-muted">Length of each work session</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <input
+                  id="timer-focus-duration"
                   type="number"
                   min={1}
                   max={120}
                   value={localSettings.focusDuration}
-                  onChange={(e) => updateField('focusDuration', Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => updateField('focusDuration', Math.min(120, Math.max(1, parseInt(e.target.value) || 1)))}
                   className="w-16 bg-surface-2 border border-border rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold text-primary focus:outline-none focus:border-accent"
                 />
                 <span className="text-xs text-muted font-mono w-8 text-left">min</span>
@@ -165,16 +170,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block text-primary">Short Break</label>
+                <label htmlFor="timer-short-break" className="text-xs font-semibold block text-primary">Short Break</label>
                 <span className="text-[11px] text-muted">Rest between sessions</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <input
+                  id="timer-short-break"
                   type="number"
                   min={1}
                   max={30}
                   value={localSettings.shortBreak}
-                  onChange={(e) => updateField('shortBreak', Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => updateField('shortBreak', Math.min(30, Math.max(1, parseInt(e.target.value) || 1)))}
                   className="w-16 bg-surface-2 border border-border rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold text-primary focus:outline-none focus:border-accent"
                 />
                 <span className="text-xs text-muted font-mono w-8 text-left">min</span>
@@ -183,16 +189,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block text-primary">Long Break</label>
+                <label htmlFor="timer-long-break" className="text-xs font-semibold block text-primary">Long Break</label>
                 <span className="text-[11px] text-muted">Extended rest interval</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <input
+                  id="timer-long-break"
                   type="number"
                   min={5}
                   max={60}
                   value={localSettings.longBreak}
-                  onChange={(e) => updateField('longBreak', Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => updateField('longBreak', Math.min(60, Math.max(5, parseInt(e.target.value) || 5)))}
                   className="w-16 bg-surface-2 border border-border rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold text-primary focus:outline-none focus:border-accent"
                 />
                 <span className="text-xs text-muted font-mono w-8 text-left">min</span>
@@ -201,16 +208,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block text-primary">Custom Timer Sprint</label>
+                <label htmlFor="timer-custom-duration" className="text-xs font-semibold block text-primary">Custom Timer Sprint</label>
                 <span className="text-[11px] text-muted">Personal user-decided focus duration</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <input
+                  id="timer-custom-duration"
                   type="number"
                   min={1}
                   max={360}
                   value={localSettings.customDuration || 45}
-                  onChange={(e) => updateField('customDuration', Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => updateField('customDuration', Math.min(360, Math.max(1, parseInt(e.target.value) || 1)))}
                   className="w-16 bg-surface-2 border border-border rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold text-primary focus:outline-none focus:border-accent"
                 />
                 <span className="text-xs text-muted font-mono w-8 text-left">min</span>
@@ -219,16 +227,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block text-primary">Long Break After</label>
+                <label htmlFor="timer-long-break-after" className="text-xs font-semibold block text-primary">Long Break After</label>
                 <span className="text-[11px] text-muted">Number of pomodoro cycles</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <input
+                  id="timer-long-break-after"
                   type="number"
                   min={2}
                   max={12}
                   value={localSettings.longBreakAfter}
-                  onChange={(e) => updateField('longBreakAfter', Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => updateField('longBreakAfter', Math.min(12, Math.max(2, parseInt(e.target.value) || 2)))}
                   className="w-16 bg-surface-2 border border-border rounded-xl px-2.5 py-1.5 text-center font-mono text-xs font-semibold text-primary focus:outline-none focus:border-accent"
                 />
                 <span className="text-xs text-muted font-mono w-8 text-left">slots</span>
@@ -240,10 +249,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             {/* Auto Start Breakers */}
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block text-primary">Auto-start Breaks</label>
+                <label htmlFor="timer-auto-breaks" className="text-xs font-semibold block text-primary">Auto-start Breaks</label>
                 <span className="text-[11px] text-muted">Begin break immediately after focus</span>
               </div>
               <input
+                id="timer-auto-breaks"
                 type="checkbox"
                 checked={localSettings.autoStartBreaks}
                 onChange={(e) => updateField('autoStartBreaks', e.target.checked)}
@@ -254,10 +264,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             {/* Auto Start Pomodoros */}
             <div className="flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-semibold block text-primary">Auto-start Pomodoros</label>
+                <label htmlFor="timer-auto-pomodoros" className="text-xs font-semibold block text-primary">Auto-start Pomodoros</label>
                 <span className="text-[11px] text-muted">Begin focus immediately after break</span>
               </div>
               <input
+                id="timer-auto-pomodoros"
                 type="checkbox"
                 checked={localSettings.autoStartPomodoros}
                 onChange={(e) => updateField('autoStartPomodoros', e.target.checked)}
@@ -277,7 +288,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <span>Reset to defaults</span>
           </button>
           <button
-            onClick={onClose}
+            onClick={() => {
+              // Retrying an unchanged value must still sync it after a failed request.
+              onSaveSettings(localSettings);
+              onClose();
+            }}
             className="px-4 py-1.5 bg-accent text-white font-semibold text-xs rounded-xl hover:bg-accent-hover transition-colors cursor-pointer shadow-sm"
           >
             Save & Close

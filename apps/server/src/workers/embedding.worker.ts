@@ -29,10 +29,9 @@ export const embeddingWorker = new Worker(
 
     console.log(`[Worker:Embedding] Chunking and embedding document ${documentId}...`);
 
-    // Skip (and purge) if the document was soft-deleted after this job was
-    // queued. Embed jobs run on a 2s delay, so a delete racing an autosave could
-    // otherwise resurrect chunks for a deleted document and let them surface in
-    // RAG answers.
+    // Skip stale or deleted source content before spending a provider request.
+    // commitDocumentIndex checks it again after embedding, under the row lock,
+    // because the document can change while the network request is running.
     if (doc.deletedAt || doc.space.deletedAt || doc.space.workspace.deletedAt || (doc.contentMarkdown ?? '') !== content) {
       return { skipped: true, reason: 'Document changed or deleted' };
     }
@@ -49,9 +48,7 @@ export const embeddingWorker = new Worker(
       embedded.push({ text: chunkText as string, vector: `[${embeddingArray.join(',')}]` });
     }
 
-    // 3. Swap old chunks for new ones atomically. The previous loop deleted first
-    //    and inserted one row at a time without a transaction, so a mid-loop
-    //    failure left the document with a partial (or empty) embedding set.
+    // 3. Swap all chunks atomically so a failed insert cannot leave a partial index.
     const committed = await commitDocumentIndex(documentId, content, embedded).catch(error => {
       if (error.message === 'Document not found') return false;
       throw error;

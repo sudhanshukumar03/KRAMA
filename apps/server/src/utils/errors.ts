@@ -18,6 +18,10 @@ class AppError extends Error {
   }
 }
 
+/**
+ * Translate service failures into the HTTP statuses the client uses for input
+ * validation, permission recovery and stale-write handling.
+ */
 export function handleControllerError(res: Response, error: any, defaultMessage = 'Internal server error') {
   if (error?.message?.startsWith('Conflict:')) {
     return res.status(409).json({ success: false, code: 'CONFLICT', message: error.message });

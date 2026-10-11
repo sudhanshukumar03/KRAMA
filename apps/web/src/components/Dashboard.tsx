@@ -41,7 +41,7 @@ export function Dashboard() {
   const [taskFilter, setTaskFilter] = useState<'all' | 'open' | 'done'>('all');
   const toggleTask = useMutation({
     mutationFn: (task: Issue) => api.tasks.update(task.id, { status: task.status === 'DONE' ? 'TODO' : 'DONE', version: task.version }),
-    onSuccess: (updated) => { for (const key of ['focus-schedule', 'dashboard', 'analytics', 'issues', 'tasks', 'task', 'planner', 'projects', 'project', 'goals', 'goal']) queryClient.invalidateQueries({ queryKey: [key] }); toast.success(updated.status === 'DONE' ? 'Task completed' : 'Task reopened'); },
+    onSuccess: (updated) => { for (const key of ['focus-schedule', 'dashboard', 'issues', 'tasks', 'task', 'planner', 'projects', 'project', 'goals', 'goal']) queryClient.invalidateQueries({ queryKey: [key] }); toast.success(updated.status === 'DONE' ? 'Task completed' : 'Task reopened'); },
     onError: (err) => { toast.error(errorMessage(err, 'Could not update task')); refetch(); },
   });
   if (isLoading) return <LoadingState variant="dashboard" title="Loading your dashboard..." />;
@@ -63,7 +63,7 @@ export function Dashboard() {
   const link = (label: string, path: string) => <button type="button" onClick={() => navigate(path)} className="text-sm text-accent-fg min-h-11 inline-flex items-center gap-1 hover:underline shrink-0">{label}<ArrowRight className="w-3.5 h-3.5" aria-hidden="true" /></button>;
   return <div className="insights-page h-full overflow-y-auto min-h-0 bg-canvas"><div className="max-w-[1360px] mx-auto p-4 sm:p-6 md:p-8 space-y-6">
     <PageHeader className="insights-header" icon={Target} title={`${greeting}, ${displayName}.`} description={new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'short', day: 'numeric' }).format(parseLocalDate(data.dateKey) || new Date()) + ' · Your work, routines and progress in one place.'}>
-      <button type="button" onClick={() => refetch()} disabled={isFetching} className="krama-btn min-h-11 px-3 text-caption text-secondary flex items-center gap-2 disabled:opacity-50"><RefreshCw size={16} aria-hidden="true" />{isFetching ? 'Refreshing...' : 'Refresh dashboard'}</button>{link('Analytics', '/app/analytics')}
+      <button type="button" onClick={() => refetch()} disabled={isFetching} className="krama-btn min-h-11 px-3 text-caption text-secondary flex items-center gap-2 disabled:opacity-50"><RefreshCw size={16} aria-hidden="true" />{isFetching ? 'Refreshing...' : 'Refresh dashboard'}</button>
     </PageHeader>
     {hasWorkspaceContent && <div className="insights-workspace-summary" aria-label="Workspace summary">
       {([['Projects', data.stats.totalProjects, Briefcase, '/app/projects'], ['Tasks', data.stats.totalTasks, CheckSquare, '/app/board'], ['Habits', data.stats.totalHabits, Flame, '/app/habits'], ['Notes', data.stats.totalNotes, FileText, '/app/brain']] as const).map(([label, value, Icon, path]) => <button type="button" key={label} onClick={() => navigate(path)} className="min-w-0"><Icon className="w-4 h-4 text-secondary shrink-0" aria-hidden="true" /><span className="text-sm text-secondary">{label}</span><span className="insights-count tabular-nums text-primary">{value}</span></button>)}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Calendar as CalendarIcon, Clock, Briefcase, User, GraduationCap, HeartPulse, Shield, Grid, Trash2 } from 'lucide-react';
-import type { TimeBlockType, TimeBlockInput, TimeBlock, PlannerTask, PlannerProject } from '../../types/planner';
+import type { TimeBlockType, TimeBlockInput, TimeBlockDraft, PlannerTask, PlannerProject } from '../../types/planner';
 import { formatBlockTime, formatLocalDate } from '../../lib/utils';
 import { useModalA11y } from '../../hooks/useModalA11y';
 
@@ -12,7 +12,7 @@ interface TimeBlockModalProps {
  isSubmitting: boolean;
  tasks?: Pick<PlannerTask, 'id' | 'title'>[];
  projects?: PlannerProject[];
- editingBlock?: TimeBlock | null;
+ editingBlock?: TimeBlockDraft | null;
  onDelete?: () => void;
 }
 

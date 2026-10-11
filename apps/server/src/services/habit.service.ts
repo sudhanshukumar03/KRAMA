@@ -174,6 +174,8 @@ class HabitService {
         throw new Error('Habit not found');
       }
 
+      // Lock the habit row before checking completion history. Concurrent Log/Undo
+      // requests must recompute streaks in order, even though this lock leaves version unchanged.
       await tx.habit.update({ where: { id, workspaceId, deletedAt: null }, data: { version: { increment: 0 } } });
       const dateUser = await tx.user.findUnique({ where: { id: userId }, select: { metadata: true, countryCode: true } });
       const dateKeyStr = dateStr || (dateIso ? new Date(dateIso).toISOString().slice(0, 10) : getUserLocalDateStr(new Date(), resolveUserTimeZone(dateUser)));
@@ -261,6 +263,8 @@ class HabitService {
         throw new Error('Habit not found');
       }
 
+      // Lock the habit row before checking completion history. Concurrent Log/Undo
+      // requests must recompute streaks in order, even though this lock leaves version unchanged.
       await tx.habit.update({ where: { id, workspaceId, deletedAt: null }, data: { version: { increment: 0 } } });
       const dateUser = await tx.user.findUnique({ where: { id: userId }, select: { metadata: true, countryCode: true } });
       const dateKeyStr = dateStr || (dateIso ? new Date(dateIso).toISOString().slice(0, 10) : getUserLocalDateStr(new Date(), resolveUserTimeZone(dateUser)));

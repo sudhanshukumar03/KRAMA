@@ -7,8 +7,8 @@
 
 /**
  * Normalize a date to canonical UTC noon — the per-day key shared with
- * DailyLog/HabitCompletion — so a stored day never shifts across the day
- * boundary when read back in a non-UTC timezone.
+ * DailyLog/HabitCompletion. Read it through calendar-day helpers or UTC
+ * accessors; local-time conversion can still move the displayed day.
  */
 export function canonicalDay(date: Date): Date {
   const result = new Date(date);

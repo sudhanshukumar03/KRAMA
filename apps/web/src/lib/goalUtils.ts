@@ -37,7 +37,7 @@ export function computeGoalPace(goal: Omit<GoalWithRelations, 'targetDate'> & { 
   if (goal.progress >= 100) {
     return { status: 'completed', requiredPace: 0, actualPace: 0, badge: 'Completed', projectedDate: null, ...deadline };
   }
-  
+
   if (dayDifference === null) {
     return { status: 'unknown', requiredPace: 0, actualPace: 0, badge: 'No Target Date', projectedDate: null, ...deadline };
   }
@@ -78,16 +78,20 @@ export function computeGoalPace(goal: Omit<GoalWithRelations, 'targetDate'> & { 
     projectedDate = new Date(today.getTime() + daysToFinish * 86400000);
   }
 
-  return { 
-    status, 
-    requiredPace, 
-    actualPace, 
-    badge: status === 'past_due' ? (actualPace === 0 ? 'Stalled / Past Due' : 'Past Due') : status.replace('_', ' '), 
+  return {
+    status,
+    requiredPace,
+    actualPace,
+    badge: status === 'past_due' ? (actualPace === 0 ? 'Stalled / Past Due' : 'Past Due') : status.replace('_', ' '),
     projectedDate,
     ...deadline
   };
 }
 
+/**
+ * Narrow known metadata fields before using them in forms and calculations.
+ * Preserve unknown extension fields so an edit does not discard other metadata.
+ */
 export function goalMetadata(value: unknown): import('../types/schema').GoalMetadata {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const raw = value as Record<string, unknown>;

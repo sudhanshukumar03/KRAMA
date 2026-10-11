@@ -34,7 +34,7 @@ export async function cleanupIntegrationFixture(fixture?: Awaited<ReturnType<typ
   await prisma.workspace.delete({ where: { id: workspace.id } });
   await prisma.user.delete({ where: { id: user.id } });
   const queues = await import('../queues/index.js');
-  for (const queue of [queues.notificationsQueue, queues.habitStreakQueue, queues.analyticsQueue, queues.embeddingQueue, queues.documentVersionQueue]) {
+  for (const queue of [queues.notificationsQueue, queues.habitStreakQueue, queues.aiRetentionQueue, queues.embeddingQueue, queues.documentVersionQueue]) {
     const jobs = await queue.getJobs(['waiting', 'delayed', 'completed', 'failed']);
     for (const job of jobs) if (job.data.workspaceId === workspace.id || job.data.userId === user.id || documentIds.has(job.data.documentId)) await job.remove();
     await queue.close();

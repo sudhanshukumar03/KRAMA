@@ -9,7 +9,7 @@ import {
   Search, LogOut, Moon, Sun, Download, X, 
   Settings, User, Briefcase,
   PanelLeftClose, Timer, ExternalLink,
-  TrendingUp, KeyRound, Eye, EyeOff
+  KeyRound, Eye, EyeOff
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useModalA11y } from '../hooks/useModalA11y';
@@ -31,7 +31,6 @@ interface NavItem {
 // 5 Rule-of-5-7 Groups per KRAMA UI Design Direction
 const overviewItems: NavItem[] = [
   { name: 'Dashboard', path: '/app/', icon: Home, shortcut: 'G D', badgeKey: null },
-  { name: 'Analytics', path: '/app/analytics', icon: TrendingUp, shortcut: 'G A', badgeKey: null },
 ];
 
 const planAndExecuteItems: NavItem[] = [

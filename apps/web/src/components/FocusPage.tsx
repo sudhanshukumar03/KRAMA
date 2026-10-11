@@ -1,3 +1,4 @@
+import { getClockDisplay, playAudioChime } from './focus/runtime';
 import { focusStorageKey } from '../lib/focusStorage';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -36,49 +37,6 @@ const DEFAULT_WALLPAPER: WallpaperConfig = {
   value: '/wallpapers/interstellar.png',
   credit: 'Deep Space Singularity',
 };
-
-function getClockDisplay(): ClockDisplay {
-  const now = new Date();
-  let hours = now.getHours();
-  const minutes = now.getMinutes();
-  const seconds = now.getSeconds();
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12;
-  const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-  const secondsStr = seconds.toString().padStart(2, '0');
-  const dateStr = now.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  const dayStr = now.toLocaleDateString(undefined, { weekday: 'long' });
-  return { timeStr, ampm, secondsStr, dateStr, dayStr };
-}
-
-function playAudioChime() {
-  try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => { });
-    }
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.setValueAtTime(880.0, ctx.currentTime + 0.18); // A5
-
-    gain.gain.setValueAtTime(0.25, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start();
-    osc.stop(ctx.currentTime + 0.9);
-  } catch (e) {
-    console.warn('Could not play audio chime:', e);
-  }
-}
 
 export const FocusPage: React.FC = () => {
   const { user } = useAuth();
@@ -180,7 +138,15 @@ const AccountFocusPage: React.FC = () => {
   const [duration, setDuration] = useState<number>(() => settings.focusDuration * 60);
   const [isActive, setIsActive] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
+  /**
+   * Freeze the started session's identity, task and slot across Planner refreshes.
+   * elapsedMs accumulates running time only, so paused time is excluded from logs.
+   */
   const sessionRef = useRef<{ id: string; startTime: Date; elapsedMs: number; runningSince: number | null; targetSeconds: number; slot: SessionSlot | null; type: TimerMode } | null>(null);
+  /**
+   * Scope recovery to both account and workspace so an unsaved completion is
+   * retried against its original owner after reload.
+   */
   const pendingStorageKey = `krama.focus.unsaved.${user?.id}.${workspaceId}`;
   const [pendingCompletion, setPendingCompletion] = useState<CompleteSessionParams | null>(() => {
     try { const saved = JSON.parse(localStorage.getItem(pendingStorageKey) || 'null'); return saved?.completionId && saved?.startTime && saved?.duration ? saved : null; } catch { return null; }
@@ -254,7 +220,7 @@ const AccountFocusPage: React.FC = () => {
       reconnection: true,
     });
 
-    sock.on('notification', (data: any) => {
+    sock.on('notification', (data: { title: string; message: string }) => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast(data.title, { description: data.message });
     });
@@ -482,7 +448,7 @@ const AccountFocusPage: React.FC = () => {
       document.title = `(${timeStr}) ${label} - KRAMA`;
     }
     return () => {
-      document.title = 'KRAMA - Focus';
+      document.title = 'Krama';
     };
   }, [timeLeft, mode, clock]);
 
@@ -678,19 +644,19 @@ const AccountFocusPage: React.FC = () => {
       },
     }).then(() => {
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
-    }).catch(() => { });
+    }).catch(() => toast.error('Settings saved on this device. Account sync failed; try saving again.'));
   };
 
   const handleSelectWallpaper = (newWallpaper: WallpaperConfig) => {
     setWallpaper(newWallpaper);
     localStorage.setItem(focusStorageKey(user?.id, 'wallpaper'), JSON.stringify(newWallpaper));
-    api.auth.updatePreferences({ focusWallpaper: newWallpaper }).catch(() => { });
+    api.auth.updatePreferences({ focusWallpaper: newWallpaper }).catch(() => toast.error('Wallpaper saved on this device. Account sync failed; try selecting it again.'));
   };
 
   const handleSelectLayout = (newLayout: LayoutName) => {
     setLayout(newLayout);
     localStorage.setItem(focusStorageKey(user?.id, 'layout'), newLayout);
-    api.auth.updatePreferences({ focusLayout: newLayout }).catch(() => { });
+    api.auth.updatePreferences({ focusLayout: newLayout }).catch(() => toast.error('Layout saved on this device. Account sync failed; try selecting it again.'));
   };
 
   // Global Keyboard Shortcuts

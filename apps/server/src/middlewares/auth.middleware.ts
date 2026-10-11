@@ -7,6 +7,10 @@ import { prisma } from '../prisma';
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
+/**
+ * Authenticate the JWT and its backing session before attaching req.user.
+ * A valid signature alone is insufficient after logout or password changes.
+ */
 export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {

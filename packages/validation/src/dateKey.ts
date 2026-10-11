@@ -59,7 +59,8 @@ export function toDateKey(value: Date | string): DateKey {
 
 /**
  * Canonical storage instant for a calendar day: `${key}T12:00:00.000Z`.
- * Survives any timezone offset within ±12h.
+ * Read calendar dates through day-key helpers or UTC accessors. Converting the
+ * stored instant to local time can still shift its displayed calendar day.
  */
 export function dateKeyToUtcNoon(key: DateKey): Date {
   const validKey = asDateKey(key);

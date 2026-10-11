@@ -170,3 +170,18 @@ test('snapshot restore flushes edits first and does not autosave restored conten
   expect(actions).toEqual(['save', 'restore']);
   await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible();
 });
+
+
+test('Brain task references support keyboard navigation to the selected Board task', async ({ page }) => {
+  await mockApi(page);
+  const linkedTask = { id: 'linked-task', title: 'Task from architecture notes', status: 'TODO', priority: 'MEDIUM', version: 1, metadata: {}, labels: [] };
+  await page.route('**/api/v1/tasks*', route => route.fulfill({ json: new URL(route.request().url()).searchParams.get('status') === 'CANCELED' ? [] : [linkedTask] }));
+  await page.route('**/api/v1/documents/doc-1/links', route => route.fulfill({ json: {
+    incoming: [], outgoing: [{ id: 'reference-1', sourceType: 'DOCUMENT', sourceId: 'doc-1', targetType: 'TASK', targetId: linkedTask.id, linkType: 'RELATED' }],
+  } }));
+  await page.goto('/app/brain?doc=doc-1');
+  const reference = page.getByRole('button', { name: 'Open task Task from architecture notes', exact: true });
+  await reference.focus(); await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/app\/board\?task=linked-task/);
+  await expect(page.getByRole('dialog').getByLabel('Directive Title *', { exact: true })).toHaveValue(linkedTask.title);
+});

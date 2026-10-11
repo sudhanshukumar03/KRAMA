@@ -1,12 +1,12 @@
+import { DocumentReferences } from './DocumentReferences';
 import { EditorFormattingToolbar } from './EditorFormattingToolbar';
 import { useState, useRef, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { 
-  Star, FolderKanban, FolderInput, Copy, History, Sparkles, 
-  ChevronDown, FileText, FileCode, CheckSquare, ListTree, Check, Plus, 
-  Link2,
-  X, ArrowUpRight, MoreHorizontal, Trash2
+import {
+  Star, FolderKanban, FolderInput, Copy, History, Sparkles,
+  FileText, FileCode, CheckSquare, ListTree, Check, Plus,
+  X, MoreHorizontal, Trash2
 } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { Content } from '@tiptap/react';
@@ -23,7 +23,6 @@ import { DocumentOutlinePanel } from '../editor/DocumentOutlinePanel';
 import type { DocumentType, DocumentWithRelations, ProjectWithRelations, IssueWithRelations } from '../../types/schema';
 import { CustomLink } from '../../extensions/CustomLink';
 import { cn, errorMessage } from '../../lib/utils';
-import { BaseButton } from '../ui/BaseButton';
 import { toast } from 'sonner';
 import { IconPicker } from '../ui/IconPicker';
 import { Breadcrumbs } from './Breadcrumbs';
@@ -43,6 +42,10 @@ export interface EditorProps {
   onMoveDoc?: (doc: DocumentWithRelations) => void;
 }
 
+/**
+ * Coordinate document loading, editing and recovery through DocumentSaveQueue.
+ * Body and metadata edits share its revision token instead of independent saves.
+ */
 export function Editor(props: EditorProps) {
   const documentQuery = useQuery({
     queryKey: ['document', props.page.id],
@@ -82,7 +85,6 @@ function LoadedEditor({
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-  const [isReferencesOpen, setIsReferencesOpen] = useState(true);
   const [taskModalData, setTaskModalData] = useState<{ isOpen: boolean; initialTitle: string }>({
     isOpen: false,
     initialTitle: '',
@@ -757,157 +759,7 @@ function LoadedEditor({
         </div>
 
 
-        {/* 9. BIDIRECTIONAL ENTITY LINKS & BACKLINKS SECTION */}
-        {(() => {
-          const totalReferences = (linksData?.incoming?.length || 0) + (linksData?.outgoing?.length || 0);
-          return (
-            <div className="pt-6 border-t border-border font-mono text-caption mb-12">
-              <div className="flex items-center justify-between mb-3">
-                <button
-                  onClick={() => setIsReferencesOpen(!isReferencesOpen)}
-                  className="flex items-center gap-2 font-bold uppercase tracking-wider text-secondary hover:text-primary transition-colors cursor-pointer"
-                >
-                  <Link2 className="w-4 h-4 text-accent-fg stroke-[1.75]" />
-                  <span>References & Backlinks</span>
-                  <span className="text-badge px-1.5 py-0.5 rounded-full bg-surface-hover border border-border text-muted font-mono font-bold">
-                    {totalReferences}
-                  </span>
-                  <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200 text-muted", !isReferencesOpen && "-rotate-90")} />
-                </button>
-                <BaseButton onClick={() => setIsLinkModalOpen(true)} className="text-caption py-1 px-2.5">
-                  + Link Item
-                </BaseButton>
-              </div>
-
-              {page.linkedProject && (
-                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-accent-subtle border border-accent/20 mb-3 text-[12px] font-sans">
-                  <div className="flex items-center gap-2">
-                    <FolderKanban className="w-3.5 h-3.5 text-accent-fg shrink-0" />
-                    <span className="text-secondary text-caption font-mono">LINKED PROJECT:</span>
-                    <span className="font-semibold text-primary">{page.linkedProject.name}</span>
-                  </div>
-                  <button
-                    onClick={() => navigate(`/app/projects/${page.linkedProject?.id}`)}
-                    className="text-accent-fg hover:text-accent font-bold flex items-center gap-1 text-caption cursor-pointer"
-                  >
-                    View Project <ArrowUpRight className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-
-              {isReferencesOpen && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-150">
-                  {/* Incoming Backlinks */}
-                  <div className="p-4 rounded-xl border border-border bg-surface">
-                    <span className="text-caption font-bold text-secondary uppercase tracking-wider block mb-2">
-                      Incoming Backlinks ({linksData?.incoming?.length || 0})
-                    </span>
-                    {(!linksData?.incoming || linksData.incoming.length === 0) ? (
-                      <span className="text-muted text-[12px] italic">No documents currently reference this page.</span>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {linksData.incoming.map((link) => {
-                          const sourceDoc = pages.find(p => p.id === link.sourceId);
-                          return (
-                            <div
-                              key={link.id}
-                              onClick={() => sourceDoc && onSelectDoc(sourceDoc.id)}
-                              className="flex items-center justify-between p-2 rounded-lg bg-surface-hover/50 hover:bg-accent-subtle cursor-pointer transition-colors"
-                            >
-                              <span className="font-sans font-medium text-primary text-[13px] truncate">
-                                {sourceDoc?.title || `Doc #${link.sourceId.slice(0, 8)}`}
-                              </span>
-                              <span className="text-badge font-mono text-accent-fg uppercase bg-accent-subtle px-1.5 py-0.5 rounded font-bold">
-                                {link.linkType}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Outgoing References */}
-                  <div className="p-4 rounded-xl border border-border bg-surface">
-                    <span className="text-caption font-bold text-secondary uppercase tracking-wider block mb-2">
-                      Outgoing References ({linksData?.outgoing?.length || 0})
-                    </span>
-                    {(!linksData?.outgoing || linksData.outgoing.length === 0) ? (
-                      <span className="text-muted text-[12px] italic">No outgoing entity links added yet.</span>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {linksData.outgoing.map((link) => {
-                          let label = `${link.targetType} #${link.targetId.slice(0, 8)}`;
-                          let statusBadge = '';
-                          if (link.targetType === 'DOCUMENT') {
-                            label = pages.find(p => p.id === link.targetId)?.title || label;
-                          } else if (link.targetType === 'PROJECT') {
-                            label = projects.find(p => p.id === link.targetId)?.name || label;
-                          } else if (link.targetType === 'TASK') {
-                            const task = tasks.find((t) => t.id === link.targetId);
-                            label = task ? task.title : label;
-                            statusBadge = task?.status || '';
-                          }
-
-                          const handleLinkClick = () => {
-                            if (link.targetType === 'DOCUMENT') {
-                              onSelectDoc(link.targetId);
-                            } else if (link.targetType === 'PROJECT') {
-                              navigate(`/app/projects/${link.targetId}`);
-                            } else if (link.targetType === 'TASK') {
-                              navigate('/app/board');
-                            }
-                          };
-
-                          return (
-                            <div
-                              key={link.id}
-                              onClick={handleLinkClick}
-                              className="flex items-center justify-between p-2 rounded-lg bg-surface-hover/50 hover:bg-accent-subtle cursor-pointer transition-colors group"
-                            >
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                {link.targetType === 'DOCUMENT' && <FileText className="w-3.5 h-3.5 text-cat-tasks shrink-0" />}
-                                {link.targetType === 'PROJECT' && <FolderKanban className="w-3.5 h-3.5 text-cat-projects shrink-0" />}
-                                {link.targetType === 'TASK' && <CheckSquare className="w-3.5 h-3.5 text-warning-fg shrink-0" />}
-                                <span className="font-sans font-medium text-primary text-[13px] truncate group-hover:text-accent-fg">
-                                  {label}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                                {statusBadge && (
-                                  <span className="text-badge font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-surface border border-border text-secondary">
-                                    {statusBadge}
-                                  </span>
-                                )}
-                                <span className={cn("text-badge font-mono uppercase px-1.5 py-0.5 rounded font-bold",
-                                  link.targetType === 'DOCUMENT' && "text-accent-fg bg-accent-subtle",
-                                  link.targetType === 'PROJECT' && "text-cat-timeblocks bg-cat-timeblocks-bg",
-                                  link.targetType === 'TASK' && "text-warning-fg bg-warning-bg"
-                                )}>
-                                  {link.targetType}
-                                </span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteLink(link.id);
-                                  }}
-                                  className="p-1 text-muted hover:text-danger-fg transition-colors"
-                                  title="Remove reference"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        <DocumentReferences page={page} pages={pages} projects={projects} tasks={tasks} links={linksData} onSelectDoc={onSelectDoc} onAddLink={() => setIsLinkModalOpen(true)} onDeleteLink={handleDeleteLink} />
       </div>
 
       {/* Slide-over AI Assist Panel */}

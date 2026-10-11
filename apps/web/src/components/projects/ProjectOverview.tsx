@@ -38,6 +38,10 @@ interface Props {
   urgentIssues: Issue[];
 }
 
+/**
+ * Render the project summary from values supplied by ProjectDetail.
+ * Editing actions are callbacks to the parent's mutations and dialog state.
+ */
 export function ProjectOverview({ isPastDue, hasUrgentBlockers, project, projectDocs, projectIssues, completedIssues, progressPct, projectGoal, riskStatus, riskBadgeClass, riskMessage, handleRunDiagnostic, isAnalyzing, setActiveTab, setEditModalOpen, setCreateDirectiveModalOpen, statusMenuRef, statusDropdownOpen, setStatusDropdownOpen, handleQuickStatusChange, daysSinceUpdate, projectTags, tagInputOpen, handleAddTag, newTagText, setNewTagText, setTagInputOpen, handleRemoveTag, urgentIssues }: Props) {
   const navigate = useNavigate();
   return (

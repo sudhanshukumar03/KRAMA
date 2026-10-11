@@ -57,6 +57,10 @@ interface Props {
 
 
 
+/**
+ * Arrange the week and translate drag/drop interactions into parent callbacks.
+ * The parent owns persistence; PlannerCells supplies the task/block drag payloads.
+ */
 export function PlannerMatrix({
   data,
   days,

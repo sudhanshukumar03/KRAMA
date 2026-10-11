@@ -33,7 +33,6 @@ export function useHabitCompletion(habit: any) {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['snapshots'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });

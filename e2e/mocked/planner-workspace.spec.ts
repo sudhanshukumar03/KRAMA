@@ -98,3 +98,22 @@ test('missing regional dates are disclosed in the calendar and capacity views', 
   await page.getByRole('button', { name: 'MONTH', exact: true }).click();
   await expect(page.getByText('State holiday dates are unavailable for this period. Showing national dates only.')).toBeVisible();
 });
+
+
+test('day-view task completion preserves its version and linked time-block draft', async ({ page }) => {
+  await mock(page);
+  const versioned = { ...task, version: 7, projectId: 'p1', completed: false };
+  await page.route('**/api/v1/tasks', route => route.fulfill({ json: [versioned] }));
+  let patch: Record<string, unknown> | undefined;
+  await page.route('**/api/v1/tasks/t1', route => {
+    patch = route.request().postDataJSON();
+    return route.fulfill({ json: { ...versioned, ...patch, version: 8 } });
+  });
+  await page.goto('/app/planner?mode=day&date=' + day);
+  await page.getByRole('button', { name: 'Mark task complete', exact: true }).click();
+  await expect.poll(() => patch).toMatchObject({ status: 'DONE', version: 7 });
+  await page.getByRole('button', { name: 'Time Block', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('Time block title', { exact: true })).toHaveValue(task.title);
+  await expect(dialog.getByLabel('Task', { exact: true })).toHaveValue(task.id);
+});

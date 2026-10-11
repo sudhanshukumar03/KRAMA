@@ -1,4 +1,3 @@
-
 # Product
 
 <!-- impeccable:product-schema 1 -->
@@ -9,51 +8,38 @@ web
 
 ## Users
 
-Engineers, technical founders, and solo-builders managing projects, technical documentation, sprint execution, and strategic milestones in an integrated daily workflow.
+Krama is designed for a person managing their own projects, technical notes, goals, and recurring habits. Engineers and solo builders are a common fit, but the daily workflow should remain understandable without specialist project-management knowledge.
 
 ## Product Purpose
 
-KRAMA OS is a personal operating system for knowledge, execution, and progress. It unifies notes/docs, tasks/sprints, and goals into a single cohesive system centered around the Project entity with real foreign-keyed relational integrity and automated pace measurement.
+Krama brings knowledge and execution into one workspace. A note can be linked to a project, the project can contain tasks, and those tasks can contribute to a goal. The value comes from these connections and from dependable records of the work already done.
 
 ## Positioning
 
-Unlike fragmented productivity stacks (Notion + Jira + spreadsheets) or generic all-in-one apps, KRAMA provides a dedicated Bridge Layer where the Project entity couples Knowledge (nested docs & rich editor), Execution (Kanban with real dependencies & sprints), and Strategic Goals (required vs. actual pace computed mathematically from snapshots, not subjective estimates).
+The project focuses on a small daily loop: choose today's work, record progress, and review what needs attention. Detailed planning, document organization, and analysis are available when useful. The product should not require someone to maintain every module each day.
 
 ## Operating Context
 
-- Daily engineering work, sprint planning, and task triage via Kanban boards.
-- Long-form RFC and technical documentation drafting with rich block editing and bidirectional links.
-- Milestone pacing and habit tracking across Dashboard, Timeline, and Planner views.
-- Single-tenant, local-first web application environment.
+The primary setup is a personal web application running locally through Docker. Workspace membership and roles still govern access, even when one person is the main user. Multiple workspaces can separate different projects or areas of life.
 
 ## Capabilities and Constraints
 
-- **Architecture:** React 18, Vite, TypeScript, Tailwind CSS, shadcn/ui, React Query, Tiptap, `@dnd-kit`.
-- **Backend & Data:** Node.js/Express, PostgreSQL 16 with `pgvector`, Redis (locks/cache/BullMQ), Prisma ORM.
-- **Workflow Build Path:** Code-first (direct implementation governed by strict direction contracts and audits).
-- **AI Intelligence:** Chokepointed AI Gateway routing through context-grounded RAG (`pgvector`) and output validation.
+Brain provides documents and spaces. Projects, tasks, sprints, and the planner support execution. Goals, habits, and focus sessions provide feedback within their own sections, with a compact Dashboard summary. AI assistance depends on configured provider credentials, and image uploads remain Coming soon while R2 is unconfigured.
+
+The current stack uses React 19, Vite 8, Tailwind CSS 4, Express 5, Prisma 7, PostgreSQL with pgvector, and Redis. Public hosting and a custom domain are outside the current setup. Working code, configured providers, and verified workflows are different levels of completion and should be described separately.
 
 ## Brand Commitments
 
-- **Name:** KRAMA OS
-- **Voice:** Restrained, sharp, technical, opinionated, direct, high-craft.
-- **Aesthetic:** Dark-mode first, semantic tokens, dense typography, high information-density without visual clutter.
+Use the name Krama or KRAMA OS consistently. Write directly and calmly. Labels should explain the action, and messages should help someone recover from a problem. Dense screens should remain easy to scan; writing surfaces should leave room to read and think.
 
 ## Evidence on Hand
 
-- Production web application in `apps/web` with completed implementations for Brain (documents/spaces), Execution (Kanban/sprints), and Goals/Habits.
-- Architecture and schema documentation in `README.md` and `packages/types`.
-- Verified UI screenshots in `docs/screenshots/`.
+Application code lives in `apps/server` and `apps/web`. Shared schemas are in `packages/validation`, and tests are grouped in the backend and `e2e` directories. The [development guide](docs/development/README.md) explains how to reproduce the checks. Screenshots in `docs/screenshots` are examples of repository UI captures, not proof that every feature is complete.
 
 ## Product Principles
 
-1. **Restraint over decoration:** Color and visual weight are used deliberately with full semantic dark mode token hierarchy.
-2. **Match structure to data:** The UI reflects mental and data models (e.g., a calendar looks like a calendar, pace is computed).
-3. **Distributed where visibility matters, unified where truth matters:** Multi-surface projections backed by a single relational truth.
-4. **Verify, don't assume:** Verifiable state, real relational dependencies, and end-to-end reliability.
+Keep information connected through real relationships. Show the result of an action promptly and preserve drafts when a save fails. Derive metrics from recorded activity wherever possible, and distinguish missing data from a recorded zero. Make deeper planning optional so the daily workflow stays small.
 
 ## Accessibility & Inclusion
 
-- Keyboard navigation across modal dialogs, menus, and Kanban interactions.
-- Full color-contrast compliance across semantic dark/light tokens.
-- Accessible ARIA labeling on icon buttons, form fields, and status badges.
+Keyboard operation, visible labels, focus indicators, readable contrast, touch targets, and reduced-motion support are design requirements. Verify them on the affected screens in both themes rather than describing the whole application as compliant without a current review.

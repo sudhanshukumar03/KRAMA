@@ -138,7 +138,7 @@ test.afterAll(async () => {
     expect(owner?.email).toBe(email); expect(owner?.name).toBe(marker);
     const owned = await prisma.workspace.findMany({ where: { id: { in: [...workspaceIds] }, createdBy: userId } });
     expect(owned.length).toBe(workspaceIds.size);
-    for (const queue of [queues.notificationsQueue, queues.habitStreakQueue, queues.analyticsQueue]) {
+    for (const queue of [queues.notificationsQueue, queues.habitStreakQueue, queues.aiRetentionQueue]) {
       for (const job of await queue.getJobs(['waiting', 'delayed', 'failed', 'completed'])) if (job.data?.userId === userId || workspaceIds.has(job.data?.workspaceId)) await job.remove();
     }
     await prisma.timeBlock.deleteMany({ where: { userId } });

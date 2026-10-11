@@ -9,6 +9,10 @@ export const WORKSPACE_ROLE_LEVELS = {
 export const WORKSPACE_READ_ROLES = (Object.keys(WORKSPACE_ROLE_LEVELS) as Array<keyof typeof WORKSPACE_ROLE_LEVELS>)
   .filter(role => WORKSPACE_ROLE_LEVELS[role] >= WORKSPACE_ROLE_LEVELS.VIEWER);
 
+/**
+ * Resolve the requested workspace and check the authenticated user's membership.
+ * The verified workspace is passed downstream so controllers use the same scope.
+ */
 export const requireWorkspaceRole = (minRole: 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER' | 'GUEST') => {
   return async (req: Request, res: Response, next: NextFunction) => {
     const userId = (req as any).user?.id;

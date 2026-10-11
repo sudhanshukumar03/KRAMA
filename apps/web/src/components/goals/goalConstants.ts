@@ -18,5 +18,3 @@ export type LifePillarId = typeof LIFE_PILLARS[number]['id'];
 export function getPillar(pillarId?: string) {
   return LIFE_PILLARS.find((p) => p.id === pillarId) || LIFE_PILLARS[0];
 }
-
-

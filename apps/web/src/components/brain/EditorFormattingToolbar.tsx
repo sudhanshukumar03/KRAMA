@@ -2,6 +2,9 @@ import type { Editor } from '@tiptap/react';
 import { Heading1, Heading2, List, ListOrdered, Code, Quote, Minus } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
+/**
+ * Focus the editor before formatting so toolbar clicks apply to its selection.
+ */
 export function EditorFormattingToolbar({ editor }: { editor: Editor }) {
   return (
             <div className="bg-surface-hover/80 backdrop-blur-md px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0 border-b border-border">

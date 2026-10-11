@@ -3,7 +3,8 @@ import { RedisStore } from 'rate-limit-redis';
 import { redisService } from '../services/redis.service';
 
 const getStore = (prefix: string) => {
-  // In development/test or when Redis is not deployed, default to express-rate-limit's built-in MemoryStore
+  // Development/tests use a process-local counter. Production requires shared
+  // Redis limits and rejects sensitive requests when the store is unavailable.
   if (process.env.NODE_ENV !== 'production') {
     return undefined;
   }

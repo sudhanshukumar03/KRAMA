@@ -20,6 +20,8 @@ export async function* streamWithFallback(providers: TextStreamProvider[], signa
         if (emitted || signal.aborted) throw error;
         lastError = error;
         const status = Number(error?.status || error?.code || error?.error?.code);
+        // Retry temporary provider failures once, before any text has reached the client.
+        // Permanent failures move directly to the next configured provider.
         if (attempt === 0 && [429, 500, 502, 503, 504].includes(status)) {
           await new Promise(resolve => setTimeout(resolve, 500));
           continue;

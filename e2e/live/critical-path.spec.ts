@@ -1,4 +1,55 @@
 import { test, expect } from './fixtures';
+import { readFile } from 'node:fs/promises';
+
+test('AI settings reads stay available without consuming the generation allowance', async ({ account }) => {
+  for (let index = 0; index < 25; index++) {
+    await account.call('GET', 'ai/config');
+    await account.call('GET', 'ai/usage');
+  }
+  // Missing input exercises the limiter without sending data to a provider.
+  for (let index = 0; index < 20; index++) {
+    await account.call('POST', 'ai/complete', {}, 400);
+  }
+  await account.call('POST', 'ai/complete', {}, 429);
+  await account.call('GET', 'ai/config');
+  await account.call('GET', 'ai/usage');
+});
+
+test('Focus settings keep keyboard focus inside the dialog and persist bounded durations', async ({ page, account }) => {
+  await account.signIn(page);
+  await page.goto('/focus');
+  await page.getByRole('button', { name: 'Settings and options', exact: true }).click();
+  await page.getByRole('button', { name: /^Customize/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Timer Configuration', exact: true });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close', exact: true }).press('Shift+Tab');
+  await expect(dialog.getByRole('button', { name: 'Save & Close', exact: true })).toBeFocused();
+  const duration = dialog.getByRole('spinbutton', { name: 'Focus Duration', exact: true });
+  await duration.fill('999');
+  await expect(duration).toHaveValue('120');
+  await expect.poll(async () => (await account.call('GET', 'auth/me')).user.metadata.timerPreferences.focusDuration).toBe(120);
+  await duration.press('Escape');
+  await expect(dialog).toBeHidden();
+  await page.reload();
+  await expect(page).toHaveTitle(/\(120:00\) Focus/);
+});
+
+test('Workspace export downloads a readable backup of the signed-in workspace', async ({ page, account }) => {
+  const task = await account.call('POST', 'tasks', { title: 'Workspace export verification' }, 201);
+  await account.signIn(page);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const ready = page.waitForEvent('download');
+  await page.getByRole('button', { name: /^Export Data/ }).click();
+  const download = await ready;
+  expect(await download.failure()).toBeNull();
+  const file = await download.path();
+  expect(file).toBeTruthy();
+  const backup = JSON.parse(await readFile(file!, 'utf8'));
+  expect(backup.format).toBe('krama-workspace-backup');
+  expect(backup.workspace.id).toBe(account.workspaceId);
+  expect(backup.workspace.tasks.some((entry: { id: string }) => entry.id === task.id)).toBe(true);
+  expect(backup.workspace.members[0].user).not.toHaveProperty('passwordHash');
+});
 
 test('Project-linked task survives refresh', async ({ page, account }) => {
   await account.signIn(page);

@@ -106,6 +106,10 @@ class AuthService {
     return { accessToken, refreshToken, user: finalUser };
   }
 
+  /**
+   * Verify the current password and revoke existing sessions with the password update.
+   * The user-row lock coordinates this write with concurrent login and refresh.
+   */
   async changePassword(userId: string, sessionId: string, input: unknown): Promise<void> {
     const { currentPassword, newPassword } = ChangePasswordSchema.parse(input);
     const user = await userRepository.findById(userId);
@@ -184,6 +188,10 @@ class AuthService {
     await Promise.all(sessions.map((session) => this.invalidateSession(session)));
   }
 
+  /**
+   * Concurrent refresh requests in this server process share one token rotation.
+   * Redis grace entries coordinate overlapping requests across server processes.
+   */
   private inFlightRefreshes = new Map<string, Promise<{ accessToken: string; refreshToken: string }>>();
 
   async refresh(refreshToken: string, ip?: string, userAgent?: string) {

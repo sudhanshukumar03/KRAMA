@@ -34,9 +34,6 @@ export default defineConfig({
             if (id.includes('@tiptap') || id.includes('prosemirror')) {
               return 'vendor-editor';
             }
-            if (id.includes('recharts') || id.includes('d3-')) {
-              return 'vendor-charts';
-            }
             if (id.includes('@dnd-kit')) {
               return 'vendor-dnd';
             }

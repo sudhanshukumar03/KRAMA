@@ -17,7 +17,7 @@ COPY apps/server/package.json ./apps/server/package.json
 COPY apps/web/package.json ./apps/web/package.json
 
 # Fetch locked packages without dependency lifecycle scripts.
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN pnpm --filter server... install --frozen-lockfile --ignore-scripts
 
 COPY packages ./packages
 COPY apps/server ./apps/server
@@ -39,7 +39,7 @@ RUN mkdir -p /app/out/apps/server /app/out/apps/web /app/out/packages/validation
     && cp -R packages/validation/dist /app/out/packages/validation/ \
     && cp packages/types/package.json /app/out/packages/types/ \
     && cp -R packages/types/dist /app/out/packages/types/ \
-    && cd /app/out && pnpm install --prod --frozen-lockfile --offline --ignore-scripts
+    && cd /app/out && pnpm --filter server... install --prod --frozen-lockfile --offline --ignore-scripts
 
 # Generate into the production dependency tree, not only the build tree.
 RUN pnpm --filter server exec prisma generate --schema /app/out/apps/server/prisma/schema.prisma

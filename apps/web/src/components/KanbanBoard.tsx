@@ -114,7 +114,6 @@ export function KanbanBoard({
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       setCreateModalOpen(false);
       toast.success(`Created "${newIssue?.title || 'Directive'}"`, {
         description: `Added to ${(newIssue?.status || createStatus).replace('_', ' ')}.`
@@ -137,7 +136,6 @@ export function KanbanBoard({
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       setEditModalOpen(false);
       setEditingIssue(null);
       setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('task'); return next; }, { replace: true });
@@ -191,7 +189,6 @@ export function KanbanBoard({
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       toast.success(`Deleted "${issue.title}"`, {
         description: 'Directive removed.',
         action: {
@@ -206,7 +203,6 @@ export function KanbanBoard({
             queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
             toast.success(`Restored "${issue.title}"`); } catch { toast.error("Could not restore directive. Please try again."); }
           }
         },
@@ -242,7 +238,6 @@ export function KanbanBoard({
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
     }
   });
 

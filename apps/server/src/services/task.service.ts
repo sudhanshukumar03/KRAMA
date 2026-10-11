@@ -3,6 +3,10 @@ import { taskRepository } from '../repositories/task.repository';
 import { TaskStatus } from '@prisma/client';
 import { runInTransaction, type TxClient, type PostCommitPublisher } from '../prisma';
 
+/**
+ * Keep the original completion timestamp while an already-Done task is edited.
+ * A transition out of Done clears it; a later completion gets a new timestamp.
+ */
 function completionMetadata(data: any, existing?: any) {
   const old = typeof existing?.metadata === 'object' && existing.metadata && !Array.isArray(existing.metadata) ? existing.metadata : {};
   const incoming = typeof data.metadata === 'object' && data.metadata && !Array.isArray(data.metadata) ? data.metadata : {};
@@ -105,6 +109,11 @@ class TaskService {
       return task;
   }
 
+  /**
+   * Validate workspace links, then update with the observed version in the WHERE
+   * condition. This also catches races occurring after the initial version check.
+   * Publish task events after commit so related project/goal totals can refresh.
+   */
   async updateTask(id: string, workspaceId: string, data: any, userId: string) {
     return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await taskRepository.findById(id, tx);

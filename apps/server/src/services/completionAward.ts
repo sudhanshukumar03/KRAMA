@@ -11,6 +11,8 @@ export interface CompletionAward {
 // Notification's existing primary key is the durable idempotency marker.
 // Creating it and awarding points commit together; even a post-commit retry is safe.
 export async function awardTaskCompletion(db: PrismaClient, data: CompletionAward, jobId?: string) {
+  // The completion version distinguishes a later completion of a reopened task.
+  // Retries of the same completion retain the same notification ID and award.
   const eventKey = data.completionVersion ?? jobId;
   if (eventKey === undefined) throw new Error('Completion event identity is required.');
   const id = uuidv5(`${data.workspaceId}/${data.taskId}/${eventKey}`, uuidv5.URL);

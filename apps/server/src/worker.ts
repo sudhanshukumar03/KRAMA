@@ -1,10 +1,11 @@
+import 'dotenv/config';
 import { notificationsWorker } from './workers/notifications.worker';
 import { habitStreakWorker } from './workers/habitStreak.worker';
-import { analyticsWorker } from './workers/analytics.worker';
+import { aiRetentionWorker } from './workers/aiRetention.worker';
 import { embeddingWorker } from './workers/embedding.worker';
 import { documentVersionWorker } from './workers/documentVersion.worker';
 
-import { habitStreakQueue, analyticsQueue } from './queues';
+import { habitStreakQueue, aiRetentionQueue } from './queues';
 
 // Schedule repeatable jobs safely
 const scheduleJobs = async () => {
@@ -17,8 +18,8 @@ const scheduleJobs = async () => {
     });
 
     // Nightly at 1 AM UTC
-    await analyticsQueue.removeJobScheduler('aggregate-analytics-job');
-    await analyticsQueue.upsertJobScheduler('ai-prompt-retention-job', {
+    await aiRetentionQueue.removeJobScheduler('aggregate-analytics-job');
+    await aiRetentionQueue.upsertJobScheduler('ai-prompt-retention-job', {
       pattern: '0 1 * * *'
     }, {
       name: 'ai-prompt-retention'
@@ -38,7 +39,7 @@ const shutdown = async () => {
   await Promise.allSettled([
     notificationsWorker.close(),
     habitStreakWorker.close(),
-    analyticsWorker.close(),
+    aiRetentionWorker.close(),
     embeddingWorker.close(),
     documentVersionWorker.close(),
   ]);

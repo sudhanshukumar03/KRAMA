@@ -1,9 +1,23 @@
-## August 24, 2026
-- feat(planner): begin planner matrix implementation and UI layout
+# Changelog
 
-## August 25, 2026
-- feat(habits): add planner pinning functionality and habit tracker updates
+This file records dated product changes. Detailed investigation and repair evidence belongs in the [audit archive](docs/archive/audit/README.md).
 
-## August 26, 2026
-- feat(tasks): integrate quick capture and default scheduling
+## Unreleased
 
+The audit branch contains workspace authorization, persistence, authentication, reporting, and configuration repairs. CI covers validation, backend tests, browser regressions, type checks, and production image builds. These changes are tracked in [PR #5](https://github.com/sudhanshukumar03/KRAMA/pull/5); their presence on the default branch depends on the PR's merge state.
+
+Documentation now has separate development, design, and historical review sections. Product and design guidance use shared root documents with short frontend-specific notes.
+
+Dependency cleanup removes redundant root and server packages and repository copies of assistant tooling. Docker installs are scoped to each application, and frontend API contracts no longer depend on Prisma generation.
+
+## 2026-08-26
+
+Quick Capture was connected to task creation and default scheduling.
+
+## 2026-08-25
+
+Habits gained planner pinning, alongside updates to the habit tracker.
+
+## 2026-08-24
+
+Work began on the planner matrix and its layout.

@@ -36,6 +36,10 @@ function handleDocumentError(res: Response, error: unknown, defaultStatus = 400)
 /**
  * Helper to ensure the target document belongs to the active workspace.
  */
+/**
+ * Used after authentication: check both the requested workspace and membership
+ * in the document's workspace before a controller reads or changes its content.
+ */
 const verifyDocWorkspace = async (docId: string, req: Request): Promise<{ ok: boolean; doc?: Prisma.DocumentGetPayload<{ include: { space: true } }> }> => {
   const workspaceId = req.workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
   const userId = req.user?.id;
