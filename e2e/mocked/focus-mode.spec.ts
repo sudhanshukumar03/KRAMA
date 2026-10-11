@@ -2,6 +2,9 @@ import { expect, test } from '@playwright/test';
 
 test.describe.serial('Focus Mode Comprehensive E2E Verification', () => {
   test.beforeEach(async ({ page }) => {
+    // Keep this mocked suite independent of a locally running API or socket server.
+    await page.route("**/socket.io/**", route => route.abort());
+    await page.route("**/api/v1/**", route => route.abort());
     // Intercept backend API requests with authentic mock payloads
     await page.route('**/api/v1/auth/refresh', async (route) => {
       await route.fulfill({

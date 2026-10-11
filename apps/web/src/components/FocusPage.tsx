@@ -2,7 +2,7 @@ import { getClockDisplay, playAudioChime, buildScheduledSessions, plannerResumeT
 import { focusStorageKey, readPendingFocusPreferences, rememberFocusPreferences, acknowledgeFocusPreferences, enqueueFocusPreferences } from '../lib/focusStorage';
 import type { PreferencesInput } from '@krama/types/api';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../api/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -42,9 +42,15 @@ const DEFAULT_WALLPAPER: WallpaperConfig = {
   credit: 'Deep Space Singularity',
 };
 
+type RecoverableFocusCompletion = CompleteSessionParams & { plannerSelectionKey?: string };
+
 export const FocusPage: React.FC = () => {
-  const { user } = useAuth();
-  return <AccountFocusPage key={user?.id ?? 'anonymous'} />;
+  const { user, workspaceId } = useAuth();
+  const [params] = useSearchParams();
+  // Each selection owns its timer and pending writes. Browser Back restores its
+  // saved plan instead of reusing another task's active session or completion.
+  const selectionKey = JSON.stringify([user?.id, workspaceId, params.get('task'), params.get('block'), params.get('date')]);
+  return <AccountFocusPage key={selectionKey} />;
 };
 
 const AccountFocusPage: React.FC = () => {
@@ -168,10 +174,10 @@ const AccountFocusPage: React.FC = () => {
    * retried against its original owner after reload.
    */
   const pendingStorageKey = `krama.focus.unsaved.${user?.id}.${workspaceId}`;
-  const [pendingCompletion, setPendingCompletion] = useState<CompleteSessionParams | null>(() => {
+  const [pendingCompletion, setPendingCompletion] = useState<RecoverableFocusCompletion | null>(() => {
     try { const saved = JSON.parse(localStorage.getItem(pendingStorageKey) || 'null'); return saved?.completionId && saved?.startTime && saved?.duration ? saved : null; } catch { return null; }
   });
-  const pendingCompletionRef = useRef<CompleteSessionParams | null>(pendingCompletion);
+  const pendingCompletionRef = useRef<RecoverableFocusCompletion | null>(pendingCompletion);
   const completionInFlightRef = useRef(false);
   const targetEndTimeRef = useRef<number | null>(null);
   const timeLeftRef = useRef<number>(timeLeft);
@@ -323,7 +329,7 @@ const AccountFocusPage: React.FC = () => {
     setSelectedSessions(sessions); setSelectedIndex(index);
     setSelectedDialog(restoredSession ? null : finished ? 'decision' : 'setup');
     setOperatingMode('manual');
-    if (!pendingCompletionRef.current && !restoredSession) { setMode(sessions[index].type); setDuration(sessions[index].durationMin * 60); setTimeLeft(finished ? 0 : sessions[index].durationMin * 60); }
+    if (!restoredSession) { setMode(sessions[index].type); setDuration(sessions[index].durationMin * 60); setTimeLeft(finished ? 0 : sessions[index].durationMin * 60); }
   }, [plannerFocus.key, plannerFocus.requested, plannerFocus.loading, plannerFocus.invalid, plannerFocus.task, plannerFocus.block, plannerFocus.totalMinutes, selectedPlanKey]);
 
   useEffect(() => {
@@ -379,13 +385,17 @@ const AccountFocusPage: React.FC = () => {
       completionId: activeSession!.id, startTime: (snap_startTime || new Date()).toISOString(),
       endTime: new Date().toISOString(), duration: elapsedSeconds, type: activeSession?.type || snap_mode,
       taskId: currentSlot?.taskId || undefined, projectId: currentSlot?.projectId || undefined,
+      plannerSelectionKey: plannerFocus.requested ? plannerFocus.key : undefined,
     };
     pendingCompletionRef.current = payload;
     setPendingCompletion(payload);
     try { localStorage.setItem(pendingStorageKey, JSON.stringify(payload)); } catch { /* The in-memory draft remains available. */ }
     targetEndTimeRef.current = null; setIsActive(false);
     try {
-      await completeSession(payload);
+      // Selection metadata is only for local recovery; the API accepts the
+      // original completion contract, and an earlier task cannot advance this one.
+      const { plannerSelectionKey: _selectionKey, ...sessionPayload } = payload;
+      await completeSession(sessionPayload);
     } catch {
       // Keep the identical payload and slot for explicit retry; never advance on failure.
       completionInFlightRef.current = false;
@@ -399,8 +409,10 @@ const AccountFocusPage: React.FC = () => {
     sessionRef.current = null;
     targetEndTimeRef.current = null;
 
-    if (selectedSlotRef.current) {
-      timeLeftRef.current = 0; setTimeLeft(0); setSelectedDialog('decision');
+    if (plannerFocus.requested) {
+      if (selectedSlotRef.current && payload.plannerSelectionKey === plannerFocus.key) {
+        timeLeftRef.current = 0; setTimeLeft(0); setSelectedDialog('decision');
+      }
       return;
     }
 
@@ -451,7 +463,7 @@ const AccountFocusPage: React.FC = () => {
       setTimeLeft(defaultSecs);
       setDuration(defaultSecs);
     }
-  }, [startTime, duration, completeSession, pendingStorageKey]);
+  }, [startTime, duration, completeSession, pendingStorageKey, plannerFocus.requested, plannerFocus.key]);
 
   // Drift-free countdown loop using timestamp deltas
   useEffect(() => {
@@ -791,6 +803,8 @@ const AccountFocusPage: React.FC = () => {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // The task dialog owns focus and Escape while it is open.
+      if (selectedDialog) return;
       // Dialog dismissal must work even when a modal control has focus.
       if (e.key === 'Escape') {
         if (showWallpaperModal || showSettingsModal || showLayoutModal) {
@@ -827,7 +841,7 @@ const AccountFocusPage: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showWallpaperModal, showSettingsModal, showLayoutModal, mode, isFullscreen, handleSkip, handleStart, handlePause]);
+  }, [selectedDialog, showWallpaperModal, showSettingsModal, showLayoutModal, mode, isFullscreen, handleSkip, handleStart, handlePause]);
 
   // Get active wallpaper background styling
   const getWallpaperStyle = (): React.CSSProperties => {

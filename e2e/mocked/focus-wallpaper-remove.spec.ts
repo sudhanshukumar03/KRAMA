@@ -2,6 +2,9 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Focus Wallpaper Upload & Remove Verification', () => {
   test.beforeEach(async ({ page }) => {
+    // Keep this mocked suite independent of a locally running API or socket server.
+    await page.route("**/socket.io/**", route => route.abort());
+    await page.route("**/api/v1/**", route => route.abort());
     await page.route('**/api/v1/auth/refresh', async (route) => {
       await route.fulfill({
         status: 200,
