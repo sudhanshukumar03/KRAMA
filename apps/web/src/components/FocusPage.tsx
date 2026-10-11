@@ -1,5 +1,6 @@
 import { getClockDisplay, playAudioChime } from './focus/runtime';
-import { focusStorageKey } from '../lib/focusStorage';
+import { focusStorageKey, readPendingFocusPreferences, rememberFocusPreferences, acknowledgeFocusPreferences, enqueueFocusPreferences } from '../lib/focusStorage';
+import type { PreferencesInput } from '@krama/types/api';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -45,7 +46,9 @@ export const FocusPage: React.FC = () => {
 
 const AccountFocusPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, accessToken, status, workspaceId } = useAuth();
+  const { user, accessToken, status, workspaceId, updateUser } = useAuth();
+  const preferencesMounted = useRef(true);
+  useEffect(() => { preferencesMounted.current = true; return () => { preferencesMounted.current = false; }; }, []);
   const queryClient = useQueryClient();
   const { schedule, refetchSchedule, completeSession, isCompleting } = useFocusSchedule();
 
@@ -246,9 +249,11 @@ const AccountFocusPage: React.FC = () => {
 
   // Sync user preferences if loaded from backend
   useEffect(() => {
-    if (!user?.metadata) return;
-    if (user.metadata.timerPreferences) {
-      const tp = user.metadata.timerPreferences;
+    if (!user) return;
+    const pending = readPendingFocusPreferences(user.id)?.changes;
+    const metadata = { ...user.metadata, ...pending };
+    if (metadata.timerPreferences) {
+      const tp = { ...user.metadata?.timerPreferences, ...pending?.timerPreferences };
       setSettings((prev) => ({
         ...prev,
         focusDuration: tp.focusDuration || prev.focusDuration,
@@ -257,13 +262,13 @@ const AccountFocusPage: React.FC = () => {
         longBreakAfter: tp.longBreakAfter || prev.longBreakAfter,
       }));
     }
-    if (user.metadata.focusWallpaper) {
-      setWallpaper(user.metadata.focusWallpaper as WallpaperConfig);
+    if (metadata.focusWallpaper) {
+      setWallpaper(metadata.focusWallpaper as WallpaperConfig);
     }
-    if (user.metadata.focusLayout) {
+    if (metadata.focusLayout) {
       const validLayouts: LayoutName[] = ['standby', 'centered', 'overlay', 'sidebar', 'card', 'zen'];
-      if (validLayouts.includes(user.metadata.focusLayout as LayoutName)) {
-        setLayout(user.metadata.focusLayout as LayoutName);
+      if (validLayouts.includes(metadata.focusLayout as LayoutName)) {
+        setLayout(metadata.focusLayout as LayoutName);
       } else {
         setLayout('standby');
         localStorage.setItem(focusStorageKey(user?.id, 'layout'), 'standby');
@@ -634,29 +639,35 @@ const AccountFocusPage: React.FC = () => {
       setTimeLeft(secs);
       setDuration(secs);
     }
-    // Sync to backend preferences
-    api.auth.updatePreferences({
-      timerPreferences: {
-        focusDuration: newSettings.focusDuration,
-        shortBreak: newSettings.shortBreak,
-        longBreak: newSettings.longBreak,
-        longBreakAfter: newSettings.longBreakAfter,
-      },
-    }).then(() => {
-      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
-    }).catch(() => toast.error('Settings saved on this device. Account sync failed; try saving again.'));
+    syncPreferences({ timerPreferences: {
+      focusDuration: newSettings.focusDuration, shortBreak: newSettings.shortBreak,
+      longBreak: newSettings.longBreak, longBreakAfter: newSettings.longBreakAfter,
+    } }, 'Settings saved on this device. Account sync failed; try saving again.');
+  };
+
+  const syncPreferences = (changes: PreferencesInput, failureMessage: string) => {
+    if (!user) return;
+    const pending = rememberFocusPreferences(user.id, changes);
+    void enqueueFocusPreferences(user.id, async () => {
+      if (!preferencesMounted.current) return;
+      const result = await api.auth.updatePreferences(pending.changes);
+      if (!preferencesMounted.current) return;
+      acknowledgeFocusPreferences(user.id, pending.id);
+      if (result.user) updateUser(result.user);
+      await queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+    }).catch(() => { if (preferencesMounted.current) toast.error(failureMessage); });
   };
 
   const handleSelectWallpaper = (newWallpaper: WallpaperConfig) => {
     setWallpaper(newWallpaper);
     localStorage.setItem(focusStorageKey(user?.id, 'wallpaper'), JSON.stringify(newWallpaper));
-    api.auth.updatePreferences({ focusWallpaper: newWallpaper }).catch(() => toast.error('Wallpaper saved on this device. Account sync failed; try selecting it again.'));
+    syncPreferences({ focusWallpaper: newWallpaper }, 'Wallpaper saved on this device. Account sync failed; try selecting it again.');
   };
 
   const handleSelectLayout = (newLayout: LayoutName) => {
     setLayout(newLayout);
     localStorage.setItem(focusStorageKey(user?.id, 'layout'), newLayout);
-    api.auth.updatePreferences({ focusLayout: newLayout }).catch(() => toast.error('Layout saved on this device. Account sync failed; try selecting it again.'));
+    syncPreferences({ focusLayout: newLayout }, 'Layout saved on this device. Account sync failed; try selecting it again.');
   };
 
   // Global Keyboard Shortcuts

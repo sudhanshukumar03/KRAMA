@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { once } from 'node:events';
 import { socketService } from '../services/socket.service';
 import { authService } from '../services/auth.service';
+import { updatePreferences } from '../controllers/auth.controller';
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -586,4 +587,52 @@ test('session issuance rechecks credentials after a concurrent password update h
     release(); await rotation;
     await prisma.user.delete({ where: { id: user.id } });
   }
+});
+
+test('concurrent preference patches preserve unrelated metadata and timer fields', async () => {
+  await prisma.user.update({ where: { id: fixture.user.id }, data: { metadata: { untouched: 'keep', timerPreferences: { focusDuration: 25, shortBreak: 5 } } } });
+  let release!: () => void, locked!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const acquired = new Promise<void>(resolve => { locked = resolve; });
+  const blocker = prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${fixture.user.id} FOR UPDATE`;
+    locked(); await gate;
+  });
+  const replies = [response(), response(), response()];
+  try {
+    await acquired;
+    const writes = [
+      updatePreferences(request('', { timerPreferences: { focusDuration: 45 } }), replies[0] as any),
+      updatePreferences(request('', { timerPreferences: { shortBreak: 8 } }), replies[1] as any),
+      updatePreferences(request('', { focusLayout: 'zen' }), replies[2] as any),
+    ];
+    // Wait until every write is blocked behind the same row lock.
+    await assertEventually(async () => {
+      const rows = await prisma.$queryRaw<Array<{ count: bigint }>>`SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`;
+      return Number(rows[0].count) >= 3;
+    });
+    release(); await blocker; await Promise.all(writes);
+    assert.deepEqual(replies.map(reply => reply.code), [200, 200, 200]);
+    const saved = await prisma.user.findUniqueOrThrow({ where: { id: fixture.user.id } });
+    assert.deepEqual(saved.metadata, { untouched: 'keep', timerPreferences: { focusDuration: 45, shortBreak: 8 }, focusLayout: 'zen' });
+  } finally { release(); await blocker; }
+});
+
+async function assertEventually(check: () => Promise<boolean>) {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    if (await check()) return;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.fail('Expected concurrent writes to reach the database lock');
+}
+
+test('malformed preference bodies return 400 without changing the account', async () => {
+  const before = await prisma.user.findUniqueOrThrow({ where: { id: fixture.user.id } });
+  for (const data of [null, [], { focusLayout: 'unavailable' }, { focusWallpaper: { type: 'curated', value: 42 } }, { locationConfig: { countryCode: ['IN'] } }, { timerPreferences: { focusDuration: 0 } }]) {
+    const reply = response();
+    await updatePreferences(request('', data), reply as any);
+    assert.equal(reply.code, 400, JSON.stringify(data));
+  }
+  const after = await prisma.user.findUniqueOrThrow({ where: { id: fixture.user.id } });
+  assert.deepEqual(after, before);
 });

@@ -97,11 +97,48 @@ test.describe('Sidebar Layout Fullscreen Verification', () => {
     await dialog.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(page.getByText('Settings saved on this device. Account sync failed; try saving again.', { exact: true })).toBeVisible();
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('krama.focus.mock-user-1.settings') || '{}').focusDuration)).toBe(45);
+    await page.reload();
     await page.getByRole('button', { name: 'Settings and options' }).click();
     await page.getByRole('button', { name: /^Customize/ }).click();
     await expect(dialog.getByLabel('Focus Duration', { exact: true })).toHaveValue('45');
     await dialog.getByRole('button', { name: 'Save & Close', exact: true }).click();
     await expect.poll(() => attempts).toBe(2);
+  });
+
+  test('rapid Focus edits retain the latest preference when the first save is delayed', async ({ page }) => {
+    await page.route('**/socket.io/**', route => route.abort());
+    let release!: () => void;
+    const firstSave = new Promise<void>(resolve => { release = resolve; });
+    let requests = 0, completed = 0, savedDuration = 25;
+    const user = () => ({ id: 'mock-user-1', email: 'focus@krama.com', name: 'Focus Architect', memberships: [{ workspaceId: 'ws-1', role: 'MEMBER' }], metadata: { timerPreferences: { focusDuration: savedDuration, shortBreak: 5, longBreak: 15, longBreakAfter: 4 }, focusLayout: 'sidebar' } });
+    await page.route('**/api/v1/auth/me', route => route.fulfill({ json: { user: user() } }));
+    await page.route('**/api/v1/auth/me/preferences', async route => {
+      const sequence = ++requests;
+      const data = route.request().postDataJSON();
+      if (sequence === 1) await firstSave;
+      savedDuration = data.timerPreferences.focusDuration;
+      completed++;
+      await route.fulfill({ json: { user: user() } });
+    });
+    try {
+      await page.goto('/focus');
+      await page.getByRole('button', { name: 'Settings and options' }).click();
+      await page.getByRole('button', { name: /^Customize/ }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByLabel('Focus Duration', { exact: true }).fill('45');
+      await expect.poll(() => requests).toBe(1);
+      await dialog.getByLabel('Focus Duration', { exact: true }).fill('50');
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('krama.focus.mock-user-1.settings') || '{}').focusDuration)).toBe(50);
+      release();
+      await expect.poll(() => completed).toBe(2);
+      expect(savedDuration).toBe(50);
+      await expect.poll(() => page.evaluate(() => localStorage.getItem('krama.focus.mock-user-1.pendingPreferences'))).toBeNull();
+      await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+      await page.reload();
+      await page.getByRole('button', { name: 'Settings and options' }).click();
+      await page.getByRole('button', { name: /^Customize/ }).click();
+      await expect(dialog.getByLabel('Focus Duration', { exact: true })).toHaveValue('50');
+    } finally { release(); }
   });
 
   for (const width of [390, 1440]) {

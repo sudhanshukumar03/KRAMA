@@ -27,3 +27,26 @@ export const AuthResponseSchema = z.object({
     name: z.string().nullable(),
   }),
 });
+
+export const PreferencesSchema = z.object({
+  timerPreferences: z.object({
+    focusDuration: z.number().int().min(1).max(1440).optional(),
+    shortBreak: z.number().int().min(1).max(1440).optional(),
+    longBreak: z.number().int().min(1).max(1440).optional(),
+    longBreakAfter: z.number().int().min(1).max(16).optional(),
+  }).strict().optional(),
+  focusLayout: z.enum(['standby', 'centered', 'overlay', 'sidebar', 'card', 'zen']).optional(),
+  focusWallpaper: z.object({
+    type: z.enum(['gradient', 'unsplash', 'upload', 'curated']),
+    value: z.string().min(1).max(4096),
+    thumb: z.string().max(4096).optional(),
+    credit: z.string().max(500).optional(),
+    creditUrl: z.string().max(4096).optional(),
+  }).strict().optional(),
+  weeklyCapacityMinutes: z.number().int().min(0).max(10080).optional(),
+  locationConfig: z.object({
+    countryCode: z.string().regex(/^[A-Za-z]{2}$/).transform(value => value.toUpperCase()).default('IN'),
+    regionCode: z.string().max(32).nullable().optional(),
+  }).strict().optional(),
+}).strict().refine(value => Object.entries(value).some(([key, field]) =>
+  field !== undefined && (key !== 'timerPreferences' || Object.keys(field as object).length > 0)), 'Provide at least one preference');

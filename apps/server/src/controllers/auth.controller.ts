@@ -1,10 +1,10 @@
 import { socketService } from '../services/socket.service';
 import type { Request, Response } from 'express';
-import { SignupSchema, LoginSchema } from '@krama/validation';
+import type { Prisma } from '@prisma/client';
+import { SignupSchema, LoginSchema, PreferencesSchema } from '@krama/validation';
 import { authService, PasswordChangeError } from '../services/auth.service';
 import { prisma } from '../prisma';
 import { userAuthSelect } from '../utils/selectors';
-import { isValidTimerPreferences } from '../services/focusTimer.service';
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -159,55 +159,52 @@ export const me = async (req: Request, res: Response) => {
 
 export const updatePreferences = async (req: Request, res: Response) => {
   try {
-    // @ts-ignore
-    const userId = req.user.id;
-    const { timerPreferences, locationConfig, weeklyCapacityMinutes, focusWallpaper, focusLayout } = req.body;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const parsed = PreferencesSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Invalid preferences', errors: parsed.error.issues });
+    const { timerPreferences, locationConfig, weeklyCapacityMinutes, focusWallpaper, focusLayout } = parsed.data;
 
-    if (timerPreferences !== undefined) {
-      if (!isValidTimerPreferences(timerPreferences)) {
-        return res.status(400).json({ message: 'Timer preferences must use supported whole-minute values within the allowed range' });
+    // Read and merge metadata under the same row lock as the write. Concurrent
+    // layout and timer patches must not restore an older metadata snapshot.
+    const updatedUser = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+      const user = await tx.user.findUnique({ where: { id: userId } });
+      if (!user) return null;
+
+      const currentMetadata = user.metadata && typeof user.metadata === 'object' && !Array.isArray(user.metadata) ? user.metadata : {};
+      const savedTimer = currentMetadata.timerPreferences;
+      const currentTimer = savedTimer && typeof savedTimer === 'object' && !Array.isArray(savedTimer) ? savedTimer : {};
+
+      const updateData: Prisma.UserUpdateInput = {};
+      if (timerPreferences !== undefined || focusWallpaper || focusLayout) {
+        updateData.metadata = {
+          ...currentMetadata,
+          ...(timerPreferences !== undefined ? {
+            timerPreferences: {
+              ...currentTimer,
+              ...timerPreferences
+            }
+          } : {}),
+          ...(focusWallpaper ? { focusWallpaper } : {}),
+          ...(focusLayout ? { focusLayout } : {})
+        };
       }
-    }
-
-    if (timerPreferences === undefined && !locationConfig && weeklyCapacityMinutes === undefined && !focusWallpaper && !focusLayout) {
-      return res.status(400).json({ message: 'No valid fields provided' });
-    }
-
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    
-    const currentMetadata = (user.metadata as Record<string, any>) || {};
-    
-    const updateData: any = {};
-    if (timerPreferences !== undefined || focusWallpaper || focusLayout) {
-      updateData.metadata = {
-        ...currentMetadata,
-        ...(timerPreferences !== undefined ? {
-          timerPreferences: {
-            ...currentMetadata.timerPreferences,
-            ...timerPreferences
-          }
-        } : {}),
-        ...(focusWallpaper ? { focusWallpaper } : {}),
-        ...(focusLayout ? { focusLayout } : {})
-      };
-    }
-    if (locationConfig) {
-      updateData.countryCode = locationConfig.countryCode || 'IN';
-      updateData.regionCode = locationConfig.regionCode ? locationConfig.regionCode : null;
-    }
-    if (weeklyCapacityMinutes !== undefined) {
-      if (!Number.isInteger(weeklyCapacityMinutes) || weeklyCapacityMinutes < 0 || weeklyCapacityMinutes > 10080) {
-        return res.status(400).json({ message: 'Weekly capacity must be whole minutes between 0 and 10080' });
+      if (locationConfig) {
+        updateData.countryCode = locationConfig.countryCode || 'IN';
+        updateData.regionCode = locationConfig.regionCode ? locationConfig.regionCode : null;
       }
-      updateData.weeklyCapacityMinutes = weeklyCapacityMinutes;
-    }
+      if (weeklyCapacityMinutes !== undefined) {
+        updateData.weeklyCapacityMinutes = weeklyCapacityMinutes;
+      }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-      select: userAuthSelect
+      return tx.user.update({
+        where: { id: userId },
+        data: updateData,
+        select: userAuthSelect
+      });
     });
+    if (!updatedUser) return res.status(404).json({ message: 'User not found' });
 
     socketService.emitToUser(userId, 'preferences:updated', {});
     return res.status(200).json({ user: updatedUser });
