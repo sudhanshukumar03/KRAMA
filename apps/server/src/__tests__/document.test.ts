@@ -2,29 +2,17 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { prisma } from '../prisma';
 import { DocumentService } from '../services/document.service';
+import { createIntegrationFixture, cleanupIntegrationFixture } from '../testing/integrationFixture';
 
 describe('Brain Workspace - Step 1: Tree + CRUD', () => {
   let workspace: any;
   let user: any;
   let space: any;
+  let fixture: Awaited<ReturnType<typeof createIntegrationFixture>>;
 
   before(async () => {
-    user = await prisma.user.findFirst();
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          email: `test-doc-${Date.now()}@example.com`,
-          passwordHash: 'dummyhash',
-        },
-      });
-    }
-
-    workspace = await prisma.workspace.findFirst();
-    if (!workspace) {
-      workspace = await prisma.workspace.create({
-        data: { name: 'Test Doc Workspace', createdBy: user.id },
-      });
-    }
+    fixture = await createIntegrationFixture('documents');
+    ({ user, workspace } = fixture);
 
     space = await prisma.space.create({
       data: { name: 'Test Space', workspaceId: workspace.id },
@@ -32,9 +20,7 @@ describe('Brain Workspace - Step 1: Tree + CRUD', () => {
   });
 
   after(async () => {
-    if (space) {
-      await prisma.space.delete({ where: { id: space.id } }).catch(() => {});
-    }
+    await cleanupIntegrationFixture(fixture);
     await prisma.$disconnect().catch(() => {});
     await (globalThis as any).pool?.end?.().catch(() => {});
     try {
@@ -107,6 +93,23 @@ describe('Brain Workspace - Step 1: Tree + CRUD', () => {
         return true;
       }
     );
+  });
+
+  it('Moving a document between spaces carries its full subtree into the destination space', async () => {
+    const destinationSpace = await prisma.space.create({ data: { name: 'Move destination', workspaceId: workspace.id } });
+    const destinationParent = await DocumentService.createDocument({ spaceId: destinationSpace.id, title: 'Destination root', createdById: user.id });
+    const root = await DocumentService.createDocument({ spaceId: space.id, title: 'Moving root', createdById: user.id });
+    const child = await DocumentService.createDocument({ spaceId: space.id, parentId: root.id, title: 'Moving child', createdById: user.id });
+
+    await DocumentService.moveDocument(root.id, undefined, destinationParent.id);
+
+    const movedRoot = await prisma.document.findUniqueOrThrow({ where: { id: root.id } });
+    const movedChild = await prisma.document.findUniqueOrThrow({ where: { id: child.id } });
+    assert.equal(movedRoot.spaceId, destinationSpace.id);
+    assert.equal(movedRoot.parentId, destinationParent.id);
+    assert.equal(movedChild.spaceId, destinationSpace.id);
+    assert.equal(movedChild.parentId, movedRoot.id);
+    assert.equal(await prisma.document.count({ where: { id: { in: [root.id, child.id] }, spaceId: space.id } }), 0);
   });
 
   it('Deleting a parent moves its whole subtree to Trash and restores it intact', async () => {

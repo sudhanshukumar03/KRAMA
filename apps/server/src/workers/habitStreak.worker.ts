@@ -49,11 +49,11 @@ export const habitStreakWorker = new Worker(
   { connection }
 );
 
-habitStreakWorker.on('completed', (job, result) => {
+habitStreakWorker.on('completed', (_job, result) => {
   console.log(`[Worker:HabitStreak] Completed recalculating streaks for ${result.processedHabits} habits.`);
 });
 
-habitStreakWorker.on('failed', (job, err) => {
+habitStreakWorker.on('failed', (_job, err) => {
   console.error(`[Worker:HabitStreak] Failed:`, err);
 });
 

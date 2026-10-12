@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import Redis from 'ioredis';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://:krama_redis_secret@localhost:6379';

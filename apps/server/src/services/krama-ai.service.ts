@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { prisma } from '../prisma';
 import { vectorSearch, keywordSearch, mergeAndRank } from './rag/retriever';
 import { getEmbedding } from '../lib/embedding';
-import { aiService, GROQ_MODEL } from './ai.service';
+import { aiService } from './ai.service';
 
 const ResponseTypeSchema = z.enum([
   "direct",
@@ -71,8 +71,6 @@ User: ${message}
 Return ONLY the category word.`;
     const outputText = await aiService.complete({
       prompt,
-      provider: 'groq',
-      model: GROQ_MODEL,
       workspaceId,
       userId,
     });
@@ -83,10 +81,10 @@ Return ONLY the category word.`;
 
   private async getKramaContext(workspaceId: string, _userId: string) {
     const [goals, projects, tasks, blockers] = await Promise.all([
-      prisma.goal.findMany({ where: { workspaceId }, take: 10, orderBy: { createdAt: "desc" } }),
-      prisma.project.findMany({ where: { workspaceId }, take: 10, orderBy: { createdAt: "desc" } }),
-      prisma.task.findMany({ where: { workspaceId, status: { not: "DONE" } }, take: 20, orderBy: { createdAt: "desc" } }),
-      prisma.task.findMany({ where: { workspaceId, blockedById: { not: null } }, take: 10 }),
+      prisma.goal.findMany({ where: { workspaceId, deletedAt: null }, take: 10, orderBy: { createdAt: "desc" } }),
+      prisma.project.findMany({ where: { workspaceId, deletedAt: null }, take: 10, orderBy: { createdAt: "desc" } }),
+      prisma.task.findMany({ where: { workspaceId, deletedAt: null, status: { notIn: ["DONE", "CANCELED"] } }, take: 20, orderBy: { createdAt: "desc" } }),
+      prisma.task.findMany({ where: { workspaceId, deletedAt: null, status: { notIn: ["DONE", "CANCELED"] }, blockedById: { not: null } }, take: 10 }),
     ]);
     return { goals, projects, tasks, blockers };
   }
@@ -159,8 +157,6 @@ Return ONLY valid JSON matching this schema:
   private async generateKramaResponse(prompt: string, workspaceId: string, userId: string): Promise<AIResponse> {
     const raw = await aiService.complete({
       prompt,
-      provider: 'groq',
-      model: GROQ_MODEL,
       workspaceId,
       userId,
     });
@@ -188,7 +184,7 @@ Return ONLY valid JSON matching this schema:
 
     let ragContext = "";
     let sourcesList: any[] = [];
-    if (ragEnabled || intent === "knowledge") {
+    if ((ragEnabled || intent === "knowledge") && process.env.GEMINI_API_KEY) {
       const embedding = await getEmbedding(message);
       // Hybrid retrieval: blend semantic (vector) and lexical (keyword) recall,
       // then fuse with Reciprocal Rank Fusion. Vector-only search misses exact

@@ -2,6 +2,7 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { prisma } from '../prisma';
 import { requireWorkspaceRole } from '../middlewares/rbac.middleware';
+import { assertIntegrationEnvironment } from '../testing/testEnvironment';
 
 describe('Tier 1: Document RBAC & Role Checking', () => {
   let workspace: any;
@@ -11,6 +12,7 @@ describe('Tier 1: Document RBAC & Role Checking', () => {
   let outsiderUser: any;
 
   before(async () => {
+    assertIntegrationEnvironment();
     // Setup test users
     const timestamp = Date.now();
     ownerUser = await prisma.user.create({

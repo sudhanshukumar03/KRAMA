@@ -6,6 +6,7 @@ type TaskEventPayload = {
   taskId: string;
   workspaceId?: string;
   userId?: string;
+  previousProjectId?: string | null;
 };
 
 /**
@@ -23,20 +24,19 @@ async function refreshGoalForTask(payload: TaskEventPayload) {
       where: { id: payload.taskId },
       select: { projectId: true },
     });
-    if (!task?.projectId) return;
+    const projectIds = [...new Set([task?.projectId, payload.previousProjectId].filter((id): id is string => Boolean(id)))];
+    for (const projectId of projectIds) {
+      const project = await prisma.project.findFirst({ where: { id: projectId, ...(payload.workspaceId ? { workspaceId: payload.workspaceId } : {}) }, select: { goalId: true, workspaceId: true } });
+      if (!project?.goalId) continue;
+      const goal = await prisma.goal.findFirst({ where: { id: project.goalId, workspaceId: project.workspaceId, deletedAt: null }, select: { id: true } });
+      if (goal) await goalService.recomputeAutoProgress(goal.id, payload.userId ?? 'system');
+    }
 
-    const project = await prisma.project.findUnique({
-      where: { id: task.projectId },
-      select: { goalId: true },
-    });
-    if (!project?.goalId) return;
-
-    await goalService.recomputeAutoProgress(project.goalId, payload.userId ?? 'system');
   } catch (err) {
     console.warn('[goalProgress] auto-progress recompute failed:', (err as any)?.message || err);
   }
 }
 
-for (const event of ['TASK_CREATED', 'TASK_UPDATED', 'TASK_COMPLETED', 'TASK_DELETED'] as const) {
+for (const event of ['TASK_CREATED', 'TASK_UPDATED', 'TASK_COMPLETED', 'TASK_DELETED', 'TASK_RESTORED'] as const) {
   domainEventBus.onEvent<TaskEventPayload>(event, refreshGoalForTask);
 }

@@ -1,59 +1,44 @@
-# Migrations
+# Database migrations
 
-The database migration history is structured into:
+Krama uses committed Prisma migrations for deployment. This directory contains a squashed baseline, `00000000000000_baseline`, followed by `00000000000001_add_habit_best_streak`. The baseline creates the database structure and vector index; the additive migration supplies `Habit.bestStreak`.
 
-1. `00000000000000_baseline`: Squashed baseline recreating the full HEAD schema (including `Sprint`, `DailyLog`, `SprintReport`, and `Task.sprintId`) from empty in one file, along with the `KnowledgeChunk` HNSW vector index.
-2. `00000000000001_add_habit_best_streak`: Additive migration that idempotently adds `Habit.bestStreak` column (`IF NOT EXISTS`) for habit recalculation support.
+## Deploy a fresh database
 
-### Deployment on Fresh Databases
-Run:
-```bash
+Configure a PostgreSQL instance with pgvector and a valid `DATABASE_URL`, then run from the repository root:
+
+```sh
+pnpm --filter server exec prisma migrate deploy
+pnpm --filter server exec prisma migrate status
+```
+
+Production Compose runs migration deployment as a separate service before starting the API and worker. Use the [development guide](../../../../docs/development/README.md) for the full setup.
+
+## Adopt an existing database
+
+An existing database needs its structure and migration history checked before it can adopt the squashed baseline. Back up its data and compare its tables, columns, constraints, and indexes with the baseline. A successful application startup alone does not prove that the schemas match.
+
+Only when the existing database is known to match the baseline should the baseline be marked as applied:
+
+```sh
+pnpm --filter server exec prisma migrate resolve --applied 00000000000000_baseline
 pnpm --filter server exec prisma migrate deploy
 ```
-This runs `00000000000000_baseline` followed by `00000000000001_add_habit_best_streak`.
 
-### Upgrading an Existing Database (from HEAD)
-For an existing database that already matches the HEAD schema:
-1. Mark the baseline as applied:
-   ```bash
-   pnpm --filter server exec prisma migrate resolve --applied 00000000000000_baseline
-   ```
-2. Deploy subsequent migrations:
-   ```bash
-   pnpm --filter server exec prisma migrate deploy
-   ```
-   This safely executes `00000000000001_add_habit_best_streak` to add `bestStreak` without touching any existing tables.
+`migrate resolve` records history; it does not create missing tables or repair a mismatched schema. Use it after reviewing the database, not as a general response to a migration error. The later migration uses an idempotent column addition, but that does not make arbitrary baseline adoption safe.
 
-## Known caveat: the HNSW vector index
+## Vector index maintenance
 
-The last statement in the baseline creates:
+The baseline creates the HNSW cosine-similarity index on `KnowledgeChunk.embedding`:
 
 ```sql
 CREATE INDEX IF NOT EXISTS "KnowledgeChunk_embedding_hnsw_idx"
   ON "KnowledgeChunk" USING hnsw (embedding vector_cosine_ops);
 ```
 
-This index lives on the `embedding Unsupported("vector(768)")` column, which
-Prisma's datamodel cannot represent (`@@index(..., type: Hnsw)` is rejected with
-"Unknown index type: Hnsw"). As a result, **bare `prisma migrate dev` will report
-drift and try to generate a migration that DROPs this index.** Do not accept that drop.
+Prisma represents the embedding column as an unsupported vector type and does not model this HNSW index in the ordinary schema. Schema-diff workflows can therefore propose dropping it. Inspect generated migration SQL before applying a local schema change, and preserve the index deliberately.
 
-Three things keep the index healthy despite this:
+`migrate deploy` applies the committed SQL without generating a new schema diff. The server's [bootstrap helper](../../src/utils/bootstrap.ts) also creates the vector index if it is absent. If the index must be restored manually, run the SQL above against the intended database and then check its catalog state.
 
-1. It ships in the baseline migration, so `prisma migrate deploy` (aka `pnpm db:deploy`)
-   creates it on any fresh environment. `migrate deploy` only applies migration files
-   and never diffs against the datamodel, so it never drops the index.
-2. The server recreates it at startup via `ensureVectorIndexes()` in
-   `src/utils/bootstrap.ts` (`CREATE INDEX IF NOT EXISTS ...`), so a booted app
-   self-heals even if a stray `migrate dev` dropped it.
-3. This note.
+## Deployment and test databases
 
-**Preferred workflow:** apply migrations with `pnpm db:deploy` and check state with
-`pnpm db:status`. Avoid bare `prisma migrate dev` on this project. If you must use it
-for a local schema change, delete the spurious
-`DROP INDEX "KnowledgeChunk_embedding_hnsw_idx"` line from the generated SQL before
-applying, or just restart the server afterward to let the bootstrap recreate it:
-
-```bash
-psql "$DATABASE_URL" -c 'CREATE INDEX IF NOT EXISTS "KnowledgeChunk_embedding_hnsw_idx" ON "KnowledgeChunk" USING hnsw (embedding vector_cosine_ops);'
-```
+Deployment uses migration files. The primary CI database is disposable and is prepared with `prisma db push`; the separate integration database is prepared with migration deployment. Those workflows serve different purposes. Do not use the disposable CI procedure as an upgrade plan for a database containing personal records.

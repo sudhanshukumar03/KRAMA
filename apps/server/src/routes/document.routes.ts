@@ -7,7 +7,7 @@ import { prisma } from '../prisma';
 const router = Router();
 
 // Workspace-wide documents (requires x-workspace-id header)
-const ensureWorkspaceId = async (req: any, res: any, next: any) => {
+const ensureWorkspaceId = async (req: any, _res: any, next: any) => {
   let workspaceId = req.headers['x-workspace-id'] || req.query.workspaceId || req.body?.workspaceId;
   if (!workspaceId && req.user?.id) {
     const member = await prisma.workspaceMember.findFirst({
@@ -24,7 +24,7 @@ const ensureWorkspaceId = async (req: any, res: any, next: any) => {
 };
 
 // Workspace param helper for routes with /workspaces/:id
-const ensureWorkspaceParamId = (req: any, res: any, next: any) => {
+const ensureWorkspaceParamId = (req: any, _res: any, next: any) => {
   if (req.params.id) {
     req.workspaceId = req.params.id;
     if (req.body) req.body.workspaceId = req.params.id;

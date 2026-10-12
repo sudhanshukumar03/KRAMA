@@ -55,7 +55,16 @@ class RedisService {
     while (this.client.status !== 'ready' && (Date.now() - start) < timeoutMs) {
       await new Promise((r) => setTimeout(r, 100));
     }
-    await this.client.ping();
+    if (this.client.status !== 'ready') throw new Error('Redis connection timed out');
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        this.client.ping(),
+        new Promise<never>((_resolve, reject) => { timeout = setTimeout(() => reject(new Error('Redis ping timed out')), timeoutMs); }),
+      ]);
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
   }
 
   async get(key: string): Promise<string | null> {
@@ -73,6 +82,14 @@ class RedisService {
       return null;
     }
     return item.value;
+  }
+
+  /** Read shared state without consulting the process-local fallback cache. */
+  async getShared(key: string): Promise<string | null> {
+    if (!this.isConnected || this.client.status !== 'ready') {
+      throw new Error('Redis is unavailable for shared state');
+    }
+    return this.client.get(key);
   }
 
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
