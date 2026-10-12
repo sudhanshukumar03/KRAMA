@@ -3,16 +3,23 @@ import { RedisStore } from 'rate-limit-redis';
 import { redisService } from '../services/redis.service';
 
 const getStore = (prefix: string) => {
-  // In development/test or when Redis is not deployed, default to express-rate-limit's built-in MemoryStore
+  // Development/tests use a process-local counter. Production requires shared
+  // Redis limits and rejects sensitive requests when the store is unavailable.
   if (process.env.NODE_ENV !== 'production') {
     return undefined;
   }
   return new RedisStore({
-    sendCommand: (...args: string[]) => {
-      if (redisService.isConnected && redisService.client.status === 'ready') {
-        return (redisService.client as any).call(...args);
+    sendCommand: async (...args: string[]) => {
+      try {
+        if (!redisService.isConnected || redisService.client.status !== 'ready') {
+          await redisService.ensureConnected(3000);
+        }
+        return await (redisService.client as any).call(...args);
+      } catch {
+        // Sensitive requests must stop when the shared limit cannot be checked.
+        // Expose a stable 503, rather than Redis/infrastructure error details.
+        throw Object.assign(new Error('Service temporarily unavailable. Please try again later.'), { status: 503 });
       }
-      return Promise.reject(new Error('Redis is not connected'));
     },
     prefix,
   });
@@ -25,7 +32,8 @@ export const strictAuthLimiter = rateLimit({
   max: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '10', 10),
   standardHeaders: true,
   legacyHeaders: false,
-  passOnStoreError: true,
+  passOnStoreError: false,
+  validate: { xForwardedForHeader: false },
   message: { message: 'Too many requests from this IP, please try again after 15 minutes' },
   store: getStore('rl:auth:strict:'),
 });
@@ -37,7 +45,8 @@ export const refreshLimiter = rateLimit({
   max: parseInt(process.env.REFRESH_RATE_LIMIT_MAX || '30', 10),
   standardHeaders: true,
   legacyHeaders: false,
-  passOnStoreError: true,
+  passOnStoreError: false,
+  validate: { xForwardedForHeader: false },
   message: { message: 'Too many refresh attempts, please try again later' },
   store: getStore('rl:auth:refresh:'),
 });
@@ -48,7 +57,8 @@ export const aiLimiter = rateLimit({
   max: parseInt(process.env.AI_RATE_LIMIT_PER_MIN || '20', 10),
   standardHeaders: true,
   legacyHeaders: false,
-  passOnStoreError: true,
+  passOnStoreError: false,
+  validate: { xForwardedForHeader: false },
   message: { message: 'Too many AI requests from this workspace, please try again later' },
   keyGenerator: (req) => {
     // Key by the workspaceId validated and resolved by the session/RBAC middleware

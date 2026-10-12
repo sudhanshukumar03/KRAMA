@@ -1,8 +1,22 @@
+import { socketService } from '../services/socket.service';
 import type { Request, Response } from 'express';
-import { SignupSchema, LoginSchema } from '@krama/validation';
-import { authService } from '../services/auth.service';
+import type { Prisma } from '@prisma/client';
+import { SignupSchema, LoginSchema, PreferencesSchema } from '@krama/validation';
+import { authService, PasswordChangeError } from '../services/auth.service';
 import { prisma } from '../prisma';
 import { userAuthSelect } from '../utils/selectors';
+
+const getRefreshCookieOptions = (req: Request) => {
+  const isSecure = process.env.COOKIE_SECURE !== undefined
+    ? process.env.COOKIE_SECURE === 'true'
+    : (process.env.NODE_ENV === 'production' && (req.secure || req.headers['x-forwarded-proto'] === 'https'));
+
+  return {
+    httpOnly: true,
+    secure: isSecure,
+    sameSite: 'strict' as const,
+  };
+};
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -13,9 +27,7 @@ export const signup = async (req: Request, res: Response) => {
     const result = await authService.signup(validatedData, ip, userAgent);
 
     res.cookie('krama_refresh', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      ...getRefreshCookieOptions(req),
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
@@ -48,9 +60,7 @@ export const login = async (req: Request, res: Response) => {
     const result = await authService.login(validatedData, ip, userAgent);
 
     res.cookie('krama_refresh', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      ...getRefreshCookieOptions(req),
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
@@ -85,9 +95,7 @@ export const refresh = async (req: Request, res: Response) => {
     const result = await authService.refresh(refreshToken, ip, userAgent);
 
     res.cookie('krama_refresh', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      ...getRefreshCookieOptions(req),
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
@@ -108,11 +116,7 @@ export const logout = async (req: Request, res: Response) => {
     if (refreshToken) {
       await authService.revokeSession(refreshToken);
     }
-    res.clearCookie('krama_refresh', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-    });
+    res.clearCookie('krama_refresh', getRefreshCookieOptions(req));
     return res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {
     console.error('Logout error:', error);
@@ -127,11 +131,7 @@ export const logoutAll = async (req: Request, res: Response) => {
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     await authService.revokeAllSessions(userId);
-    res.clearCookie('krama_refresh', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-    });
+    res.clearCookie('krama_refresh', getRefreshCookieOptions(req));
     return res.status(200).json({ message: 'Logged out of all sessions' });
   } catch (error) {
     console.error('LogoutAll error:', error);
@@ -157,50 +157,71 @@ export const me = async (req: Request, res: Response) => {
 
 export const updatePreferences = async (req: Request, res: Response) => {
   try {
-    // @ts-ignore
-    const userId = req.user.id;
-    const { timerPreferences, locationConfig, weeklyCapacityMinutes, focusWallpaper, focusLayout } = req.body;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const parsed = PreferencesSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Invalid preferences', errors: parsed.error.issues });
+    const { timerPreferences, locationConfig, weeklyCapacityMinutes, focusWallpaper, focusLayout } = parsed.data;
 
-    if (!timerPreferences && !locationConfig && weeklyCapacityMinutes === undefined && !focusWallpaper && !focusLayout) {
-      return res.status(400).json({ message: 'No valid fields provided' });
-    }
+    // Read and merge metadata under the same row lock as the write. Concurrent
+    // layout and timer patches must not restore an older metadata snapshot.
+    const updatedUser = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+      const user = await tx.user.findUnique({ where: { id: userId } });
+      if (!user) return null;
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    
-    const currentMetadata = (user.metadata as Record<string, any>) || {};
-    
-    const updateData: any = {};
-    if (timerPreferences || focusWallpaper || focusLayout) {
-      updateData.metadata = {
-        ...currentMetadata,
-        ...(timerPreferences ? {
-          timerPreferences: {
-            ...currentMetadata.timerPreferences,
-            ...timerPreferences
-          }
-        } : {}),
-        ...(focusWallpaper ? { focusWallpaper } : {}),
-        ...(focusLayout ? { focusLayout } : {})
-      };
-    }
-    if (locationConfig) {
-      updateData.countryCode = locationConfig.countryCode || 'IN';
-      updateData.regionCode = locationConfig.regionCode ? locationConfig.regionCode : null;
-    }
-    if (weeklyCapacityMinutes !== undefined) {
-      updateData.weeklyCapacityMinutes = weeklyCapacityMinutes;
-    }
+      const currentMetadata = user.metadata && typeof user.metadata === 'object' && !Array.isArray(user.metadata) ? user.metadata : {};
+      const savedTimer = currentMetadata.timerPreferences;
+      const currentTimer = savedTimer && typeof savedTimer === 'object' && !Array.isArray(savedTimer) ? savedTimer : {};
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-      select: userAuthSelect
+      const updateData: Prisma.UserUpdateInput = {};
+      if (timerPreferences !== undefined || focusWallpaper || focusLayout) {
+        updateData.metadata = {
+          ...currentMetadata,
+          ...(timerPreferences !== undefined ? {
+            timerPreferences: {
+              ...currentTimer,
+              ...timerPreferences
+            }
+          } : {}),
+          ...(focusWallpaper ? { focusWallpaper } : {}),
+          ...(focusLayout ? { focusLayout } : {})
+        };
+      }
+      if (locationConfig) {
+        updateData.countryCode = locationConfig.countryCode || 'IN';
+        updateData.regionCode = locationConfig.regionCode ? locationConfig.regionCode : null;
+      }
+      if (weeklyCapacityMinutes !== undefined) {
+        updateData.weeklyCapacityMinutes = weeklyCapacityMinutes;
+      }
+
+      return tx.user.update({
+        where: { id: userId },
+        data: updateData,
+        select: userAuthSelect
+      });
     });
+    if (!updatedUser) return res.status(404).json({ message: 'User not found' });
 
+    socketService.emitToUser(userId, 'preferences:updated', {});
     return res.status(200).json({ user: updatedUser });
   } catch (error) {
     console.error('Error updating user preferences', error);
     return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const changePassword = async (req: Request, res: Response) => {
+  if (!req.user?.id || !req.user.sessionId) return res.status(401).json({ message: 'Unauthorized' });
+  try {
+    await authService.changePassword(req.user.id, req.user.sessionId, req.body);
+    res.clearCookie('krama_refresh', getRefreshCookieOptions(req));
+    return res.status(200).json({ message: 'Password changed. Sign in with your new password.' });
+  } catch (error: any) {
+    if (error.name === 'ZodError') return res.status(400).json({ message: 'Validation failed', errors: error.issues });
+    if (error instanceof PasswordChangeError) return res.status(error.status).json({ message: error.message });
+    console.error('Password change failed');
+    return res.status(500).json({ message: 'Unable to change password. Try again.' });
   }
 };
