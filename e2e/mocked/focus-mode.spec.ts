@@ -1,7 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 test.describe.serial('Focus Mode Comprehensive E2E Verification', () => {
   test.beforeEach(async ({ page }) => {
+    // Keep this mocked suite independent of a locally running API or socket server.
+    await page.route("**/socket.io/**", route => route.abort());
+    await page.route("**/api/v1/**", route => route.abort());
     // Intercept backend API requests with authentic mock payloads
     await page.route('**/api/v1/auth/refresh', async (route) => {
       await route.fulfill({
@@ -206,7 +209,9 @@ test.describe.serial('Focus Mode Comprehensive E2E Verification', () => {
       await cardLayoutBtn.click();
     }
 
-    // Close Wallpaper modal via Escape
+    // Escape must dismiss even while a modal button has keyboard focus.
+    await cardLayoutBtn.focus();
+    await expect(cardLayoutBtn).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(themeModal).not.toBeVisible({ timeout: 3000 });
 
@@ -216,7 +221,10 @@ test.describe.serial('Focus Mode Comprehensive E2E Verification', () => {
     await expect(settingsModal).toBeVisible({ timeout: 3000 });
     await expect(page.locator('text=Custom Timer Sprint')).toBeVisible({ timeout: 3000 });
 
-    // Close Settings via Escape
+    // Editing a settings input must not block Escape dismissal.
+    const settingsInput = page.locator('input').first();
+    await settingsInput.focus();
+    await expect(settingsInput).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(settingsModal).not.toBeVisible({ timeout: 3000 });
   });
