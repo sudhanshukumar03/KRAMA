@@ -7,8 +7,8 @@
 
 /**
  * Normalize a date to canonical UTC noon — the per-day key shared with
- * DailyLog/HabitCompletion — so a stored day never shifts across the day
- * boundary when read back in a non-UTC timezone.
+ * DailyLog/HabitCompletion. Read it through calendar-day helpers or UTC
+ * accessors; local-time conversion can still move the displayed day.
  */
 export function canonicalDay(date: Date): Date {
   const result = new Date(date);
@@ -46,6 +46,10 @@ export function toHHmm(date: Date): string {
 export function isCapacityWeekday(date: Date): boolean {
   const dow = date.getUTCDay(); // 0 = Sun, 6 = Sat
   return dow >= 1 && dow <= 5;
+}
+
+export function isCapacityHoliday(holiday: { date: Date; isPublicHoliday: boolean; isOptional: boolean }): boolean {
+  return holiday.isPublicHoliday && !holiday.isOptional && isCapacityWeekday(holiday.date);
 }
 
 /**
