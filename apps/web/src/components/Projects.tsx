@@ -1,8 +1,8 @@
+import type { ProjectStatus, ProjectWithRelations } from '../types/schema';
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, X, ArrowRight, ShieldCheck, ChevronUp, ChevronDown } from 'lucide-react';
-import { BaseButton } from './ui/BaseButton';
+import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, ArrowRight, ShieldCheck, ChevronUp, ChevronDown } from 'lucide-react';
 import { PageHeader } from './ui/PageHeader';
 import { LoadingState } from './ui/LoadingState';
 import { ConfirmDeleteButton } from './ui/ConfirmDeleteButton';
@@ -10,189 +10,32 @@ import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import { IconPicker } from './ui/IconPicker';
+import { ErrorState } from './ui/ErrorState';
+import { ProjectCreateModal } from './projects/ProjectDialogs';
 import { resolveIcon } from '../lib/iconResolver';
-
-function ProjectCreateModal({
- open,
- onClose,
- onSubmit,
- isSubmitting,
- goals = []
-}: {
- open: boolean;
- onClose: () => void;
- onSubmit: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon: string; goalId?: string | null }) => void;
- isSubmitting: boolean;
- goals?: any[];
-}) {
- const [name, setName] = useState('');
- const [problemStatement, setProblemStatement] = useState('');
- const [status, setStatus] = useState('active');
- const [goalId, setGoalId] = useState('');
- const [targetDate, setTargetDate] = useState(() => {
- const d = new Date();
- d.setDate(d.getDate() + 60);
- return d.toISOString().split('T')[0];
- });
- const [icon, setIcon] = useState('FolderKanban');
-
- if (!open) return null;
-
- const handleSubmit = (e: React.FormEvent) => {
- e.preventDefault();
- if (!name.trim()) return;
- onSubmit({ name: name.trim(), problemStatement: problemStatement.trim(), status, targetDate, icon, goalId: goalId || null });
- };
-
- return (
- <div
- onClick={onClose}
- className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150 font-sans"
- >
- <div
- onClick={e => e.stopPropagation()}
- className="krama-dialog w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
- >
- <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-hover/80 backdrop-blur-md">
- <div className="flex items-center gap-2.5">
- <IconPicker value={icon} onChange={setIcon} />
- <div>
- <h3 className="text-card text-primary mb-2 ">New Project</h3>
- <p className="text-caption text-secondary font-mono">Engineering portfolio tracking</p>
- </div>
- </div>
- <button
- onClick={onClose}
- type="button"
- className="w-8 h-8 rounded-xl flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
- >
- <X className="w-4 h-4 stroke-[1.5]" />
- </button>
- </div>
-
- <form onSubmit={handleSubmit} className="p-6 space-y-4">
- <div>
-          <div>
-            <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
-              Initiative Name <span className="text-danger-fg">*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g., Autonomous Decision Engine v2"
-              required
-              autoFocus
-              className="w-full px-3.5 py-2.5 border border-border rounded-xl text-body text-primary placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all bg-surface"
-            />
-          </div>
-
-          <div>
-            <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
-              Problem Statement / Technical Scope
-            </label>
-            <textarea
-              value={problemStatement}
-              onChange={e => setProblemStatement(e.target.value)}
-              placeholder="Briefly describe the objective, architectural constraints, and target outcomes..."
-              rows={3}
-              className="w-full px-3.5 py-2.5 border border-border rounded-xl text-body text-primary placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all resize-none bg-surface"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
-                Status
-              </label>
-              <select
-                value={status}
-                onChange={e => setStatus(e.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono font-bold cursor-pointer"
-              >
-                <option value="idea">💡 Idea / Discovery</option>
-                <option value="active">⚡ Active Execution</option>
-                <option value="paused">⏸️ Paused</option>
-                <option value="shipped">🚀 Shipped / Live</option>
-                <option value="completed">✅ Completed</option>
-                <option value="archived">🗄️ Archived</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider">
-                Target Date
-              </label>
-              <input
-                type="date"
-                value={targetDate}
-                onChange={e => setTargetDate(e.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono font-bold"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-caption font-mono font-bold text-primary uppercase mb-1.5 tracking-wider flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Target className="w-3.5 h-3.5 text-accent stroke-[1.75]" />
-                Linked Strategic Goal / OKR
-              </span>
-              <span className="text-secondary font-normal lowercase">(Optional)</span>
-            </label>
-            <select
-              value={goalId}
-              onChange={e => setGoalId(e.target.value)}
-              className="w-full px-3 py-2.5 border border-border rounded-xl text-body text-primary bg-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all font-mono cursor-pointer"
-            >
-              <option value="">No linked goal (Standalone initiative)</option>
-              {goals.map((g: any) => (
-                <option key={g.id} value={g.id}>
-                  {g.title} ({g.type} · {g.progress || 0}%)
-                </option>
-              ))}
-            </select>
-          </div>
- </div>
-
- <div className="pt-4 border-t border-border flex justify-end gap-3">
- <BaseButton type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
- Cancel
- </BaseButton>
- <BaseButton type="submit" disabled={isSubmitting || !name.trim()}>
- {isSubmitting ? 'Creating...' : 'Launch Initiative'}
- </BaseButton>
- </div>
- </form>
- </div>
- </div>
- );
-}
-
 
 export function Projects() {
  const navigate = useNavigate();
  const queryClient = useQueryClient();
- const { data: projects = [], isLoading: pLoading } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
- const { data: issues = [], isLoading: iLoading } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
- const { data: pages = [], isLoading: docLoading } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
- const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
+ const { data: projects = [], isLoading: pLoading, isError: pError, refetch: retryProjects } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+ const { data: issues = [], isLoading: iLoading, isError: iError, refetch: retryIssues } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
+ const { data: pages = [], isLoading: docLoading, isError: docError, refetch: retryDocs } = useQuery({ queryKey: ['documents'], queryFn: () => api.documents.list() });
+ const { data: goals = [], isLoading: goalsLoading, isError: goalsError, refetch: retryGoals } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
 
- const handleDeleteProject = async (e: React.MouseEvent, project: any) => {
+ const handleDeleteProject = async (e: React.MouseEvent, project: ProjectWithRelations) => {
  e.stopPropagation();
  try {
  await api.projects.delete(project.id);
- queryClient.invalidateQueries({ queryKey: ['projects'] });
- queryClient.invalidateQueries({ queryKey: ['goals'] });
+ for (const queryKey of [['projects'], ['project', project.id], ['goals'], ['issues'], ['tasks'], ['planner']]) queryClient.invalidateQueries({ queryKey });
  toast.success(`Deleted initiative "${project.name}"`, {
  action: {
  label: 'Undo',
  onClick: async () => {
+ try {
  await api.projects.restore(project.id);
- queryClient.invalidateQueries({ queryKey: ['projects'] });
- queryClient.invalidateQueries({ queryKey: ['goals'] });
+ for (const queryKey of [['projects'], ['project', project.id], ['goals'], ['issues'], ['tasks'], ['planner']]) queryClient.invalidateQueries({ queryKey });
  toast.success(`Restored initiative "${project.name}"`);
+ } catch { toast.error('Could not restore initiative'); }
  }
  }
  });
@@ -203,13 +46,13 @@ export function Projects() {
 
  const [createModalOpen, setCreateModalOpen] = useState(false);
  const createProjectMutation = useMutation({
- mutationFn: (data: { name: string; problemStatement: string; status: string; targetDate: string; icon: string; goalId?: string | null }) =>
+ mutationFn: (data: { name: string; problemStatement: string; status: ProjectStatus; targetDate: string; icon: string; goalId?: string | null }) =>
  api.projects.create({
  name: data.name,
  problemStatement: data.problemStatement,
  status: data.status,
  progress: 0,
- icon: data.icon,
+ icon: data.icon ?? undefined,
  goalId: data.goalId || null,
  targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : null
  }),
@@ -240,8 +83,8 @@ export function Projects() {
  api.projects.reorder(vars.id, { position: vars.position, version: vars.version }),
  onMutate: async (vars) => {
  await queryClient.cancelQueries({ queryKey: ['projects'] });
- const prev = queryClient.getQueryData<any[]>(['projects']);
- queryClient.setQueryData<any[]>(['projects'], (old) =>
+ const prev = queryClient.getQueryData<ProjectWithRelations[]>(['projects']);
+ queryClient.setQueryData<ProjectWithRelations[]>(['projects'], (old) =>
  old
  ? old
  .map((p) => (p.id === vars.id ? { ...p, position: vars.position, version: p.version + 1 } : p))
@@ -257,7 +100,7 @@ export function Projects() {
  onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
  });
 
- const handleMove = (e: React.MouseEvent, project: any, direction: 'up' | 'down') => {
+ const handleMove = (e: React.MouseEvent, project: ProjectWithRelations, direction: 'up' | 'down') => {
  e.stopPropagation();
  // Same-status siblings in their current (position-asc) order.
  const siblings = projects
@@ -298,8 +141,9 @@ export function Projects() {
  });
  }, [projects, searchQuery, statusFilter]);
 
- if (pLoading || iLoading || docLoading) return <LoadingState title="Loading Strategic Portfolio..." description="Aggregating initiative milestones, engineering telemetry, and AI risk analysis..." />;
+ if (pLoading || iLoading || docLoading || goalsLoading) return <LoadingState title="Loading Projects..." description="Loading projects, tasks and linked documents..." />;
 
+ if (pError || iError || docError || goalsError) return <div className="p-6"><ErrorState title="Could not load projects" onRetry={() => { retryProjects(); retryIssues(); retryDocs(); retryGoals(); }} /></div>;
  const statuses = statusFilter === 'all' ? ['active', 'idea', 'paused', 'shipped', 'completed', 'archived'] : [statusFilter];
 
  return (
@@ -322,7 +166,7 @@ export function Projects() {
           <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 stroke-[1.75]" />
           <input
             type="text"
-            placeholder="Search initiatives by title or technical scope..."
+            aria-label="Search projects" placeholder="Search initiatives by title or technical scope..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface-hover/80 border border-border/70 rounded-lg focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent focus:bg-surface transition-all placeholder:text-muted text-primary font-medium"
@@ -386,7 +230,7 @@ export function Projects() {
  const projectIssues = project.tasks || issues.filter(i => i.projectId === project.id);
  const totalDocs = pages.filter(p => p.linkedProjectId === project.id || p.projectId === project.id).length;
 
- const completedIssues = projectIssues.filter((i: any) => i.status === "DONE").length;
+ const completedIssues = projectIssues.filter((i) => i.status === "DONE").length;
  const totalIssues = project._count?.tasks ?? projectIssues.length;
  const progressPct = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
 
@@ -401,7 +245,7 @@ export function Projects() {
             className="v4-card p-6 hover:shadow-md transition-all duration-300 hover:translate-y-[-2px] hover:border-accent cursor-pointer group/card flex flex-col justify-between gap-5 relative overflow-hidden"
           >
             {/* Left color glow bar on hover */}
-            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-accent opacity-0 group-hover/card:opacity-100 transition-opacity duration-300" />
+            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-accent opacity-100 transition-opacity duration-300" />
 
             {/* Top Row: Title, Problem Statement & Actions */}
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -414,7 +258,7 @@ export function Projects() {
                     {project.name}
                   </h3>
                   {project.goalId && (() => {
-                    const linkedGoal = goals.find((g: any) => g.id === project.goalId);
+                    const linkedGoal = goals.find((g) => g.id === project.goalId);
                     return (
                       <button
                         type="button"
@@ -463,7 +307,7 @@ export function Projects() {
                 </div>
                 <ConfirmDeleteButton
                   onConfirm={(e) => handleDeleteProject(e, project)}
-                  className="opacity-0 group-hover/card:opacity-100 p-2"
+                  className="p-2"
                   iconClassName="w-4 h-4 stroke-[1.5]"
                 />
                 <button
@@ -516,17 +360,17 @@ export function Projects() {
               <div className="opacity-0 group-hover/card:opacity-100 max-h-0 group-hover/card:max-h-16 transition-all duration-300 overflow-hidden pt-1">
                 <div className="text-badge font-mono bg-accent-subtle border border-accent/20 text-primary px-3 py-1.5 rounded-lg flex items-center justify-between gap-2">
                   <span className="flex items-center gap-1.5 font-bold text-accent-fg">
-                    <Sparkles className="w-3.5 h-3.5 stroke-[1.5] shrink-0" /> AI Risk Sentinel:
+                    <Sparkles className="w-3.5 h-3.5 stroke-[1.5] shrink-0" /> Progress guidance:
                   </span>
                   <span className="truncate flex-1 text-secondary">
                     {progressPct === 100 
                       ? "Initiative completed. Ready for quarterly archive and post-mortem review." 
                       : progressPct > 60 
-                      ? "Velocity nominal (94% probability of achieving target horizon on schedule)."
-                      : "Early execution phase. AI recommends scheduling deep-work focus sessions."}
+                      ? "More than 60% of tracked tasks are complete. Review the remaining work against the target date."
+                      : "Early execution phase. Consider scheduling focus sessions for the remaining tasks."}
                   </span>
                   <span className="font-bold text-primary flex items-center gap-1 shrink-0">
-                    <ShieldCheck className="w-3.5 h-3.5 text-success-fg stroke-[1.5]" /> Nominal
+                    <ShieldCheck className="w-3.5 h-3.5 text-success-fg stroke-[1.5]" /> Tracked
                   </span>
                 </div>
               </div>
@@ -539,13 +383,13 @@ export function Projects() {
  })}
  </div>
 
- <ProjectCreateModal
+ {createModalOpen && <ProjectCreateModal
  open={createModalOpen}
  onClose={() => setCreateModalOpen(false)}
  onSubmit={(data) => createProjectMutation.mutate(data)}
  isSubmitting={createProjectMutation.isPending}
  goals={goals}
- />
+ />}
  </div>
  );
 }

@@ -6,18 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { api } from '../api/client';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
-
-export interface NotificationItem {
-  id: string;
-  userId: string;
-  workspaceId: string;
-  title: string;
-  message: string;
-  read: boolean;
-  actionUrl?: string | null;
-  metadata?: any;
-  createdAt: string;
-}
+import type { Notification as NotificationItem } from '../types/schema';
 
 export function NotificationCenter({ className }: { className?: string }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,7 +15,7 @@ export function NotificationCenter({ className }: { className?: string }) {
   const queryClient = useQueryClient();
 
   // Query notifications
-  const { data: notifications = [], isLoading } = useQuery<NotificationItem[]>({
+  const { data: notifications = [], isLoading, isError, refetch } = useQuery<NotificationItem[]>({
     queryKey: ['notifications'],
     queryFn: api.notifications.list,
     refetchInterval: 180000, // 3-minute fallback cadence; primary delivery is real-time via SocketProvider
@@ -137,6 +126,7 @@ export function NotificationCenter({ className }: { className?: string }) {
 
           {/* List Content */}
           <div className="flex-1 overflow-y-auto divide-y divide-border/60">
+            {isError && notifications.length > 0 && <div className="p-3 text-caption text-secondary" role="alert">Showing saved notifications. <button className="text-accent" onClick={() => refetch()}>Try again</button></div>}
             {isLoading ? (
               <div className="p-4 space-y-3">
                 {[1, 2, 3].map((i) => (
@@ -145,6 +135,11 @@ export function NotificationCenter({ className }: { className?: string }) {
                     <div className="h-2.5 bg-surface-hover rounded w-1/2" />
                   </div>
                 ))}
+              </div>
+            ) : isError && notifications.length === 0 ? (
+              <div className="p-6 text-center" role="alert">
+                <p className="text-body text-primary">Notifications could not be loaded.</p>
+                <button onClick={() => refetch()} className="mt-3 text-sm text-accent">Try again</button>
               </div>
             ) : notifications.length === 0 ? (
               <div className="p-8 text-center flex flex-col items-center justify-center">

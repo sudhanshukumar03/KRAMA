@@ -94,7 +94,7 @@ export function ManageSpaceModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="manage-space-title"
-        className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
+        className="krama-dialog w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
       >
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
@@ -119,7 +119,7 @@ export function ManageSpaceModal({
         {/* Content */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4 font-sans text-caption">
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5">
+            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5">
               Space Icon & Name
             </label>
             <div className="flex items-center gap-2">
@@ -136,7 +136,7 @@ export function ManageSpaceModal({
                       e.stopPropagation();
                       setIcon(null);
                     }}
-                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-surface border border-border text-muted hover:text-danger-fg hover:border-danger/40 flex items-center justify-center text-[10px] shadow-2xs transition-colors cursor-pointer"
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-surface border border-border text-muted hover:text-danger-fg hover:border-danger/40 flex items-center justify-center text-badge shadow-2xs transition-colors cursor-pointer"
                     title="Remove custom icon"
                   >
                     <X className="w-2.5 h-2.5" />
@@ -153,7 +153,7 @@ export function ManageSpaceModal({
                 className="flex-1 p-2.5 rounded-xl border border-border bg-canvas text-primary outline-none focus:border-accent text-body"
               />
             </div>
-            <p className="text-muted text-[11px] mt-1 font-mono">
+            <p className="text-muted text-caption mt-1 font-mono">
               Spaces organize related documents, specifications, and project assets.
             </p>
           </div>
@@ -184,7 +184,7 @@ export function ManageSpaceModal({
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-bold text-danger text-[12px] block">Danger Zone</span>
-                  <span className="text-muted text-[11px] block">
+                  <span className="text-muted text-caption block">
                     Delete this space and archive all its contained documents.
                   </span>
                 </div>
@@ -192,7 +192,7 @@ export function ManageSpaceModal({
                   <button
                     type="button"
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="flex items-center gap-1.5 text-danger hover:text-danger-fg hover:bg-danger-bg px-2.5 py-1.5 rounded-lg border border-danger/30 text-[11px] font-mono font-semibold transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 text-danger hover:text-danger-fg hover:bg-danger-bg px-2.5 py-1.5 rounded-lg border border-danger/30 text-caption font-mono font-semibold transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Delete Space</span>
@@ -202,7 +202,7 @@ export function ManageSpaceModal({
                     <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(false)}
-                      className="px-2 py-1 text-[11px] text-muted hover:text-primary rounded-lg border border-border"
+                      className="px-2 py-1 text-caption text-muted hover:text-primary rounded-lg border border-border"
                     >
                       Cancel
                     </button>
@@ -210,7 +210,7 @@ export function ManageSpaceModal({
                       type="button"
                       disabled={isDeleting}
                       onClick={handleDelete}
-                      className="flex items-center gap-1.5 bg-danger text-white hover:bg-danger/90 px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-colors cursor-pointer shadow-xs"
+                      className="flex items-center gap-1.5 bg-danger text-white hover:bg-danger/90 px-2.5 py-1 rounded-lg text-caption font-mono font-bold transition-colors cursor-pointer shadow-xs"
                     >
                       {isDeleting ? 'Deleting...' : 'Confirm Delete'}
                     </button>
@@ -218,7 +218,7 @@ export function ManageSpaceModal({
                 )}
               </div>
               {showDeleteConfirm && (
-                <div className="mt-2.5 p-2.5 rounded-xl bg-danger-bg/40 border border-danger/30 flex items-start gap-2 text-danger text-[11px] leading-relaxed">
+                <div className="mt-2.5 p-2.5 rounded-xl bg-danger-bg/40 border border-danger/30 flex items-start gap-2 text-danger text-caption leading-relaxed">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>
                     Are you sure? This will archive all documents and subdocuments inside "{space.name}".

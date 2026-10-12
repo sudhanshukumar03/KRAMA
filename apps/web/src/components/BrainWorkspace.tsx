@@ -55,6 +55,7 @@ export function BrainWorkspace() {
     setSpaceModalConfig({ isOpen: true, mode: 'edit', space: spaceObj });
   };
 
+  const [sidebarTab, setSidebarTab] = useState<'tree' | 'favorites' | 'recent' | 'trash'>('tree');
   const { data: pages = [], isLoading, isError } = useQuery({ 
     queryKey: ['documents', selectedSpaceId], 
     queryFn: () => api.documents.list(selectedSpaceId === 'ALL' ? undefined : selectedSpaceId) 
@@ -62,12 +63,13 @@ export function BrainWorkspace() {
   const { data: deletedPages = [] } = useQuery({
     queryKey: ['documents', 'deleted', selectedSpaceId],
     queryFn: () => api.documents.listDeleted(selectedSpaceId === 'ALL' ? undefined : selectedSpaceId),
+    enabled: sidebarTab === 'trash',
   });
   const { data: spaces = [] } = useQuery({ 
     queryKey: ['spaces'], 
     queryFn: api.spaces.list 
   });
-  const { data: projects = [] } = useQuery({ 
+  const { data: projects = [], isLoading: projectsLoading, isError: projectsError, refetch: retryProjects } = useQuery({
     queryKey: ['projects'], 
     queryFn: api.projects.list 
   });
@@ -83,20 +85,31 @@ export function BrainWorkspace() {
     return spaces.find(s => s.id === selectedSpaceId) || null;
   }, [spaces, selectedSpaceId]);
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const docParam = searchParams.get('doc');
+  const projectParam = searchParams.get('projectId');
 
-  const [selectedPageId, setSelectedPageId] = useState<string | null>(() => searchParams.get('doc') || pages[0]?.id || null);
+  const selectedPageId = docParam || pages[0]?.id || null;
+  const [mobilePane, setMobilePane] = useState<'list' | 'editor'>(() => docParam ? 'editor' : 'list');
   const [viewMode, setViewMode] = useState<'editor' | 'graph'>('editor');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [moveDocTarget, setMoveDocTarget] = useState<DocumentWithRelations | null>(null);
-  const [createDocTarget, setCreateDocTarget] = useState<{ parentId?: string; parentTitle?: string } | null>(null);
+  const [createDocTarget, setCreateDocTarget] = useState<{ parentId?: string; parentTitle?: string; projectId?: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const pendingDocIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!projectParam || projectsLoading || projectsError) return;
+    if (projects.some(project => project.id === projectParam)) {
+      setCreateDocTarget({ projectId: projectParam });
+    } else {
+      toast.error('This project is unavailable in the current workspace');
+    }
+    setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('projectId'); return next; }, { replace: true });
+  }, [projectParam, projects, projectsLoading, projectsError, setSearchParams]);
 
   const handleSelectDoc = async (id: string) => {
-    pendingDocIdRef.current = id;
-    setSelectedPageId(id);
+    setSearchParams(previous => { const next = new URLSearchParams(previous); if (id) next.set('doc', id); else next.delete('doc'); return next; });
+    setMobilePane('editor');
     setViewMode('editor');
     if (!pages.some(p => p.id === id) && selectedSpaceId !== 'ALL') {
       try {
@@ -112,35 +125,12 @@ export function BrainWorkspace() {
     }
   };
 
-  // Sync selection from ?doc= URL parameter or default to first page
   useEffect(() => {
-    if (docParam) {
-      if (pages.some(p => p.id === docParam)) {
-        setSelectedPageId(docParam);
-        setViewMode('editor');
-        pendingDocIdRef.current = null;
-      } else if (selectedSpaceId !== 'ALL') {
-        handleSelectSpace('ALL');
-      }
-      return;
-    }
-
-    if (pendingDocIdRef.current) {
-      if (pages.some(p => p.id === pendingDocIdRef.current)) {
-        setSelectedPageId(pendingDocIdRef.current);
-        pendingDocIdRef.current = null;
-      }
-      return;
-    }
-
-    if (pages.length > 0) {
-      if (!selectedPageId || !pages.some(p => p.id === selectedPageId)) {
-        setSelectedPageId(pages[0].id);
-      }
-    } else if (selectedPageId) {
-      setSelectedPageId(null);
-    }
-  }, [docParam, pages, selectedPageId, selectedSpaceId]);
+    if (docParam) { setMobilePane('editor'); setViewMode('editor'); }
+  }, [docParam]);
+  useEffect(() => {
+    if (docParam && !isLoading && !pages.some(p => p.id === docParam) && selectedSpaceId !== 'ALL') handleSelectSpace('ALL');
+  }, [docParam, isLoading, pages, selectedSpaceId]);
 
   const handleImportSpecClick = () => {
     fileInputRef.current?.click();
@@ -161,7 +151,7 @@ export function BrainWorkspace() {
         });
         queryClient.invalidateQueries({ queryKey: ['documents'] });
         if (res.document?.id) {
-          setSelectedPageId(res.document.id);
+          handleSelectDoc(res.document.id);
           setViewMode('editor');
         }
         toast.success(res.message || `Spec "${file.name}" imported successfully`);
@@ -174,13 +164,13 @@ export function BrainWorkspace() {
     reader.readAsText(file);
   };
 
-  const [sidebarTab, setSidebarTab] = useState<'tree' | 'favorites' | 'recent' | 'trash'>('tree');
   const favoritePages = useMemo(() => pages.filter(p => p.isFavorite), [pages]);
   const recentPages = useMemo(() => {
     return [...pages].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 20);
   }, [pages]);
 
   if (isLoading) return <LoadingState variant="brain" title="Loading Knowledge Base..." description="Compiling technical specs and document hierarchy..." />;
+  if (projectParam && projectsError) return <div className="p-8"><ErrorState title="Could not load project context" onRetry={() => { retryProjects(); }} /></div>;
   if (isError) {
     return (
       <div className="p-8 font-sans">
@@ -192,8 +182,8 @@ export function BrainWorkspace() {
     );
   }
 
-  const rootPages = pages.filter(p => !p.parentId);
-  const selectedPage = pages.find(p => p.id === selectedPageId) || pages[0];
+  const rootPages = pages.filter(p => !p.parentId || !pages.some(parent => parent.id === p.parentId));
+  const selectedPage = pages.find(p => p.id === selectedPageId);
 
   return (
     <div className="flex flex-col h-full w-full bg-canvas font-sans text-primary select-none overflow-hidden animate-in fade-in duration-150">
@@ -201,6 +191,7 @@ export function BrainWorkspace() {
         type="file"
         ref={fileInputRef}
         onChange={handleSpecFileSelected}
+        aria-label="Import document file"
         accept=".md,.spec.md,.txt"
         className="hidden"
       />
@@ -213,10 +204,11 @@ export function BrainWorkspace() {
         className="mb-0 rounded-none border-x-0 border-t-0 border-b bg-surface shadow-none px-6 py-3.5"
       >
         {/* Actions & View Mode Toggle & Search trigger */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Import Spec Button */}
           <BaseButton
             variant="secondary"
+            aria-label="Import document"
             onClick={handleImportSpecClick}
             className="text-caption py-1.5 px-3 flex items-center gap-1.5 font-mono font-bold"
           >
@@ -225,6 +217,7 @@ export function BrainWorkspace() {
           </BaseButton>
 
           <button
+            aria-label="Search Specs..."
             onClick={() => setIsSearchOpen(true)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary text-caption font-mono transition-all cursor-pointer"
           >
@@ -259,8 +252,14 @@ export function BrainWorkspace() {
         </div>
       </PageHeader>
 
+      {viewMode === 'editor' && (
+        <nav aria-label="Document view" className="flex gap-2 px-3 py-2 border-b border-border md:hidden">
+          <button type="button" aria-pressed={mobilePane === 'list'} onClick={() => setMobilePane('list')} className="min-h-11 flex-1 rounded-lg border border-border text-caption text-primary aria-pressed:bg-accent-subtle aria-pressed:text-accent-fg aria-pressed:border-accent">Documents</button>
+          <button type="button" aria-pressed={mobilePane === 'editor'} onClick={() => setMobilePane('editor')} className="min-h-11 flex-1 rounded-lg border border-border text-caption text-primary aria-pressed:bg-accent-subtle aria-pressed:text-accent-fg aria-pressed:border-accent">Editor</button>
+        </nav>
+      )}
       {/* Main Container */}
-      <div className="flex flex-1 overflow-hidden bg-surface">
+      <div className="flex flex-1 min-h-0 overflow-hidden bg-surface">
         {viewMode === 'graph' ? (
           <KnowledgeGraphCanvas
             workspaceId={activeWorkspaceId}
@@ -269,7 +268,7 @@ export function BrainWorkspace() {
         ) : (
           <>
             {/* Sidebar Column */}
-            <div className="w-72 md:w-80 border-r border-border bg-surface-hover/30 flex flex-col h-full shrink-0 select-none">
+            <div className={cn("w-full md:w-80 border-r border-border bg-surface-hover/30 flex-col h-full shrink-0 select-none", mobilePane === "list" ? "flex" : "hidden md:flex")}>
               <div className="px-3.5 py-2.5 border-b border-border flex flex-col gap-2 bg-surface">
                 <div className="flex justify-between items-center">
                   <span className="text-badge font-mono font-semibold text-secondary uppercase tracking-widest flex items-center gap-1.5">
@@ -289,15 +288,17 @@ export function BrainWorkspace() {
                       className: "w-3 h-3 text-secondary shrink-0"
                     })}
                     <select
+                      aria-label="Document space"
                       value={selectedSpaceId}
                       onChange={(e) => {
                         if (e.target.value === '__NEW__') {
                           handleOpenCreateSpace();
                         } else {
+                          setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('doc'); return next; });
                           handleSelectSpace(e.target.value);
                         }
                       }}
-                      className="bg-transparent text-[11px] font-mono text-primary font-semibold outline-none w-full cursor-pointer truncate"
+                      className="bg-transparent text-caption font-mono text-primary font-semibold outline-none w-full cursor-pointer truncate"
                     >
                       <option value="ALL">All Spaces ({pages.length})</option>
                       {spaces.map((s) => (
@@ -328,7 +329,7 @@ export function BrainWorkspace() {
               </div>
 
               {/* Tab Switcher: Tree | Favorites | Recent | Trash */}
-              <div className="flex items-center px-2 py-1.5 border-b border-border/70 bg-surface/50 gap-1 text-[11px] font-mono">
+              <div className="flex items-center px-2 py-1.5 border-b border-border/70 bg-surface/50 gap-1 text-caption font-mono">
                 <button
                   onClick={() => setSidebarTab('tree')}
                   className={cn(
@@ -356,7 +357,7 @@ export function BrainWorkspace() {
                   <Star className="w-3.5 h-3.5 text-warning-fg" />
                   <span>Favs</span>
                   {favoritePages.length > 0 && (
-                    <span className="text-[9px] px-1 rounded-full bg-warning-bg text-warning-fg border border-warning-border font-mono font-bold">
+                    <span className="text-badge px-1 rounded-full bg-warning-bg text-warning-fg border border-warning-border font-mono font-bold">
                       {favoritePages.length}
                     </span>
                   )}
@@ -389,7 +390,7 @@ export function BrainWorkspace() {
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Trash</span>
                   {deletedPages.length > 0 && (
-                    <span className="text-[9px] px-1 rounded-full bg-danger-bg text-danger-fg border border-danger-border font-mono font-bold">
+                    <span className="text-badge px-1 rounded-full bg-danger-bg text-danger-fg border border-danger-border font-mono font-bold">
                       {deletedPages.length}
                     </span>
                   )}
@@ -413,21 +414,22 @@ export function BrainWorkspace() {
 
                 {sidebarTab === 'favorites' && (
                   favoritePages.length === 0 ? (
-                    <div className="py-8 text-center text-secondary font-mono text-[11px] px-3">
+                    <div className="py-8 text-center text-secondary font-mono text-caption px-3">
                       <Star className="w-6 h-6 text-muted mx-auto mb-2 opacity-40" />
                       <p>No favorited documents.</p>
-                      <p className="text-muted mt-1 text-[10px]">Click the star in any document to bookmark it here.</p>
+                      <p className="text-muted mt-1 text-badge">Click the star in any document to bookmark it here.</p>
                     </div>
                   ) : (
                     favoritePages.map(p => {
                       const IconComp = resolveIcon(p.icon);
                       const isSelected = p.id === selectedPage?.id;
                       return (
-                        <div
+                        <button
                           key={p.id}
+                          type="button"
                           onClick={() => handleSelectDoc(p.id)}
                           className={cn(
-                            "flex items-center justify-between px-2.5 py-1.5 rounded-lg text-body font-sans cursor-pointer transition-colors group",
+                            "w-full text-left flex items-center justify-between px-2.5 py-1.5 min-h-11 rounded-lg text-body font-sans cursor-pointer transition-colors group",
                             isSelected
                               ? "bg-accent-subtle text-accent-fg font-medium"
                               : "text-secondary hover:text-primary hover:bg-surface-hover/70"
@@ -440,7 +442,7 @@ export function BrainWorkspace() {
                           <div className="flex items-center gap-1 shrink-0 ml-2">
                             {p.statusBadges?.[0] && (
                               <span className={cn(
-                                "text-[9px] font-mono uppercase px-1 rounded font-bold border",
+                                "text-badge font-mono uppercase px-1 rounded font-bold border",
                                 p.statusBadges[0] === 'DRAFT' && "bg-warning-bg text-warning-fg border-warning-border",
                                 p.statusBadges[0] === 'IN_REVIEW' && "bg-accent-subtle text-accent-fg border-accent/30",
                                 p.statusBadges[0] === 'ACCEPTED' && "bg-success-bg text-success-fg border-success-border",
@@ -450,7 +452,7 @@ export function BrainWorkspace() {
                               </span>
                             )}
                           </div>
-                        </div>
+                        </button>
                       );
                     })
                   )
@@ -458,7 +460,7 @@ export function BrainWorkspace() {
 
                 {sidebarTab === 'recent' && (
                   recentPages.length === 0 ? (
-                    <div className="py-8 text-center text-secondary font-mono text-[11px] px-3">
+                    <div className="py-8 text-center text-secondary font-mono text-caption px-3">
                       <Clock className="w-6 h-6 text-muted mx-auto mb-2 opacity-40" />
                       <p>No recent documents.</p>
                     </div>
@@ -467,11 +469,12 @@ export function BrainWorkspace() {
                       const IconComp = resolveIcon(p.icon);
                       const isSelected = p.id === selectedPage?.id;
                       return (
-                        <div
+                        <button
                           key={p.id}
+                          type="button"
                           onClick={() => handleSelectDoc(p.id)}
                           className={cn(
-                            "flex items-center justify-between px-2.5 py-1.5 rounded-lg text-body font-sans cursor-pointer transition-colors group",
+                            "w-full text-left flex items-center justify-between px-2.5 py-1.5 min-h-11 rounded-lg text-body font-sans cursor-pointer transition-colors group",
                             isSelected
                               ? "bg-accent-subtle text-accent-fg font-medium"
                               : "text-secondary hover:text-primary hover:bg-surface-hover/70"
@@ -481,10 +484,10 @@ export function BrainWorkspace() {
                             <IconComp className="w-3.5 h-3.5 shrink-0 text-muted group-hover:text-primary" />
                             <span className="truncate text-[12px]">{p.title || 'Untitled Document'}</span>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0 ml-2 text-[10px] font-mono text-muted">
+                          <div className="flex items-center gap-1 shrink-0 ml-2 text-badge font-mono text-muted">
                             {p.documentType || 'DOC'}
                           </div>
-                        </div>
+                        </button>
                       );
                     })
                   )
@@ -492,10 +495,10 @@ export function BrainWorkspace() {
 
                 {sidebarTab === 'trash' && (
                   deletedPages.length === 0 ? (
-                    <div className="py-8 text-center text-secondary font-mono text-[11px] px-3">
+                    <div className="py-8 text-center text-secondary font-mono text-caption px-3">
                       <Trash2 className="w-6 h-6 text-muted mx-auto mb-2 opacity-40" />
                       <p>Trash is empty.</p>
-                      <p className="text-muted mt-1 text-[10px]">
+                      <p className="text-muted mt-1 text-badge">
                         Soft-deleted documents will appear here. You can restore them or permanently purge them.
                       </p>
                     </div>
@@ -514,7 +517,7 @@ export function BrainWorkspace() {
                                 <span className="truncate block text-[12px] text-muted line-through">
                                   {p.title || 'Untitled Document'}
                                 </span>
-                                <span className="text-[10px] font-mono text-muted/70 block">
+                                <span className="text-badge font-mono text-muted/70 block">
                                   Deleted {new Date(p.updatedAt).toLocaleDateString()}
                                 </span>
                               </div>
@@ -573,7 +576,7 @@ export function BrainWorkspace() {
             </div>
 
             {/* Editor Area Column */}
-            <div className="flex-1 h-full bg-surface relative overflow-hidden flex flex-col">
+            <div className={cn("flex-1 min-w-0 h-full bg-surface relative overflow-hidden flex-col", mobilePane === "editor" ? "flex" : "hidden md:flex")}>
               {selectedPage ? (
                 <Editor 
                   key={selectedPage.id} 
@@ -587,8 +590,8 @@ export function BrainWorkspace() {
                 <div className="h-full flex items-center justify-center p-8">
                   <EmptyState 
                     icon={FileSignature}
-                    title="No Specification Selected"
-                    description="Select a document from the page tree on the left or create a new specification to start writing."
+                    title={docParam ? "Document unavailable" : "No Specification Selected"}
+                    description={docParam ? "This document may have been moved to Trash or is unavailable in this workspace. Choose another document or create one." : "Select a document from the page tree on the left or create a new specification to start writing."}
                     actionLabel="Create New Spec"
                     onAction={() => setCreateDocTarget({})}
                   />

@@ -60,8 +60,8 @@ export function LocationSettingsModal({ open, onClose, currentCountry, currentRe
 
  <div className="p-5 space-y-4">
  <div>
- <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1"><Globe2 size={12}/> Country</label>
- <select
+ <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1"><Globe2 size={12}/> Country</label>
+ <select aria-label="Country"
  value={country}
  onChange={e => {
  setCountry(e.target.value);
@@ -75,8 +75,8 @@ export function LocationSettingsModal({ open, onClose, currentCountry, currentRe
 
  {country === 'IN' && (
  <div>
- <label className="block text-[11px] font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1"><MapPin size={12}/> State / UT</label>
- <select
+ <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1"><MapPin size={12}/> State / UT</label>
+ <select aria-label="State or union territory"
  value={region}
  onChange={e => setRegion(e.target.value)}
  className="w-full px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm bg-surface-hover text-primary"

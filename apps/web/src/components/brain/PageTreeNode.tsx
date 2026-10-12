@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Star, Copy, FolderInput, Plus, Trash2 } from 'lucide-react';
 import { api } from '../../api/client';
@@ -30,6 +30,17 @@ export function PageTreeNode({
   const queryClient = useQueryClient();
   const children = pages.filter(p => p.parentId === page.id);
   const hasChildren = children.length > 0;
+  const selectedAncestor = (() => {
+    let current = pages.find(p => p.id === selectedId);
+    const visited = new Set<string>();
+    while (current?.parentId && !visited.has(current.id)) {
+      visited.add(current.id);
+      if (current.parentId === page.id) return true;
+      current = pages.find(p => p.id === current?.parentId);
+    }
+    return false;
+  })();
+  useEffect(() => { if (selectedAncestor) setExpanded(true); }, [selectedAncestor, selectedId]);
   const isSelected = selectedId === page.id;
 
   const handleToggleFavorite = async (e: React.MouseEvent) => {
@@ -102,13 +113,14 @@ export function PageTreeNode({
             : "text-secondary hover:text-primary hover:bg-surface-hover"
         )}
         style={{ paddingLeft: `${(level * 14) + 10}px` }}
-        onClick={() => onSelect(page.id)}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {hasChildren ? (
             <button 
+              aria-label={`${expanded ? 'Collapse' : 'Expand'} ${page.title || 'Untitled Document'}`}
+              aria-expanded={expanded}
               onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-              className="w-4 h-4 flex items-center justify-center text-muted hover:text-primary transition-colors focus:outline-none shrink-0"
+              className="min-w-11 min-h-11 flex items-center justify-center text-muted hover:text-primary transition-colors shrink-0"
             >
               <ChevronRight className={cn("w-3.5 h-3.5 transition-transform duration-150", expanded && "rotate-90 text-accent-fg")} />
             </button>
@@ -118,6 +130,7 @@ export function PageTreeNode({
             </div>
           )}
 
+          <button type="button" aria-current={isSelected ? 'page' : undefined} onClick={() => onSelect(page.id)} className="flex items-center gap-2 min-w-0 flex-1 min-h-11 text-left">
           <div className="w-4 h-4 flex items-center justify-center shrink-0 relative">
             {React.createElement(resolveIcon(page.icon), { className: cn("w-3.5 h-3.5 shrink-0", isSelected ? "text-accent-fg" : "text-muted group-hover:text-secondary") })}
             {page.isFavorite && (
@@ -130,17 +143,20 @@ export function PageTreeNode({
           <span className="truncate text-[13px] tracking-tight">{page.title || 'Untitled Document'}</span>
 
           {page.documentType && page.documentType !== 'GENERAL' && (
-            <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-surface border border-border/80 text-muted font-bold shrink-0">
+            <span className="text-badge font-mono uppercase px-1.5 py-0.5 rounded bg-surface border border-border/80 text-muted font-bold shrink-0">
               {page.documentType}
             </span>
           )}
+          </button>
         </div>
 
-        {/* Hover Actions */}
-        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-0.5 bg-surface/95 backdrop-blur-xs py-0.5 px-1 rounded-lg border border-border shadow-xs z-10">
+        {/* Document actions */}
+        <details className="relative shrink-0">
+          <summary aria-label={`Actions for ${page.title || 'Untitled Document'}`} className="min-w-11 min-h-11 flex items-center justify-center cursor-pointer rounded-lg text-muted hover:bg-surface-hover">•••</summary>
+          <div className="absolute right-0 top-full flex flex-wrap w-48 gap-1 bg-surface p-2 rounded-lg border border-border shadow-xs z-10">
           <button
             onClick={handleToggleFavorite}
-            className={cn("p-1 rounded transition-colors",
+            className={cn("min-h-11 min-w-11 p-2 rounded transition-colors",
               page.isFavorite ? "text-warning-fg" : "text-muted hover:text-warning-fg"
             )}
             title={page.isFavorite ? "Favorited" : "Favorite"}
@@ -149,7 +165,7 @@ export function PageTreeNode({
           </button>
           <button
             onClick={handleDuplicate}
-            className="p-1 rounded text-muted hover:text-accent-fg hover:bg-accent-subtle transition-colors cursor-pointer"
+            className="min-h-11 min-w-11 p-2 rounded text-muted hover:text-accent-fg hover:bg-accent-subtle transition-colors cursor-pointer"
             title="Duplicate subtree"
           >
             <Copy className="w-3.5 h-3.5" />
@@ -159,7 +175,7 @@ export function PageTreeNode({
               e.stopPropagation();
               onMoveDoc?.(page);
             }}
-            className="p-1 rounded text-muted hover:text-accent-fg hover:bg-accent-subtle transition-colors cursor-pointer"
+            className="min-h-11 min-w-11 p-2 rounded text-muted hover:text-accent-fg hover:bg-accent-subtle transition-colors cursor-pointer"
             title="Move document"
           >
             <FolderInput className="w-3.5 h-3.5" />
@@ -174,7 +190,7 @@ export function PageTreeNode({
                   handleCreateChildPage(e);
                 }
               }}
-              className="p-1 rounded text-muted hover:text-accent-fg hover:bg-accent-subtle transition-colors cursor-pointer"
+              className="min-h-11 min-w-11 p-2 rounded text-muted hover:text-accent-fg hover:bg-accent-subtle transition-colors cursor-pointer"
               title="Add sub-document"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -182,12 +198,13 @@ export function PageTreeNode({
           )}
           <button
             onClick={handleDeletePage}
-            className="p-1 rounded text-muted hover:text-danger-fg hover:bg-danger-bg transition-colors cursor-pointer"
+            className="min-h-11 min-w-11 p-2 rounded text-muted hover:text-danger-fg hover:bg-danger-bg transition-colors cursor-pointer"
             title="Delete page"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
-        </div>
+          </div>
+        </details>
       </div>
       
       {/* Children Container */}

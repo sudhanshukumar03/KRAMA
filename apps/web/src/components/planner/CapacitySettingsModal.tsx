@@ -17,7 +17,7 @@ export function CapacitySettingsModal({ open, onClose, currentCapacityMinutes }:
 
   useEffect(() => {
     if (open) {
-      setHours(Math.floor((currentCapacityMinutes ?? 2400) / 60));
+      setHours((currentCapacityMinutes ?? 2400) / 60);
     }
   }, [open, currentCapacityMinutes]);
 
@@ -69,14 +69,16 @@ export function CapacitySettingsModal({ open, onClose, currentCapacityMinutes }:
 
         <div className="p-5 flex flex-col gap-5">
           <div>
-            <label className="block text-xs font-bold text-muted mb-1.5">Hours per Week</label>
+            <label htmlFor="capacity-hours" className="block text-xs font-bold text-muted mb-1.5">Hours per Week</label>
             <div className="relative">
               <input
+                id="capacity-hours"
+                step="any"
                 type="number"
                 min="0"
                 max="168"
                 value={hours}
-                onChange={e => setHours(parseInt(e.target.value, 10) || 0)}
+                onChange={e => setHours(Number(e.target.value) || 0)}
                 className="w-full bg-surface-hover border border-border rounded-lg px-3 py-2 text-sm font-mono font-medium text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-all"
                 placeholder="40"
               />
@@ -84,7 +86,7 @@ export function CapacitySettingsModal({ open, onClose, currentCapacityMinutes }:
                 hours
               </span>
             </div>
-            <p className="text-[10px] text-muted mt-2 font-medium">
+            <p className="text-label text-muted mt-2 font-medium">
               This represents your total working capacity for the week. It helps calculate your workload and free time.
             </p>
           </div>
@@ -98,8 +100,8 @@ export function CapacitySettingsModal({ open, onClose, currentCapacityMinutes }:
             Cancel
           </button>
           <button
-            onClick={() => saveMutation.mutate(hours * 60)}
-            disabled={saveMutation.isPending}
+            onClick={() => saveMutation.mutate(Math.round(hours * 60))}
+            disabled={saveMutation.isPending || !Number.isFinite(hours) || hours < 0 || hours > 168}
             className="krama-btn krama-btn-primary px-3.5 py-1.5 text-xs font-medium cursor-pointer disabled:opacity-50"
           >
             {saveMutation.isPending ? 'Saving...' : 'Save Capacity'}

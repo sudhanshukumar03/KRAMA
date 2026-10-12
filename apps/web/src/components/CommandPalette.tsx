@@ -54,7 +54,7 @@ export function CommandPalette() {
  const navigate = useNavigate();
 
  // Fallback local data for when no search query is active
- const { data: pages = [] } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
+ const { data: pages = [] } = useQuery({ queryKey: ['documents'], queryFn: () => api.documents.list() });
  const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
  const { data: goals = [] } = useQuery({ queryKey: ['goals', 'lite'], queryFn: api.goals.listLite });
  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
@@ -359,7 +359,7 @@ export function CommandPalette() {
  {issues.map((issue) => (
  <Command.Item 
  key={issue.id}
- onSelect={() => runCommand(() => navigate(`/app/board`))}
+ onSelect={() => runCommand(() => navigate(`/app/board?task=${encodeURIComponent(issue.id)}`))}
  className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
  >
  <div className="flex items-center gap-2.5 truncate">
@@ -380,7 +380,7 @@ export function CommandPalette() {
  {goals.map((goal) => (
  <Command.Item 
  key={goal.id}
- onSelect={() => runCommand(() => navigate(`/app/goals`))}
+ onSelect={() => runCommand(() => navigate(`/app/goals?goal=${encodeURIComponent(goal.id)}`))}
  className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-success-fg transition-colors duration-100"
  >
  <div className="flex items-center gap-2.5 truncate">

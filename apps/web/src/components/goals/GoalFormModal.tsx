@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Target, X, Zap, Star, FolderKanban, Activity } from 'lucide-react';
+import { useModalA11y } from '../../hooks/useModalA11y';
 import { BaseButton } from '../ui/BaseButton';
 import { IconPicker } from '../ui/IconPicker';
 import { cn } from '../../lib/utils';
 import { LIFE_PILLARS, type GoalStatus } from './goalConstants';
-import type { GoalWithRelations } from '../../types/schema';
+import { goalMetadata } from '../../lib/goalUtils';
+import type { GoalWithRelations, ProjectWithRelations, Habit } from '../../types/schema';
 
-interface GoalFormModalProps {
+export interface GoalFormModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: {
@@ -17,7 +19,7 @@ interface GoalFormModalProps {
     icon?: string;
     parentGoalId?: string | null;
     status?: GoalStatus;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     selectedProjectIds?: string[];
     selectedHabitIds?: string[];
   }) => void;
@@ -25,8 +27,8 @@ interface GoalFormModalProps {
   initialData?: GoalWithRelations | null;
   parentGoal?: { id: string; title: string } | null;
   defaultPillar?: string;
-  projects?: any[];
-  allHabits?: any[];
+  projects?: ProjectWithRelations[];
+  allHabits?: Habit[];
 }
 
 export function GoalFormModal({
@@ -64,8 +66,15 @@ export function GoalFormModal({
   });
 
   const isEditMode = Boolean(initialData);
+  const dismiss = () => { if (!isSubmitting) onClose(); };
+  const dialogRef = useModalA11y(open, dismiss);
+  const initialId = initialData?.id;
+  const parentId = parentGoal?.id;
+  const initialization = useRef({ initialData, parentGoal, defaultPillar, projects, allHabits });
+  initialization.current = { initialData, parentGoal, defaultPillar, projects, allHabits };
 
   useEffect(() => {
+    const { initialData, parentGoal, defaultPillar, projects, allHabits } = initialization.current;
     if (open) {
       if (initialData) {
         setTitle(initialData.title);
@@ -73,12 +82,11 @@ export function GoalFormModal({
         setType(initialData.type || 'quarterly');
         setProgress(initialData.progress || 0);
         const rawStatus = (
-          (initialData as any).metadata?.status ||
-          (initialData as any).status ||
+          goalMetadata(initialData.metadata).status ||
           'ACTIVE'
         ) as string;
         setStatus(rawStatus as GoalStatus);
-        const md = ((initialData as any).metadata || {}) as Record<string, any>;
+        const md = goalMetadata(initialData.metadata);
         setDescription(md.description || '');
         setWhyStatement(md.whyStatement || '');
         setCategory(md.category || 'health');
@@ -90,10 +98,10 @@ export function GoalFormModal({
         setUnit(md.unit || '');
         setWeight(md.weight != null ? String(md.weight) : '1');
         setSelectedProjectIds(
-          projects.filter((p: any) => p.goalId === initialData.id).map((p: any) => p.id)
+          projects.filter((p) => p.goalId === initialData.id).map((p) => p.id)
         );
         setSelectedHabitIds(
-          allHabits.filter((h: any) => h.linkedGoalId === initialData.id).map((h: any) => h.id)
+          allHabits.filter((h) => h.linkedGoalId === initialData.id).map((h) => h.id)
         );
         if (initialData.targetDate) {
           setTargetDate(new Date(initialData.targetDate).toISOString().split('T')[0]);
@@ -125,7 +133,7 @@ export function GoalFormModal({
         setTargetDate(d.toISOString().split('T')[0]);
       }
     }
-  }, [open, initialData, parentGoal, defaultPillar, projects, allHabits]);
+  }, [open, initialId, parentId]);
 
   if (!open) return null;
 
@@ -138,11 +146,11 @@ export function GoalFormModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (isSubmitting || !title.trim()) return;
 
     const w = Number(weight);
-    const existingMeta = ((initialData as any)?.metadata || {}) as Record<string, any>;
-    const metadata: Record<string, any> = {
+    const existingMeta = goalMetadata(initialData?.metadata);
+    const metadata: Record<string, unknown> = {
       ...existingMeta,
       description: description.trim() || null,
       whyStatement: whyStatement.trim() || null,
@@ -186,454 +194,322 @@ export function GoalFormModal({
     setTargetDate(d.toISOString().split('T')[0]);
   };
 
+
+  const fieldClass = 'krama-input w-full min-w-0 h-11 px-3 text-base sm:text-sm';
+  const labelClass = 'block text-sm font-medium text-primary mb-2';
+  const choiceClass = 'h-4 w-4 shrink-0 accent-accent';
+  const isKeyResult = Boolean(parentGoal || initialData?.parentGoalId);
+
   return (
     <div
-      onClick={onClose}
-      className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-150"
+      onClick={dismiss}
+      className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-4 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150"
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="goal-form-heading"
+        aria-describedby="goal-form-description"
         onClick={(e) => e.stopPropagation()}
-        className="krama-dialog w-full max-w-lg animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-hidden text-left"
+        className="krama-dialog flex flex-col w-full max-w-3xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden text-left motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-200"
       >
-        {/* Header */}
-        <div className="relative flex items-center justify-between px-6 py-4 border-b border-border bg-gradient-to-b from-surface/80 to-surface/40 overflow-hidden">
-          {/* Ambient Top Glow Line */}
-          <div className="absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-accent via-accent-hover to-transparent" />
-
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-accent-subtle text-accent-fg border border-accent/20 flex items-center justify-center shadow-2xs">
-              <Target className="w-4 h-4 stroke-[2]" />
+        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent-subtle text-accent-fg">
+              <Target aria-hidden="true" className="h-5 w-5" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-primary tracking-tight">
+            <div className="min-w-0">
+              <h2 id="goal-form-heading" className="text-base font-semibold tracking-tight text-primary sm:text-lg">
                 {isEditMode ? 'Edit Goal' : parentGoal ? 'Add Key Result / Milestone' : 'New Life Aspiration'}
-              </h3>
-              {parentGoal && (
-                <p className="text-[11px] text-secondary truncate max-w-[280px] font-mono">
-                  Under: {parentGoal.title}
-                </p>
-              )}
+              </h2>
+              <p id="goal-form-description" className="mt-1 text-sm text-secondary break-words">
+                {parentGoal ? 'Under: ' + parentGoal.title : 'Define your outcome and connect the work that supports it.'}
+              </p>
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={dismiss}
+            aria-label="Close goal form"
             type="button"
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
+            disabled={isSubmitting}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-secondary hover:bg-surface-hover hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50 transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X aria-hidden="true" className="h-5 w-5" />
           </button>
-        </div>
+        </header>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
-          {/* Title + Icon */}
-          <div className="flex gap-2.5 items-end">
-            <IconPicker
-              id="goal-form-icon"
-              value={icon || 'Target'}
-              onChange={setIcon}
-              triggerClassName="w-10 h-10 px-0 py-0"
-            />
-            <div className="flex-1">
-              <label
-                htmlFor="goal-title-input"
-                className="block text-[11px] font-mono font-medium text-secondary uppercase mb-1"
-              >
-                {parentGoal ? 'Key Result Title' : 'Aspiration / Goal Title'}{' '}
-                <span className="text-danger-fg font-bold">*</span>
-              </label>
-              <input
-                type="text"
-                id="goal-title-input"
-                name="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={
-                  parentGoal
-                    ? 'e.g. Reach 5,000 active beta users'
-                    : 'e.g. Scale Krama OS to 10,000 Users'
-                }
-                required
-                autoFocus
-                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-shadow"
-              />
-            </div>
-          </div>
-
-          {/* Life Pillar (For root aspirations) */}
-          {!parentGoal && (
-            <div>
-              <label className="block text-[11px] font-mono font-medium text-secondary uppercase mb-1.5">
-                Life Architecture Pillar
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                {LIFE_PILLARS.filter((p) => p.id !== 'all').map((p) => {
-                  const PillarIcon = p.icon;
-                  const isSelected = category === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setCategory(p.id)}
-                      className={cn(
-                        'px-2.5 py-2 rounded-xl border text-xs font-medium flex items-center gap-2 transition-all cursor-pointer text-left',
-                        isSelected
-                          ? cn('border-2 font-bold shadow-xs', p.color)
-                          : 'bg-surface hover:bg-surface-hover border-border text-secondary hover:text-primary'
-                      )}
-                    >
-                      <PillarIcon
-                        className={cn(
-                          'w-3.5 h-3.5 shrink-0 stroke-[2]',
-                          isSelected ? '' : 'text-secondary'
-                        )}
-                      />
-                      <span className="truncate">{p.label.split(' ')[0]}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Motivation / Purpose */}
-          <div>
-            <label
-              htmlFor="goal-why-input"
-              className="block text-[11px] font-mono font-medium text-secondary uppercase mb-1 flex items-center justify-between"
-            >
-              <span>Why it matters (Core Purpose)</span>
-              <span className="text-secondary/50 lowercase font-normal text-[10px]">optional</span>
-            </label>
-            <input
-              type="text"
-              id="goal-why-input"
-              name="whyStatement"
-              value={whyStatement}
-              onChange={(e) => setWhyStatement(e.target.value)}
-              placeholder="e.g. To achieve creative autonomy and financial freedom..."
-              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs text-primary placeholder:text-secondary/50 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
-            />
-          </div>
-
-          {/* Timeline & Cadence */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="goal-horizon-select"
-                className="block text-[11px] font-mono font-medium text-secondary uppercase mb-1"
-              >
-                Strategic Cadence
-              </label>
-              <select
-                id="goal-horizon-select"
-                name="type"
-                value={type}
-                onChange={(e) => handleTypeChange(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-xs text-primary bg-surface focus:outline-none focus:border-accent cursor-pointer"
-              >
-                <option value="quarterly">Quarterly Sprint (90d)</option>
-                <option value="monthly">Monthly Milestone (30d)</option>
-                <option value="yearly">Annual Vision (1yr)</option>
-              </select>
-            </div>
-            <div>
-              <label
-                htmlFor="goal-target-date-input"
-                className="block text-[11px] font-mono font-medium text-secondary uppercase mb-1"
-              >
-                Target Date
-              </label>
-              <input
-                type="date"
-                id="goal-target-date-input"
-                name="targetDate"
-                value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-xs text-primary bg-surface focus:outline-none focus:border-accent font-mono"
-              />
-            </div>
-          </div>
-
-          {/* Measurable Target Metric Toggle */}
-          <div className="pt-2 border-t border-border/70">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-[11px] font-mono font-medium text-secondary uppercase flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={measurable}
-                  onChange={(e) => setMeasurable(e.target.checked)}
-                  className="rounded border-border text-accent focus:ring-accent accent-accent"
-                />
-                <span>Track Numeric Metric (Target & Current)</span>
-              </label>
-              {measurableProgress !== null && (
-                <span className="text-[11px] font-mono font-bold text-accent-fg">
-                  {measurableProgress}% Progress
-                </span>
-              )}
-            </div>
-
-            {measurable && (
-              <div className="grid grid-cols-3 gap-2.5 p-3 rounded-xl bg-surface-hover/50 border border-border animate-in fade-in duration-150">
-                <div>
-                  <span className="block text-[10px] font-mono text-secondary uppercase mb-1">
-                    Current
-                  </span>
-                  <input
-                    type="number"
-                    value={currentValue}
-                    onChange={(e) => setCurrentValue(e.target.value)}
-                    placeholder="0"
-                    className="w-full bg-surface border border-border rounded-md px-2.5 py-1.5 text-xs font-mono text-primary focus:outline-none focus:border-accent"
+        {/* Keep one scrolling body between a stable heading and submit actions. */}
+        <form onSubmit={handleSubmit} aria-busy={isSubmitting} className="flex min-h-0 flex-1 flex-col">
+          <div data-goal-form-body className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 sm:py-6">
+            <div className="space-y-5">
+              <div>
+                <label htmlFor="goal-title-input" className={labelClass}>
+                  {isKeyResult ? 'Key Result Title' : 'Aspiration / Goal Title'} <span className="text-danger-fg">*</span>
+                </label>
+                <div className="flex items-start gap-3">
+                  <IconPicker
+                    id="goal-form-icon"
+                    value={icon || 'Target'}
+                    onChange={setIcon}
+                    triggerClassName="w-11 h-11 px-0 py-0"
+                    popoverClassName="left-0 right-auto sm:left-0 sm:right-auto max-w-[calc(100vw-4rem)] max-h-60 motion-reduce:animate-none"
                   />
-                </div>
-                <div>
-                  <span className="block text-[10px] font-mono text-secondary uppercase mb-1">
-                    Target
-                  </span>
-                  <input
-                    type="number"
-                    value={targetValue}
-                    onChange={(e) => setTargetValue(e.target.value)}
-                    placeholder="100"
-                    className="w-full bg-surface border border-border rounded-md px-2.5 py-1.5 text-xs font-mono text-primary focus:outline-none focus:border-accent"
-                  />
-                </div>
-                <div>
-                  <span className="block text-[10px] font-mono text-secondary uppercase mb-1">
-                    Unit
-                  </span>
                   <input
                     type="text"
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value)}
-                    placeholder="users, km, $"
-                    className="w-full bg-surface border border-border rounded-md px-2.5 py-1.5 text-xs font-mono text-primary focus:outline-none focus:border-accent"
+                    id="goal-title-input"
+                    name="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder={isKeyResult ? 'e.g. Complete 12 training sessions' : 'e.g. Build a consistent training routine'}
+                    required
+                    className={cn(fieldClass, 'flex-1')}
                   />
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Progress Mode & Strategic Weight / Pinning */}
-          <div className="pt-2 border-t border-border/70 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono font-medium text-secondary uppercase">
-                Progress Mode
-              </span>
-              <div className="flex items-center gap-3 text-xs font-mono">
-                <label className="flex items-center gap-1.5 cursor-pointer text-secondary hover:text-primary">
-                  <input
-                    type="radio"
-                    name="progressMode"
-                    value="manual"
-                    checked={progressMode === 'manual'}
-                    onChange={() => setProgressMode('manual')}
-                    className="accent-accent"
-                  />
-                  <span>Manual</span>
-                </label>
-                <label
-                  className="flex items-center gap-1.5 cursor-pointer text-secondary hover:text-primary"
-                  title="Derives progress automatically from tasks in connected projects"
-                >
-                  <input
-                    type="radio"
-                    name="progressMode"
-                    value="auto"
-                    checked={progressMode === 'auto'}
-                    onChange={() => setProgressMode('auto')}
-                    className="accent-accent"
-                  />
-                  <span className="flex items-center gap-1 text-accent-fg font-semibold">
-                    <Zap className="w-3 h-3" /> Auto from Tasks
-                  </span>
-                </label>
-              </div>
-            </div>
+              {!isKeyResult && (
+                <fieldset className="min-w-0">
+                  <legend className={labelClass}>Life pillar</legend>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {LIFE_PILLARS.filter((p) => p.id !== 'all').map((p) => {
+                      const PillarIcon = p.icon;
+                      const isSelected = category === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          aria-pressed={isSelected}
+                          onClick={() => setCategory(p.id)}
+                          className={cn(
+                            'flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors cursor-pointer',
+                            isSelected ? cn('font-semibold', p.color) : 'bg-surface hover:bg-surface-hover border-border text-secondary hover:text-primary'
+                          )}
+                        >
+                          <PillarIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
+                          <span>{p.label.split(' ')[0]}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
 
-            {/* Weight for Key Results */}
-            {parentGoal || initialData?.parentGoalId ? (
-              <div className="flex items-center justify-between pt-1">
-                <label className="text-[11px] font-mono font-medium text-secondary uppercase">
-                  OKR Rollup Weight
+              <div>
+                <label htmlFor="goal-why-input" className={cn(labelClass, 'flex items-center justify-between gap-2')}>
+                  <span>Why it matters</span>
+                  <span className="text-xs font-normal text-secondary">Optional</span>
                 </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={weight}
-                    onChange={(e) => setWeight(e.target.value)}
-                    className="w-16 bg-surface border border-border rounded-md px-2 py-1 text-xs font-mono text-primary text-center focus:outline-none focus:border-accent"
-                  />
-                  <span className="text-[10px] text-secondary font-mono">weight (default: 1)</span>
-                </div>
-              </div>
-            ) : (
-              /* Pin to Spotlight for Root Goals */
-              <label className="flex items-center gap-2 text-xs text-secondary hover:text-primary cursor-pointer select-none pt-1">
                 <input
-                  type="checkbox"
-                  checked={isPinned}
-                  onChange={(e) => setIsPinned(e.target.checked)}
-                  className="rounded border-border text-warning-fg accent-warning-fg"
+                  type="text"
+                  id="goal-why-input"
+                  name="whyStatement"
+                  aria-label="Why this matters"
+                  value={whyStatement}
+                  onChange={(e) => setWhyStatement(e.target.value)}
+                  placeholder="What will achieving this change for you?"
+                  className={fieldClass}
                 />
-                <span className="flex items-center gap-1.5">
-                  <Star className={cn('w-3.5 h-3.5', isPinned ? 'text-warning-fg fill-warning-fg' : 'text-secondary')} />
-                  <span>Pin to Focus Spotlight</span>
-                </span>
-              </label>
-            )}
-          </div>
+              </div>
 
-          {/* Connected Initiatives & Habits Selection */}
-          {(projects.length > 0 || allHabits.length > 0) && (
-            <div className="pt-2 border-t border-border/70 space-y-3">
-              {projects.length > 0 && (
-                <div>
-                  <label className="block text-[11px] font-mono font-medium text-secondary uppercase mb-1.5 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <FolderKanban className="w-3.5 h-3.5 text-cat-projects" /> Connected Projects
-                    </span>
-                    <span className="text-secondary/60 text-[10px]">
-                      {selectedProjectIds.length} selected
-                    </span>
-                  </label>
-                  <div className="max-h-24 overflow-y-auto rounded-lg border border-border bg-surface p-1.5 space-y-1">
-                    {projects.map((proj: any) => {
-                      const checked = selectedProjectIds.includes(proj.id);
-                      return (
-                        <label
-                          key={proj.id}
-                          className="flex items-center gap-2 text-xs text-primary hover:bg-surface-hover px-2 py-1 rounded cursor-pointer transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => {
-                              if (e.target.checked) setSelectedProjectIds([...selectedProjectIds, proj.id]);
-                              else setSelectedProjectIds(selectedProjectIds.filter((id) => id !== proj.id));
-                            }}
-                            className="rounded border-border text-accent accent-accent"
-                          />
-                          <span className="truncate flex-1 font-medium">{proj.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {allHabits.length > 0 && (
-                <div>
-                  <label className="block text-[11px] font-mono font-medium text-secondary uppercase mb-1.5 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Activity className="w-3.5 h-3.5 text-cat-routines" /> Connected Daily Habits
-                    </span>
-                    <span className="text-secondary/60 text-[10px]">
-                      {selectedHabitIds.length} selected
-                    </span>
-                  </label>
-                  <div className="max-h-24 overflow-y-auto rounded-lg border border-border bg-surface p-1.5 space-y-1">
-                    {allHabits.map((habit: any) => {
-                      const checked = selectedHabitIds.includes(habit.id);
-                      return (
-                        <label
-                          key={habit.id}
-                          className="flex items-center gap-2 text-xs text-primary hover:bg-surface-hover px-2 py-1 rounded cursor-pointer transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => {
-                              if (e.target.checked) setSelectedHabitIds([...selectedHabitIds, habit.id]);
-                              else setSelectedHabitIds(selectedHabitIds.filter((id) => id !== habit.id));
-                            }}
-                            className="rounded border-border text-accent accent-accent"
-                          />
-                          <span className="truncate flex-1 font-medium">{habit.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Edit-only fields: Status & Manual Progress */}
-          {isEditMode && (
-            <div className="pt-3 border-t border-border/70 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label
-                    htmlFor="modal-status"
-                    className="block text-[11px] font-mono font-medium text-secondary uppercase mb-1"
-                  >
-                    Status
-                  </label>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="min-w-0">
+                  <label htmlFor="goal-horizon-select" className={labelClass}>Time horizon</label>
                   <select
-                    id="modal-status"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as GoalStatus)}
-                    className="w-full px-3 py-2 border border-border rounded-lg text-xs text-primary bg-surface focus:outline-none focus:border-accent cursor-pointer"
+                    id="goal-horizon-select"
+                    name="type"
+                    aria-label="Goal horizon"
+                    value={type}
+                    onChange={(e) => handleTypeChange(e.target.value)}
+                    className={cn(fieldClass, 'cursor-pointer')}
                   >
-                    <option value="ACTIVE">🟢 Active</option>
-                    <option value="PAUSED">🟡 Paused</option>
-                    <option value="COMPLETED">✅ Completed</option>
-                    <option value="CANCELED">🔴 Canceled</option>
+                    <option value="quarterly">Quarterly Sprint (90d)</option>
+                    <option value="monthly">Monthly Milestone (30d)</option>
+                    <option value="yearly">Annual Vision (1yr)</option>
                   </select>
                 </div>
+                <div className="min-w-0">
+                  <label htmlFor="goal-target-date-input" className={labelClass}>Target date</label>
+                  <input
+                    type="date"
+                    id="goal-target-date-input"
+                    name="targetDate"
+                    aria-label="Target date"
+                    value={targetDate}
+                    onChange={(e) => setTargetDate(e.target.value)}
+                    className={fieldClass}
+                  />
+                </div>
+              </div>
+            </div>
 
-                {!measurable && progressMode === 'manual' && (
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label
-                        htmlFor="modal-slider-prog"
-                        className="text-[11px] font-mono font-medium text-secondary uppercase"
-                      >
-                        Progress
-                      </label>
-                      <span className="text-[11px] font-mono font-bold text-accent-fg">
-                        {progress}%
-                      </span>
+            <section aria-labelledby="goal-progress-heading" className="mt-6 border-t border-border pt-5">
+              <h3 id="goal-progress-heading" className="text-sm font-semibold text-primary">Progress &amp; focus</h3>
+              <fieldset className="mt-4 min-w-0">
+                <legend className="mb-2 text-sm text-secondary">How should progress update?</legend>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {(['manual', 'auto'] as const).map((mode) => (
+                    <label
+                      key={mode}
+                      className={cn(
+                        'flex min-h-11 items-center gap-3 rounded-xl border px-3 py-3 text-sm cursor-pointer transition-colors',
+                        progressMode === mode ? 'border-accent/30 bg-accent-subtle text-accent-fg' : 'border-border text-secondary hover:bg-surface-hover'
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="progressMode"
+                        value={mode}
+                        checked={progressMode === mode}
+                        onChange={() => setProgressMode(mode)}
+                        className={choiceClass}
+                      />
+                      {mode === 'auto' && <Zap aria-hidden="true" className="h-4 w-4 shrink-0" />}
+                      <span className="font-medium">{mode === 'manual' ? 'Manual' : 'Auto from Tasks'}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-secondary">
+                  {progressMode === 'auto' ? 'Progress comes from completed tasks in connected projects.' : 'Update progress yourself, or track a numeric target below.'}
+                </p>
+              </fieldset>
+
+              <div className="mt-3">
+                <div className="flex flex-wrap items-center justify-between gap-x-3">
+                  <label className="flex min-h-11 items-center gap-3 text-sm text-primary cursor-pointer">
+                    <input type="checkbox" checked={measurable} onChange={(e) => setMeasurable(e.target.checked)} className={choiceClass} />
+                    <span>Track Numeric Metric (Target &amp; Current)</span>
+                  </label>
+                  {measurableProgress !== null && (
+                    <span className="text-xs font-mono font-semibold text-accent-fg">{measurableProgress}% Progress</span>
+                  )}
+                </div>
+                {measurable && (
+                  <div className="mt-2 grid grid-cols-2 gap-3 rounded-xl border border-border bg-canvas p-3 sm:grid-cols-3">
+                    <div className="min-w-0">
+                      <label htmlFor="goal-current-value" className={labelClass}>Current</label>
+                      <input id="goal-current-value" type="number" aria-label="Current value" value={currentValue} onChange={(e) => setCurrentValue(e.target.value)} placeholder="0" className={fieldClass} />
                     </div>
-                    <input
-                      type="range"
-                      id="modal-slider-prog"
-                      min="0"
-                      max="100"
-                      value={progress}
-                      onChange={(e) => setProgress(Number(e.target.value))}
-                      className="w-full accent-accent cursor-pointer mt-1"
-                    />
+                    <div className="min-w-0">
+                      <label htmlFor="goal-target-value" className={labelClass}>Target</label>
+                      <input id="goal-target-value" type="number" aria-label="Target value" value={targetValue} onChange={(e) => setTargetValue(e.target.value)} placeholder="100" className={fieldClass} />
+                    </div>
+                    <div className="col-span-2 min-w-0 sm:col-span-1">
+                      <label htmlFor="goal-metric-unit" className={labelClass}>Unit</label>
+                      <input id="goal-metric-unit" type="text" aria-label="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="sessions, km, users" className={fieldClass} />
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
-          )}
 
-          {/* Submit Buttons */}
-          <div className="pt-3 border-t border-border flex justify-end gap-2.5">
-            <BaseButton
-              type="button"
-              variant="secondary"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
+              {isKeyResult ? (
+                <div className="mt-4">
+                  <label htmlFor="goal-weight" className={labelClass}>Key result weight</label>
+                  <div className="flex items-center gap-3">
+                    <input id="goal-weight" type="number" min="1" max="10" aria-label="Weight" value={weight} onChange={(e) => setWeight(e.target.value)} className={cn(fieldClass, 'w-20 font-mono')} />
+                    <span className="text-xs text-secondary">Contribution to the parent goal, from 1 to 10.</span>
+                  </div>
+                </div>
+              ) : (
+                <label className="mt-2 flex min-h-11 items-center gap-3 text-sm text-primary cursor-pointer">
+                  <input type="checkbox" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} className={choiceClass} />
+                  <Star aria-hidden="true" className={cn('h-4 w-4 shrink-0', isPinned ? 'text-warning-fg fill-warning-fg' : 'text-secondary')} />
+                  <span>Pin to Focus Spotlight</span>
+                </label>
+              )}
+
+              {isEditMode && (
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="modal-status" className={labelClass}>Status</label>
+                    <select id="modal-status" value={status} onChange={(e) => setStatus(e.target.value as GoalStatus)} className={fieldClass}>
+                      <option value="ACTIVE">Active</option>
+                      <option value="PAUSED">Paused</option>
+                      <option value="COMPLETED">Completed</option>
+                      <option value="CANCELED">Canceled</option>
+                    </select>
+                  </div>
+                  {!measurable && progressMode === 'manual' && (
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <label htmlFor="modal-slider-prog" className="text-sm font-medium text-primary">Progress</label>
+                        <span className="text-xs font-mono font-semibold text-accent-fg">{progress}%</span>
+                      </div>
+                      <input type="range" id="modal-slider-prog" min="0" max="100" aria-label="Progress" value={progress} onChange={(e) => setProgress(Number(e.target.value))} className="h-11 w-full accent-accent cursor-pointer" />
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+
+            {(projects.length > 0 || allHabits.length > 0) && (
+              <section aria-labelledby="goal-connections-heading" className="mt-6 border-t border-border pt-5">
+                <h3 id="goal-connections-heading" className="text-sm font-semibold text-primary">Connected work</h3>
+                <p className="mt-1 text-xs text-secondary">Link the projects and daily habits that move this goal forward.</p>
+                <div className="mt-4 grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+                  {projects.length > 0 && (
+                    <fieldset className="min-w-0">
+                      <legend className="mb-2 w-full">
+                        <span className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="flex items-center gap-2 text-sm font-medium text-primary">
+                            <FolderKanban aria-hidden="true" className="h-4 w-4 text-cat-projects" /> Projects
+                          </span>
+                          <span className="text-xs text-secondary">{selectedProjectIds.length} selected</span>
+                        </span>
+                      </legend>
+                      <div className="rounded-xl border border-border p-1">
+                        {projects.map((proj) => (
+                          <label key={proj.id} className="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm text-primary hover:bg-surface-hover cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedProjectIds.includes(proj.id)}
+                              onChange={(e) => setSelectedProjectIds((ids) => e.target.checked ? [...ids, proj.id] : ids.filter((id) => id !== proj.id))}
+                              className={choiceClass}
+                            />
+                            <span className="min-w-0 break-words">{proj.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                  )}
+                  {allHabits.length > 0 && (
+                    <fieldset className="min-w-0">
+                      <legend className="mb-2 w-full">
+                        <span className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="flex items-center gap-2 text-sm font-medium text-primary">
+                            <Activity aria-hidden="true" className="h-4 w-4 text-cat-routines" /> Daily habits
+                          </span>
+                          <span className="text-xs text-secondary">{selectedHabitIds.length} selected</span>
+                        </span>
+                      </legend>
+                      <div className="rounded-xl border border-border p-1">
+                        {allHabits.map((habit) => (
+                          <label key={habit.id} className="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm text-primary hover:bg-surface-hover cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedHabitIds.includes(habit.id)}
+                              onChange={(e) => setSelectedHabitIds((ids) => e.target.checked ? [...ids, habit.id] : ids.filter((id) => id !== habit.id))}
+                              className={choiceClass}
+                            />
+                            <span className="min-w-0 break-words">{habit.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                  )}
+                </div>
+              </section>
+            )}
+          </div>
+
+          <footer className="flex shrink-0 items-center justify-end gap-3 border-t border-border bg-surface px-4 py-4 sm:px-6">
+            <BaseButton type="button" variant="secondary" onClick={dismiss} disabled={isSubmitting} className="max-sm:flex-1 max-sm:px-3">
               Cancel
             </BaseButton>
-            <BaseButton type="submit" disabled={isSubmitting || !title.trim()}>
-              {isSubmitting
-                ? 'Saving...'
-                : isEditMode
-                ? 'Save Changes'
-                : parentGoal
-                ? 'Add Key Result'
-                : 'Create Aspiration'}
+            <BaseButton type="submit" disabled={isSubmitting || !title.trim()} isLoading={isSubmitting} className="max-sm:flex-1 max-sm:px-3">
+              {isSubmitting ? 'Saving...' : isEditMode ? 'Save Changes' : parentGoal ? 'Add Key Result' : 'Create Aspiration'}
             </BaseButton>
-          </div>
+          </footer>
         </form>
       </div>
     </div>

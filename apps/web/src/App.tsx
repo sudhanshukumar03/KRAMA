@@ -21,6 +21,7 @@ function App() {
       <Toaster 
         position="bottom-right" 
         duration={4000}
+        closeButton
       />
       <Suspense fallback={<LoadingState variant="default" />}>
         <Routes>

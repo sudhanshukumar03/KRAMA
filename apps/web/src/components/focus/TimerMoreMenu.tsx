@@ -67,12 +67,12 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 origin-top-right rounded-2xl bg-neutral-900/95 backdrop-blur-2xl border border-white/15 shadow-2xl p-2 z-50 text-white animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute right-0 mt-2 w-72 origin-top-right rounded-2xl krama-dialog shadow-2xl p-2 z-50 text-primary animate-in fade-in zoom-in-95 duration-150">
           {/* Header */}
-          <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
+          <div className="px-3 py-2 border-b border-border/70 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Settings className="w-3.5 h-3.5 text-teal-400" />
-              <span className="text-xs font-mono uppercase tracking-wider font-bold text-white/90">
+              <Settings className="w-3.5 h-3.5 text-accent-fg" />
+              <span className="text-xs font-mono uppercase tracking-wider font-bold text-primary">
                 Timer Options
               </span>
             </div>
@@ -86,10 +86,10 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
                 setIsOpen(false);
                 onChangeMode?.('pomodoro');
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-white/10 transition-colors text-left cursor-pointer"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-surface-hover text-secondary hover:text-primary transition-colors text-left cursor-pointer"
             >
               <span className="flex items-center gap-2.5">
-                <Clock className="w-3.5 h-3.5 text-teal-400" />
+                <Clock className="w-3.5 h-3.5 text-accent-fg" />
                 <span>Focus (Pomodoro)</span>
               </span>
             </button>
@@ -100,10 +100,10 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
                 setIsOpen(false);
                 if (onOpenLayoutPicker) onOpenLayoutPicker();
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-white/10 transition-colors text-left cursor-pointer"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-surface-hover text-secondary hover:text-primary transition-colors text-left cursor-pointer"
             >
               <span className="flex items-center gap-2.5">
-                <LayoutGrid className="w-3.5 h-3.5 text-teal-400" />
+                <LayoutGrid className="w-3.5 h-3.5 text-accent-fg" />
                 <span>Timer Layout</span>
               </span>
             </button>
@@ -113,13 +113,13 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
                 setIsOpen(false);
                 onOpenWallpaper();
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-white/10 transition-colors text-left cursor-pointer"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-surface-hover text-secondary hover:text-primary transition-colors text-left cursor-pointer"
             >
               <span className="flex items-center gap-2.5">
-                <Palette className="w-3.5 h-3.5 text-pink-400" />
+                <Palette className="w-3.5 h-3.5 text-accent-fg" />
                 <span>Wallpaper & Layout</span>
               </span>
-              <kbd className="text-[10px] font-mono text-white/40">W</kbd>
+              <kbd className="text-[10px] font-mono text-muted">W</kbd>
             </button>
 
             <button
@@ -128,13 +128,13 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
                 setIsOpen(false);
                 onOpenSettings();
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-white/10 transition-colors text-left"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-surface-hover text-secondary hover:text-primary transition-colors text-left"
             >
               <span className="flex items-center gap-2.5">
                 <Sliders className="w-3.5 h-3.5 text-accent-fg" />
                 <span>Customize</span>
               </span>
-              <kbd className="text-[10px] font-mono text-white/40">S</kbd>
+              <kbd className="text-[10px] font-mono text-muted">S</kbd>
             </button>
 
             <button
@@ -143,18 +143,18 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
                 setIsOpen(false);
                 onToggleSound();
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-white/10 transition-colors text-left"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-surface-hover text-secondary hover:text-primary transition-colors text-left"
             >
               <span className="flex items-center gap-2.5">
                 {soundEnabled
-                  ? <Volume2 className="w-3.5 h-3.5 text-teal-400" />
-                  : <VolumeX className="w-3.5 h-3.5 text-white/40" />}
+                  ? <Volume2 className="w-3.5 h-3.5 text-accent-fg" />
+                  : <VolumeX className="w-3.5 h-3.5 text-muted" />}
                 <span>Audio Chimes</span>
               </span>
               <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
                 soundEnabled
-                  ? 'text-teal-400 bg-teal-950/60 border border-teal-500/20'
-                  : 'text-white/40 bg-white/5 border border-white/10'
+                  ? 'text-accent-fg bg-accent/10 border border-accent/20'
+                  : 'text-muted bg-surface-2 border border-border'
               }`}>
                 {soundEnabled ? 'ON' : 'OFF'}
               </span>
@@ -166,7 +166,7 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
                 setIsOpen(false);
                 onToggleMode();
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-white/10 transition-colors text-left"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-surface-hover text-secondary hover:text-primary transition-colors text-left"
             >
               <span className="flex items-center gap-2.5">
                 <Calendar className="w-3.5 h-3.5 text-cat-timeblocks" />
@@ -181,18 +181,18 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
                   setIsOpen(false);
                   onSkip();
                 }}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-white/10 transition-colors text-left"
+                className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-surface-hover text-secondary hover:text-primary transition-colors text-left"
               >
                 <span className="flex items-center gap-2.5">
                   <SkipForward className="w-3.5 h-3.5 text-warning-fg" />
                   <span>Skip to Next Session</span>
                 </span>
-                <kbd className="text-[10px] font-mono text-white/40">N</kbd>
+                <kbd className="text-[10px] font-mono text-muted">N</kbd>
               </button>
             )}
           </div>
 
-          <div className="my-1 border-t border-white/10" />
+          <div className="my-1 border-t border-border/70" />
 
           {/* Exit */}
           <div className="py-1">
@@ -202,7 +202,7 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
                 setIsOpen(false);
                 onClose();
               }}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-danger-bg/40 text-white/80 hover:text-danger-fg transition-colors text-left mt-1"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-danger-bg text-secondary hover:text-danger-fg transition-colors text-left mt-1 cursor-pointer"
             >
               <span className="flex items-center gap-2.5">
                 <X className="w-3.5 h-3.5 text-danger-fg" />

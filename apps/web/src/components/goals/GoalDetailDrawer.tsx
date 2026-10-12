@@ -1,25 +1,24 @@
+import { GoalProgressSummary } from './GoalProgressSummary';
+import { GoalConnections } from './GoalConnections';
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useModalA11y } from '../../hooks/useModalA11y';
+import { ErrorState } from '../ui/ErrorState';
 import { api } from '../../api/client';
-import {
-  Calendar, CheckCircle2, Plus,
-  X, Star, Pencil, FolderKanban, Activity, Sparkles,
-  ArrowRight, Unlink, ChevronRight, Zap, Check
-} from 'lucide-react';
+import { Calendar, CheckCircle2, Plus, X, Star, Pencil, Activity, Sparkles, ChevronRight, Zap } from 'lucide-react';
 import { ConfirmDeleteButton } from '../ui/ConfirmDeleteButton';
 import { BaseButton } from '../ui/BaseButton';
 import { IconPicker } from '../ui/IconPicker';
 import { resolveIcon } from '../../lib/iconResolver';
-import { computeGoalPace } from '../../lib/goalUtils';
-import { cn, formatLocalDate } from '../../lib/utils';
+import { computeGoalPace, goalMetadata } from '../../lib/goalUtils';
+import { cn, formatLocalDate, errorMessage } from '../../lib/utils';
 import { toast } from 'sonner';
 import { LIFE_PILLARS, getPillar, type GoalStatus } from './goalConstants';
-import type { GoalWithRelations } from '../../types/schema';
+import type { GoalWithRelations, ProjectWithRelations, GoalUpdateInput } from '../../types/schema';
 
 interface GoalDetailDrawerProps {
   goal: GoalWithRelations;
-  projects: any[];
+  projects: ProjectWithRelations[];
   onClose: () => void;
   onAddChild?: (parentGoal: GoalWithRelations) => void;
   onSelectGoal?: (goal: GoalWithRelations) => void;
@@ -32,9 +31,11 @@ export function GoalDetailDrawer({
   onAddChild,
   onSelectGoal,
 }: GoalDetailDrawerProps) {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const goalId = goal.id;
+  const dialogRef = useModalA11y(true, onClose);
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [draftVersion, setDraftVersion] = useState(goal.version);
   const [activeTab, setActiveTab] = useState<'cockpit' | 'edit'>('cockpit');
   const [note, setNote] = useState('');
   const [progressInput, setProgressInput] = useState<number>(goal.progress ?? 0);
@@ -43,33 +44,33 @@ export function GoalDetailDrawer({
 
   // Inline edit state
   const [editTitle, setEditTitle] = useState(goal.title);
-  const [editIcon, setEditIcon] = useState<string>((goal as any).icon || 'Target');
+  const [editIcon, setEditIcon] = useState<string>(goal.icon || 'Target');
   const [editWhy, setEditWhy] = useState(
-    (goal.metadata as any)?.whyStatement || (goal.metadata as any)?.description || ''
+    goalMetadata(goal.metadata)?.whyStatement || goalMetadata(goal.metadata)?.description || ''
   );
-  const [editCategory, setEditCategory] = useState((goal.metadata as any)?.category || 'health');
+  const [editCategory, setEditCategory] = useState(goalMetadata(goal.metadata)?.category || 'health');
   const [editTargetDate, setEditTargetDate] = useState(() =>
     goal.targetDate ? new Date(goal.targetDate).toISOString().split('T')[0] : ''
   );
   const [editProgressMode, setEditProgressMode] = useState<'manual' | 'auto'>('manual');
 
-  const { data: detail, isLoading } = useQuery({
+  const { data: detail, isLoading, isError: detailError, refetch: retryDetail } = useQuery({
     queryKey: ['goal', goalId],
     queryFn: () => api.goals.get(goalId),
   });
 
-  const { data: allGoals = [] } = useQuery({
+  const { data: allGoals = [], isError: goalsError, refetch: retryGoals } = useQuery({
     queryKey: ['goals'],
     queryFn: api.goals.list,
   });
 
-  const { data: allHabits = [] } = useQuery({
+  const { data: allHabits = [], isError: habitsError, refetch: retryHabits } = useQuery({
     queryKey: ['habits'],
     queryFn: api.habits.list,
   });
 
   const current = (detail ?? goal) as GoalWithRelations;
-  const metadata = ((current as any)?.metadata || {}) as Record<string, any>;
+  const metadata = goalMetadata(current.metadata);
   const isAuto = metadata.progressMode === 'auto';
   const isMeasurable = Boolean(metadata.measurable) && metadata.targetValue != null;
   const isPinned = Boolean(metadata.isPinned);
@@ -80,22 +81,25 @@ export function GoalDetailDrawer({
   );
 
   useEffect(() => {
+    // Keep the user's edits and original version when a background query updates.
+    // The server can then detect a stale save rather than silently overwriting it.
+    if (draftDirty) return;
+    setDraftVersion(current.version);
     setProgressInput(current.progress ?? 0);
     setMeasurableInput(metadata.currentValue != null ? String(metadata.currentValue) : '');
     setEditTitle(current.title);
-    setEditIcon((current as any).icon || 'Target');
+    setEditIcon(current.icon || 'Target');
     setEditWhy(metadata.whyStatement || metadata.description || '');
     setEditCategory(metadata.category || 'health');
     setEditProgressMode(metadata.progressMode === 'auto' ? 'auto' : 'manual');
-    if (current.targetDate) {
-      setEditTargetDate(new Date(current.targetDate).toISOString().split('T')[0]);
-    }
+    setEditTargetDate(current.targetDate ? new Date(current.targetDate).toISOString().split('T')[0] : '');
   }, [
+    draftDirty, current.version,
     current.progress,
     metadata.currentValue,
     metadata.progressMode,
     current.title,
-    (current as any).icon,
+    current.icon,
     current.targetDate,
     metadata.whyStatement,
     metadata.description,
@@ -109,30 +113,30 @@ export function GoalDetailDrawer({
     return allGoals.find((g) => g.id === current.parentGoalId) || null;
   }, [allGoals, current.parentGoalId]);
 
-  const childGoals = ((current as any)?.childGoals ?? []) as GoalWithRelations[];
+  const childGoals = current.childGoals ?? [];
 
   const linkedProjects = useMemo(
-    () => (projects || []).filter((p: any) => p.goalId === goalId),
+    () => (projects || []).filter((p) => p.goalId === goalId),
     [projects, goalId]
   );
 
   const unlinkedProjects = useMemo(
-    () => (projects || []).filter((p: any) => !p.goalId || p.goalId !== goalId),
+    () => (projects || []).filter((p) => !p.goalId || p.goalId !== goalId),
     [projects, goalId]
   );
 
   const linkedHabits = useMemo(
-    () => (allHabits as any[]).filter((h) => h.linkedGoalId === goalId),
+    () => allHabits.filter((h) => h.linkedGoalId === goalId),
     [allHabits, goalId]
   );
 
   const unlinkedHabits = useMemo(
-    () => (allHabits as any[]).filter((h) => !h.linkedGoalId || h.linkedGoalId !== goalId),
+    () => allHabits.filter((h) => !h.linkedGoalId || h.linkedGoalId !== goalId),
     [allHabits, goalId]
   );
 
   const snapshots = useMemo(() => {
-    const s = ((current as any)?.snapshots ?? []) as Array<{
+    const s = (current.snapshots ?? []) as Array<{
       date: string;
       progress: number;
       notes?: string | null;
@@ -151,9 +155,9 @@ export function GoalDetailDrawer({
           : progressInput;
 
       const hasChildren = childGoals.length > 0;
-      const payload: Record<string, any> = {
+      const payload: GoalUpdateInput = {
         progress: isAuto || hasChildren ? current.progress ?? 0 : derivedProgress,
-        version: (current as any)?.version,
+        version: draftVersion,
         ...(note.trim() ? { note: note.trim() } : {}),
       };
 
@@ -167,13 +171,16 @@ export function GoalDetailDrawer({
       return api.goals.update(goalId, payload);
     },
     onSuccess: () => {
+      setDraftDirty(false);
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       setNote('');
       toast.success('Check-in and reflection saved');
     },
-    onError: (err: any) =>
-      toast.error('Failed to save check-in: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to save check-in: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   const inlineEditMutation = useMutation({
@@ -182,7 +189,7 @@ export function GoalDetailDrawer({
         title: editTitle.trim(),
         icon: editIcon,
         targetDate: editTargetDate ? new Date(editTargetDate).toISOString() : null,
-        version: (current as any)?.version,
+        version: draftVersion,
         metadata: {
           ...metadata,
           whyStatement: editWhy.trim() || null,
@@ -192,13 +199,16 @@ export function GoalDetailDrawer({
       });
     },
     onSuccess: () => {
+      setDraftDirty(false);
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       setActiveTab('cockpit');
       toast.success('Goal settings updated');
     },
-    onError: (err: any) =>
-      toast.error('Failed to update details: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to update details: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   const statusChangeMutation = useMutation({
@@ -206,21 +216,23 @@ export function GoalDetailDrawer({
       api.goals.update(goalId, {
         status: newStatus,
         progress: newStatus === 'COMPLETED' ? 100 : current.progress,
-        version: (current as any)?.version,
+        version: current.version,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       toast.success('Goal status updated');
     },
-    onError: (err: any) =>
-      toast.error('Failed to update status: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to update status: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   const togglePinMutation = useMutation({
     mutationFn: () => {
       return api.goals.update(goalId, {
-        version: (current as any)?.version,
+        version: current.version,
         metadata: {
           ...metadata,
           isPinned: !isPinned,
@@ -229,6 +241,8 @@ export function GoalDetailDrawer({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       toast.success(isPinned ? 'Removed from Spotlight' : 'Pinned to Spotlight');
     },
@@ -237,65 +251,73 @@ export function GoalDetailDrawer({
   // Link / Unlink Project
   const linkProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
-      const proj = projects.find((p: any) => p.id === projectId);
+      const proj = projects.find((p) => p.id === projectId);
       if (!proj) return;
       return api.projects.update(projectId, { goalId, version: proj.version });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       setSelectedProjectIdToLink('');
       toast.success('Project connected to goal');
     },
-    onError: (err: any) =>
-      toast.error('Failed to connect project: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to connect project: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   const unlinkProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
-      const proj = projects.find((p: any) => p.id === projectId);
+      const proj = projects.find((p) => p.id === projectId);
       if (!proj) return;
       return api.projects.update(projectId, { goalId: null, version: proj.version });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       toast.success('Project unlinked');
     },
-    onError: (err: any) =>
-      toast.error('Failed to unlink project: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to unlink project: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   // Link / Unlink Habit
   const linkHabitMutation = useMutation({
     mutationFn: async (habitId: string) => {
-      return api.habits.update(habitId, { linkedGoalId: goalId });
+      return api.habits.update(habitId, { linkedGoalId: goalId, version: allHabits.find(h => h.id === habitId)?.version });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       setSelectedHabitIdToLink('');
       toast.success('Habit connected to goal');
     },
-    onError: (err: any) =>
-      toast.error('Failed to connect habit: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to connect habit: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   const unlinkHabitMutation = useMutation({
     mutationFn: async (habitId: string) => {
-      return api.habits.update(habitId, { linkedGoalId: null });
+      return api.habits.update(habitId, { linkedGoalId: null, version: allHabits.find(h => h.id === habitId)?.version });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] });
       toast.success('Habit unlinked');
     },
-    onError: (err: any) =>
-      toast.error('Failed to unlink habit: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to unlink habit: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   // One-Click Habit Completion directly inside drawer
@@ -309,16 +331,20 @@ export function GoalDetailDrawer({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       toast.success('Habit logged for today! Momentum maintained 🔥');
     },
-    onError: (err: any) =>
-      toast.error('Failed to log habit: ' + (err?.message || 'Unknown error')),
+    onError: (err) =>
+      toast.error('Failed to log habit: ' + (errorMessage(err, 'Unknown error'))),
   });
 
   const handleDeleteGoalFromDrawer = async () => {
     try {
       await api.goals.delete(goalId);
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       onClose();
@@ -328,6 +354,8 @@ export function GoalDetailDrawer({
           onClick: async () => {
             await api.goals.restore(goalId);
             queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
             queryClient.invalidateQueries({ queryKey: ['projects'] });
             queryClient.invalidateQueries({ queryKey: ['habits'] });
             toast.success(`Restored "${current.title}"`);
@@ -339,17 +367,29 @@ export function GoalDetailDrawer({
     }
   };
 
-  const DrawerIcon = resolveIcon((current as any)?.icon || 'Target');
-  const rawStatus = (metadata.status || (current as any).status || 'ACTIVE') as GoalStatus;
+  const DrawerIcon = resolveIcon(current.icon || 'Target');
+  const rawStatus = (metadata.status || 'ACTIVE') as GoalStatus;
   const isCompleted = rawStatus === 'COMPLETED' || current.progress >= 100;
+
+  if (isLoading || detailError || goalsError || habitsError) return (
+    <div className="fixed inset-0 z-[100] flex justify-end bg-black/40">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Goal details" className="relative w-full max-w-lg h-full bg-card p-6 overflow-y-auto">
+        <button onClick={onClose} aria-label="Close goal details">Close</button>
+        {isLoading ? <p role="status">Loading goal details...</p> : <ErrorState title="Could not load goal details" onRetry={() => { void Promise.all([retryDetail(), retryGoals(), retryHabits()]); }} />}
+      </div>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-[100] flex justify-end animate-in fade-in duration-150">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
       <div
+        ref={dialogRef} role="dialog" aria-modal="true" aria-label="Goal details"
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-lg h-full bg-card border-l border-border shadow-2xl flex flex-col animate-in slide-in-from-right duration-200"
       >
+        {(detailError || goalsError || habitsError) && <ErrorState title="Could not load goal details" onRetry={() => { void Promise.all([retryDetail(), retryGoals(), retryHabits()]); }} />}
+        {draftDirty && current.version !== draftVersion && <p role="alert" className="p-3 text-warning-fg">This goal changed elsewhere. Your draft is retained. Close and reopen to load the latest values before saving.</p>}
         {/* Drawer Header */}
         <div className="relative flex items-start justify-between px-6 py-5 border-b border-border bg-gradient-to-b from-surface/80 to-surface/40 shrink-0 overflow-hidden">
           {/* Ambient Top Glow Line */}
@@ -469,6 +509,7 @@ export function GoalDetailDrawer({
             />
 
             <button
+              aria-label="Close goal details"
               onClick={onClose}
               type="button"
               className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary transition-colors cursor-pointer"
@@ -517,7 +558,7 @@ export function GoalDetailDrawer({
                 </label>
                 <IconPicker
                   value={editIcon}
-                  onChange={setEditIcon}
+                  onChange={(icon) => { setDraftDirty(true); setEditIcon(icon); }}
                   triggerClassName="w-10 h-10 px-0 py-0"
                 />
               </div>
@@ -527,8 +568,9 @@ export function GoalDetailDrawer({
                 </label>
                 <input
                   type="text"
+                  aria-label="Goal title"
                   value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
+                  onChange={(e) => { setDraftDirty(true); setEditTitle(e.target.value); }}
                   className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-primary focus:outline-none focus:border-accent"
                 />
               </div>
@@ -572,8 +614,9 @@ export function GoalDetailDrawer({
                 Why This Matters (Motivation)
               </label>
               <textarea
-                value={editWhy}
-                onChange={(e) => setEditWhy(e.target.value)}
+                aria-label="Why this matters"
+                  value={editWhy}
+                onChange={(e) => { setDraftDirty(true); setEditWhy(e.target.value); }}
                 rows={3}
                 placeholder="What will achieving this unlock for your life?..."
                 className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-primary placeholder:text-secondary/50 focus:outline-none focus:border-accent resize-none"
@@ -586,8 +629,9 @@ export function GoalDetailDrawer({
               </label>
               <input
                 type="date"
-                value={editTargetDate}
-                onChange={(e) => setEditTargetDate(e.target.value)}
+                aria-label="Target date"
+                  value={editTargetDate}
+                onChange={(e) => { setDraftDirty(true); setEditTargetDate(e.target.value); }}
                 className="w-full px-3 py-2 border border-border rounded-lg text-body text-primary bg-surface focus:outline-none focus:border-accent"
               />
             </div>
@@ -603,7 +647,7 @@ export function GoalDetailDrawer({
                     name="editProgressMode"
                     value="manual"
                     checked={editProgressMode === 'manual'}
-                    onChange={() => setEditProgressMode('manual')}
+                    onChange={() => { setDraftDirty(true); setEditProgressMode('manual'); }}
                     className="accent-accent"
                   />
                   <span>Manual Progress</span>
@@ -617,7 +661,7 @@ export function GoalDetailDrawer({
                     name="editProgressMode"
                     value="auto"
                     checked={editProgressMode === 'auto'}
-                    onChange={() => setEditProgressMode('auto')}
+                    onChange={() => { setDraftDirty(true); setEditProgressMode('auto'); }}
                     className="accent-accent"
                   />
                   <span className="flex items-center gap-1 text-accent-fg font-semibold">
@@ -652,96 +696,7 @@ export function GoalDetailDrawer({
               </div>
             )}
 
-            {/* Executive Velocity Gauge Instrument Panel */}
-            <div className="p-4.5 rounded-2xl border border-border/80 bg-surface/50 shadow-xs space-y-3.5 relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {['stalled', 'past_due'].includes(pace.status) ? (
-                    <span className="w-2 h-2 rounded-full bg-danger-fg animate-pulse" />
-                  ) : pace.status === 'behind' ? (
-                    <span className="w-2 h-2 rounded-full bg-warning-fg" />
-                  ) : (
-                    <span className="w-2 h-2 rounded-full bg-success-fg" />
-                  )}
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
-                    {pace.badge}
-                  </span>
-                </div>
-                <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-full bg-surface-hover text-secondary border border-border/60">
-                  {pace.isDueToday
-                    ? 'Due today'
-                    : pace.daysRemaining > 0
-                      ? `${pace.daysRemaining} days remaining`
-                      : pace.status === 'unknown'
-                        ? 'No target date'
-                        : 'Overdue'}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-caption font-mono bg-card p-3 rounded-xl border border-border/70 shadow-2xs">
-                <div>
-                  <span className="text-secondary/80 block text-[10px] font-semibold uppercase tracking-wider">Required Pace</span>
-                  <span className="text-sm font-bold text-primary font-mono tabular-nums">
-                    {pace.requiredPace === Infinity ? 'N/A' : `${pace.requiredPace.toFixed(1)}%/d`}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-secondary/80 block text-[10px] font-semibold uppercase tracking-wider">Actual Velocity</span>
-                  <span className="text-sm font-bold text-primary font-mono tabular-nums">{pace.actualPace.toFixed(1)}%/d</span>
-                </div>
-                {pace.projectedDate && (
-                  <div className="col-span-2 pt-2 border-t border-border/60 flex items-center justify-between">
-                    <span className="text-secondary/80 text-[10px] uppercase font-semibold">
-                      Projected Completion
-                    </span>
-                    <span className="font-bold text-accent-fg font-mono text-xs">
-                      {pace.projectedDate.toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Overall Progress Gauge */}
-            <div className="p-4.5 rounded-2xl bg-card border border-border/80 shadow-xs">
-              <div className="flex items-center justify-between mb-2.5">
-                <span className="text-[10px] font-mono font-semibold uppercase tracking-widest text-secondary">
-                  Overall Completion
-                </span>
-                <span
-                  className={cn(
-                    'text-3xl font-extrabold font-mono tracking-tight tabular-nums',
-                    isCompleted ? 'text-success-fg' : 'text-primary'
-                  )}
-                >
-                  {current.progress}%
-                </span>
-              </div>
-              <div className="h-2 rounded-full bg-surface-hover overflow-hidden p-[0.5px]">
-                <div
-                  className={cn(
-                    'h-full rounded-full transition-all duration-700 ease-out shadow-xs',
-                    isCompleted
-                      ? 'bg-gradient-to-r from-success-fg to-accent'
-                      : 'bg-gradient-to-r from-cat-tasks via-accent to-cat-routines'
-                  )}
-                  style={{ width: `${Math.min(100, Math.max(0, current.progress))}%` }}
-                />
-              </div>
-              {isMeasurable && (
-                <div className="mt-2.5 flex items-center justify-between text-[11px] font-mono text-secondary">
-                  <span>Target Metric:</span>
-                  <span className="font-semibold text-primary">
-                    {metadata.currentValue ?? 0} / {metadata.targetValue}
-                    {metadata.unit ? ` ${metadata.unit}` : ''}
-                  </span>
-                </div>
-              )}
-            </div>
+            <GoalProgressSummary pace={pace} progress={current.progress} metadata={metadata} isCompleted={isCompleted} isMeasurable={isMeasurable} />
 
             {/* Milestones / Key Results */}
             <div>
@@ -765,7 +720,7 @@ export function GoalDetailDrawer({
               ) : (
                 <div className="space-y-2">
                   {childGoals.map((kr) => {
-                    const krMeta = ((kr as any)?.metadata || {}) as Record<string, any>;
+                    const krMeta = goalMetadata(kr.metadata);
                     const krMeasurable = Boolean(krMeta.measurable) && krMeta.targetValue != null;
                     return (
                       <div
@@ -818,165 +773,22 @@ export function GoalDetailDrawer({
               )}
             </div>
 
-            {/* Connected Initiatives (Projects) */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-caption font-mono uppercase tracking-wide text-secondary flex items-center gap-1.5">
-                  <FolderKanban className="w-3.5 h-3.5 text-cat-projects" /> Connected Projects ({linkedProjects.length})
-                </h4>
-              </div>
-
-              {unlinkedProjects.length > 0 && (
-                <div className="mb-2 flex items-center gap-2">
-                  <select
-                    value={selectedProjectIdToLink}
-                    onChange={(e) => setSelectedProjectIdToLink(e.target.value)}
-                    className="flex-1 text-xs border border-border rounded-lg px-2.5 py-1.5 bg-surface text-primary focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="">+ Connect existing project...</option>
-                    {unlinkedProjects.map((p: any) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p._count?.tasks ?? p.tasks?.length ?? 0} tasks)
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={!selectedProjectIdToLink || linkProjectMutation.isPending}
-                    onClick={() =>
-                      selectedProjectIdToLink &&
-                      linkProjectMutation.mutate(selectedProjectIdToLink)
-                    }
-                    className="px-2.5 py-1.5 text-xs bg-accent text-white font-medium rounded-lg hover:bg-accent-hover disabled:opacity-40 transition-colors shadow-2xs cursor-pointer shrink-0"
-                  >
-                    Connect
-                  </button>
-                </div>
-              )}
-
-              {linkedProjects.length === 0 ? (
-                <p className="text-caption text-secondary italic">No projects connected yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {linkedProjects.map((proj: any) => (
-                    <div
-                      key={proj.id}
-                      className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-border bg-surface hover:border-accent/40 transition-colors"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/app/projects/${proj.id}`)}
-                        className="flex-1 text-left min-w-0 flex items-center gap-2 cursor-pointer group"
-                      >
-                        <span className="w-2 h-2 rounded-full bg-cat-projects shrink-0" />
-                        <p className="text-xs font-medium text-primary group-hover:text-accent-fg transition-colors truncate">
-                          {proj.name}
-                        </p>
-                        <ArrowRight className="w-3 h-3 text-secondary group-hover:text-accent-fg transition-transform group-hover:translate-x-0.5 shrink-0" />
-                      </button>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[10px] font-mono text-secondary bg-surface-hover px-1.5 py-0.5 rounded">
-                          {proj._count?.tasks ?? proj.tasks?.length ?? 0} tasks
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => unlinkProjectMutation.mutate(proj.id)}
-                          className="text-secondary hover:text-danger-fg p-1 rounded hover:bg-surface-hover transition-colors cursor-pointer"
-                          title="Disconnect project"
-                        >
-                          <Unlink className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Daily Habit Synergy (With Direct Log Button!) */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-caption font-mono uppercase tracking-wide text-secondary flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-warning-fg" /> Daily Habits ({linkedHabits.length})
-                </h4>
-              </div>
-
-              {unlinkedHabits.length > 0 && (
-                <div className="mb-2 flex items-center gap-2">
-                  <select
-                    value={selectedHabitIdToLink}
-                    onChange={(e) => setSelectedHabitIdToLink(e.target.value)}
-                    className="flex-1 text-xs border border-border rounded-lg px-2.5 py-1.5 bg-surface text-primary focus:outline-none focus:border-accent cursor-pointer"
-                  >
-                    <option value="">+ Connect daily habit...</option>
-                    {unlinkedHabits.map((h: any) => (
-                      <option key={h.id} value={h.id}>
-                        {h.name} (streak: {h.streak ?? 0}d)
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={!selectedHabitIdToLink || linkHabitMutation.isPending}
-                    onClick={() =>
-                      selectedHabitIdToLink && linkHabitMutation.mutate(selectedHabitIdToLink)
-                    }
-                    className="px-2.5 py-1.5 text-xs bg-accent text-white font-medium rounded-lg hover:bg-accent-hover disabled:opacity-40 transition-colors shadow-2xs cursor-pointer shrink-0"
-                  >
-                    Connect
-                  </button>
-                </div>
-              )}
-
-              {linkedHabits.length === 0 ? (
-                <p className="text-caption text-secondary italic">No habits connected to this goal yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {linkedHabits.map((h: any) => (
-                    <div
-                      key={h.id}
-                      className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-border bg-surface hover:border-accent/40 transition-colors"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/app/habits?goalId=${goalId}`)}
-                        className="flex-1 text-left min-w-0 flex items-center gap-2 cursor-pointer group"
-                      >
-                        <p className="text-xs font-medium text-primary group-hover:text-accent-fg transition-colors truncate">
-                          {h.name}
-                        </p>
-                      </button>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        {/* Direct Log Today Button */}
-                        <button
-                          type="button"
-                          onClick={() => logHabitMutation.mutate(h.id)}
-                          disabled={logHabitMutation.isPending}
-                          className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-success-bg text-success-fg border border-success-border hover:bg-success-bg/80 transition-all flex items-center gap-1 cursor-pointer"
-                          title="Log habit for today"
-                        >
-                          <Check className="w-3 h-3" /> Log Today
-                        </button>
-
-                        <span className="text-[10px] font-mono text-warning-fg bg-warning-bg border border-warning-border px-1.5 py-0.5 rounded font-semibold">
-                          🔥 {h.streak ?? 0}d
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() => unlinkHabitMutation.mutate(h.id)}
-                          className="text-secondary hover:text-danger-fg p-1 rounded hover:bg-surface-hover transition-colors cursor-pointer"
-                          title="Disconnect habit"
-                        >
-                          <Unlink className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <GoalConnections
+              goalId={goalId}
+              linkedProjects={linkedProjects}
+              unlinkedProjects={unlinkedProjects}
+              selectedProjectIdToLink={selectedProjectIdToLink}
+              setSelectedProjectIdToLink={setSelectedProjectIdToLink}
+              linkProjectMutation={linkProjectMutation}
+              unlinkProjectMutation={unlinkProjectMutation}
+              linkedHabits={linkedHabits}
+              unlinkedHabits={unlinkedHabits}
+              selectedHabitIdToLink={selectedHabitIdToLink}
+              setSelectedHabitIdToLink={setSelectedHabitIdToLink}
+              linkHabitMutation={linkHabitMutation}
+              unlinkHabitMutation={unlinkHabitMutation}
+              logHabitMutation={logHabitMutation}
+            />
 
             {/* Reflection & Progress History */}
             {snapshots.length > 0 && (
@@ -1035,8 +847,9 @@ export function GoalDetailDrawer({
                 <input
                   type="number"
                   id="drawer-checkin-current"
+                  aria-label="Current value"
                   value={measurableInput}
-                  onChange={(e) => setMeasurableInput(e.target.value)}
+                  onChange={(e) => { setDraftDirty(true); setMeasurableInput(e.target.value); }}
                   placeholder={`Current: ${metadata.currentValue ?? 0}`}
                   className="w-full bg-card border border-border rounded-lg px-3 py-1.5 text-sm font-mono text-primary focus:outline-none focus:border-accent"
                 />
@@ -1056,8 +869,9 @@ export function GoalDetailDrawer({
                   type="range"
                   min={0}
                   max={100}
+                  aria-label="Check-in progress"
                   value={progressInput}
-                  onChange={(e) => setProgressInput(Number(e.target.value))}
+                  onChange={(e) => { setDraftDirty(true); setProgressInput(Number(e.target.value)); }}
                   className="flex-1 accent-accent cursor-pointer"
                 />
                 <span className="text-sm font-bold font-mono text-primary w-10 text-right">
@@ -1067,8 +881,9 @@ export function GoalDetailDrawer({
             )}
 
             <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
+              aria-label="Check-in note"
+                  value={note}
+              onChange={(e) => { setDraftDirty(true); setNote(e.target.value); }}
               placeholder="What moved this week? What gave you momentum? (recorded in history)"
               rows={2}
               className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-xs text-primary placeholder:text-secondary/60 focus:outline-none focus:border-accent"

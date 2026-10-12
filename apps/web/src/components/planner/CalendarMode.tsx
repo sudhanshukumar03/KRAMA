@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { 
-  format, 
-  parseISO, 
+  format,
   eachDayOfInterval, 
   isSameMonth, 
   isSameDay, 
@@ -22,16 +21,18 @@ import {
   Target,
   Flag
 } from "lucide-react";
-import { cn } from "../../lib/utils";
+import { parseLocalDate, cn } from "../../lib/utils";
 
-function getHolidayDateKey(dateVal: any): string {
+import type { PlannerTask, Milestone } from "../../types/planner";
+
+function getHolidayDateKey(dateVal: string | Date | null | undefined): string {
   if (!dateVal) return '';
   if (typeof dateVal === 'string') return dateVal.slice(0, 10);
   if (dateVal instanceof Date) return format(dateVal, 'yyyy-MM-dd');
   return '';
 }
 
-function parseCalendarDate(dateVal: any): Date {
+function parseCalendarDate(dateVal: string | Date | null | undefined): Date {
   const key = getHolidayDateKey(dateVal);
   if (!key) return new Date();
   const [y, m, d] = key.split('-').map(Number);
@@ -44,9 +45,9 @@ interface Props {
   currentRegion: string | null;
   localOnly: boolean;
   onOpenDayView?: (day: Date) => void;
-  tasks?: any[];
-  onClickMilestone?: (milestone: any) => void;
-  onToggleMilestone?: (milestone: any) => void;
+  tasks?: PlannerTask[];
+  onClickMilestone?: (milestone: Milestone) => void;
+  onToggleMilestone?: (milestone: Milestone) => void;
 }
 
 export function CalendarMode({
@@ -78,7 +79,7 @@ export function CalendarMode({
   // `['planner', ...]` prefix the week/day views use so optimistic writes propagate.
   const gridStartKey = format(startDate, 'yyyy-MM-dd');
   const gridEndKey = format(endDate, 'yyyy-MM-dd');
-  const { data: gridPlannerData } = useQuery({
+  const { data: gridPlannerData, isError: milestonesError, refetch: retryMilestones } = useQuery({
     queryKey: ['planner', 'milestones', gridStartKey, gridEndKey, workspaceId],
     queryFn: () => api.planner.getMilestones(gridStartKey, gridEndKey, workspaceId),
     staleTime: 15_000,
@@ -86,17 +87,17 @@ export function CalendarMode({
   const milestones = gridPlannerData?.milestones || [];
   const goalDeadlines = gridPlannerData?.goalDeadlines || [];
 
-  const { data: monthData, isLoading: isHolidaysLoading } = useHolidays(currentCountry, currentRegion, calendarDate);
+  const { data: monthData, isLoading: isHolidaysLoading, isError: holidaysError, refetch: retryHolidays } = useHolidays(currentCountry, currentRegion, calendarDate);
 
   const holidays = useMemo(() => {
     const raw = monthData?.holidays || [];
-    return localOnly ? raw.filter((h: any) => h.isPublicHoliday) : raw;
+    return localOnly ? raw.filter((h) => h.isPublicHoliday) : raw;
   }, [monthData?.holidays, localOnly]);
 
   // Filter holidays belonging to the active month for the sidebar
   const currentMonthKey = format(calendarDate, 'yyyy-MM');
   const monthHolidays = useMemo(() => {
-    return holidays.filter((h: any) => {
+    return holidays.filter((h) => {
       const key = getHolidayDateKey(h.date);
       return key.startsWith(currentMonthKey);
     });
@@ -104,16 +105,16 @@ export function CalendarMode({
 
   // Active tasks excluding canceled
   const activeTaskList = useMemo(() => {
-    return taskList.filter((t: any) => t.status !== 'CANCELED');
+    return taskList.filter((t) => t.status !== 'CANCELED');
   }, [taskList]);
 
   // Filter tasks belonging to current active month
   const monthTasks = useMemo(() => {
-    return activeTaskList.filter((t: any) => {
+    return activeTaskList.filter((t) => {
       const dStr = t.scheduledDate || t.dueDate;
       if (!dStr) return false;
       try {
-        const d = parseISO(dStr);
+        const d = (parseLocalDate(dStr) ?? new Date(NaN));
         return isSameMonth(d, calendarDate);
       } catch {
         return false;
@@ -122,7 +123,7 @@ export function CalendarMode({
   }, [activeTaskList, calendarDate]);
 
   const completedMonthTasks = useMemo(() => {
-    return monthTasks.filter((t: any) => t.status === 'DONE');
+    return monthTasks.filter((t) => t.status === 'DONE');
   }, [monthTasks]);
 
   const completionPercentage = monthTasks.length > 0 
@@ -133,18 +134,18 @@ export function CalendarMode({
   const upcomingMonthTasks = useMemo(() => {
     const todayZero = new Date(new Date().setHours(0, 0, 0, 0));
     return monthTasks
-      .filter((t: any) => {
+      .filter((t) => {
         const dStr = t.scheduledDate || t.dueDate;
         if (!dStr) return false;
         try {
-          return parseISO(dStr).getTime() >= todayZero.getTime() && t.status !== 'DONE';
+          return (parseLocalDate(dStr) ?? new Date(NaN)).getTime() >= todayZero.getTime() && t.status !== 'DONE';
         } catch {
           return false;
         }
       })
-      .sort((a: any, b: any) => {
-        const da = new Date(a.scheduledDate || a.dueDate).getTime();
-        const db = new Date(b.scheduledDate || b.dueDate).getTime();
+      .sort((a, b) => {
+        const da = new Date(a.scheduledDate || a.dueDate || "").getTime();
+        const db = new Date(b.scheduledDate || b.dueDate || "").getTime();
         return da - db;
       })
       .slice(0, 5);
@@ -153,8 +154,18 @@ export function CalendarMode({
   return (
     <div className="flex-1 flex flex-col lg:flex-row gap-5 min-h-0 overflow-hidden">
 
+      {(milestonesError || holidaysError) && <div role="alert" className="shrink-0 text-sm text-warning-fg">
+        Some calendar events could not be loaded. <button type="button" className="underline" onClick={() => { retryMilestones(); retryHolidays(); }}>Retry calendar events</button>
+      </div>}
       {/* CALENDAR GRID */}
       <div className="flex-1 flex flex-col min-h-0 pb-1">
+        {((monthData?.coverage?.missingNationalYears?.length ?? 0) > 0 || (monthData?.coverage?.missingRegionalYears?.length ?? 0) > 0) && (
+          <p role="status" className="mb-2 text-sm text-warning-fg">
+            {(monthData?.coverage.missingNationalYears.length ?? 0) > 0
+              ? 'Holiday dates are unavailable for part of this period.'
+              : 'State holiday dates are unavailable for this period. Showing national dates only.'}
+          </p>
+        )}
         {/* Day-of-week headers */}
         <div className="grid grid-cols-7 gap-0 text-center text-[11px] mb-2 flex-shrink-0">
           {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => (
@@ -168,31 +179,31 @@ export function CalendarMode({
         <div className="grid grid-cols-7 auto-rows-fr gap-0 flex-1 overflow-hidden border-l border-t border-border rounded-[14px] [box-shadow:0_1px_2px_0_rgba(0,0,0,0.04),inset_0_1px_0_0_rgba(255,255,255,0.07)]">
           {monthDays.map((day) => {
             const dayKey = format(day, 'yyyy-MM-dd');
-            const dayHolidays = holidays.filter((h: any) => {
+            const dayHolidays = holidays.filter((h) => {
               return getHolidayDateKey(h.date) === dayKey;
             });
 
-            const dayTasks = activeTaskList.filter((t: any) => {
+            const dayTasks = activeTaskList.filter((t) => {
               const dStr = t.scheduledDate || t.dueDate;
               if (!dStr) return false;
               try {
-                return isSameDay(parseISO(dStr), day);
+                return isSameDay((parseLocalDate(dStr) ?? new Date(NaN)), day);
               } catch {
                 return false;
               }
             });
 
-            const dayMilestones = milestones.filter((m: any) => {
+            const dayMilestones = milestones.filter((m) => {
               try {
-                return m.date && isSameDay(parseISO(m.date), day);
+                return m.date && isSameDay((parseLocalDate(m.date) ?? new Date(NaN)), day);
               } catch {
                 return false;
               }
             });
 
-            const dayGoalDeadlines = goalDeadlines.filter((g: any) => {
+            const dayGoalDeadlines = goalDeadlines.filter((g) => {
               try {
-                return g.targetDate && isSameDay(parseISO(g.targetDate), day);
+                return g.targetDate && isSameDay((parseLocalDate(g.targetDate) ?? new Date(NaN)), day);
               } catch {
                 return false;
               }
@@ -221,7 +232,7 @@ export function CalendarMode({
                 aria-label={`Open schedule for ${format(day, 'EEEE, MMMM d')}`}
                 onClick={() => onOpenDayView?.(day)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
+                  if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
                     e.preventDefault();
                     onOpenDayView?.(day);
                   }
@@ -247,7 +258,7 @@ export function CalendarMode({
 
                   {dayTasks.length > 0 && (
                     <span className="text-[9px] font-mono px-1 rounded bg-surface-hover text-secondary border border-border/50">
-                      {dayTasks.filter((t: any) => t.status === 'DONE').length}/{dayTasks.length}
+                      {dayTasks.filter((t) => t.status === 'DONE').length}/{dayTasks.length}
                     </span>
                   )}
                 </div>
@@ -255,7 +266,7 @@ export function CalendarMode({
                 {/* Cell Body: Holidays, Milestones and Scheduled Tasks */}
                 <div className="flex-1 flex flex-col gap-1 overflow-hidden">
                   {/* Holidays */}
-                  {shownHolidays.map((h: any) => (
+                  {shownHolidays.map((h) => (
                     <div
                       key={h.id || h.name}
                       className={cn(
@@ -271,7 +282,7 @@ export function CalendarMode({
                   ))}
 
                   {/* Milestones */}
-                  {shownMilestones.map((m: any) => (
+                  {shownMilestones.map((m) => (
                     <div
                       key={m.id}
                       className="flex items-center gap-1 text-[9px] px-1 py-0.5 rounded leading-tight border bg-cat-projects-bg border-cat-projects/30"
@@ -304,7 +315,7 @@ export function CalendarMode({
                   ))}
 
                   {/* Goal deadlines (read-only — goals are edited on the Goals page) */}
-                  {shownGoals.map((g: any) => {
+                  {shownGoals.map((g) => {
                     const done = g.progress >= 100;
                     return (
                       <div
@@ -329,7 +340,7 @@ export function CalendarMode({
                   })}
 
                   {/* Tasks */}
-                  {shownTasks.map((task: any) => {
+                  {shownTasks.map((task) => {
                     const isDone = task.status === 'DONE';
                     return (
                       <div
@@ -421,8 +432,8 @@ export function CalendarMode({
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {upcomingMonthTasks.map((t: any) => {
-                const d = parseISO(t.scheduledDate || t.dueDate);
+              {upcomingMonthTasks.map((t) => {
+                const d = (parseLocalDate(t.scheduledDate || t.dueDate) ?? new Date(NaN));
                 return (
                   <button
                     type="button"
@@ -468,7 +479,7 @@ export function CalendarMode({
                 No holidays in this month.
               </div>
             ) : (
-              monthHolidays.slice(0, 6).map((h: any) => {
+              monthHolidays.slice(0, 6).map((h) => {
                 const hDate = parseCalendarDate(h.date);
                 return (
                   <div 

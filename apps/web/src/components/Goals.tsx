@@ -1,4 +1,7 @@
-import { useState, useMemo, useCallback } from 'react';
+import { goalMetadata } from '../lib/goalUtils';
+import type { GoalCreateInput, GoalUpdateInput } from '../types/schema';
+import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import {
@@ -17,7 +20,7 @@ import { GoalKpiStrip } from './goals/GoalKpiStrip';
 import { GoalCard } from './goals/GoalCard';
 import { GoalPillarBoard } from './goals/GoalPillarBoard';
 import { GoalDetailDrawer } from './goals/GoalDetailDrawer';
-import { GoalFormModal } from './goals/GoalFormModal';
+import { GoalFormModal, type GoalFormModalProps } from './goals/GoalFormModal';
 import { LIFE_PILLARS, getPillar, type GoalStatus } from './goals/goalConstants';
 
 export type { GoalStatus, LifePillarId } from './goals/goalConstants';
@@ -30,17 +33,17 @@ export { GoalFormModal } from './goals/GoalFormModal';
 export function Goals() {
   const queryClient = useQueryClient();
 
-  const { data: goals = [], isLoading: goalsLoading, isError: goalsError } = useQuery({
+  const { data: goals = [], isLoading: goalsLoading, isError: goalsError, refetch: retryGoals } = useQuery({
     queryKey: ['goals'],
     queryFn: api.goals.list,
   });
 
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [], isLoading: projectsLoading, isError: projectsError, refetch: retryProjects } = useQuery({
     queryKey: ['projects'],
     queryFn: api.projects.list,
   });
 
-  const { data: allHabits = [] } = useQuery({
+  const { data: allHabits = [], isLoading: habitsLoading, isError: habitsError, refetch: retryHabits } = useQuery({
     queryKey: ['habits'],
     queryFn: api.habits.list,
   });
@@ -60,20 +63,39 @@ export function Goals() {
   const [editingGoal, setEditingGoal] = useState<GoalWithRelations | null>(null);
   const [detailGoal, setDetailGoal] = useState<GoalWithRelations | null>(null);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedGoalId = searchParams.get('goal');
+  useEffect(() => {
+    if (!requestedGoalId || goalsLoading || goalsError) return;
+    const selected = goals.find((goal: GoalWithRelations) => goal.id === requestedGoalId);
+    if (selected) setDetailGoal(selected);
+    else {
+      setDetailGoal(null);
+      toast.error('This goal is no longer available in this workspace');
+      setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('goal'); return next; }, { replace: true });
+    }
+  }, [requestedGoalId, goals, goalsLoading, goalsError, setSearchParams]);
+
+  const openGoal = useCallback((goal: GoalWithRelations) => {
+    setDetailGoal(goal);
+    setSearchParams(previous => { const next = new URLSearchParams(previous); next.set('goal', goal.id); return next; });
+  }, [setSearchParams]);
+
   // Mutations
   const createGoalMutation = useMutation({
     mutationFn: async (data: {
       title: string;
       type: string;
       progress?: number;
-      status?: string;
+      status?: GoalCreateInput["status"];
       targetDate: string;
       icon?: string;
       parentGoalId?: string | null;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
       selectedProjectIds?: string[];
       selectedHabitIds?: string[];
     }) => {
+      const linkResults: PromiseSettledResult<unknown>[] = [];
       const newGoal = await api.goals.create({
         title: data.title,
         type: data.type,
@@ -86,31 +108,36 @@ export function Goals() {
       });
 
       if (Array.isArray(data.selectedProjectIds) && data.selectedProjectIds.length > 0 && newGoal?.id) {
-        await Promise.allSettled(
+        linkResults.push(...await Promise.allSettled(
           data.selectedProjectIds.map((pid: string) => {
-            const p = projects.find((proj: any) => proj.id === pid);
-            return api.projects.update(pid, { goalId: newGoal.id, version: p?.version });
+            const p = projects.find(proj => proj.id === pid);
+            if (!p) return Promise.reject(new Error("Project is no longer available. Refresh and retry."));
+            return api.projects.update(pid, { goalId: newGoal.id, version: p.version });
           })
-        );
+        ));
       }
 
       if (Array.isArray(data.selectedHabitIds) && data.selectedHabitIds.length > 0 && newGoal?.id) {
-        await Promise.allSettled(
+        linkResults.push(...await Promise.allSettled(
           data.selectedHabitIds.map((hid: string) =>
-            api.habits.update(hid, { linkedGoalId: newGoal.id })
+            api.habits.update(hid, { linkedGoalId: newGoal.id, version: allHabits.find(h => h.id === hid)?.version })
           )
-        );
+        ));
       }
 
-      return newGoal;
+      return { ...newGoal, linkFailures: linkResults.filter(r => r.status === 'rejected').length };
     },
     onSuccess: (newGoal) => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       setFormModalOpen(false);
       setParentGoalForModal(null);
-      toast.success(`Created "${newGoal?.title || 'Goal'}"`);
+      if (newGoal.linkFailures) toast.error(`Goal created, but ${newGoal.linkFailures} links failed. Reopen Edit to retry.`);
+      else toast.success(`Created "${newGoal?.title || 'Goal'}"`);
     },
     onError: () => {
       toast.error('Failed to create goal');
@@ -125,53 +152,60 @@ export function Goals() {
       selectedHabitIds,
     }: {
       id: string;
-      data: any;
+      data: GoalUpdateInput;
       selectedProjectIds?: string[];
       selectedHabitIds?: string[];
     }) => {
+      const linkResults: PromiseSettledResult<unknown>[] = [];
       const updated = await api.goals.update(id, data);
 
       if (Array.isArray(selectedProjectIds)) {
         const currentlyLinked = (projects || [])
-          .filter((p: any) => p.goalId === id)
-          .map((p: any) => p.id);
+          .filter((p) => p.goalId === id)
+          .map((p) => p.id);
         const toLink = selectedProjectIds.filter((pid) => !currentlyLinked.includes(pid));
         const toUnlink = currentlyLinked.filter((pid) => !selectedProjectIds.includes(pid));
 
-        await Promise.allSettled([
+        linkResults.push(...await Promise.allSettled([
           ...toLink.map((pid) => {
-            const p = projects.find((proj: any) => proj.id === pid);
-            return api.projects.update(pid, { goalId: id, version: p?.version });
+            const p = projects.find(proj => proj.id === pid);
+            if (!p) return Promise.reject(new Error("Project is no longer available. Refresh and retry."));
+            return api.projects.update(pid, { goalId: id, version: p.version });
           }),
           ...toUnlink.map((pid) => {
-            const p = projects.find((proj: any) => proj.id === pid);
-            return api.projects.update(pid, { goalId: null, version: p?.version });
+            const p = projects.find(proj => proj.id === pid);
+            if (!p) return Promise.reject(new Error("Project is no longer available. Refresh and retry."));
+            return api.projects.update(pid, { goalId: null, version: p.version });
           }),
-        ]);
+        ]));
       }
 
       if (Array.isArray(selectedHabitIds)) {
         const currentlyLinked = (allHabits || [])
-          .filter((h: any) => h.linkedGoalId === id)
-          .map((h: any) => h.id);
+          .filter((h) => h.linkedGoalId === id)
+          .map((h) => h.id);
         const toLink = selectedHabitIds.filter((hid) => !currentlyLinked.includes(hid));
         const toUnlink = currentlyLinked.filter((hid) => !selectedHabitIds.includes(hid));
 
-        await Promise.allSettled([
-          ...toLink.map((hid) => api.habits.update(hid, { linkedGoalId: id })),
-          ...toUnlink.map((hid) => api.habits.update(hid, { linkedGoalId: null })),
-        ]);
+        linkResults.push(...await Promise.allSettled([
+          ...toLink.map((hid) => api.habits.update(hid, { linkedGoalId: id, version: allHabits.find(h => h.id === hid)?.version })),
+          ...toUnlink.map((hid) => api.habits.update(hid, { linkedGoalId: null, version: allHabits.find(h => h.id === hid)?.version })),
+        ]));
       }
 
-      return updated;
+      return { ...updated, linkFailures: linkResults.filter(r => r.status === 'rejected').length };
     },
-    onSuccess: () => {
+    onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       setFormModalOpen(false);
       setEditingGoal(null);
-      toast.success('Aspiration updated successfully');
+      if (updated.linkFailures) toast.error(`Goal saved, but ${updated.linkFailures} links failed. Reopen Edit to retry.`);
+      else toast.success('Aspiration updated successfully');
     },
     onError: () => {
       toast.error('Failed to update goal');
@@ -197,7 +231,7 @@ export function Goals() {
     setFormModalOpen(true);
   }, []);
 
-  const handleModalSubmit = (data: any) => {
+  const handleModalSubmit = (data: Parameters<GoalFormModalProps['onSubmit']>[0]) => {
     if (editingGoal) {
       updateGoalDetailsMutation.mutate({
         id: editingGoal.id,
@@ -222,11 +256,11 @@ export function Goals() {
   const rootGoals = useMemo(() => goals.filter((g) => !g.parentGoalId), [goals]);
 
   const getGoalStatus = (g: GoalWithRelations): GoalStatus =>
-    (((g as any).metadata?.status || (g as any).status || 'ACTIVE') as GoalStatus);
+    ((goalMetadata(g.metadata).status || 'ACTIVE') as GoalStatus);
 
   const scopedGoals = useMemo(() => {
     return rootGoals.filter((g) => {
-      const meta = (g.metadata || {}) as Record<string, any>;
+      const meta = goalMetadata(g.metadata);
       if (selectedPillar !== 'all' && meta.category !== selectedPillar) return false;
       if (selectedHorizon !== 'all' && g.type !== selectedHorizon) return false;
       return true;
@@ -257,7 +291,7 @@ export function Goals() {
       if (activeTab === 'paused' && st !== 'PAUSED') return false;
 
       // Life Pillar filter
-      const meta = (g.metadata || {}) as Record<string, any>;
+      const meta = goalMetadata(g.metadata);
       if (selectedPillar !== 'all' && meta.category !== selectedPillar) return false;
 
       // Horizon filter
@@ -293,7 +327,7 @@ export function Goals() {
     });
   }, [filteredGoals, sortBy]);
 
-  if (goalsLoading) {
+  if (goalsLoading || projectsLoading || habitsLoading) {
     return (
       <LoadingState
         variant="goals"
@@ -303,14 +337,14 @@ export function Goals() {
     );
   }
 
-  if (goalsError) {
+  if (goalsError || projectsError || habitsError) {
     return (
       <div className="p-8">
         <ErrorState
           title="Failed to load Goals"
           message="Could not retrieve goals data from the server. Please verify your connection."
           onRetry={() => {
-            queryClient.invalidateQueries({ queryKey: ['goals'] });
+            void Promise.all([retryGoals(), retryProjects(), retryHabits()]);
           }}
         />
       </div>
@@ -332,7 +366,7 @@ export function Goals() {
       />
 
       {/* EXECUTIVE KPI SUMMARY STRIP */}
-      <GoalKpiStrip goals={goals} onOpenGoal={setDetailGoal} />
+      <GoalKpiStrip goals={goals} onOpenGoal={openGoal} />
 
       {/* UNIFIED STRATEGIC COMMAND TOOLBAR */}
       <div className="krama-card p-3.5 mb-6 space-y-3">
@@ -404,7 +438,7 @@ export function Goals() {
             {/* Sort Dropdown */}
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="px-2.5 py-1 text-xs border border-border rounded-lg bg-surface text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer font-mono"
             >
               <option value="created">Newest First</option>
@@ -510,7 +544,7 @@ export function Goals() {
             goals={sortedGoals}
             activeTab={activeTab}
             searchQuery={searchQuery}
-            onOpenGoal={setDetailGoal}
+            onOpenGoal={openGoal}
             onAddGoalWithPillar={handleCreateGoal}
             selectedPillar={selectedPillar}
           />
@@ -522,7 +556,7 @@ export function Goals() {
                 goal={goal}
                 onAddChild={handleAddChild}
                 onEdit={handleEdit}
-                onOpenDetail={setDetailGoal}
+                onOpenDetail={openGoal}
                 projects={projects}
                 allHabits={allHabits}
               />
@@ -576,9 +610,9 @@ export function Goals() {
         <GoalDetailDrawer
           goal={detailGoal}
           projects={projects}
-          onClose={() => setDetailGoal(null)}
+          onClose={() => { setDetailGoal(null); setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('goal'); return next; }, { replace: true }); }}
           onAddChild={handleAddChild}
-          onSelectGoal={setDetailGoal}
+          onSelectGoal={openGoal}
         />
       )}
     </div>
