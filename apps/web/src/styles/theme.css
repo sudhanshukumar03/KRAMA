@@ -11,7 +11,7 @@
     /* 2. Text (Light - Chromatic Iris Slate) */
     --text-primary: oklch(0.20 0.02 262); /* Deep Midnight Slate */
     --text-secondary: oklch(0.42 0.03 262); /* Rich Iris Slate */
-    --text-muted: oklch(0.60 0.025 262); /* Soft Slate */
+    --text-muted: oklch(0.52 0.025 262); /* Soft Slate */
     --text-on-accent: oklch(1 0 0);
     --text-inverse: oklch(0.98 0.01 262);
 
@@ -22,11 +22,11 @@
     --ring: oklch(0.62 0.17 262);
 
     /* 4. Interactive & State (Light) */
-    --accent: oklch(0.62 0.17 262);
-    --accent-hover: oklch(0.55 0.17 262);
+    --accent: oklch(0.55 0.17 262);
+    --accent-hover: oklch(0.50 0.17 262);
     --accent-active: oklch(0.48 0.17 262);
     --accent-subtle: oklch(0.62 0.17 262 / 0.1);
-    --accent-fg: oklch(0.62 0.17 262);
+    --accent-fg: oklch(0.55 0.17 262);
     
     --state-hover: oklch(0 0 0 / 0.04);
     --state-active: oklch(0 0 0 / 0.08);
@@ -108,7 +108,7 @@
     --text-primary: oklch(0.98 0.01 262); /* Crisp Luminous White */
     --text-secondary: oklch(0.82 0.02 262); /* Luminous Tinted Silver */
     --text-muted: oklch(0.66 0.02 262); /* Soft Legible Slate */
-    --text-on-accent: oklch(1 0 0);
+    --text-on-accent: oklch(0.18 0.01 262);
     --text-inverse: oklch(0.18 0.01 262);
 
     /* 3. Borders (Dark - Alpha, not gray!) */

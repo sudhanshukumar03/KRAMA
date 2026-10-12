@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 
+const modalStack: HTMLDivElement[] = [];
+
 /**
  * Accessibility helper for modal dialogs. While `open`:
  *  - closes the dialog on Escape,
@@ -12,9 +14,15 @@ import { useEffect, useRef } from 'react';
  */
 export function useModalA11y(open: boolean, onClose: () => void) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
+    const panel = containerRef.current;
+    if (!panel) return;
+    modalStack.push(panel);
+    if (!panel.hasAttribute('tabindex')) panel.tabIndex = -1;
 
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
@@ -36,9 +44,11 @@ export function useModalA11y(open: boolean, onClose: () => void) {
     }, 0);
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (modalStack.at(-1) !== panel) return;
       if (e.key === 'Escape') {
+        e.preventDefault();
         e.stopPropagation();
-        onClose();
+        closeRef.current();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -69,9 +79,11 @@ export function useModalA11y(open: boolean, onClose: () => void) {
     return () => {
       window.clearTimeout(focusTimer);
       document.removeEventListener('keydown', handleKeyDown, true);
+      const index = modalStack.indexOf(panel);
+      if (index >= 0) modalStack.splice(index, 1);
       previouslyFocused?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   return containerRef;
 }

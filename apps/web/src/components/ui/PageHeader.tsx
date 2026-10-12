@@ -53,7 +53,7 @@ export function PageHeader({
     <div
       className={cn(
         // krama-card gives specular rim + alpha border + surface-1 bg + 14px radius
-        'krama-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0',
+        'krama-card p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-4 shrink-0',
         className,
       )}
     >
@@ -100,7 +100,7 @@ export function PageHeader({
 
       {/* Right: extra children + primary CTA */}
       {(children || primaryAction) && (
-        <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 self-start xl:self-auto min-w-0 max-w-full">
           {children}
 
           {primaryAction && (

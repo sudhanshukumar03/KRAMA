@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { SocketContext } from '../hooks/useSocket';
+import { api } from '../api/client';
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -25,11 +26,21 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketInstance.on('connect', () => {
       console.log('Real-time connection established');
       setIsConnected(true);
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
     });
+
+    socketInstance.on('planner:changed', () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
+    });
+    socketInstance.on('document:version:created', (data: { documentId: string }) => queryClient.invalidateQueries({ queryKey: ['document-versions', data.documentId] }));
+    socketInstance.on('preferences:updated', () => queryClient.invalidateQueries({ queryKey: ['focus-schedule'] }));
 
     socketInstance.on('disconnect', () => {
       console.log('Real-time connection lost');
@@ -37,14 +48,27 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     socketInstance.on('notification', (data) => {
-      // Surface server-pushed event as a transient toast (no persistent notification store)
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast(data.title, { description: data.message });
     });
+    socketInstance.on('connect_error', (error) => {
+      if (error.message.includes('Token expired')) {
+        api.auth.refresh().catch(() => window.dispatchEvent(new Event('krama:logout')));
+      }
+    });
+    socketInstance.on('session:ended', ({ reason }: { reason: string }) => {
+      if (reason === 'revoked') window.dispatchEvent(new Event('krama:logout'));
+      else api.auth.refresh({ reuseExisting: reason === 'rotated' }).catch(() => window.dispatchEvent(new Event('krama:logout')));
+    });
 
+    // Socket events announce committed changes. Refetch the affected query families
+    // so Board, Planner, Focus, reporting and Goals read their own current records.
     const invalidateTasksAndGoals = () => {
+      queryClient.invalidateQueries({ queryKey: ['task'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
     };
@@ -55,8 +79,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const invalidateProjectsAndGoals = () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -68,8 +94,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketInstance.on('project:restored', invalidateProjectsAndGoals);
 
     const invalidateHabitsAndGoals = () => {
+      queryClient.invalidateQueries({ queryKey: ['goal'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     };
 
@@ -81,9 +110,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketInstance.on('habit:restored', invalidateHabitsAndGoals);
 
     const invalidateGoals = (data?: { goalId?: string }) => {
+      queryClient.invalidateQueries({ queryKey: ['project'] });
+      queryClient.invalidateQueries({ queryKey: ['planner'] });
       queryClient.invalidateQueries({ queryKey: ['goals'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       if (data?.goalId) {
         queryClient.invalidateQueries({ queryKey: ['goal', data.goalId] });
@@ -96,8 +128,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketInstance.on('goal:restored', invalidateGoals);
 
     socketInstance.on('focus:session:completed', () => {
+      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
     });
 
     setSocket(socketInstance);

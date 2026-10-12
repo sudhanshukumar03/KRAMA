@@ -9,6 +9,7 @@ interface IconPickerProps {
   onChange: (iconKey: string) => void;
   className?: string;
   triggerClassName?: string;
+  popoverClassName?: string;
 }
 
 export function IconPicker({
@@ -17,6 +18,7 @@ export function IconPicker({
   onChange,
   className = "",
   triggerClassName = "",
+  popoverClassName = "",
 }: IconPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -67,7 +69,7 @@ export function IconPicker({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-72 max-h-96 overflow-y-auto bg-card border border-border rounded-xl shadow-xl shadow-black/15 p-3 right-0 sm:left-0 sm:right-auto animate-in fade-in zoom-in-95 duration-100">
+        <div className={cn("absolute z-50 mt-2 w-72 max-h-96 overflow-y-auto bg-card border border-border rounded-xl shadow-xl shadow-black/15 p-3 right-0 sm:left-0 sm:right-auto animate-in fade-in zoom-in-95 duration-100", popoverClassName)}>
           <div className="relative mb-3">
             <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-secondary stroke-[1.75]" />
             <input

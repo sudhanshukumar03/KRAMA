@@ -12,9 +12,13 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function parseLocalDate(dateString: string | null | undefined): Date | null {
   if (!dateString) return null;
-  const parts = dateString.split('T')[0].split('-');
-  if (parts.length !== 3) return null;
-  return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  const key = dateString.split('T')[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return null;
+  const [year, month, day] = key.split('-').map(Number);
+  const date = new Date(0);
+  date.setFullYear(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
 }
 
 /**
@@ -60,4 +64,22 @@ export function formatBlockTime(value: string | null | undefined): string {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+export function errorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") return error.message || fallback;
+  return fallback;
+}
+
+/**
+ * Normalize fields used by the project UI while retaining unrelated metadata.
+ * Older or malformed tags must not be treated as an array of strings.
+ */
+export function projectMetadata(value: unknown): { targetDate?: string; tags: string[]; [key: string]: unknown } {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return { ...raw, targetDate: typeof raw.targetDate === 'string' ? raw.targetDate : undefined,
+    tags: Array.isArray(raw.tags) ? raw.tags.filter((tag): tag is string => typeof tag === 'string') : [] };
+}
+export function projectStatus(value: string | null | undefined): import('../types/schema').ProjectStatus {
+  return (['active', 'completed', 'archived', 'idea', 'paused', 'shipped'] as const).find(status => status === value) ?? 'active';
 }
