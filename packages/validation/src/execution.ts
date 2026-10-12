@@ -29,7 +29,7 @@ export const CreateTaskSchema = WorkspaceScoped.extend({
   priority: z.enum(['NONE', 'LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
   blockedById: z.string().uuid().nullable().optional(),
   parentTaskId: z.string().uuid().nullable().optional(),
-  estimateMinutes: z.number().int().min(0).optional(),
+  estimateMinutes: z.number().int().min(0).max(10080).optional(),
   scheduledDate: z.string().datetime().nullable().optional(),
   dueDate: z.string().datetime().nullable().optional(),
   metadata: z.record(z.any()).nullable().optional(),
@@ -100,18 +100,13 @@ export const HabitLogSchema = z.object({
   workspaceId: z.string().uuid().optional(),
 });
 
-export const CreateDecisionSchema = WorkspaceScoped.extend({
-  title: z.string().min(1).max(255),
-  rationale: z.string().nullable().optional(),
-  outcomes: z.string().nullable().optional(),
-  options: z.array(z.string()).nullable().optional(),
-  metadata: z.union([z.string(), z.record(z.any())]).nullable().optional(),
-  createdAt: z.string().datetime().optional()
-});
+// Input types preserve defaults/optional fields before server-side parsing.
+export type CreateProjectInput = z.input<typeof CreateProjectSchema>;
+export type UpdateProjectInput = z.input<typeof UpdateProjectSchema>;
+export type CreateGoalInput = z.input<typeof CreateGoalSchema>;
+export type UpdateGoalInput = z.input<typeof UpdateGoalSchema>;
+export type CreateHabitInput = z.input<typeof CreateHabitSchema>;
+export type UpdateHabitInput = z.input<typeof UpdateHabitSchema>;
+export type UpdateTaskInput = z.input<typeof UpdateTaskSchema>;
 
-export const UpdateDecisionSchema = CreateDecisionSchema.partial().extend({
-  version: z.number().int().min(1).optional(),
-});
-
-
-
+export type CreateTaskInput = z.input<typeof CreateTaskSchema>;

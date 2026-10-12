@@ -12,5 +12,19 @@
   },
   "devDependencies": {
     "typescript": "^5.0.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./api": {
+      "types": "./dist/api.d.ts",
+      "default": "./dist/api.js"
+    },
+    "./planner": {
+      "types": "./dist/planner.d.ts",
+      "default": "./dist/planner.js"
+    }
   }
 }
