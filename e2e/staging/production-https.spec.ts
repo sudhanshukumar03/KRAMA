@@ -62,7 +62,11 @@ test('server worker and web restart preserve data, HTTPS session and socket reco
   const root = resolve(__dirname, '../..');
   if (!/^krama-verify-[a-f0-9]{8}$/.test(project) || !resolve(envFile).startsWith(resolve(root,'.audit/staging') + require('node:path').sep)) throw new Error('Refusing restart outside the generated verification stack.');
   await new Promise<void>((done,reject) => execFile('docker',['compose','--env-file',envFile,'--project-name',project,'-f','compose.verification.yml','restart','server','worker','web'], { cwd: root, timeout: 60000, windowsHide: true }, error => error ? reject(new Error('Isolated service restart failed.')) : done()));
-  await expect.poll(async () => (await page.request.get('/ready')).status(), { timeout: 45000 }).toBe(200);
+  await expect.poll(async () => {
+    // A restart can reset the connection before ingress can return a status.
+    try { return (await page.request.get('/ready', { timeout: 2000 })).status(); }
+    catch { return 0; }
+  }, { timeout: 45000 }).toBe(200);
   const beforeReload = upgrades; const beforeConnections = connections;
   const refreshed = page.waitForResponse(response => response.url().endsWith('/auth/refresh') && response.request().method() === 'POST');
   await page.reload(); expect((await refreshed).status()).toBe(200);

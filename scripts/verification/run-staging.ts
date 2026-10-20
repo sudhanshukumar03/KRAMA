@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { readFileSync, writeFileSync, mkdirSync, createWriteStream } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
@@ -18,9 +18,9 @@ requireServer('dotenv').config({ path: resolve(root, 'apps/server/.env'), proces
 const primaryDatabase = env.DATABASE_URL; const primaryRedis = env.REDIS_URL;
 const redact = (text: string) => [password,redisPassword,jwt,primaryDatabase,primaryRedis,env.GROQ_API_KEY,env.GEMINI_API_KEY].filter((value): value is string => Boolean(value)).reduce((result, secret) => result.replaceAll(secret, '[redacted]'), text);
 let usedDocker = false;
-async function run(command: string, args: string[], label: string, inherit = false): Promise<number> {
+async function run(command: string, args: string[], label: string, inherit = false, cwd = root): Promise<number> {
   const output = createWriteStream(resolve(logs, `${label}.log`));
-  const child = spawn(command, args, { cwd: root, env, windowsHide: true, stdio: ['ignore','pipe','pipe'] });
+  const child = spawn(command, args, { cwd, env, windowsHide: true, stdio: ['ignore','pipe','pipe'] });
   for (const stream of [child.stdout,child.stderr]) stream?.on('data', value => { const text = redact(String(value)); output.write(text); if (inherit) process.stdout.write(text); });
   return new Promise((done, reject) => { child.once('error', reject); child.once('close', code => { output.end(); done(code ?? 1); }); });
 }
@@ -28,6 +28,10 @@ const compose = (args: string[], label: string, inherit = false) => run('docker'
 async function port() { const server = createServer(); await new Promise<void>((done,reject) => { server.once('error',reject); server.listen(0,'127.0.0.1',done); }); const value = (server.address() as {port:number}).port; await new Promise<void>(done => server.close(() => done())); return value; }
 async function healthy(url: string) { return new Promise<boolean>(done => { const req = request(url, { rejectUnauthorized: false, timeout: 2000 }, reply => { reply.resume(); done(reply.statusCode === 200); }); req.on('error', () => done(false)); req.on('timeout', () => { req.destroy(); done(false); }); req.end(); }); }
 async function main() {
+ // Browser fixtures inspect and clean up their synthetic records from the host.
+ // Generation inside the production image does not prepare that separate client.
+ const prisma = resolve(dirname(requireServer.resolve('prisma/package.json')), 'build/index.js');
+ if (await run(process.execPath, [prisma, 'generate'], 'prisma-generate', false, resolve(root, 'apps/server'))) throw new Error('Host verification Prisma generation failed.');
  const dbPort = await port(), redisPort = await port(), httpsPort = await port();
  // Use a separate random subnet; no primary services, images or volumes are reused.
  const subnet = `172.${20 + parseInt(tag.slice(0,2),16) % 10}.${parseInt(tag.slice(2,4),16)}.0/24`;

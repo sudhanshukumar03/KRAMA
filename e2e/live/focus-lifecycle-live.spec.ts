@@ -43,8 +43,9 @@ test('a long paused interval adds no work time', async ({ page, account }) => {
 });
 
 test('crossing local midnight retains the original task and exact session timestamps', async ({ page, account }) => {
-  const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-  const start = new Date(yesterday + 'T23:55:00+05:30');
+  // Keep the whole synthetic session in the past even when CI runs before 00:15.
+  const pastDay = new Date(Date.now() - 2 * 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const start = new Date(pastDay + 'T23:55:00+05:30');
   const task = await prepare(page, account, 20, start);
   await page.clock.fastForward(20 * 60000);
   await expect(page.getByRole('dialog', { name: 'Is this task done?' })).toBeVisible();
