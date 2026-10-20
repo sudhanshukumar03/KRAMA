@@ -1,5 +1,7 @@
 # Security and privacy review checkpoint
 
+Historical checkpoint. The [October 21 continuation](2026-10-21-quality-continuation.md) records completed remote publication, provider-environment setup and enforced branch protection. Remaining security-review qualifications in this document stay open; remote setup is no longer awaiting approval.
+
 Later follow-up: [release-gap qualification](2026-10-20-release-gaps.md) passed direct and Gemini-only workflows with the explicitly selected 3.6 model. It also records read-only GitHub findings, guarded protection activation and a credential-scanned local publication bundle. Source publication, provider-secret sharing and remote protection await approval; they have not occurred.
 
 Date: 2026-10-20. Scope: local KRAMA application source, dependency graph and synthetic verification. This is a control review and regression record, not an independent penetration test or certification. Fresh core, production HTTPS and dependency checks passed; required real-provider qualification remains incomplete.

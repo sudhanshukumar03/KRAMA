@@ -10,19 +10,19 @@ Treat 10/10 as the quality ambition. Completion requires every applicable accept
 
 The user authorized execution with “go on” after reviewing this plan. Work proceeds in small, reviewable changes. Public deployment, remote repository changes and paid service setup remain separate environment actions. Progress and evidence are recorded in the [work register](quality-work-register.md) and [baseline](quality-baseline.md).
 
-## Execution checkpoint, 2026-10-20
+## Execution checkpoint, 2026-10-21
 
 | Phase | Current status and remaining exit work |
 | --- | --- |
 | 0 — Baseline | Source inventory, before captures and fixed small/mature workload budgets recorded. Broader feature/state, sustained-memory and field evidence remain tracked separately |
-| 1 — Contracts and policies | Task/Goal adapters, safe error boundaries, scoped read models and data-contract checks implemented; remaining domain adapters and policy mapping are in progress |
+| 1 — Contracts and policies | All domain API factories implemented and locally qualified on October 21 through full frontend/live and both performance profiles. Safe error boundaries, scoped read models and data-contract checks are retained; deeper policy/type-boundary work remains |
 | 2 — Interface system | Canonical system specification, development-only showcase, shared controls and reference captures implemented; complete control/state migration remains open |
 | 3 — Goal detail pilot | Composition/draft/recovery/connection extraction and targeted responsive, conflict and keyboard checks verified; independent human acceptance belongs to Phase 6 |
-| 4 — Workspace rollout | Shell/search, list rendering and Planner refinements verified. Focus, Brain editor and Project responsibility cleanup and broader module/control review remain open |
+| 4 — Workspace rollout | Shell/search, list rendering and Planner refinements verified. Focus, Brain Editor and Project responsibility cleanup locally qualified on October 21 through 271 frontend and 135 live passes, build/budgets and both performance profiles. Broader module/control rollout remains open |
 | 5 — Reliability/security/performance | Fixed small/mature budgets, large transactional restore, typed failure privacy and grounding repairs verified; remaining logs, rich content and security controls still require review |
-| 6 — Release acceptance | Final frontend/live, HTTPS, dependency and workflow checks passed. Configured Groq workflows passed; Gemini-only Ask and direct text failed HTTP 503. Physical devices, spoken screen reader, observed usability and actual remote/public environments remain pending |
+| 6 — Release acceptance | GitHub source, provider environment and enforced main protection are active. Latest published main passed core, HTTPS and Groq; Gemini exact-main sign-off is pending after a wrapped Ask 503 and subsequently confirmed exhausted quota. One October 21 12:35 IST recheck is scheduled with the unchanged key. Physical devices, spoken screen reader, observed usability and public hosting remain pending |
 
-The [current verification ledger](../audits/2026-10-20-quality-verification.md) distinguishes final runs, earlier evidence and outstanding work. This checkpoint does not close the complete plan or assign a perfect quality score.
+The [October 21 continuation](../audits/2026-10-21-quality-continuation.md) records current implementation and remote status. The [earlier verification ledger](../audits/2026-10-20-quality-verification.md) retains historical runs and limits. This checkpoint does not close the complete plan or assign a perfect quality score.
 
 Scope decision, 2026-10-20: the user deferred R2 image uploads as **Coming soon**. Successful R2 uploads are excluded from current release acceptance. Keep the existing Coming soon UI, disabled upload control when storage is unavailable, and clear rejection of direct upload requests. Built-in wallpapers and gradients remain usable. Verify real storage success/recovery before enabling this future capability.
 

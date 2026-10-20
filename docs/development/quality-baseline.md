@@ -1,5 +1,7 @@
 # Quality baseline and ownership
 
+This is the historical baseline. Current implementation, remote protection and provider status are recorded in the [October 21 continuation](../audits/2026-10-21-quality-continuation.md); dated baseline limitations below should not be read as the current remote configuration.
+
 Captured 2026-10-19 before production source changes for this pass. Plan: [quality improvement plan](quality-improvement-plan.md). Findings: [work register](quality-work-register.md).
 
 ## Reproducible source inventory

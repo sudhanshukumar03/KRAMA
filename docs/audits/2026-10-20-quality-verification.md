@@ -1,5 +1,7 @@
 # Quality implementation and verification checkpoint
 
+Historical checkpoint. The [October 21 continuation](2026-10-21-quality-continuation.md) supersedes remote-activation status below: source, provider environment and enforced main protection are now published. Latest exact-main Gemini qualification is pending quota availability. The continuation also records implementation of the remaining component/API boundaries.
+
 Current release follow-up: the [22:28 release-gap qualification](2026-10-20-release-gaps.md) explicitly selected Gemini 3.6 Flash through a shared deployment setting. Direct Gemini text and Gemini-only Ask/Compose now pass, including a repeat; Groq fallback was disabled. All 15 local stages passed, including backend checks, CI safeguards and all 26 production HTTPS cases. Read-only inspection confirmed that the remote workflow/environment/protection still need publication and credential-sharing approval. Earlier failed-provider records below remain historical rather than being overwritten.
 
 Newest follow-up: [fix validation at 22:05](2026-10-20-fix-validation.md) rechecked the six latest repairs, reproduced/fixed late AI answers stealing focus from workspace search, and passed build/lint/types, 177 unit, 60 integration, 25 validation and 60 affected browser checks with zero browser retries/skips. Only the assistant and its regression file changed; the report distinguishes this focused recheck from the previous complete qualification.

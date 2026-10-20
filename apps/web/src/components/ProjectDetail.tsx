@@ -1,12 +1,13 @@
+import { ProjectDetailHeader } from './projects/ProjectDetailHeader';
+import { useProjectDetailData } from './projects/useProjectDetailData';
+import { projectDetailSummary } from './projects/projectDetailSummary';
 import { ProjectDocuments, ProjectTimeline } from './projects/ProjectSupportingViews';
 import { ProjectOverview } from './projects/ProjectOverview';
 import type { ProjectStatus } from '../types/schema';
-import { projectStatus, projectMetadata, errorMessage, parseLocalDate } from '../lib/utils';
-import { differenceInCalendarDays } from 'date-fns';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Calendar, CheckCircle2, Clock, ExternalLink, FileText, Folder, FolderKanban, KanbanSquare, LayoutDashboard, MoreHorizontal, Pencil, Search, Settings, Trash2 } from 'lucide-react';
+import { projectStatus, projectMetadata, errorMessage } from '../lib/utils';
+import { Calendar, CheckCircle2, Clock, FileText, Folder, FolderKanban, KanbanSquare, LayoutDashboard, Settings } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { api } from '../api/client';
 import { cn } from '../lib/utils';
@@ -19,7 +20,6 @@ import { LoadingState } from './ui/LoadingState';
 
 import { resolveIcon } from '../lib/iconResolver';
 import { IssueCreateModal, KanbanBoard } from './KanbanBoard';
-import type { TaskCreateInput } from '../types/schema';
 
 /**
  * Own project queries and mutations shared by Overview, Board, Brain and Timeline.
@@ -28,20 +28,12 @@ import type { TaskCreateInput } from '../types/schema';
 export function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'board' | 'docs' | 'timeline' | 'settings'>('overview');
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [createDirectiveModalOpen, setCreateDirectiveModalOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-
-  // Top header search & more menu
-  const [initiativeSearch, setInitiativeSearch] = useState('');
-  const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
-  const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
 
   // Tag editing state
   const [tagInputOpen, setTagInputOpen] = useState(false);
@@ -53,9 +45,6 @@ export function ProjectDetail() {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
-        setMoreMenuOpen(false);
-      }
       if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) {
         setStatusDropdownOpen(false);
       }
@@ -94,106 +83,14 @@ export function ProjectDetail() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [editModalOpen, deleteModalOpen, createDirectiveModalOpen]);
 
-  const { data: projects = [], isError: pError, refetch: retryProjects } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
-  const { data: issues = [], isLoading: iLoading, isError: iError, refetch: retryIssues } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
-  const { data: pages = [], isLoading: docsLoading, isError: docsError, refetch: retryDocs } = useQuery({ queryKey: ['documents'], queryFn: () => api.documents.list() });
-  const { data: goals = [], isLoading: goalsLoading, isError: goalsError, refetch: retryGoals } = useQuery({ queryKey: ['goals', 'lite'], queryFn: api.goals.listLite });
-
-  // The workspace-scoped detail request is authoritative, including milestones.
-  // Its loading, error and not-found states must not be masked by an older list.
-  const { data: fetchedProject, isLoading: projectLoading, error: projectError, refetch: retryProject } = useQuery({
-    queryKey: ['project', id],
-    queryFn: () => api.projects.get(id!),
-    enabled: !!id,
-    retry: false,
-  });
-
-  const project = fetchedProject;
-
-  const editProjectMutation = useMutation({
-    mutationFn: (data: { name: string; problemStatement: string; status: ProjectStatus; targetDate: string; icon?: string | null; goalId?: string | null; tags?: string[]; version?: number }) => {
-      if (!project) throw new Error('Project not loaded');
-      return api.projects.update(project.id, {
-        name: data.name,
-        problemStatement: data.problemStatement,
-        status: data.status,
-        icon: data.icon ?? undefined,
-        goalId: data.goalId || null,
-        targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : null,
-        version: data.version ?? project.version,
-        metadata: {
-          ...projectMetadata(project.metadata),
-          tags: data.tags !== undefined ? data.tags : (projectMetadata(project.metadata).tags || [])
-        }
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['project', id] });
-      queryClient.invalidateQueries({ queryKey: ['goals'] });
-      setEditModalOpen(false);
-      toast.success('Project updated successfully');
-    },
-    onError: (err) => {
-      if ('status' in err && err.status === 409) {
-        // Refresh the server version without resetting the open editor's draft.
-        void queryClient.invalidateQueries({ queryKey: ['project', id] });
-        void queryClient.invalidateQueries({ queryKey: ['projects'] });
-      }
-      toast.error(errorMessage(err, 'Failed to update project'));
-    }
-  });
-
-  const deleteProjectMutation = useMutation({
-    mutationFn: () => {
-      if (!project) throw new Error('Project not loaded');
-      return api.projects.delete(project.id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['goals'] });
-      queryClient.invalidateQueries({ queryKey: ['issues'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['planner'] });
-      setDeleteModalOpen(false);
-      const deletedProjectId = project!.id;
-      toast.success(`Deleted project "${project?.name}"`, {
-        action: { label: 'Undo', onClick: async () => {
-          try {
-            await api.projects.restore(deletedProjectId);
-            for (const queryKey of [['projects'], ['project', deletedProjectId], ['issues'], ['tasks'], ['planner'], ['goals']]) queryClient.invalidateQueries({ queryKey });
-            toast.success('Project restored');
-          } catch { toast.error('Could not restore project'); }
-        } },
-      });
-      navigate('/app/projects');
-    },
-    onError: (err) => {
-      toast.error(errorMessage(err, 'Failed to delete project'));
-    }
-  });
-
-  const createDirectiveMutation = useMutation({
-    mutationFn: (data: TaskCreateInput) =>
-      api.tasks.create({
-        ...data,
-        projectId: project?.id,
-      }),
-    onSuccess: (newIssue) => {
-      queryClient.invalidateQueries({ queryKey: ['issues'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['planner'] });
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['project', id] });
-      setCreateDirectiveModalOpen(false);
-      toast.success(`Created "${newIssue?.title || 'Directive'}"`, {
-        description: 'Directive added to project backlog.'
-      });
-    },
-    onError: () => {
-      toast.error('Failed to create directive');
-    }
-  });
+  const { projects, pError, retryProjects, issues, iLoading, iError, retryIssues, pages, docsLoading, docsError, retryDocs,
+    goals, goalsLoading, goalsError, retryGoals, project, projectLoading, projectError, retryProject,
+    editProjectMutation, deleteProjectMutation, createDirectiveMutation } = useProjectDetailData({
+      id,
+      onEdited: () => setEditModalOpen(false),
+      onDeleted: () => setDeleteModalOpen(false),
+      onTaskCreated: () => setCreateDirectiveModalOpen(false),
+    });
 
   if (projectLoading) {
     return <LoadingState variant="project-detail" title="Loading Strategic Project..." description="Aggregating roadmap milestones, execution tickets, and engineering documentation..." />;
@@ -220,58 +117,9 @@ export function ProjectDetail() {
     </div>
   );
 
-  const projectMilestones = project.milestones || [];
-  const tasksAvailable = !iError && !iLoading;
-  const projectIssues = project.tasks || issues.filter(i => i.projectId === project.id);
-  const projectDocs = pages.filter(p => p.linkedProjectId === project.id || p.projectId === project.id);
-  const projectGoal = project.goal || (project.goalId ? goals.find(g => g.id === project.goalId) : null);
-
-  const completedIssues = projectIssues.filter((i) => i.status === "DONE");
-  const openIssues = projectIssues.filter((i) => i.status !== "DONE");
-  const progressPct = projectIssues.length > 0 ? Math.round((completedIssues.length / projectIssues.length) * 100) : 0;
-
-  // Calculate days since last update
-  const daysSinceUpdate = Math.max(0, Math.floor((new Date().getTime() - new Date(project.updatedAt).getTime()) / (1000 * 3600 * 24)));
-
-  // Real risk and deadline telemetry
-  const urgentIssues = openIssues.filter((i) => i.priority === "URGENT" || i.priority === "HIGH");
-  const projectTargetDate = project.targetDate || projectMetadata(project.metadata).targetDate;
-  const targetDay = parseLocalDate(projectTargetDate);
-  const daysRemaining = targetDay ? differenceInCalendarDays(targetDay, new Date()) : null;
-
-  const isPastDue = daysRemaining !== null && daysRemaining < 0 && progressPct < 100;
-  const isApproaching = daysRemaining !== null && daysRemaining >= 0 && daysRemaining <= 7 && progressPct < 80;
-  const blockedIssues = openIssues.filter(issue => {
-    const blocker = issues.find(task => task.id === issue.blockedById);
-    return blocker && !blocker.deletedAt && !['DONE', 'CANCELED'].includes(blocker.status);
-  });
-  const hasBlockers = blockedIssues.length > 0;
-
-  let riskStatus = 'ON TRACK';
-  let riskBadgeClass = 'bg-success-bg text-success-fg border-success-border';
-  let riskMessage = `${progressPct}% of tasks completed. No overdue deadline or blocked tasks detected.`;
-
-  if (progressPct === 100) {
-    riskStatus = 'DELIVERED & COMPLETE';
-    riskBadgeClass = 'bg-success-bg text-success-fg border-success-border';
-    riskMessage = 'All project tasks are complete.';
-  } else if (isPastDue) {
-    riskStatus = 'OVERDUE';
-    riskBadgeClass = 'bg-danger-bg text-danger-fg border-danger-border';
-    riskMessage = `The target date passed ${Math.abs(daysRemaining!)} days ago. ${openIssues.length} tasks remain.`;
-  } else if (isApproaching) {
-    riskStatus = 'HIGH RISK: APPROACHING DEADLINE';
-    riskBadgeClass = 'bg-warning-bg text-warning-fg border-warning-border';
-    riskMessage = `Target delivery date is in ${daysRemaining} days with ${progressPct}% completed. Requires acceleration of ${openIssues.length} remaining tickets.`;
-  } else if (hasBlockers) {
-    riskStatus = 'ATTENTION: BLOCKERS DETECTED';
-    riskBadgeClass = 'bg-warning-bg text-warning-fg border-warning-border';
-    riskMessage = `${blockedIssues.length} task(s) are waiting for another unfinished task. Open Tasks to review their dependencies.`;
-  } else if (projectIssues.length === 0) {
-    riskStatus = 'SCOPE DEFINITION PHASE';
-    riskBadgeClass = 'bg-accent-subtle text-accent-fg border-accent/20';
-    riskMessage = 'No execution tickets created yet. Add tickets to Kanban or link milestones to establish tracking.';
-  }
+  const { projectMilestones, tasksAvailable, projectIssues, projectDocs, projectGoal, completedIssues, openIssues,
+    progressPct, daysSinceUpdate, urgentIssues, projectTargetDate, daysRemaining,
+    riskStatus, riskBadgeClass, riskMessage } = projectDetailSummary(project, issues, pages, goals, iError, iLoading);
 
   const handleRunDiagnostic = async () => {
     setIsAnalyzing(true);
@@ -341,9 +189,6 @@ export function ProjectDetail() {
     });
   };
 
-  const filteredInitiatives = projects.filter(p =>
-    p.id !== project.id && p.name.toLowerCase().includes(initiativeSearch.toLowerCase())
-  );
 
   return (
     <div className={cn("workspace-project-detail flex flex-col h-full bg-canvas animate-in fade-in duration-150 font-sans text-primary", activeTab === 'board' ? "overflow-hidden" : "overflow-y-auto pb-24")}>
@@ -379,153 +224,7 @@ export function ProjectDetail() {
         isSubmitting={createDirectiveMutation.isPending}
       />
 
-      {/* 1. TOP BREADCRUMB & UTILITY HEADER */}
-      <header className="flex items-center justify-between px-6 md:px-8 py-3.5 border-b border-border bg-surface shrink-0">
-        {/* Left: Breadcrumbs */}
-        <div className="flex items-center gap-2.5 text-caption font-medium">
-          <Link
-            to="/app/projects"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-hover transition-colors"
-            title="Return to Projects"
-          >
-            <ArrowLeft className="w-4 h-4 stroke-[2]" />
-          </Link>
-          <Link to="/app/projects" className="text-secondary hover:text-primary transition-colors text-caption font-semibold uppercase tracking-wider font-mono">
-            Projects
-          </Link>
-          <span className="text-muted/60 text-caption">›</span>
-          <span className="font-bold text-primary tracking-tight text-body uppercase font-mono">{project.name}</span>
-        </div>
-
-        {/* Right: Search, Notifications, More, Edit Project */}
-        <div className="flex items-center gap-3">
-          <div className="relative w-56 sm:w-64 hidden sm:block">
-            <Search className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              id="project-project-search"
-              name="initiativeSearch"
-              aria-label="Search projects"
-              type="text"
-              placeholder="Search projects... (press /)"
-              value={initiativeSearch}
-              onChange={(e) => {
-                setInitiativeSearch(e.target.value);
-                setSearchDropdownOpen(Boolean(e.target.value));
-                setSearchSelectedIndex(0);
-              }}
-              onFocus={() => {
-                if (initiativeSearch) setSearchDropdownOpen(true);
-              }}
-              onKeyDown={(e) => {
-                if (!searchDropdownOpen || filteredInitiatives.length === 0) return;
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  setSearchSelectedIndex(prev => (prev + 1) % filteredInitiatives.length);
-                } else if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  setSearchSelectedIndex(prev => (prev - 1 + filteredInitiatives.length) % filteredInitiatives.length);
-                } else if (e.key === 'Enter') {
-                  e.preventDefault();
-                  const selected = filteredInitiatives[searchSelectedIndex];
-                  if (selected) {
-                    setInitiativeSearch('');
-                    setSearchDropdownOpen(false);
-                    navigate(`/app/projects/${selected.id}`);
-                  }
-                } else if (e.key === 'Escape') {
-                  setSearchDropdownOpen(false);
-                }
-              }}
-              className="w-full pl-8 pr-3 py-1.5 text-caption bg-surface-hover/60 border border-border/70 rounded-full focus:outline-none focus:border-accent focus:bg-surface transition-all placeholder:text-muted text-primary"
-              aria-autocomplete="list"
-              aria-expanded={searchDropdownOpen && Boolean(initiativeSearch)}
-              aria-controls="project-search-listbox"
-            />
-            {searchDropdownOpen && initiativeSearch && (
-              <div
-                id="project-search-listbox"
-                role="listbox"
-                aria-label="Matching projects"
-                className="absolute right-0 top-full mt-1.5 w-64 bg-surface border border-border rounded-xl shadow-xl z-50 py-1 text-caption max-h-48 overflow-y-auto"
-              >
-                {filteredInitiatives.map((p, idx) => (
-                  <div
-                    key={p.id}
-                    role="option"
-                    aria-selected={idx === searchSelectedIndex}
-                    onClick={() => {
-                      setInitiativeSearch('');
-                      setSearchDropdownOpen(false);
-                      navigate(`/app/projects/${p.id}`);
-                    }}
-                    className={cn(
-                      "px-3.5 py-2 cursor-pointer flex items-center justify-between text-primary truncate transition-colors",
-                      idx === searchSelectedIndex ? "bg-surface-hover text-accent font-semibold" : "hover:bg-surface-hover"
-                    )}
-                  >
-                    <span className="truncate font-medium">{p.name}</span>
-                    <span className="text-badge font-mono text-muted uppercase tabular-nums">{p.status}</span>
-                  </div>
-                ))}
-                {filteredInitiatives.length === 0 && (
-                  <div className="p-3 text-center text-muted font-mono text-caption">No other projects match</div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="relative" ref={moreMenuRef}>
-            <button
-              onClick={() => setMoreMenuOpen(prev => !prev)}
-              aria-label="More actions"
-              aria-haspopup="menu"
-              aria-expanded={moreMenuOpen}
-              className="w-8 h-8 rounded-full border border-border/70 bg-surface-hover/40 hover:bg-surface-hover text-secondary hover:text-primary flex items-center justify-center transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              title="More actions"
-            >
-              <MoreHorizontal className="w-3.5 h-3.5" />
-            </button>
-            {moreMenuOpen && (
-              <div role="menu" aria-label="More project actions" className="absolute right-0 top-full mt-1.5 w-44 bg-surface border border-border rounded-xl shadow-xl z-50 py-1 text-caption animate-in fade-in zoom-in-95 duration-100">
-
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    setMoreMenuOpen(false);
-                    navigator.clipboard.writeText(window.location.href);
-                    toast.success('Project link copied to clipboard');
-                  }}
-                  className="w-full px-3.5 py-2 text-left hover:bg-surface-hover flex items-center gap-2 text-primary cursor-pointer"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 text-muted" /> Copy Link
-                </button>
-                <div className="my-1 border-t border-border/60" />
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    setMoreMenuOpen(false);
-                    setDeleteModalOpen(true);
-                  }}
-                  className="w-full px-3.5 py-2 text-left text-danger-fg hover:bg-danger-bg flex items-center gap-2 cursor-pointer font-medium"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete Project
-                </button>
-              </div>
-            )}
-          </div>
-
-          <BaseButton
-            variant="primary"
-            size="sm"
-            onClick={() => setEditModalOpen(true)}
-            className="gap-2 text-caption"
-            title="Edit Project"
-          >
-            <Pencil className="w-3.5 h-3.5 stroke-[2]" />
-            Edit Project
-          </BaseButton>
-        </div>
-      </header>
+      <ProjectDetailHeader project={project} projects={projects} onEdit={() => setEditModalOpen(true)} onDelete={() => setDeleteModalOpen(true)} />
 
       {/* 2. MAIN CONTAINER */}
       <div className={cn("workspace-project-content px-6 md:px-8 pt-6 pb-2", activeTab === 'board' && "flex-1 min-h-0 flex flex-col p-0")}>
