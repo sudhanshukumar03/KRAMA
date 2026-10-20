@@ -29,7 +29,7 @@ function evaluateRelease(state) {
 
 function protectionPayload() {
   return {
-    required_status_checks: { strict: true, contexts: [], checks: [{ context: 'release-ready', app_id: 15368 }] },
+    required_status_checks: { strict: true, checks: [{ context: 'release-ready', app_id: 15368 }] },
     enforce_admins: true,
     required_pull_request_reviews: { dismiss_stale_reviews: true, require_code_owner_reviews: false, required_approving_review_count: 0 },
     restrictions: null, allow_force_pushes: false, allow_deletions: false, required_conversation_resolution: true,
@@ -47,7 +47,8 @@ async function main() {
     catch (error) {
       let body; try { body = JSON.parse(String(error.stdout)); } catch {}
       if (allow404 && body?.status === '404') return null;
-      throw new Error(`GitHub request failed for ${endpoint}. Check gh authentication and repository permissions.`);
+      const detail = body?.message ? ` ${body.message}` : ' Check gh authentication and repository permissions.';
+      throw new Error(`GitHub request failed for ${endpoint}${body?.status ? ` (HTTP ${body.status})` : ''}.${detail}`);
     }
   }
   const base = `repos/${repository}`;

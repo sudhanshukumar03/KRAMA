@@ -37,3 +37,10 @@ test('successful pinned provider and current trusted checks permit the explicit 
   assert.equal(protectionPayload().enforce_admins, true); assert.equal(protectionPayload().allow_force_pushes, false);
   assert.equal(protectionPayload().required_pull_request_reviews.required_approving_review_count, 0);
 });
+
+test('app-pinned protection does not mix the legacy contexts request schema', () => {
+  const status = protectionPayload().required_status_checks;
+  assert.equal(status.strict, true);
+  assert.equal(Object.hasOwn(status, 'contexts'), false);
+  assert.deepEqual(status.checks, [{ context: 'release-ready', app_id: 15368 }]);
+});
