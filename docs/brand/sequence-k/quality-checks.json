@@ -1,0 +1,16 @@
+{
+  "iris_on_white": 4.999331394750337,
+  "light_iris_on_obsidian": 5.539459154732096,
+  "white_on_iris": 4.999331394750337,
+  "valid_svg_files": 10,
+  "vector_geometry": "Filled paths, no font or linked-resource dependencies",
+  "visually_inspected_sizes": [
+    16,
+    24,
+    32,
+    48,
+    96
+  ],
+  "smallest_internal_gap_at_16px": 1.3333333333333333,
+  "evaluation_limit": "These checks establish export integrity, contrast and visual size review; they are not recognition research or a quantified aesthetic rating."
+}

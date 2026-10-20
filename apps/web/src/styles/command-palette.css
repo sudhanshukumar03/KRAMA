@@ -1,0 +1,195 @@
+.workspace-search-overlay {
+  --search-top: clamp(16px, 10vh, 96px);
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--search-top) 16px 16px;
+  background: color-mix(in oklch, var(--text-primary) 28%, transparent);
+  backdrop-filter: blur(5px);
+}
+
+.workspace-search-dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 680px;
+  max-height: min(680px, calc(100dvh - var(--search-top) - 16px));
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  box-shadow: 0 24px 80px -20px rgb(0 0 0 / .35);
+  transition: transform 180ms ease-out, opacity 180ms ease-out;
+}
+
+.workspace-search-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.workspace-search-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 11px;
+  background: var(--bg-base);
+}
+
+.workspace-search-field:focus-within {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 14%, transparent);
+}
+
+.workspace-search-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 400;
+  caret-color: var(--accent-fg);
+}
+
+.workspace-search-input::placeholder { color: var(--text-muted); }
+
+/* The whole search field carries focus, including its icon and rounded edges.
+   Match the base layer so this replaces the app's universal input outline. */
+@layer base {
+  .workspace-search-input:focus-visible {
+    outline: none !important;
+    outline-offset: 0 !important;
+  }
+}
+
+.workspace-search-close {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  min-height: 44px;
+  border-radius: 9px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.workspace-search-close:hover { background: var(--state-hover); }
+.workspace-search-escape { font-size: 12px; font-weight: 500; }
+.workspace-search-close-icon { display: none; }
+
+.workspace-search-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px;
+  scroll-padding: 8px;
+}
+
+.workspace-search-group { padding: 6px 0; }
+.workspace-search-group + .workspace-search-group { border-top: 1px solid var(--border-default); }
+.workspace-search-group[hidden] { display: none; }
+
+.workspace-search-group [cmdk-group-heading] {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--text-secondary);
+}
+
+.workspace-search-group [cmdk-group-heading] > div { color: var(--text-secondary); }
+
+.workspace-search-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+  margin: 2px 0;
+  border-radius: 9px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: pointer;
+  scroll-margin: 8px;
+}
+
+.workspace-search-item[aria-selected="true"] {
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.workspace-search-item > div:first-child { min-width: 0; flex: 1; }
+.workspace-search-item > svg { flex-shrink: 0; }
+.workspace-search-item > span:last-child:not(:first-child) { flex-shrink: 0; margin-left: auto; }
+
+.workspace-search-action-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+
+.workspace-search-description {
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+.workspace-search-enter { opacity: 0; }
+.workspace-search-item[aria-selected="true"] .workspace-search-enter { opacity: 1; }
+
+.workspace-search-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-base);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 20px;
+  flex-shrink: 0;
+}
+
+.workspace-search-footer > span { display: inline-flex; align-items: center; gap: 5px; }
+.workspace-search-footer kbd { min-width: 20px; min-height: 22px; color: var(--text-secondary); }
+
+@media (max-width: 480px) {
+  .workspace-search-overlay { --search-top: 16px; padding-inline: 10px; }
+  .workspace-search-header { padding: 12px; gap: 8px; }
+  .workspace-search-field { padding-inline: 10px; gap: 8px; }
+  .workspace-search-escape { display: none; }
+  .workspace-search-close-icon { display: block; }
+  .workspace-search-item { padding-inline: 10px; }
+  .workspace-search-footer { padding-inline: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-search-dialog { transition: none; transform: none; }
+  .workspace-search-field .animate-spin { animation: none; }
+}

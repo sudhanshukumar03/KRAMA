@@ -7,7 +7,14 @@
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["playwright.config.ts", "e2e/**/*.ts"]
+  "include": [
+    "playwright*.config.ts",
+    "e2e/**/*.ts",
+    "scripts/media/**/*.ts",
+    "scripts/verification/**/*.ts"
+  ]
 }

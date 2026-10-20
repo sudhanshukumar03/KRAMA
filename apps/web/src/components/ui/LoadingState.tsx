@@ -15,11 +15,12 @@ export function LoadingState({
 }: LoadingStateProps) {
  if (variant === 'dashboard') {
  return (
- <div className="p-6 space-y-6 w-full animate-in fade-in duration-200">
+ <div role="status" aria-label={title} className="p-4 sm:p-6 space-y-6 w-full min-w-0 animate-in fade-in duration-200">
+ <span className="sr-only">{title}</span>
  <div className="flex items-center justify-between">
- <div className="space-y-2">
+ <div className="space-y-2 min-w-0 w-full">
  <div className="h-6 w-48 bg-surface-hover rounded-md animate-pulse" />
- <div className="h-4 w-72 bg-surface-hover rounded-md animate-pulse" />
+ <div className="h-4 w-72 max-w-full bg-surface-hover rounded-md animate-pulse" />
  </div>
  </div>
  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -63,7 +64,7 @@ export function LoadingState({
  <div className="h-6 w-36 bg-surface-hover rounded-md animate-pulse" />
  <div className="flex gap-2">
  <div className="h-9 w-24 bg-surface-hover border border-border rounded-lg animate-pulse" />
- <div className="h-9 w-28 bg-[#2563EB]/20 rounded-lg animate-pulse" />
+ <div className="h-9 w-28 bg-accent/20 rounded-lg animate-pulse" />
  </div>
  </div>
  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
@@ -131,7 +132,7 @@ export function LoadingState({
  <div className="p-6 space-y-6 w-full animate-in fade-in duration-200">
  <div className="flex justify-between items-center">
  <div className="h-6 w-40 bg-surface-hover rounded-md animate-pulse" />
- <div className="h-9 w-32 bg-[#2563EB]/20 rounded-lg animate-pulse" />
+ <div className="h-9 w-32 bg-accent/20 rounded-lg animate-pulse" />
  </div>
  <div className="space-y-4">
  {[1, 2, 3, 4].map((i) => (
@@ -168,7 +169,7 @@ export function LoadingState({
  <div className="p-6 space-y-6 w-full animate-in fade-in duration-200">
  <div className="flex justify-between items-center">
  <div className="h-6 w-44 bg-surface-hover rounded-md animate-pulse" />
- <div className="h-9 w-32 bg-[#0D9488]/20 rounded-lg animate-pulse" />
+ <div className="h-9 w-32 bg-accent/20 rounded-lg animate-pulse" />
  </div>
  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
  {[1, 2, 3].map((i) => (

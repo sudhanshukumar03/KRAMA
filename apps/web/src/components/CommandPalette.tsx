@@ -1,63 +1,41 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Command } from 'cmdk';
 import { useNavigate } from 'react-router-dom';
-import { FileText, KanbanSquare, Target, Search, Brain, Calendar, Clock, Plus, ArrowRight, Zap, Rocket, ListChecks, FolderKanban, Loader2, Timer, TrendingUp, Layers } from 'lucide-react';
+import { KanbanSquare, Target, Search, Brain, Calendar, Timer, TrendingUp, Layers, Inbox, X, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { cn } from '../lib/utils';
+import { openFocusTab } from '../lib/focusNavigation';
 import type { SearchResult } from '../types/schema';
-
-function HighlightedSnippet({ text, query }: { text: string; query: string }) {
- if (!query || !text) return <span>{text}</span>;
- const lowerText = text.toLowerCase();
- const lowerQuery = query.toLowerCase().trim();
- const idx = lowerText.indexOf(lowerQuery);
- if (idx === -1) return <span>{text}</span>;
- return (
- <span>
- {text.slice(0, idx)}
- <mark className="bg-accent/20 text-accent rounded-sm px-0.5 font-medium">{text.slice(idx, idx + lowerQuery.length)}</mark>
- {text.slice(idx + lowerQuery.length)}
- </span>
- );
-}
-
-const typeIcons: Record<string, React.ReactNode> = {
-  page: <FileText className="w-4 h-4 text-cat-routines" />,
-  issue: <ListChecks className="w-4 h-4 text-cat-tasks" />,
-  project: <FolderKanban className="w-4 h-4 text-cat-projects" />,
-  goal: <Target className="w-4 h-4 text-success-fg" />,
-};
-
-const typeColors: Record<string, string> = {
-  page: 'text-cat-routines bg-cat-routines-bg',
-  issue: 'text-cat-tasks bg-cat-tasks-bg',
-  project: 'text-cat-projects bg-cat-projects-bg',
-  goal: 'text-success-fg bg-success-bg',
-};
-
-const typeLabels: Record<string, string> = {
- page: 'Knowledge Base & Doc Snippets',
- issue: 'Active Issues & Tickets',
- project: 'Engineering Projects',
- goal: 'Strategic Goals',
-};
+import { useModalA11y } from '../hooks/useModalA11y';
+import { SearchResults } from './search/SearchResults';
+import '../styles/command-palette.css';
+const navigation = [
+  { title: 'Dashboard', path: '/app/', icon: Target }, { title: 'Inbox', path: '/app/inbox', icon: Inbox },
+  { title: 'Tasks', path: '/app/board', icon: KanbanSquare }, { title: 'Planner', path: '/app/planner', icon: Calendar },
+  { title: 'Focus Timer', path: '/focus', icon: Timer }, { title: 'Goals', path: '/app/goals', icon: Target },
+  { title: 'Habits', path: '/app/habits', icon: TrendingUp }, { title: 'Projects', path: '/app/projects', icon: Layers },
+  { title: 'Brain Workspace', path: '/app/brain', icon: Brain },
+];
 
 export function CommandPalette() {
  const [open, setOpen] = useState(false);
  const [animateIn, setAnimateIn] = useState(false);
  const [searchQuery, setSearchQuery] = useState('');
- const [debouncedQuery, setDebouncedQuery] = useState('');
  const [isSearching, setIsSearching] = useState(false);
  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+ const [searchError, setSearchError] = useState(false);
+ const [retryAttempt, setRetryAttempt] = useState(0);
  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+ const dialogRef = useModalA11y(open, () => setOpen(false));
  const navigate = useNavigate();
 
- // Fallback local data for when no search query is active
- const { data: pages = [] } = useQuery({ queryKey: ['documents'], queryFn: api.documents.list });
- const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
- const { data: goals = [] } = useQuery({ queryKey: ['goals'], queryFn: api.goals.list });
- const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
+ const hasSearchQuery = searchQuery.trim().length > 0;
+ const matchedNavigation = navigation.filter(item => !hasSearchQuery || item.title.toLowerCase().includes(searchQuery.trim().toLowerCase()));
+ const resultCount = searchResults.length + matchedNavigation.length;
+ const { data: recent, isError: recentError } = useQuery({
+   queryKey: ['search', 'recent'], queryFn: api.search.recent, enabled: open && !hasSearchQuery, retry: 1,
+ });
 
  useEffect(() => {
  const down = (e: KeyboardEvent) => {
@@ -83,71 +61,55 @@ export function CommandPalette() {
  } else {
  setAnimateIn(false);
  setSearchQuery('');
- setDebouncedQuery('');
  setSearchResults([]);
  }
  }, [open]);
 
- // Debounced server-side search
- const performSearch = useCallback(async (q: string) => {
- if (!q.trim()) {
- setSearchResults([]);
- setIsSearching(false);
- return;
- }
- setIsSearching(true);
- try {
- const data = await api.search.query(q);
- setSearchResults(data.results || []);
- } catch (err) {
- console.error('Search error:', err);
- setSearchResults([]);
- } finally {
- setIsSearching(false);
- }
- }, []);
-
+ // Each query owns its request. Closing, clearing or changing the query retires
+ // its response before another request can publish results.
  useEffect(() => {
- if (debounceRef.current) clearTimeout(debounceRef.current);
- if (!searchQuery.trim()) {
- setDebouncedQuery('');
  setSearchResults([]);
- return;
- }
- debounceRef.current = setTimeout(() => {
- setDebouncedQuery(searchQuery);
- performSearch(searchQuery);
+ setSearchError(false);
+ if (!open || !searchQuery.trim()) { setIsSearching(false); return; }
+ const controller = new AbortController();
+ setIsSearching(true);
+ debounceRef.current = setTimeout(async () => {
+   try {
+     const data = await api.search.query(searchQuery, controller.signal);
+     if (!controller.signal.aborted) setSearchResults(data.results || []);
+   } catch {
+     if (!controller.signal.aborted) setSearchError(true);
+   } finally {
+     if (!controller.signal.aborted) setIsSearching(false);
+   }
  }, 200);
  return () => {
  if (debounceRef.current) clearTimeout(debounceRef.current);
+ controller.abort();
  };
- }, [searchQuery, performSearch]);
+ }, [open, searchQuery, retryAttempt]);
 
  const runCommand = (command: () => void) => {
  setOpen(false);
  command();
  };
 
- // Group search results by type
- const groupedResults = searchResults.reduce<Record<string, SearchResult[]>>((acc, r) => {
- if (!acc[r.type]) acc[r.type] = [];
- acc[r.type].push(r);
- return acc;
- }, {});
-
- const hasSearchQuery = searchQuery.trim().length > 0;
 
  if (!open) return null;
 
  return (
- <div 
+ <div
  onClick={() => setOpen(false)}
- className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] sm:pt-[18vh] bg-primary/30 backdrop-blur-sm animate-in fade-in duration-150 p-4"
+ className="workspace-search-overlay"
  >
- <Command 
+ <Command
+ ref={dialogRef}
+ role="dialog"
+ aria-modal="true"
+ aria-label="Search workspace"
  onClick={(e) => e.stopPropagation()}
- shouldFilter={!hasSearchQuery}
- className={cn("w-full max-w-2xl bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-180 ease-out select-none",
+ shouldFilter={false}
+ className={cn("workspace-search-dialog",
  animateIn ?"scale-100 opacity-100" :"scale-[0.98] opacity-0"
  )}
  onKeyDown={(e) => {
@@ -157,283 +119,56 @@ export function CommandPalette() {
  }
  }}
  >
- <div className="flex items-center border-b border-border px-5 bg-surface-hover/50">
+ <div className="workspace-search-header">
+ <div className="workspace-search-field">
  {isSearching ? (
- <Loader2 className="w-5 h-5 text-accent-fg mr-3.5 shrink-0 stroke-[2] animate-spin" />
+ <Loader2 aria-hidden="true" className="w-5 h-5 text-accent-fg shrink-0 animate-spin" />
  ) : (
- <Search className="w-5 h-5 text-muted mr-3.5 shrink-0 stroke-[2]" />
+ <Search aria-hidden="true" className="w-5 h-5 text-muted shrink-0" />
  )}
- <Command.Input 
+ <Command.Input
  autoFocus
+ maxLength={2000}
  value={searchQuery}
  onValueChange={setSearchQuery}
- className="flex h-14 w-full bg-transparent outline-none text-primary placeholder:text-muted text-body font-medium" 
- placeholder="Search docs, issues, projects, goals, decisions..." 
+ aria-label="Search your workspace"
+ className="workspace-search-input"
+ placeholder="Search your workspace…"
  />
- <kbd className="text-[10px] font-mono text-secondary bg-surface border border-border px-2 py-1 rounded-md shadow-2xs shrink-0">
- ESC
- </kbd>
  </div>
- 
- <Command.List className="max-h-[60vh] overflow-y-auto p-3 divide-y divide-border/60">
- <Command.Empty className="p-8 text-center text-secondary text-body">
- {hasSearchQuery ? 'No matching results found across docs, issues, projects, goals, or decisions.' : 'No matching commands found.'}
- </Command.Empty>
+ <button type="button" aria-label="Close search" onClick={() => setOpen(false)} className="workspace-search-close">
+ <span className="workspace-search-escape" aria-hidden="true">Esc</span>
+ <X className="workspace-search-close-icon" size={18} aria-hidden="true" />
+ </button>
+ </div>
 
- {/* SERVER-SIDE SEARCH RESULTS — shown when user has typed a query */}
- {hasSearchQuery && Object.entries(groupedResults).map(([type, results]) => (
- <Command.Group
- key={type}
- heading={
- <div className="flex items-center gap-1.5">
- {typeIcons[type]}
- <span className={typeColors[type]?.split(' ')[0]}>{typeLabels[type] || type}</span>
- <span className="text-muted ml-1">({results.length})</span>
- </div>
- }
- className="pt-2 pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
- >
- {results.map((result) => (
- <Command.Item
- key={`${result.type}-${result.id}`}
- value={`${result.title} ${result.snippet}`}
- onSelect={() => runCommand(() => navigate(result.url))}
- className="flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100 group"
- >
- <div className="flex items-start gap-2.5 min-w-0 flex-1">
- <span className="mt-0.5 shrink-0">{typeIcons[result.type]}</span>
- <div className="min-w-0 flex-1">
- <div className="truncate font-semibold leading-tight">
- <HighlightedSnippet text={result.title} query={debouncedQuery} />
- </div>
- {result.snippet && (
- <div className="text-badge text-secondary mt-0.5 line-clamp-2 leading-relaxed">
- <HighlightedSnippet text={result.snippet} query={debouncedQuery} />
- </div>
- )}
- </div>
- </div>
- {result.badge && (
- <span className={cn("text-[10px] font-mono px-1.5 py-0.5 rounded font-medium shrink-0 ml-2",
- typeColors[result.type] || 'text-secondary bg-surface-hover'
- )}>
- {result.badge}
- </span>
- )}
- </Command.Item>
+ <Command.List className="workspace-search-list">
+ {searchError && <div role="alert" className="p-4 text-sm text-secondary">Search is unavailable. Your query is retained. <button type="button" className="min-h-11 px-3 text-accent-fg underline rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent" onClick={() => setRetryAttempt(value => value + 1)}>Retry search</button></div>}
+ {isSearching && <p role="status" className="p-4 text-sm text-secondary">Searching...</p>}
+ {!searchError && !isSearching && <Command.Empty className="p-8 text-center text-secondary text-body">
+ {hasSearchQuery ? 'No results. Try a different title or a few words from your notes.' : 'No matching commands found.'}
+ </Command.Empty>}
+
+ {matchedNavigation.length > 0 && <Command.Group heading="Go to" className="workspace-search-group">
+ {matchedNavigation.map(item => (
+   <Command.Item key={item.path} value={`navigation:${item.path}`} className="workspace-search-item" onSelect={() => runCommand(() => item.path === '/focus' ? openFocusTab() : navigate(item.path))}>
+     <item.icon aria-hidden="true" className="w-4 h-4 text-secondary shrink-0" />{item.title}
+   </Command.Item>
  ))}
- </Command.Group>
- ))}
-
- {/* STATIC GROUPS — shown when NO search query is active */}
- {!hasSearchQuery && (
- <>
- {/* Quick Actions Group */}
- <Command.Group 
- heading={<div className="flex items-center gap-1.5 text-accent-fg"><Zap className="w-3.5 h-3.5 text-accent-fg" /><span>Instant Quick Actions</span></div>} 
- className="pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
- >
- <Command.Item 
- onSelect={() => runCommand(() => navigate('/app/board'))}
- className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-body font-medium text-primary aria-selected:bg-primary aria-selected:text-text-inverse transition-colors group mb-1"
- >
- <div className="flex items-center gap-3">
- <div className="w-7 h-7 rounded-lg bg-surface-hover border border-border group-aria-selected:bg-text-inverse/20 group-aria-selected:border-transparent text-primary group-aria-selected:text-text-inverse flex items-center justify-center">
- <Plus className="w-4 h-4 stroke-[2]" />
- </div>
- <div>
- <div className="font-semibold leading-tight">Create New Issue or Sub-task</div>
- <div className="text-badge text-secondary group-aria-selected:text-text-inverse/80">Open Kanban Board quick-add pipeline</div>
- </div>
- </div>
- <span className="text-caption font-mono opacity-0 group-aria-selected:opacity-100 flex items-center gap-1">
- Execute <ArrowRight className="w-3.5 h-3.5" />
- </span>
- </Command.Item>
-
- <Command.Item 
- onSelect={() => runCommand(() => navigate('/app/planner'))}
- className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-body font-medium text-primary aria-selected:bg-primary aria-selected:text-text-inverse transition-colors group"
- >
- <div className="flex items-center gap-3">
- <div className="w-7 h-7 rounded-lg bg-surface-hover border border-border group-aria-selected:bg-text-inverse/20 group-aria-selected:border-transparent text-primary group-aria-selected:text-text-inverse flex items-center justify-center">
- <Calendar className="w-4 h-4 stroke-[2]" />
- </div>
- <div>
- <div className="font-semibold leading-tight">Time-Block Planner</div>
- <div className="text-badge text-secondary group-aria-selected:text-text-inverse/80">Schedule focus hours & meeting buffers</div>
- </div>
- </div>
- <span className="text-caption font-mono opacity-0 group-aria-selected:opacity-100 flex items-center gap-1">
- Execute <ArrowRight className="w-3.5 h-3.5" />
- </span>
- </Command.Item>
- </Command.Group>
-
- {/* Navigation Group */}
- <Command.Group 
- heading={<div className="flex items-center gap-1.5 text-accent-fg"><Rocket className="w-3.5 h-3.5 text-accent-fg" /><span>Jump to Screen</span></div>} 
- className="pt-2 pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
- >
- <Command.Item 
- onSelect={() => runCommand(() => navigate('/app/'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
- >
- <Target className="w-4 h-4 text-secondary" /> Dashboard Scorecard
- </Command.Item>
- <Command.Item 
- onSelect={() => runCommand(() => navigate('/app/board'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
- >
- <KanbanSquare className="w-4 h-4 text-secondary" /> Kanban Execution Board
- </Command.Item>
- <Command.Item 
- onSelect={() => runCommand(() => navigate('/app/sprint'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
- >
- <Clock className="w-4 h-4 text-secondary" /> Active Sprint Burndown
- </Command.Item>
- <Command.Item 
- onSelect={() => runCommand(() => navigate('/app/planner'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
- >
- <Calendar className="w-4 h-4 text-secondary" /> Time-Block Planner
- </Command.Item>
- <Command.Item 
- onSelect={() => runCommand(() => navigate('/focus'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
- >
- <Timer className="w-4 h-4 text-secondary" /> Focus Mode & Soundscapes
- </Command.Item>
- <Command.Item 
- onSelect={() => runCommand(() => navigate('/app/goals'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
- >
- <Target className="w-4 h-4 text-secondary" /> Strategic Goals
- </Command.Item>
- <Command.Item 
- onSelect={() => runCommand(() => navigate('/app/habits'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
- >
- <TrendingUp className="w-4 h-4 text-secondary" /> Habit Tracker
- </Command.Item>
- <Command.Item 
- onSelect={() => runCommand(() => navigate('/app/projects'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
- >
- <Layers className="w-4 h-4 text-secondary" /> Engineering Projects
- </Command.Item>
- <Command.Item 
- onSelect={() => runCommand(() => navigate('/app/brain'))}
- className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
- >
- <Brain className="w-4 h-4 text-secondary" /> Brain Knowledge Base
- </Command.Item>
- </Command.Group>
-
- {/* Brain Pages Group */}
- <Command.Group 
- heading={<div className="flex items-center gap-1.5 text-cat-routines"><Brain className="w-3.5 h-3.5 text-cat-routines" /><span>Knowledge Base Documents</span></div>} 
- className="pt-2 pb-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
- >
- {pages.map((page) => (
- <Command.Item 
- key={page.id}
- onSelect={() => runCommand(() => navigate(`/app/brain?doc=${page.id}`))}
- className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
- >
- <div className="flex items-center gap-2.5 truncate">
- {page.icon ? (
- <span className="w-4 h-4 flex items-center justify-center text-body">{page.icon}</span>
- ) : (
- <FileText className="w-4 h-4 text-muted" />
- )}
- <span className="truncate">{page.title}</span>
- </div>
- <span className="text-[10px] font-mono text-muted bg-surface-hover px-1.5 py-0.5 rounded border border-border">
- Doc
- </span>
- </Command.Item>
- ))}
- </Command.Group>
-
- {/* Issues Group */}
- <Command.Group 
- heading={<div className="flex items-center gap-1.5 text-cat-tasks"><ListChecks className="w-3.5 h-3.5 text-cat-tasks" /><span>Active Issues & Tickets</span></div>} 
- className="pt-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
- >
- {issues.map((issue) => (
- <Command.Item 
- key={issue.id}
- onSelect={() => runCommand(() => navigate(`/app/board`))}
- className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
- >
- <div className="flex items-center gap-2.5 truncate">
- <span className="truncate">{issue.title}</span>
- </div>
- <span className="text-[10px] font-mono capitalize text-secondary bg-surface-hover px-1.5 py-0.5 rounded border border-border">
- {issue.status.replace('_', ' ')}
- </span>
- </Command.Item>
- ))}
- </Command.Group>
-
- {/* Goals Group */}
- <Command.Group 
- heading={<div className="flex items-center gap-1.5 text-success-fg"><Target className="w-3.5 h-3.5 text-success-fg" /><span>Goals & Strategic OKRs</span></div>} 
- className="pt-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
- >
- {goals.map((goal) => (
- <Command.Item 
- key={goal.id}
- onSelect={() => runCommand(() => navigate(`/app/goals`))}
- className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-success-fg transition-colors duration-100"
- >
- <div className="flex items-center gap-2.5 truncate">
- <Target className="w-4 h-4 text-success-fg shrink-0" />
- <span className="truncate">{goal.title}</span>
- </div>
- <span className="text-[10px] font-mono text-success-fg bg-success-bg px-1.5 py-0.5 rounded font-medium">
- {goal.progress || 0}%
- </span>
- </Command.Item>
- ))}
- </Command.Group>
-
- {/* Projects Group */}
- <Command.Group 
- heading={<div className="flex items-center gap-1.5 text-primary"><FolderKanban className="w-3.5 h-3.5 text-primary" /><span>Engineering Projects</span></div>} 
- className="pt-2 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider"
- >
- {projects.map((proj) => (
- <Command.Item 
- key={proj.id}
- onSelect={() => runCommand(() => navigate(`/app/projects/${proj.id}`))}
- className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-body font-medium text-primary aria-selected:bg-surface-hover aria-selected:text-accent-fg transition-colors duration-100"
- >
- <div className="flex items-center gap-2.5 truncate">
- <FolderKanban className="w-4 h-4 text-accent-fg shrink-0" />
- <span className="truncate">{proj.name}</span>
- </div>
- <span className="text-[10px] font-mono text-secondary bg-surface-hover px-1.5 py-0.5 rounded border border-border">
- Project
- </span>
- </Command.Item>
- ))}
- </Command.Group>
- </>
- )}
+ </Command.Group>}
+ {!hasSearchQuery && recentError && <p role="status" className="px-3 py-2 text-sm text-secondary">Recent items are unavailable. Search or choose a page.</p>}
+ <SearchResults results={hasSearchQuery ? searchResults : recent?.results || []} query={searchQuery} onOpen={url => runCommand(() => navigate(url))} />
 
  </Command.List>
 
- <div className="bg-surface-hover border-t border-border px-4 py-2 flex items-center justify-between text-badge text-secondary font-mono">
+ <div className="workspace-search-footer">
  <span>
  {hasSearchQuery
- ? `${searchResults.length} result${searchResults.length !== 1 ? 's' : ''} • Powered by Postgres full-text search`
- : <>Tip: Press <kbd className="bg-surface border border-border px-1 py-0.2 rounded text-primary">↑</kbd> <kbd className="bg-surface border border-border px-1 py-0.2 rounded text-primary">↓</kbd> to navigate</>
+ ? isSearching ? 'Searching…' : searchError ? 'Search unavailable' : `${resultCount} result${resultCount !== 1 ? 's' : ''}`
+ : <><kbd>↑</kbd> <kbd>↓</kbd> <span>Navigate</span></>
  }
  </span>
- <span>Press <kbd className="bg-surface border border-border px-1.5 py-0.2 rounded text-primary font-bold">↵</kbd> to execute</span>
+ <span><kbd>↵</kbd> <span>Open</span></span>
  </div>
  </Command>
  </div>

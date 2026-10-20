@@ -1,0 +1,595 @@
+{
+  "dueTask": {
+    "id": "due-task",
+    "title": "Submit proposal",
+    "workspaceId": "ws1",
+    "version": 1,
+    "status": "TODO",
+    "priority": "HIGH",
+    "position": 1,
+    "estimateMinutes": 25,
+    "projectId": null,
+    "scheduledDate": "2026-10-20T12:00:00.000Z",
+    "dueDate": "2026-10-15T12:00:00.000Z"
+  },
+  "habit": {
+    "id": "monday",
+    "workspaceId": "ws1",
+    "name": "Monday ritual",
+    "cadence": "daily",
+    "scheduledDays": [
+      1
+    ],
+    "version": 2,
+    "streak": 0,
+    "bestStreak": 0,
+    "deletedAt": null,
+    "metadata": {
+      "pinnedToPlanner": true
+    },
+    "updatedBy": "flow-user",
+    "completions": []
+  },
+  "before": {
+    "holidayCoverage": {
+      "missingNationalYears": [],
+      "missingRegionalYears": []
+    },
+    "weekStart": "2026-10-12T00:00:00.000Z",
+    "weekEnd": "2026-10-18T23:59:59.999Z",
+    "config": {
+      "countryCode": "IN",
+      "regionCode": null
+    },
+    "days": [
+      {
+        "dateKey": "2026-10-12",
+        "date": "2026-10-12T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "monday-2026-10-12",
+            "habitId": "monday",
+            "date": "2026-10-12T12:00:00.000Z",
+            "completed": false,
+            "scheduled": true,
+            "offSchedule": false,
+            "completedAt": null,
+            "isVirtual": true
+          }
+        ],
+        "tasks": [],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      },
+      {
+        "dateKey": "2026-10-13",
+        "date": "2026-10-13T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "monday-2026-10-13",
+            "habitId": "monday",
+            "date": "2026-10-13T12:00:00.000Z",
+            "completed": false,
+            "scheduled": false,
+            "offSchedule": false,
+            "completedAt": null,
+            "isVirtual": true
+          }
+        ],
+        "tasks": [],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      },
+      {
+        "dateKey": "2026-10-14",
+        "date": "2026-10-14T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "monday-2026-10-14",
+            "habitId": "monday",
+            "date": "2026-10-14T12:00:00.000Z",
+            "completed": false,
+            "scheduled": false,
+            "offSchedule": false,
+            "completedAt": null,
+            "isVirtual": true
+          }
+        ],
+        "tasks": [],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      },
+      {
+        "dateKey": "2026-10-15",
+        "date": "2026-10-15T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "monday-2026-10-15",
+            "habitId": "monday",
+            "date": "2026-10-15T12:00:00.000Z",
+            "completed": false,
+            "scheduled": false,
+            "offSchedule": false,
+            "completedAt": null,
+            "isVirtual": true
+          }
+        ],
+        "tasks": [
+          {
+            "id": "due-task",
+            "title": "Submit proposal",
+            "version": 1,
+            "projectId": null,
+            "status": "TODO",
+            "completed": false,
+            "scheduledDate": "2026-10-20T12:00:00.000Z",
+            "dueDate": "2026-10-15T12:00:00.000Z",
+            "estimateMinutes": 25,
+            "priority": "HIGH"
+          }
+        ],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      },
+      {
+        "dateKey": "2026-10-16",
+        "date": "2026-10-16T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "monday-2026-10-16",
+            "habitId": "monday",
+            "date": "2026-10-16T12:00:00.000Z",
+            "completed": false,
+            "scheduled": false,
+            "offSchedule": false,
+            "completedAt": null,
+            "isVirtual": true
+          }
+        ],
+        "tasks": [],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      },
+      {
+        "dateKey": "2026-10-17",
+        "date": "2026-10-17T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "monday-2026-10-17",
+            "habitId": "monday",
+            "date": "2026-10-17T12:00:00.000Z",
+            "completed": false,
+            "scheduled": false,
+            "offSchedule": false,
+            "completedAt": null,
+            "isVirtual": true
+          }
+        ],
+        "tasks": [],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      },
+      {
+        "dateKey": "2026-10-18",
+        "date": "2026-10-18T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "monday-2026-10-18",
+            "habitId": "monday",
+            "date": "2026-10-18T12:00:00.000Z",
+            "completed": false,
+            "scheduled": false,
+            "offSchedule": false,
+            "completedAt": null,
+            "isVirtual": true
+          }
+        ],
+        "tasks": [],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      }
+    ],
+    "routines": [
+      {
+        "id": "monday",
+        "name": "Monday ritual",
+        "cadence": "daily",
+        "scheduledDays": [
+          1
+        ],
+        "weeklyTarget": 3
+      }
+    ],
+    "projects": [],
+    "capacity": {
+      "weeklyCapacityMinutes": 2400,
+      "occupiedMinutes": 0,
+      "meetingMinutes": 0,
+      "otherMinutes": 0,
+      "freeMinutes": 2400,
+      "completionPercent": 0,
+      "taskCompletionPercent": 0,
+      "completedTaskCount": 0,
+      "scheduledTaskCount": 1
+    },
+    "tasks": [
+      {
+        "id": "due-task",
+        "title": "Submit proposal",
+        "version": 1,
+        "projectId": null,
+        "status": "TODO",
+        "completed": false,
+        "scheduledDate": "2026-10-20T12:00:00.000Z",
+        "dueDate": "2026-10-15T12:00:00.000Z",
+        "estimateMinutes": 25,
+        "priority": "HIGH"
+      }
+    ],
+    "timeBlocks": [],
+    "milestones": [],
+    "goalDeadlines": [],
+    "occurrences": [
+      {
+        "id": "monday-2026-10-12",
+        "habitId": "monday",
+        "date": "2026-10-12T12:00:00.000Z",
+        "completed": false,
+        "scheduled": true,
+        "offSchedule": false,
+        "completedAt": null,
+        "isVirtual": true
+      },
+      {
+        "id": "monday-2026-10-13",
+        "habitId": "monday",
+        "date": "2026-10-13T12:00:00.000Z",
+        "completed": false,
+        "scheduled": false,
+        "offSchedule": false,
+        "completedAt": null,
+        "isVirtual": true
+      },
+      {
+        "id": "monday-2026-10-14",
+        "habitId": "monday",
+        "date": "2026-10-14T12:00:00.000Z",
+        "completed": false,
+        "scheduled": false,
+        "offSchedule": false,
+        "completedAt": null,
+        "isVirtual": true
+      },
+      {
+        "id": "monday-2026-10-15",
+        "habitId": "monday",
+        "date": "2026-10-15T12:00:00.000Z",
+        "completed": false,
+        "scheduled": false,
+        "offSchedule": false,
+        "completedAt": null,
+        "isVirtual": true
+      },
+      {
+        "id": "monday-2026-10-16",
+        "habitId": "monday",
+        "date": "2026-10-16T12:00:00.000Z",
+        "completed": false,
+        "scheduled": false,
+        "offSchedule": false,
+        "completedAt": null,
+        "isVirtual": true
+      },
+      {
+        "id": "monday-2026-10-17",
+        "habitId": "monday",
+        "date": "2026-10-17T12:00:00.000Z",
+        "completed": false,
+        "scheduled": false,
+        "offSchedule": false,
+        "completedAt": null,
+        "isVirtual": true
+      },
+      {
+        "id": "monday-2026-10-18",
+        "habitId": "monday",
+        "date": "2026-10-18T12:00:00.000Z",
+        "completed": false,
+        "scheduled": false,
+        "offSchedule": false,
+        "completedAt": null,
+        "isVirtual": true
+      }
+    ],
+    "backlog": [],
+    "workDayMinutes": 480
+  },
+  "after": {
+    "holidayCoverage": {
+      "missingNationalYears": [],
+      "missingRegionalYears": []
+    },
+    "weekStart": "2026-10-12T00:00:00.000Z",
+    "weekEnd": "2026-10-18T23:59:59.999Z",
+    "config": {
+      "countryCode": "IN",
+      "regionCode": null
+    },
+    "days": [
+      {
+        "dateKey": "2026-10-12",
+        "date": "2026-10-12T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "monday-2026-10-12",
+            "habitId": "monday",
+            "date": "2026-10-12T12:00:00.000Z",
+            "completed": false,
+            "scheduled": true,
+            "offSchedule": false,
+            "completedAt": null,
+            "isVirtual": true
+          }
+        ],
+        "tasks": [],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      },
+      {
+        "dateKey": "2026-10-13",
+        "date": "2026-10-13T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "monday-2026-10-13",
+            "habitId": "monday",
+            "date": "2026-10-13T12:00:00.000Z",
+            "completed": false,
+            "scheduled": false,
+            "offSchedule": false,
+            "completedAt": null,
+            "isVirtual": true
+          }
+        ],
+        "tasks": [],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      },
+      {
+        "dateKey": "2026-10-14",
+        "date": "2026-10-14T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "monday-2026-10-14",
+            "habitId": "monday",
+            "date": "2026-10-14T12:00:00.000Z",
+            "completed": false,
+            "scheduled": false,
+            "offSchedule": false,
+            "completedAt": null,
+            "isVirtual": true
+          }
+        ],
+        "tasks": [],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      },
+      {
+        "dateKey": "2026-10-15",
+        "date": "2026-10-15T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "log",
+            "habitId": "monday",
+            "date": "2026-10-15T12:00:00.000Z",
+            "completed": true,
+            "scheduled": false,
+            "offSchedule": true,
+            "completedAt": "2026-10-15T11:00:30.670Z",
+            "isVirtual": false
+          }
+        ],
+        "tasks": [
+          {
+            "id": "due-task",
+            "title": "Submit proposal",
+            "version": 1,
+            "projectId": null,
+            "status": "TODO",
+            "completed": false,
+            "scheduledDate": "2026-10-20T12:00:00.000Z",
+            "dueDate": "2026-10-15T12:00:00.000Z",
+            "estimateMinutes": 25,
+            "priority": "HIGH"
+          }
+        ],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      },
+      {
+        "dateKey": "2026-10-16",
+        "date": "2026-10-16T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "monday-2026-10-16",
+            "habitId": "monday",
+            "date": "2026-10-16T12:00:00.000Z",
+            "completed": false,
+            "scheduled": false,
+            "offSchedule": false,
+            "completedAt": null,
+            "isVirtual": true
+          }
+        ],
+        "tasks": [],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      },
+      {
+        "dateKey": "2026-10-17",
+        "date": "2026-10-17T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "monday-2026-10-17",
+            "habitId": "monday",
+            "date": "2026-10-17T12:00:00.000Z",
+            "completed": false,
+            "scheduled": false,
+            "offSchedule": false,
+            "completedAt": null,
+            "isVirtual": true
+          }
+        ],
+        "tasks": [],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      },
+      {
+        "dateKey": "2026-10-18",
+        "date": "2026-10-18T00:00:00.000Z",
+        "occurrences": [
+          {
+            "id": "monday-2026-10-18",
+            "habitId": "monday",
+            "date": "2026-10-18T12:00:00.000Z",
+            "completed": false,
+            "scheduled": false,
+            "offSchedule": false,
+            "completedAt": null,
+            "isVirtual": true
+          }
+        ],
+        "tasks": [],
+        "timeBlocks": [],
+        "milestones": [],
+        "goalDeadlines": []
+      }
+    ],
+    "routines": [
+      {
+        "id": "monday",
+        "name": "Monday ritual",
+        "cadence": "daily",
+        "scheduledDays": [
+          1
+        ],
+        "weeklyTarget": 3
+      }
+    ],
+    "projects": [],
+    "capacity": {
+      "weeklyCapacityMinutes": 2400,
+      "occupiedMinutes": 0,
+      "meetingMinutes": 0,
+      "otherMinutes": 0,
+      "freeMinutes": 2400,
+      "completionPercent": 0,
+      "taskCompletionPercent": 0,
+      "completedTaskCount": 0,
+      "scheduledTaskCount": 1
+    },
+    "tasks": [
+      {
+        "id": "due-task",
+        "title": "Submit proposal",
+        "version": 1,
+        "projectId": null,
+        "status": "TODO",
+        "completed": false,
+        "scheduledDate": "2026-10-20T12:00:00.000Z",
+        "dueDate": "2026-10-15T12:00:00.000Z",
+        "estimateMinutes": 25,
+        "priority": "HIGH"
+      }
+    ],
+    "timeBlocks": [],
+    "milestones": [],
+    "goalDeadlines": [],
+    "occurrences": [
+      {
+        "id": "monday-2026-10-12",
+        "habitId": "monday",
+        "date": "2026-10-12T12:00:00.000Z",
+        "completed": false,
+        "scheduled": true,
+        "offSchedule": false,
+        "completedAt": null,
+        "isVirtual": true
+      },
+      {
+        "id": "monday-2026-10-13",
+        "habitId": "monday",
+        "date": "2026-10-13T12:00:00.000Z",
+        "completed": false,
+        "scheduled": false,
+        "offSchedule": false,
+        "completedAt": null,
+        "isVirtual": true
+      },
+      {
+        "id": "monday-2026-10-14",
+        "habitId": "monday",
+        "date": "2026-10-14T12:00:00.000Z",
+        "completed": false,
+        "scheduled": false,
+        "offSchedule": false,
+        "completedAt": null,
+        "isVirtual": true
+      },
+      {
+        "id": "log",
+        "habitId": "monday",
+        "date": "2026-10-15T12:00:00.000Z",
+        "completed": true,
+        "scheduled": false,
+        "offSchedule": true,
+        "completedAt": "2026-10-15T11:00:30.670Z",
+        "isVirtual": false
+      },
+      {
+        "id": "monday-2026-10-16",
+        "habitId": "monday",
+        "date": "2026-10-16T12:00:00.000Z",
+        "completed": false,
+        "scheduled": false,
+        "offSchedule": false,
+        "completedAt": null,
+        "isVirtual": true
+      },
+      {
+        "id": "monday-2026-10-17",
+        "habitId": "monday",
+        "date": "2026-10-17T12:00:00.000Z",
+        "completed": false,
+        "scheduled": false,
+        "offSchedule": false,
+        "completedAt": null,
+        "isVirtual": true
+      },
+      {
+        "id": "monday-2026-10-18",
+        "habitId": "monday",
+        "date": "2026-10-18T12:00:00.000Z",
+        "completed": false,
+        "scheduled": false,
+        "offSchedule": false,
+        "completedAt": null,
+        "isVirtual": true
+      }
+    ],
+    "backlog": [],
+    "workDayMinutes": 480
+  }
+}

@@ -1,35 +1,49 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { GlobalErrorBoundary } from './ui/GlobalErrorBoundary';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
+import { openFocusTab } from '../lib/focusNavigation';
+import { useModalA11y } from '../hooks/useModalA11y';
+import { hasOpenModal, isTypingTarget } from '../lib/keyboardShortcuts';
+import { LoadingState } from './ui/LoadingState';
 
 import { Sidebar } from './Sidebar';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
-import { KanbanBoard } from './KanbanBoard';
-import { BrainWorkspace } from './BrainWorkspace';
 import { Dashboard } from './Dashboard';
 import { CommandPalette } from './CommandPalette';
-
-import { Goals } from './Goals';
-import { Projects } from './Projects';
-import { SprintView } from './SprintView';
-import { ProjectDetail } from './ProjectDetail';
-import { PlannerPage } from './planner/PlannerPage';
-import { HabitTracker } from './HabitTracker';
-import { AnalyticsPage } from './AnalyticsPage';
-
-import { AIAssistant } from './AIAssistant';
 import { NotificationCenter } from './NotificationCenter';
-import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun, PanelLeftOpen } from 'lucide-react';
+import { Terminal, ArrowRight, WifiOff, Menu, Moon, Sun, Bot, PanelLeftOpen } from 'lucide-react';
 import { useTheme } from '../lib/theme';
+
+const KanbanBoard = lazy(() => import('./KanbanBoard').then(m => ({ default: m.KanbanBoard })));
+const BrainWorkspace = lazy(() => import('./BrainWorkspace').then(m => ({ default: m.BrainWorkspace })));
+const Goals = lazy(() => import('./Goals').then(m => ({ default: m.Goals })));
+const Projects = lazy(() => import('./Projects').then(m => ({ default: m.Projects })));
+const ProjectDetail = lazy(() => import('./ProjectDetail').then(m => ({ default: m.ProjectDetail })));
+const PlannerPage = lazy(() => import('./planner/PlannerPage').then(m => ({ default: m.PlannerPage })));
+const HabitTracker = lazy(() => import('./HabitTracker').then(m => ({ default: m.HabitTracker })));
+const Inbox = lazy(() => import('./Inbox').then(m => ({ default: m.Inbox })));
+const AIAssistant = lazy(() => import('./AIAssistant').then(m => ({ default: m.AIAssistant })));
 
 export function AppShell() {
  const navigate = useNavigate();
  const location = useLocation();
- const isFlushRoute = location.pathname === '/app' || location.pathname === '/app/' || location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/sprint') || location.pathname.startsWith('/app/operations') || location.pathname.startsWith('/app/planner') || location.pathname.startsWith('/app/timeline') || location.pathname.startsWith('/app/goals') || location.pathname.startsWith('/app/habits') || location.pathname.startsWith('/app/projects') || location.pathname.startsWith('/app/brain') || location.pathname.startsWith('/app/analytics');
+ const pageTitle = location.pathname.startsWith('/app/brain') ? 'Brain Workspace'
+   : location.pathname.startsWith('/app/projects') ? 'Projects'
+   : location.pathname.startsWith('/app/goals') ? 'Goals'
+   : location.pathname.startsWith('/app/habits') ? 'Habits'
+   : location.pathname.startsWith('/app/planner') || location.pathname.startsWith('/app/timeline') ? 'Planner'
+   : location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') ? 'Tasks'
+   : location.pathname.startsWith('/app/inbox') ? 'Inbox' : 'Dashboard';
+ const isFlushRoute = location.pathname === '/app' || location.pathname === '/app/' || location.pathname.startsWith('/app/inbox') || location.pathname.startsWith('/app/board') || location.pathname.startsWith('/app/kanban') || location.pathname.startsWith('/app/planner') || location.pathname.startsWith('/app/timeline') || location.pathname.startsWith('/app/goals') || location.pathname.startsWith('/app/habits') || location.pathname.startsWith('/app/projects') || location.pathname.startsWith('/app/brain');
  const { toggleTheme, resolvedTheme } = useTheme();
  const [activePrefix, setActivePrefix] = useState<'g' | 'e' | 't' | 's' | null>(null);
+ const prefixRef = useRef<typeof activePrefix>(null);
+ const updatePrefix = useCallback((prefix: typeof activePrefix) => { prefixRef.current = prefix; setActivePrefix(prefix); }, []);
+ const prefixTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+ useEffect(() => () => clearTimeout(prefixTimer.current), []);
  const [showCheatsheet, setShowCheatsheet] = useState(false);
+ const cheatsheetRef = useModalA11y(showCheatsheet, () => setShowCheatsheet(false));
  const [isOffline, setIsOffline] = useState(false);
  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
  const [focusMode, setFocusMode] = useState(false);
@@ -66,9 +80,8 @@ export function AppShell() {
  }, []);
 
  useEffect(() => {
- let timeoutId: ReturnType<typeof setTimeout>;
-
  const handleKeyDown = (e: KeyboardEvent) => {
+ if (e.defaultPrevented || e.isComposing || hasOpenModal()) return;
  // Notion-style Sidebar toggle with Ctrl+\ or Cmd+\
  if ((e.metaKey || e.ctrlKey) && (e.key === '\\' || e.code === 'Backslash')) {
  e.preventDefault();
@@ -79,16 +92,13 @@ export function AppShell() {
  // Focus Timer in new tab: Ctrl+Shift+Q or Cmd+Shift+Q
  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'Q' || e.key === 'q')) {
  e.preventDefault();
- window.open('/focus', '_blank');
+ openFocusTab();
  return;
  }
 
  // Ignore if typing inside input, textarea, or contentEditable
- const target = e.target as HTMLElement;
  if (
- target.tagName === 'INPUT' ||
- target.tagName === 'TEXTAREA' ||
- target.isContentEditable ||
+ isTypingTarget(e.target) ||
  e.metaKey ||
  e.ctrlKey ||
  e.altKey
@@ -97,6 +107,7 @@ export function AppShell() {
  }
 
  const key = e.key.toLowerCase();
+ const activePrefix = prefixRef.current;
 
  if (e.key === '?' || (e.shiftKey && e.code === 'Slash')) {
  e.preventDefault();
@@ -109,7 +120,7 @@ export function AppShell() {
  return;
  }
  if (activePrefix) {
- setActivePrefix(null);
+ updatePrefix(null);
  return;
  }
  setFocusMode(prev => !prev);
@@ -121,6 +132,7 @@ export function AppShell() {
  e.preventDefault();
  if (activePrefix === 'g') {
  if (key === 'd') navigate('/app/');
+ else if (key === 'i') navigate('/app/inbox');
  else if (key === 'b') navigate('/app/brain');
  else if (key === 'g') navigate('/app/goals');
  else if (key === 'p') navigate('/app/projects');
@@ -128,48 +140,54 @@ export function AppShell() {
  if (key === 'w') navigate('/app/planner');
  else if (key === 't') navigate('/app/timeline');
  else if (key === 'k') navigate('/app/board');
- else if (key === 's') navigate('/app/sprint');
  else if (key === 'h') navigate('/app/habits');
  } else if (activePrefix === 't') {
  if (key === 't') toggleTheme();
  } else if (activePrefix === 's') {
  if (key === 'a') window.dispatchEvent(new CustomEvent('open-ai-assistant'));
  }
- setActivePrefix(null);
- clearTimeout(timeoutId);
+ updatePrefix(null);
+ clearTimeout(prefixTimer.current);
  return;
  }
 
  // Start new chord
  if (key === 'g' || key === 'e' || key === 't' || key === 's') {
  e.preventDefault();
- setActivePrefix(key as 'g' | 'e' | 't' | 's');
- timeoutId = setTimeout(() => {
- setActivePrefix(null);
+ updatePrefix(key as 'g' | 'e' | 't' | 's');
+ clearTimeout(prefixTimer.current);
+ prefixTimer.current = setTimeout(() => {
+ updatePrefix(null);
  }, 2000);
  }
  };
 
- window.addEventListener('keydown', handleKeyDown);
+ // App chords claim their prefix first; Escape belongs to open menus/dialogs
+ // before the app can toggle its own focus mode.
+ const captureChord = (event: KeyboardEvent) => { if (event.key !== 'Escape') handleKeyDown(event); };
+ const bubbleEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') handleKeyDown(event); };
+ window.addEventListener('keydown', captureChord, true);
+ window.addEventListener('keydown', bubbleEscape);
  return () => {
- window.removeEventListener('keydown', handleKeyDown);
- clearTimeout(timeoutId);
+ window.removeEventListener('keydown', captureChord, true);
+ window.removeEventListener('keydown', bubbleEscape);
  };
- }, [activePrefix, navigate, showCheatsheet, toggleTheme]);
+ }, [updatePrefix, navigate, showCheatsheet, toggleTheme]);
 
  return (
- <div className="flex flex-col md:flex-row h-screen w-full bg-canvas text-primary overflow-hidden font-sans select-none">
+ <div className="krama-workspace flex flex-col md:flex-row h-screen w-full bg-canvas text-primary overflow-hidden font-sans select-none">
+ <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:rounded-lg focus:bg-surface focus:p-3 focus:text-primary focus:outline focus:outline-2 focus:outline-accent">Skip to main content</a>
  <CommandPalette />
 
  {!focusMode && (
- <Sidebar 
- mobileOpen={mobileMenuOpen} 
+ <Sidebar
+ mobileOpen={mobileMenuOpen}
  onMobileClose={() => setMobileMenuOpen(false)}
  isCollapsed={sidebarCollapsed}
  onToggleCollapse={handleToggleSidebar}
  />
  )}
- 
+
  <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
 
     {/* Notion-style Top Bar when sidebar is collapsed */}
@@ -188,11 +206,14 @@ export function AppShell() {
           <span className="text-muted text-xs">/</span>
           <WorkspaceSwitcher compact />
           <span className="text-muted text-xs">/</span>
-          <span className="text-caption font-mono font-medium text-secondary capitalize">
-            {location.pathname.replace('/app', '').replace('/', '') || 'Dashboard'}
+          <span className="text-caption font-sans font-medium text-secondary">
+            {pageTitle}
           </span>
         </div>
         <div className="flex items-center gap-3">
+          <button type="button" aria-label="Open AI Assistant" title="Open AI Assistant" onClick={event => { event.currentTarget.focus(); window.dispatchEvent(new Event('open-ai-assistant')); }} className="min-h-11 min-w-11 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover flex items-center justify-center">
+            <Bot aria-hidden="true" size={18} />
+          </button>
           <NotificationCenter />
           <div className="flex items-center gap-2 text-badge font-mono text-muted">
             <span>Toggle:</span> <kbd className="bg-surface px-1 py-0.5 rounded border border-border text-[10px]">Ctrl+\</kbd>
@@ -233,57 +254,66 @@ export function AppShell() {
  {/* Mobile Top Header */}
  {!focusMode && (
  <div className="md:hidden flex items-center justify-between p-3 bg-sidebar backdrop-blur-2xl border-b border-border z-40 shrink-0">
- <div className="flex items-center gap-2">
+ <div className="flex items-center gap-2 shrink-0">
  <button
+ aria-label="Open navigation"
  onClick={() => setMobileMenuOpen(true)}
- className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover transition-colors"
+ className="min-h-11 min-w-11 p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover transition-colors"
  >
  <Menu className="w-5 h-5" />
  </button>
- <span className="font-mono font-bold text-body text-primary tracking-tight">KRAMA OS</span>
+ <span className="hidden sm:inline font-bold text-body text-primary tracking-tight whitespace-nowrap">KRAMA</span>
  </div>
- <div className="flex items-center gap-2">
- <WorkspaceSwitcher compact />
+ <div className="flex items-center gap-1 min-w-0">
+ <WorkspaceSwitcher compact className="min-w-0 max-w-[72px] sm:max-w-[200px]" />
  <NotificationCenter />
+ <button type="button" aria-label="Open AI Assistant" title="Open AI Assistant" onClick={event => { event.currentTarget.focus(); window.dispatchEvent(new Event('open-ai-assistant')); }} className="min-h-11 min-w-11 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover flex items-center justify-center">
+ <Bot className="w-5 h-5" aria-hidden="true" />
+ </button>
  <button
  onClick={toggleTheme}
- className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover transition-colors border border-border"
+ className="min-h-11 min-w-11 p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover transition-colors border border-border"
  title="Toggle Theme"
  >
  {resolvedTheme === 'dark' ? <Sun className="w-4 h-4 text-warning" /> : <Moon className="w-4 h-4 text-secondary" />}
  </button>
- <div className="text-[10px] font-mono text-success-fg bg-success-bg px-2 py-0.5 rounded border border-success-border flex items-center gap-1">
+ <div className="hidden sm:flex text-[10px] font-mono text-success-fg bg-success-bg px-2 py-0.5 rounded border border-success-border items-center gap-1">
  <span className="w-1.5 h-1.5 rounded-full bg-success-fg" /> Online
  </div>
  </div>
  </div>
  )}
 
- <main className={cn(
+ <main id="main-content" tabIndex={-1} className={cn(
  "flex-1 min-w-0 w-full relative animate-in fade-in duration-150",
  isFlushRoute ? "h-full overflow-hidden flex flex-col p-0" : "overflow-y-auto p-6 md:p-10 bg-canvas"
  )}>
- <GlobalErrorBoundary><Routes>
- <Route path="/" element={<Dashboard />} />
- <Route path="/brain/*" element={<BrainWorkspace />} />
- <Route path="/goals/*" element={<Goals />} />
- <Route path="/projects" element={<Projects />} />
- <Route path="/projects/:id" element={<ProjectDetail />} />
- <Route path="/board/*" element={<KanbanBoard />} />
- <Route path="/kanban/*" element={<KanbanBoard />} />
- <Route path="/tasks/*" element={<Navigate to="/app/board" replace />} />
- <Route path="/sprint/*" element={<SprintView />} />
- <Route path="/operations/*" element={<Navigate to="/app/sprint?tab=operations" replace />} />
- <Route path="/planner/*" element={<PlannerPage />} />
- <Route path="/timeline/*" element={<Navigate to="/app/planner?mode=day" replace />} />
- <Route path="/habits/*" element={<HabitTracker />} />
- <Route path="/analytics/*" element={<AnalyticsPage />} />
- <Route path="/decisions" element={<Navigate to="/app/brain" replace />} />
- <Route path="/graph" element={<Navigate to="/app/brain" replace />} />
- </Routes></GlobalErrorBoundary>
+ <GlobalErrorBoundary>
+  <Suspense fallback={<LoadingState variant="default" />}>
+   <Routes>
+    <Route path="/" element={<Dashboard />} />
+    <Route path="/inbox" element={<Inbox />} />
+    <Route path="/brain/*" element={<BrainWorkspace />} />
+    <Route path="/goals/*" element={<Goals />} />
+    <Route path="/projects" element={<Projects />} />
+    <Route path="/projects/:id" element={<ProjectDetail />} />
+    <Route path="/board/*" element={<KanbanBoard />} />
+    <Route path="/kanban/*" element={<KanbanBoard />} />
+    <Route path="/tasks/*" element={<Navigate to="/app/board" replace />} />
+    <Route path="/planner/*" element={<PlannerPage />} />
+    <Route path="/timeline/*" element={<Navigate to="/app/planner?mode=day" replace />} />
+    <Route path="/habits/*" element={<HabitTracker />} />
+    <Route path="/decisions" element={<Navigate to="/app/brain" replace />} />
+    <Route path="/graph" element={<Navigate to="/app/brain" replace />} />
+    <Route path="*" element={<Navigate to="/app" replace />} />
+   </Routes>
+  </Suspense>
+ </GlobalErrorBoundary>
  </main>
  </div>
- <AIAssistant />
+ <Suspense fallback={null}>
+  <AIAssistant />
+ </Suspense>
 
  {/* NEW: Visual Two-Key Chord HUD Indicator */}
  {activePrefix && (
@@ -298,8 +328,8 @@ export function AppShell() {
  <span className="text-white font-medium animate-pulse">Waiting for key...</span>
  </div>
  <div className="text-[10px] text-muted pl-2 border-l border-white/10">
- {activePrefix === 'g' ? 'D (Dash), B (Brain), G (Goals), P (Proj)' : 
- activePrefix === 'e' ? 'W (Plan), T (Time), K (Board), S (Sprint), H (Habit)' :
+ {activePrefix === 'g' ? 'D (Dashboard), I (Inbox), B (Brain), G (Goals), P (Projects)' :
+ activePrefix === 'e' ? 'W (Plan), T (Time), K (Board), H (Habit)' :
  activePrefix === 's' ? 'A (AI Assistant)' : 'T (Toggle Theme)'}
  </div>
  </div>
@@ -307,13 +337,14 @@ export function AppShell() {
 
  {/* Shortcut Cheatsheet Modal */}
  {showCheatsheet && (
- <div 
+ <div
  onClick={() => setShowCheatsheet(false)}
  className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-2xs flex items-center justify-center p-4 animate-in fade-in duration-150"
  >
- <div 
+ <div
+ ref={cheatsheetRef} role="dialog" aria-modal="true" aria-label="Keyboard Shortcuts"
  onClick={(e) => e.stopPropagation()}
- className="bg-surface border border-border rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-5 relative"
+ className="bg-surface border border-border rounded-2xl p-6 max-w-lg w-full max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-2xl space-y-5 relative"
  >
  <div className="flex items-center justify-between border-b border-border pb-3">
  <div className="flex items-center gap-2">
@@ -323,7 +354,7 @@ export function AppShell() {
  <p className="text-caption text-secondary">Two-key chord navigation & commands</p>
  </div>
  </div>
- <button 
+ <button
  onClick={() => setShowCheatsheet(false)}
  className="text-caption font-mono text-secondary bg-surface-hover px-2 py-1 rounded hover:bg-border transition-colors"
  >
@@ -336,8 +367,8 @@ export function AppShell() {
  <h4 className="font-mono text-badge font-bold text-secondary uppercase tracking-wider mb-2">Go To (G Chords)</h4>
  <div className="flex items-center justify-between"><span className="text-primary">Dashboard</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">G D</span></div>
  <div className="flex items-center justify-between"><span className="text-primary">Knowledge Brain</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">G B</span></div>
- <div className="flex items-center justify-between"><span className="text-primary">Execution Kanban</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">G E</span></div>
- <div className="flex items-center justify-between"><span className="text-primary">Projects & Sprints</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">G P</span></div>
+ <div className="flex items-center justify-between"><span className="text-primary">Tasks</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">G E</span></div>
+ <div className="flex items-center justify-between"><span className="text-primary">Projects</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">G P</span></div>
  <div className="flex items-center justify-between"><span className="text-primary">Goal</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">G G</span></div>
  </div>
 
@@ -346,7 +377,6 @@ export function AppShell() {
  <div className="flex items-center justify-between"><span className="text-primary">Planner</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">E W</span></div>
  <div className="flex items-center justify-between"><span className="text-primary">Schedule</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">E T</span></div>
  <div className="flex items-center justify-between"><span className="text-primary">Kanban Board</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">E K</span></div>
- <div className="flex items-center justify-between"><span className="text-primary">Sprint</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">E S</span></div>
  <div className="flex items-center justify-between"><span className="text-primary">Habit</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">E H</span></div>
  <div className="flex items-center justify-between"><span className="text-primary">Toggle Theme</span><span className="font-mono text-caption bg-surface-hover px-1.5 py-0.5 rounded border border-border">T T</span></div>
  </div>

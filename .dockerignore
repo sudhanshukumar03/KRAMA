@@ -3,7 +3,19 @@ apps/web/node_modules
 apps/server/node_modules
 packages/*/node_modules
 .git
+.claude
+.impeccable
+.agents
+.codex
+.github/skills
+.github/agents
 dist
 apps/server/dist
 apps/web/dist
 .env
+# Exclude credentials in every workspace package and environment variant.
+**/.env*
+**/node_modules
+.audit
+test-results
+playwright-report

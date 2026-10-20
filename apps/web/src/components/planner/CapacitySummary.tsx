@@ -1,116 +1,100 @@
-import { CalendarDays, Clock, Users, Coffee, } from 'lucide-react';
-import type { } from '../../types/planner';
+import { CalendarDays, Clock, Users, Coffee, CheckCircle2 } from 'lucide-react';
+
+interface CapacityProps {
+  weeklyCapacityMinutes: number;
+  occupiedMinutes: number;
+  meetingMinutes: number;
+  otherMinutes: number;
+  freeMinutes: number;
+  taskCompletionPercent?: number;
+  scheduledTaskCount?: number;
+  completedTaskCount?: number;
+}
 
 interface Props {
- capacity: any;
- onEdit?: () => void;
+  capacity: CapacityProps | null | undefined;
+  onEdit?: () => void;
 }
 
 export function CapacitySummary({ capacity, onEdit }: Props) {
+  if (!capacity) return null;
+
   const cards = [
     {
       label: 'Weekly Capacity',
       icon: CalendarDays,
-      colorClass: 'text-accent-fg',
+      accentColor: 'text-cat-tasks',
+      iconBg: 'bg-cat-tasks-bg border-cat-tasks/20',
       value: capacity.weeklyCapacityMinutes,
       percent: null,
-      barColor: 'bg-accent',
+      gradient: 'from-accent to-accent-hover',
     },
     {
       label: 'Planned',
       icon: Clock,
-      colorClass: 'text-accent-fg',
+      accentColor: 'text-cat-timeblocks',
+      iconBg: 'bg-cat-timeblocks-bg border-cat-timeblocks/20',
       value: capacity.occupiedMinutes,
       percent: capacity.weeklyCapacityMinutes > 0 ? Math.round((capacity.occupiedMinutes / capacity.weeklyCapacityMinutes) * 100) : 0,
-      barColor: 'bg-accent',
+      gradient: 'from-cat-timeblocks to-accent',
     },
     {
       label: 'Sync / Meetings',
       icon: Users,
-      colorClass: 'text-cat-routines',
+      accentColor: 'text-cat-projects',
+      iconBg: 'bg-cat-projects-bg border-cat-projects/20',
       value: capacity.meetingMinutes,
       percent: capacity.weeklyCapacityMinutes > 0 ? Math.round((capacity.meetingMinutes / capacity.weeklyCapacityMinutes) * 100) : 0,
-      barColor: 'bg-cat-routines-bg',
+      gradient: 'from-cat-projects to-accent',
     },
     {
       label: 'Other',
       icon: Clock,
-      colorClass: 'text-warning-fg',
+      accentColor: 'text-warning-fg',
+      iconBg: 'bg-warning-bg border-warning-border',
       value: capacity.otherMinutes,
       percent: capacity.weeklyCapacityMinutes > 0 ? Math.round((capacity.otherMinutes / capacity.weeklyCapacityMinutes) * 100) : 0,
-      barColor: 'bg-warning-bg',
+      gradient: 'from-warning-fg to-warning-fg/70',
     },
     {
       label: 'Free Time',
       icon: Coffee,
-      colorClass: 'text-success-fg',
+      accentColor: 'text-success-fg',
+      iconBg: 'bg-success-bg border-success-border',
       value: capacity.freeMinutes,
       percent: capacity.weeklyCapacityMinutes > 0 ? Math.round((capacity.freeMinutes / capacity.weeklyCapacityMinutes) * 100) : 0,
-      barColor: 'bg-success-bg',
+      gradient: 'from-success-fg to-success-fg/70',
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
-      {cards.map((card) => (
-        <div
-          key={card.label}
-          className="bg-surface border border-border rounded-lg px-2.5 py-1.5 flex flex-col justify-between gap-1 shadow-sm"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <card.icon size={12} className={`shrink-0 ${card.colorClass}`} />
-              <span className="text-[10px] font-bold text-secondary truncate">{card.label}</span>
-            </div>
-            {card.label === 'Weekly Capacity' && onEdit && (
-              <button onClick={(e) => { e.preventDefault(); onEdit(); }} className="text-[9px] font-bold text-accent hover:underline shrink-0">Edit</button>
-            )}
-            {card.percent !== null && (
-              <span className="text-[9px] font-bold text-secondary shrink-0">
-                {card.percent}%
-              </span>
-            )}
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-primary">
-              {formatMinutes(card.value)}
-            </span>
-          </div>
-
-          <div className="w-full bg-surface-hover rounded-full h-1 overflow-hidden">
-            <div
-              className={`h-full rounded-full ${card.barColor}`}
-              style={{ width: `${card.percent || 100}%` }}
-            />
-          </div>
+    <section className="planner-capacity" aria-label="Weekly capacity and progress">
+      {cards.map(card => <div key={card.label} className="planner-capacity-cell">
+        <div className="planner-capacity-label">
+          <card.icon size={15} className={card.accentColor} aria-hidden="true" />
+          <span>{card.label}</span>
         </div>
-      ))}
-      
-      {/* Completion */}
-      <div className="bg-surface border border-border rounded-lg px-2.5 py-1.5 flex flex-col justify-between gap-1 shadow-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold text-secondary truncate">Completion</span>
-          <span className="text-[9px] font-bold text-secondary">This Week</span>
+        <div className="planner-capacity-value">
+          <strong>{formatMinutes(card.value)}</strong>
+          {card.percent !== null && <span>{card.percent}%</span>}
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-black text-primary">{capacity.completionPercent}%</span>
-        </div>
-        <div className="w-full bg-surface-hover rounded-full h-1 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-success-fg"
-            style={{ width: `${Math.min(100, capacity.completionPercent || 0)}%` }}
-          />
-        </div>
+        {card.label === 'Weekly Capacity' && onEdit && <button type="button" onClick={onEdit} className="planner-capacity-edit">Edit</button>}
+        <progress className="krama-progress" max={100} value={Math.min(100, Math.max(0, card.percent ?? 100))} aria-label={`${card.label} percentage`} />
+      </div>)}
+      <div className="planner-capacity-cell">
+        <div className="planner-capacity-label"><CheckCircle2 size={15} aria-hidden="true" /><span>Completion</span></div>
+        <div className="planner-capacity-value"><strong>{capacity.taskCompletionPercent ?? 0}%</strong></div>
+        <span className="planner-capacity-context">{typeof capacity.scheduledTaskCount === 'number' && capacity.scheduledTaskCount > 0 ? `${capacity.completedTaskCount ?? 0}/${capacity.scheduledTaskCount} tasks` : 'This week'}</span>
+        <progress className="krama-progress" max={100} value={Math.min(100, capacity.taskCompletionPercent ?? 0)} aria-label="Weekly task completion" />
       </div>
-    </div>
+    </section>
   );
 }
 
 function formatMinutes(minutes: number) {
- const h = Math.floor(minutes / 60);
- const m = minutes % 60;
- if (h > 0 && m > 0) return `${h}h ${m}m`;
- if (h > 0) return `${h}h 00m`;
- return `0h ${m}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h 00m`;
+  return `0h ${m}m`;
 }

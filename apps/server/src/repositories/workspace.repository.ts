@@ -1,6 +1,6 @@
 import type { BaseRepository } from './base.repository';
 import { prisma } from '../prisma';
-import type { Workspace, Prisma } from '@prisma/client';
+import type { Workspace, Prisma, Role } from '@prisma/client';
 import type { TxClient } from './user.repository';
 
 class WorkspaceRepository implements BaseRepository<Workspace, Prisma.WorkspaceCreateInput, Prisma.WorkspaceUpdateInput> {
@@ -24,12 +24,12 @@ class WorkspaceRepository implements BaseRepository<Workspace, Prisma.WorkspaceC
     return (tx || prisma).workspace.delete({ where: { id } });
   }
 
-  async addMember(workspaceId: string, userId: string, role: string, tx?: TxClient): Promise<void> {
+  async addMember(workspaceId: string, userId: string, role: Role, tx?: TxClient): Promise<void> {
     await (tx || prisma).workspaceMember.create({
       data: {
         workspaceId,
         userId,
-        role: role as any,
+        role,
       }
     });
   }

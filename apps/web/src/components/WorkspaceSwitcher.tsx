@@ -26,7 +26,21 @@ export function WorkspaceSwitcher({ compact = false, className }: WorkspaceSwitc
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
         setIsOpen(false);
+        dropdownRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+        return;
+      }
+      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+        const options = Array.from(dropdownRef.current?.querySelectorAll<HTMLButtonElement>('button[role="option"]') || []);
+        if (!options.length) return;
+        event.preventDefault();
+        const current = options.indexOf(document.activeElement as HTMLButtonElement);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1
+          : current < 0 ? (event.key === 'ArrowUp' ? options.length - 1 : 0)
+          : (current + (event.key === 'ArrowUp' ? -1 : 1) + options.length) % options.length;
+        options[next].focus();
       }
     };
 
@@ -43,6 +57,7 @@ export function WorkspaceSwitcher({ compact = false, className }: WorkspaceSwitc
 
   const handleSelect = (selectedId: string) => {
     setIsOpen(false);
+    dropdownRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
     if (selectedId !== workspaceId) {
       switchWorkspace(selectedId);
     }
@@ -53,7 +68,7 @@ export function WorkspaceSwitcher({ compact = false, className }: WorkspaceSwitc
   }
 
   return (
-    <div className={cn("relative", className)} ref={dropdownRef}>
+    <div className={cn("relative min-w-0", className)} ref={dropdownRef}>
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
@@ -63,7 +78,7 @@ export function WorkspaceSwitcher({ compact = false, className }: WorkspaceSwitc
         className={cn(
           "flex items-center justify-between rounded-md border border-border/80 bg-surface/90 hover:bg-surface-hover hover:border-border-strong text-primary transition-all duration-150 outline-none cursor-pointer select-none",
           compact
-            ? "px-2 py-1 text-caption gap-1.5 max-w-[200px]"
+            ? "px-2 py-1 text-caption gap-1.5 w-full max-w-[200px] min-h-11"
             : "w-full px-2.5 py-1.5 text-caption gap-2 shadow-2xs"
         )}
       >
@@ -71,7 +86,7 @@ export function WorkspaceSwitcher({ compact = false, className }: WorkspaceSwitc
           <div className="w-5 h-5 rounded bg-accent-tint border border-accent/25 flex items-center justify-center text-accent text-[11px] font-mono font-semibold shrink-0">
             {activeName.charAt(0).toUpperCase() || <Building2 className="w-3 h-3" />}
           </div>
-          <span className="font-medium truncate text-primary leading-tight">
+          <span className={cn("font-medium truncate text-primary leading-tight", compact && "sr-only sm:not-sr-only sm:truncate")}>
             {activeName}
           </span>
           {!compact && activeMembership?.role && (
@@ -87,7 +102,7 @@ export function WorkspaceSwitcher({ compact = false, className }: WorkspaceSwitc
         <div
           role="listbox"
           aria-label="Workspaces"
-          className="absolute left-0 top-full mt-1.5 w-64 max-h-72 overflow-y-auto bg-surface border border-border rounded-lg shadow-level-2 z-50 p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-150"
+          className="workspace-popover workspace-switcher-menu absolute left-0 top-full mt-1.5 w-64 max-h-72 overflow-y-auto bg-surface border border-border rounded-lg shadow-level-2 z-50 p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-150"
         >
           <div className="px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider text-muted flex items-center justify-between border-b border-border/60 mb-1">
             <span>Workspaces</span>

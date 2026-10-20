@@ -12,9 +12,9 @@ export function NotFound() {
       </p>
       <button
         onClick={() => navigate('/')}
-        className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+        className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-on-accent font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer active:scale-[0.98]"
       >
-        Go Home
+        Return to Cockpit
       </button>
     </div>
   );

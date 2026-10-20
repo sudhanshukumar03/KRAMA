@@ -1,6 +1,9 @@
-import { prisma } from '../prisma';
+import { prisma, runInTransaction } from '../prisma';
+import { taskService } from './task.service';
 import { Prisma, DocumentType, TaskPriority, TaskStatus } from '@prisma/client';
 import { extractMarkdown, extractPlainText, calculateCounts } from '../utils/tiptap';
+import { documentLinkExists, reconcileDocumentLinks, queueDocumentEmbedding } from './documentContent.service';
+import { updateDocumentMove } from '../lib/documentMoveRevision';
 
 export class DocumentService {
   /**
@@ -66,7 +69,18 @@ export class DocumentService {
     const contentMarkdown = data.contentMarkdown || extractMarkdown(contentJson);
     const { wordCount, charCount } = calculateCounts(plainText);
 
-    return prisma.document.create({
+    const doc = await prisma.$transaction(async tx => {
+      const space = await tx.space.findFirst({ where: { id: data.spaceId, deletedAt: null, workspace: { deletedAt: null } } });
+      if (!space) throw new Error('Space not found');
+      if (data.parentId) {
+        const parent = await tx.document.findFirst({
+          where: { id: data.parentId, deletedAt: null },
+          select: { spaceId: true },
+        });
+        if (!parent) throw new Error('Parent document not found or has been deleted');
+        if (parent.spaceId !== space.id) throw new Error('Parent document must belong to the same active space');
+      }
+      const created = await tx.document.create({
       data: {
         spaceId: data.spaceId,
         folderId: data.folderId || null,
@@ -83,30 +97,105 @@ export class DocumentService {
         lastEditedById: data.createdById,
         documentType: data.documentType || 'GENERAL',
       },
+      });
+      await reconcileDocumentLinks(tx, created.id, space.workspaceId, null, contentJson, data.createdById);
+      return created;
     });
+    queueDocumentEmbedding(doc).catch(console.error);
+    return doc;
   }
 
-  static async moveDocument(id: string, targetFolderId?: string, targetParentId?: string) {
-    if (targetParentId) {
-      const isCycle = await this.isDescendant(id, targetParentId);
-      if (isCycle) throw new Error('Cycle detected: cannot move document under its own descendant.');
+  static async moveDocument(id: string, targetFolderId?: string, targetParentId?: string, expectedUpdatedAt?: string) {
+    const normalizedParentId = targetParentId || null;
+    return prisma.$transaction(async (tx) => {
+      const moving = await tx.document.findFirst({
+        where: { id, deletedAt: null },
+        select: { id: true, spaceId: true, folderId: true, space: { select: { workspaceId: true } } },
+      });
+      if (!moving) throw new Error('Document not found');
 
-      const depth = await this.getDepth(targetParentId);
-      if (depth >= 3) throw new Error('Nesting limit reached. Max depth is 3.');
-      
-      const maxSubtreeDepth = await this.getMaxSubtreeDepth(id);
-      if (depth + maxSubtreeDepth > 3) {
-         throw new Error(`Moving this document would exceed max depth 3 for its descendants.`);
+      let targetParent: { id: string; parentId: string | null; spaceId: string; folderId: string | null; space: { workspaceId: string } } | null = null;
+      let parentDepth = 0;
+      if (normalizedParentId) {
+        targetParent = await tx.document.findFirst({
+          where: { id: normalizedParentId, deletedAt: null },
+          select: { id: true, parentId: true, spaceId: true, folderId: true, space: { select: { workspaceId: true } } },
+        });
+        if (!targetParent) throw new Error('Target parent document not found');
+        if (targetParent.space.workspaceId !== moving.space.workspaceId) {
+          throw new Error('Cannot move a document under a parent in a different workspace.');
+        }
+
+        const ancestors = new Set<string>();
+        let ancestorId: string | null = targetParent.id;
+        while (ancestorId) {
+          if (ancestorId === id) throw new Error('Cycle detected: cannot move document under its own descendant.');
+          if (ancestors.has(ancestorId)) throw new Error('The target document tree contains a cycle.');
+          ancestors.add(ancestorId);
+          const ancestor: { parentId: string | null } | null = await tx.document.findUnique({
+            where: { id: ancestorId }, select: { parentId: true },
+          });
+          if (!ancestor) throw new Error('Target parent document not found');
+          parentDepth++;
+          if (parentDepth > 3) throw new Error('Nesting limit reached. Max depth is 3.');
+          ancestorId = ancestor.parentId;
+        }
       }
-    }
 
-    return prisma.document.update({
-      where: { id },
-      data: {
-        folderId: targetFolderId || null,
-        parentId: targetParentId || null,
-      },
-    });
+      // Collect the complete subtree, including soft-deleted descendants so a later
+      // restore cannot bring back rows that still point at the old space.
+      const subtreeIds = new Set<string>([id]);
+      let frontier = [id];
+      let maxSubtreeDepth = 1;
+      let relativeDepth = 1;
+      while (frontier.length) {
+        const children = await tx.document.findMany({
+          where: { parentId: { in: frontier } },
+          select: { id: true, space: { select: { workspaceId: true } } },
+        });
+        const next: string[] = [];
+        for (const child of children) {
+          if (child.space.workspaceId !== moving.space.workspaceId) {
+            throw new Error('Cannot move a tree containing documents from a different workspace.');
+          }
+          if (subtreeIds.has(child.id)) continue;
+          subtreeIds.add(child.id);
+          next.push(child.id);
+        }
+        if (next.length) maxSubtreeDepth = ++relativeDepth;
+        frontier = next;
+      }
+
+      if ((normalizedParentId ? parentDepth + 1 : 1) + maxSubtreeDepth - 1 > 3) {
+        throw new Error('Moving this document would exceed max depth 3 for its descendants.');
+      }
+
+      const resolvedSpaceId = targetParent?.spaceId ?? moving.spaceId;
+      let resolvedFolderId: string | null;
+      if (targetFolderId !== undefined) {
+        resolvedFolderId = targetFolderId || null;
+      } else {
+        resolvedFolderId = targetParent?.folderId ?? null;
+      }
+      if (resolvedFolderId) {
+        const folder = await tx.folder.findFirst({ where: { id: resolvedFolderId, spaceId: resolvedSpaceId }, select: { id: true } });
+        if (!folder) throw new Error('Target folder must belong to the destination space.');
+      }
+
+      const data = { parentId: normalizedParentId, spaceId: resolvedSpaceId, folderId: resolvedFolderId };
+      await updateDocumentMove(tx.document, id, data, expectedUpdatedAt);
+      const descendantIds = [...subtreeIds].filter((documentId) => documentId !== id);
+      if (descendantIds.length) {
+        await tx.document.updateMany({
+          where: { id: { in: descendantIds } },
+          data: {
+            spaceId: resolvedSpaceId,
+            ...(resolvedSpaceId !== moving.spaceId ? { folderId: null } : {}),
+          },
+        });
+      }
+      return tx.document.findUniqueOrThrow({ where: { id } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
   
   static async getMaxSubtreeDepth(id: string): Promise<number> {
@@ -130,6 +219,12 @@ export class DocumentService {
         data: { deletedAt }
       });
 
+      // Purge embeddings for the soft-deleted document. The FK cascade only fires
+      // on a hard row delete, so without this a soft-deleted doc's chunks linger
+      // and can still be retrieved by grounded AI / RAG. They're regenerated from
+      // content on the next edit after a restore.
+      await tx.knowledgeChunk.deleteMany({ where: { documentId: id } });
+
       const children = await tx.document.findMany({ where: { parentId: id, deletedAt: null }});
       for (const child of children) {
         await this.deepDelete(child.id, deletedAt, tx);
@@ -144,12 +239,30 @@ export class DocumentService {
   }
 
   static async deepRestore(id: string, externalTx?: Prisma.TransactionClient) {
+    const restoredIds: string[] = [];
     const run = async (tx: Prisma.TransactionClient) => {
-      const doc = await tx.document.findUnique({ where: { id }});
-      if (!doc || !doc.deletedAt) return;
-      
-      const deletedAt = doc.deletedAt;
-      await this.deepRestoreNode(id, deletedAt, tx);
+      const identity = await tx.document.findUnique({ where: { id }, select: { space: { select: { workspaceId: true } } } });
+      if (!identity) return;
+      // Space deletion takes the same lock. Re-read after acquiring it so
+      // simultaneous restores share one destination and repeated requests are
+      // idempotent instead of creating empty duplicate recovery spaces.
+      await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${identity.space.workspaceId} FOR UPDATE`;
+      const doc = await tx.document.findUnique({ where: { id }, include: { space: true, parent: { select: { deletedAt: true, spaceId: true } } } });
+      if (!doc || (!doc.deletedAt && !doc.space.deletedAt)) return;
+
+      // Restoring a note must produce a reachable note, not an active document
+      // hidden inside a deleted space. Do not revive unrelated deleted content.
+      let destinationSpaceId: string | undefined;
+      if (doc.space.deletedAt) {
+        const destination = await tx.space.findFirst({ where: { workspaceId: doc.space.workspaceId, deletedAt: null }, orderBy: { createdAt: 'asc' } })
+          ?? await tx.space.create({ data: { workspaceId: doc.space.workspaceId, name: 'Recovered notes' } });
+        destinationSpaceId = destination.id;
+      }
+      if (destinationSpaceId || doc.parent?.deletedAt || (doc.parent && doc.parent.spaceId !== doc.spaceId)) {
+        await tx.document.update({ where: { id }, data: { parentId: null } });
+      }
+      const deletedAt = doc.deletedAt ?? doc.space.deletedAt!;
+      await this.deepRestoreNode(id, deletedAt, tx, restoredIds, destinationSpaceId, Boolean(doc.space.deletedAt));
     };
 
     if (externalTx) {
@@ -157,24 +270,43 @@ export class DocumentService {
     } else {
       await prisma.$transaction(run);
     }
-  }
 
-  static async deepRestoreNode(id: string, deletedAt: Date, tx: Prisma.TransactionClient) {
-    await tx.document.update({
-      where: { id },
-      data: { deletedAt: null }
-    });
-
-    const children = await tx.document.findMany({ where: { parentId: id, deletedAt }});
-    for (const child of children) {
-      await this.deepRestoreNode(child.id, deletedAt, tx);
+    // Automatically re-dispatch embedding jobs for restored documents so they
+    // immediately reappear in hybrid vector/RAG search without requiring manual edits
+    if (restoredIds.length > 0) {
+      try {
+        const docs = await prisma.document.findMany({
+          where: { id: { in: restoredIds }, deletedAt: null },
+          select: { id: true, contentMarkdown: true }
+        });
+        for (const doc of docs) {
+          queueDocumentEmbedding(doc).catch(console.error);
+        }
+      } catch (err) {
+        console.error('[DocumentService] Failed to dispatch re-embedding for restored docs:', err);
+      }
     }
   }
 
-  static async duplicateSubtree(id: string, createdById: string, newParentId: string | null = null, externalTx?: Prisma.TransactionClient): Promise<string> {
+  static async deepRestoreNode(id: string, deletedAt: Date, tx: Prisma.TransactionClient, restoredIds?: string[], destinationSpaceId?: string, recoverOrphans = false) {
+    await tx.document.update({
+      where: { id },
+      data: { deletedAt: null, ...(destinationSpaceId ? { spaceId: destinationSpaceId, folderId: null } : {}) }
+    });
+    if (restoredIds) {
+      restoredIds.push(id);
+    }
+
+    const children = await tx.document.findMany({ where: { parentId: id, OR: [{ deletedAt }, ...(recoverOrphans ? [{ deletedAt: null }] : [])] } });
+    for (const child of children) {
+      await this.deepRestoreNode(child.id, deletedAt, tx, restoredIds, destinationSpaceId, recoverOrphans);
+    }
+  }
+
+  static async duplicateSubtree(id: string, createdById: string, newParentId: string | null = null, externalTx?: Prisma.TransactionClient, duplicatedIds: string[] = []): Promise<string> {
     if (!externalTx) {
-      const originalDoc = await prisma.document.findUnique({ where: { id }, select: { parentId: true } });
-      if (!originalDoc) throw new Error("Document not found");
+      const originalDoc = await prisma.document.findUnique({ where: { id }, select: { parentId: true, deletedAt: true } });
+      if (!originalDoc || originalDoc.deletedAt) throw new Error("Document not found");
       const targetParentId = newParentId !== null ? newParentId : originalDoc.parentId;
       if (targetParentId) {
         const parentDepth = await this.getDepth(targetParentId);
@@ -190,8 +322,10 @@ export class DocumentService {
         where: { id },
         include: { tags: true }
       });
-      if (!original) throw new Error("Document not found");
+      if (!original || original.deletedAt) throw new Error("Document not found");
 
+      const space = await tx.space.findFirst({ where: { id: original.spaceId, deletedAt: null, workspace: { deletedAt: null } } });
+      if (!space) throw new Error('Space not found');
       const duplicated = await tx.document.create({
         data: {
           spaceId: original.spaceId,
@@ -203,6 +337,8 @@ export class DocumentService {
           icon: original.icon,
           contentJson: (original.contentJson ?? {}) as Prisma.InputJsonValue,
           contentMarkdown: original.contentMarkdown,
+          wordCount: original.wordCount,
+          charCount: original.charCount,
           statusBadges: original.statusBadges,
           documentType: original.documentType,
           createdById,
@@ -213,13 +349,18 @@ export class DocumentService {
         }
       });
 
+      duplicatedIds.push(duplicated.id);
+      await reconcileDocumentLinks(tx, duplicated.id, space.workspaceId, null, original.contentJson, createdById);
       // Copy outgoing links
       const outgoingLinks = await tx.entityLink.findMany({
         where: { sourceType: 'DOCUMENT', sourceId: id }
       });
-      if (outgoingLinks.length > 0) {
+      const allowedLinks = [];
+      for (const link of outgoingLinks) if (await documentLinkExists(tx, space.workspaceId, link)) allowedLinks.push(link);
+      if (allowedLinks.length > 0) {
         await tx.entityLink.createMany({
-          data: outgoingLinks.map((l) => ({
+          skipDuplicates: true,
+          data: allowedLinks.map((l) => ({
             sourceType: 'DOCUMENT',
             sourceId: duplicated.id,
             targetType: l.targetType,
@@ -233,7 +374,7 @@ export class DocumentService {
       // Recursively duplicate children
       const children = await tx.document.findMany({ where: { parentId: id, deletedAt: null }});
       for (const child of children) {
-        await this.duplicateSubtree(child.id, createdById, duplicated.id, tx);
+        await this.duplicateSubtree(child.id, createdById, duplicated.id, tx, duplicatedIds);
       }
 
       return duplicated.id;
@@ -242,7 +383,10 @@ export class DocumentService {
     if (externalTx) {
       return run(externalTx);
     } else {
-      return prisma.$transaction(run);
+      const duplicatedId = await prisma.$transaction(run);
+      const docs = await prisma.document.findMany({ where: { id: { in: duplicatedIds }, deletedAt: null } });
+      for (const doc of docs) queueDocumentEmbedding(doc).catch(console.error);
+      return duplicatedId;
     }
   }
 
@@ -261,23 +405,22 @@ export class DocumentService {
       where: { id: documentId },
       include: { space: true }
     });
-    if (!document) throw new Error("Document not found");
+    if (!document || document.deletedAt) throw new Error("Document not found");
 
     const resolvedWorkspaceId = workspaceId || document.space?.workspaceId;
     if (!resolvedWorkspaceId) throw new Error("Workspace ID is required to create a task");
 
-    return prisma.$transaction(async (tx) => {
-      const task = await tx.task.create({
-        data: {
-          title: data.title.trim(),
-          description: data.description || `Created from document "${document.title}"`,
-          priority: data.priority || 'MEDIUM',
-          status: data.status || 'TODO',
-          workspaceId: resolvedWorkspaceId,
-          projectId: document.projectId || null,
-          createdBy: userId,
-        }
-      });
+    if (document.space?.workspaceId !== resolvedWorkspaceId) throw new Error('Document not found');
+    return runInTransaction(async (tx, publishAfterCommit) => {
+      const activeProject = document.projectId ? await tx.project.findFirst({
+        where: { id: document.projectId, workspaceId: resolvedWorkspaceId, deletedAt: null }, select: { id: true }
+      }) : null;
+      const task = await taskService.createTaskWithinTransaction(tx, publishAfterCommit, {
+        title: data.title.trim(),
+        description: data.description || `Created from document "${document.title}"`,
+        priority: data.priority || 'MEDIUM', status: data.status || 'TODO',
+        workspaceId: resolvedWorkspaceId, projectId: activeProject?.id || null,
+      }, userId);
 
       const link = await tx.entityLink.create({
         data: {
