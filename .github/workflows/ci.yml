@@ -222,8 +222,7 @@ jobs:
     - name: Generate and build shared contracts
       run: |
         pnpm --filter server exec prisma generate
-        pnpm --filter @krama/types build
-        pnpm --filter @krama/validation build
+        pnpm --filter @krama/types... run build
         pnpm exec playwright install --with-deps chromium
     - name: Verify provider credentials and configured model directly
       run: pnpm --filter server exec tsx ../../scripts/verification/verify-providers.ts ${{ matrix.provider }}
