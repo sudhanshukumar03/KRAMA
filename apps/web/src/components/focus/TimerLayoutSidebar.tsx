@@ -36,6 +36,7 @@ export const TimerLayoutSidebar: React.FC<TimerLayoutProps> = ({
   isFullscreen,
   onToggleFullscreen,
   controlsVisible,
+  bottomInset = 0,
   onClose,
 }) => {
   const mins = Math.floor(timeLeft / 60);
@@ -53,7 +54,7 @@ export const TimerLayoutSidebar: React.FC<TimerLayoutProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 w-full h-full flex select-none overflow-hidden z-10">
+    <div style={{ bottom: bottomInset }} className="fixed inset-0 w-full flex select-none overflow-hidden z-10">
       {/* Left Sidebar Panel - translucent glassmorphism style */}
       <div className="w-full md:w-[440px] h-full flex flex-col justify-between bg-gradient-to-b from-white/[0.07] via-white/[0.02] to-white/[0.05] backdrop-blur-2xl border-r border-white/15 p-6 md:p-8 text-white z-20 transition-all duration-300 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
         {/* Top Header & Controls Overlay: Visible in normal tab, hidden by default in fullscreen */}
@@ -100,9 +101,11 @@ export const TimerLayoutSidebar: React.FC<TimerLayoutProps> = ({
 
           {/* Mode Switcher / Planner Status */}
           {operatingMode === 'manual' ? (
-            <div className="flex flex-wrap gap-1 p-1 bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl mt-4 shadow-inner">
+            <div role="tablist" aria-label="Timer mode" className="flex flex-wrap gap-1 p-1 bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl mt-4 shadow-inner">
               <button
                 type="button"
+                role="tab"
+                aria-selected={mode === 'pomodoro'}
                 onClick={() => onChangeMode('pomodoro')}
                 className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg transition-all cursor-pointer ${
                   mode === 'pomodoro' ? 'bg-white text-black font-semibold shadow-md' : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
@@ -112,6 +115,8 @@ export const TimerLayoutSidebar: React.FC<TimerLayoutProps> = ({
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={mode === 'short_break'}
                 onClick={() => onChangeMode('short_break')}
                 className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg transition-all cursor-pointer ${
                   mode === 'short_break' ? 'bg-white text-black font-semibold shadow-md' : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
@@ -121,6 +126,8 @@ export const TimerLayoutSidebar: React.FC<TimerLayoutProps> = ({
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={mode === 'long_break'}
                 onClick={() => onChangeMode('long_break')}
                 className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg transition-all cursor-pointer ${
                   mode === 'long_break' ? 'bg-white text-black font-semibold shadow-md' : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
@@ -130,6 +137,8 @@ export const TimerLayoutSidebar: React.FC<TimerLayoutProps> = ({
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={mode === 'custom'}
                 onClick={() => onChangeMode('custom')}
                 className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
                   mode === 'custom' ? 'bg-white text-black font-semibold shadow-md' : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
@@ -140,6 +149,8 @@ export const TimerLayoutSidebar: React.FC<TimerLayoutProps> = ({
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={mode === 'clock'}
                 onClick={() => onChangeMode('clock')}
                 className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg transition-all cursor-pointer ${
                   mode === 'clock' ? 'bg-white text-black font-semibold shadow-md' : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
@@ -162,9 +173,9 @@ export const TimerLayoutSidebar: React.FC<TimerLayoutProps> = ({
                   </>
                 )}
               </div>
-              <span className="text-[10px] font-mono text-white/50 ml-2 shrink-0">
+              {totalSlots > 0 && <span className="text-[10px] font-mono text-white/50 ml-2 shrink-0">
                 ({currentSlotIndex + 1}/{totalSlots})
-              </span>
+              </span>}
             </div>
           )}
         </div>
@@ -190,7 +201,8 @@ export const TimerLayoutSidebar: React.FC<TimerLayoutProps> = ({
               <button
                 type="button"
                 onClick={handleToggleTimer}
-                className="group relative focus:outline-none cursor-pointer bg-transparent border-0 p-0 text-center transition-transform duration-200 active:scale-98"
+                aria-label={isActive ? 'Pause timer' : 'Start timer'}
+                className="group relative focus:outline-none cursor-pointer bg-transparent border-0 p-0 text-center transition-transform duration-200 active:scale-[0.98]"
                 title={isActive ? 'Click or press Enter to pause' : 'Click or press Enter to start'}
               >
                 <span
@@ -235,7 +247,7 @@ export const TimerLayoutSidebar: React.FC<TimerLayoutProps> = ({
 
               {/* Custom Presets */}
               {mode === 'custom' && !isActive && (
-                <div className={`flex items-center gap-1.5 mt-2 transition-all duration-300 ${
+                <div className={`flex max-w-full flex-wrap items-center justify-center gap-1.5 mt-2 transition-all duration-300 ${
                   controlsVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none max-h-0 overflow-hidden'
                 }`}>
                   <span className="text-xs text-white/40 font-mono">Sprint:</span>

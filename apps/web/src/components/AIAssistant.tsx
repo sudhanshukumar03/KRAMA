@@ -1,12 +1,52 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bot, Send, Sparkles, User, X, RefreshCcw, Database } from 'lucide-react';
+import { Bot, Send, User, X, RefreshCcw, Database } from 'lucide-react';
 import { api } from '../api/client';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import type { AiResponse, AiConfiguration } from '../types/schema';
+import { errorMessage } from '../lib/utils';
+type ChatMessage = { role: 'user'; content: string } | { role: 'assistant'; content: string | AiResponse };
+type ActionStatus = 'idle' | 'pending' | 'done';
+interface ActionFeedback {
+  states: Readonly<Record<string, ActionStatus>>;
+  start: (key: string) => boolean;
+  settle: (key: string, status: 'idle' | 'done') => void;
+}
 
-function AIResponseRenderer({ response, navigate }: { response: any, navigate: any }) {
+function AIActionButton({ action, navigate, actionKey, feedback }: { action: AiResponse['actions'][number]; navigate: ReturnType<typeof useNavigate>; actionKey: string; feedback: ActionFeedback }) {
   const queryClient = useQueryClient();
+  const status = feedback.states[actionKey] || 'idle';
+  const activate = async () => {
+    if (status !== 'idle') return;
+    if (action.type === 'open_page' && action.id) { navigate(`/app/brain?doc=${encodeURIComponent(action.id)}`); return; }
+    if (action.type === 'open_project' && action.id) { navigate(`/app/projects/${encodeURIComponent(action.id)}`); return; }
+    if (action.type !== 'create_task' && !(action.type === 'complete_task' && action.id)) return;
+    if (!feedback.start(actionKey)) return;
+    try {
+      if (action.type === 'create_task') {
+        const title = action.label || action.id || 'New Task';
+        await api.tasks.create({ title });
+        toast.success(`Task created: "${title}"`);
+      } else if (action.id) {
+        await api.tasks.complete(action.id);
+        toast.success('Task marked as complete');
+      }
+      void queryClient.invalidateQueries({ queryKey: ['issues'] });
+      void queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      feedback.settle(actionKey, 'done');
+    } catch (error) {
+      feedback.settle(actionKey, 'idle');
+      toast.error(errorMessage(error, 'The task could not be updated. Please try again.'));
+    }
+  };
+  return <button type="button" onClick={activate} disabled={status !== 'idle'} aria-busy={status === 'pending'}
+    className="min-h-11 rounded-lg border border-border bg-surface-hover hover:enabled:bg-surface text-primary px-3.5 py-2 text-xs font-bold transition-colors shadow-sm disabled:cursor-default disabled:opacity-70 active:enabled:scale-[0.98] cursor-pointer">
+    {status === 'done' ? action.type === 'create_task' ? 'Task created' : 'Task completed' : action.label}
+  </button>;
+}
+
+function AIResponseRenderer({ response, navigate, messageKey, feedback }: { response: string | AiResponse; navigate: ReturnType<typeof useNavigate>; messageKey: number; feedback: ActionFeedback }) {
 
   if (typeof response === 'string') {
     return <p className="whitespace-pre-wrap leading-relaxed text-sm">{response}</p>;
@@ -26,7 +66,7 @@ function AIResponseRenderer({ response, navigate }: { response: any, navigate: a
         </p>
       )}
 
-      {response.sections && response.sections.length > 0 && response.sections.map((section: any, index: number) => (
+      {response.sections && response.sections.length > 0 && response.sections.map((section, index) => (
         <section key={index} className="space-y-1.5 mt-4">
           <h4 className="font-bold text-[13px] uppercase tracking-wider text-secondary">{section.title}</h4>
           <p className="text-sm text-primary whitespace-pre-wrap leading-relaxed">{section.content}</p>
@@ -35,39 +75,8 @@ function AIResponseRenderer({ response, navigate }: { response: any, navigate: a
 
       {response.actions && response.actions.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-4 pt-2">
-          {response.actions.map((action: any, index: number) => (
-            <button
-              key={index}
-              onClick={async () => {
-                if (action.type === 'open_page' && action.id) {
-                  navigate(`/app/brain?doc=${action.id}`);
-                } else if (action.type === 'open_project' && action.id) {
-                  navigate(`/app/projects/${action.id}`);
-                } else if (action.type === 'create_task') {
-                  try {
-                    const taskTitle = action.label || action.id || 'New Task';
-                    await api.tasks.create({ title: taskTitle });
-                    queryClient.invalidateQueries({ queryKey: ['issues'] });
-                    queryClient.invalidateQueries({ queryKey: ['tasks'] });
-                    toast.success(`Task created: "${taskTitle}"`);
-                  } catch (err: any) {
-                    toast.error(err?.message || 'Failed to create task');
-                  }
-                } else if (action.type === 'complete_task' && action.id) {
-                  try {
-                    await api.tasks.complete(action.id);
-                    queryClient.invalidateQueries({ queryKey: ['issues'] });
-                    queryClient.invalidateQueries({ queryKey: ['tasks'] });
-                    toast.success('Task marked as complete');
-                  } catch (err: any) {
-                    toast.error(err?.message || 'Failed to complete task');
-                  }
-                }
-              }}
-              className="rounded-lg border border-border bg-surface-hover hover:bg-surface text-primary px-3.5 py-2 text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
-            >
-              {action.label}
-            </button>
+          {response.actions.map((action, index) => (
+            <AIActionButton key={index} action={action} navigate={navigate} actionKey={`${messageKey}:${index}`} feedback={feedback} />
           ))}
         </div>
       )}
@@ -76,8 +85,8 @@ function AIResponseRenderer({ response, navigate }: { response: any, navigate: a
         <div className="mt-4 pt-3 border-t border-border/30">
           <span className="text-[10px] font-bold text-secondary mb-2 block uppercase tracking-wider">Brain Sources</span>
           <div className="flex flex-wrap gap-1.5">
-            {response.sources.map((source: any) => {
-              const docId = source.documentId || source.pageId || source.id;
+            {response.sources.map((source) => {
+              const docId = source.pageId;
               return (
                 <a
                   key={docId}
@@ -102,20 +111,40 @@ function AIResponseRenderer({ response, navigate }: { response: any, navigate: a
 export function AIAssistant() {
  const navigate = useNavigate();
  const [isOpen, setIsOpen] = useState(false);
- const [messages, setMessages] = useState<Array<{role: 'user' | 'assistant', content: any, sources?: any[]}>>([
+ const [messages, setMessages] = useState<ChatMessage[]>([
  { role: 'assistant', content: 'Hello! I am KRAMA AI. How can I help you today?' }
  ]);
  const [input, setInput] = useState('');
  const [isLoading, setIsLoading] = useState(false);
+ const sendingRef = useRef(false);
+ const actionStateRef = useRef<Record<string, ActionStatus>>({});
+ const [actionStates, setActionStates] = useState<Record<string, ActionStatus>>({});
+ const setActionStatus = (key: string, status: ActionStatus) => {
+ actionStateRef.current = { ...actionStateRef.current, [key]: status };
+ setActionStates(actionStateRef.current);
+ };
+ const actionFeedback: ActionFeedback = {
+ states: actionStates,
+ start: key => {
+ if (actionStateRef.current[key] && actionStateRef.current[key] !== 'idle') return false;
+ setActionStatus(key, 'pending'); return true;
+ },
+ settle: setActionStatus,
+ };
+ const hasPendingAction = Object.values(actionStates).includes('pending');
  const [error, setError] = useState<string | null>(null);
  const [useRag, setUseRag] = useState(false);
- const [provider, setProvider] = useState<'gemini' | 'groq'>('gemini');
- const [config, setConfig] = useState<any>(null);
+ const [config, setConfig] = useState<AiConfiguration | null>(null);
  const bottomRef = useRef<HTMLDivElement>(null);
  const inputRef = useRef<HTMLInputElement>(null);
+ const openerRef = useRef<HTMLElement | null>(null);
+ const closeAssistant = () => {
+ setIsOpen(false);
+ };
 
  useEffect(() => {
  const handleOpenAssistant = (e: Event) => {
+ openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
  setIsOpen(true);
  const customEvent = e as CustomEvent;
  if (customEvent.detail?.mode === 'rag') {
@@ -123,20 +152,27 @@ export function AIAssistant() {
  }
  setTimeout(() => inputRef.current?.focus(), 100);
  };
- 
- const handleKeyDown = (e: KeyboardEvent) => {
- if (e.key === 'Escape') {
- setIsOpen(false);
- }
- };
- 
+
  window.addEventListener('open-ai-assistant', handleOpenAssistant);
- window.addEventListener('keydown', handleKeyDown);
  return () => {
  window.removeEventListener('open-ai-assistant', handleOpenAssistant);
- window.removeEventListener('keydown', handleKeyDown);
  };
  }, []);
+
+ // Modals consume Escape during document capture. Handle the assistant at
+ // document bubble so a search/confirmation above it dismisses first, and the
+ // shell's window-level Escape action cannot also toggle Focus Mode.
+ useEffect(() => {
+ if (!isOpen) return;
+ const handleKeyDown = (e: KeyboardEvent) => {
+ if (e.key !== 'Escape') return;
+ e.preventDefault();
+ e.stopPropagation();
+ setIsOpen(false);
+ };
+ document.addEventListener('keydown', handleKeyDown);
+ return () => document.removeEventListener('keydown', handleKeyDown);
+ }, [isOpen]);
 
  useEffect(() => {
  if (isOpen) {
@@ -144,12 +180,24 @@ export function AIAssistant() {
  }
  }, [messages, isOpen]);
 
+ // Only closing the panel restores its opener. A late answer must not move
+ // focus out of the next field or dialog the user is already working in.
  useEffect(() => {
- api.ai.config().then(setConfig).catch(console.error);
+ if (!isOpen && openerRef.current) {
+ const opener = openerRef.current.isConnected ? openerRef.current : [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Open AI Assistant"]')].find(element => element.getClientRects().length > 0);
+ opener?.focus();
+ }
+ }, [isOpen]);
+
+ useEffect(() => {
+ api.ai.config().then((cfg) => {
+ setConfig(cfg);
+ }).catch(console.error);
  }, []);
 
  const handleSend = async () => {
- if (!input.trim() || isLoading) return;
+ if (!input.trim() || sendingRef.current || config?.available === false) return;
+ sendingRef.current = true;
  
  const userMessage = input.trim();
  setInput('');
@@ -158,43 +206,37 @@ export function AIAssistant() {
  setError(null);
 
  try {
- const payload = { message: userMessage, provider, ragEnabled: useRag };
+ const payload = { message: userMessage, ragEnabled: useRag && Boolean(config?.ragEnabled) };
  const response = useRag 
  ? await api.ai.ragQuery(payload)
  : await api.ai.complete(payload);
  
  setMessages(prev => [...prev, { 
  role: 'assistant', 
- content: response,
- sources: response.sources || []
+ content: response
  }]);
- } catch (err: any) {
+ } catch (err) {
  console.error(err);
- if (err.response?.status === 429) {
+ setInput(userMessage);
+ if (err && typeof err === 'object' && 'status' in err && err.status === 429) {
  setError('Rate limit exceeded. Please try again later.');
  } else {
- setError(err.response?.data?.message || err.message || 'Failed to get response');
+ setError(errorMessage(err, 'Failed to get response'));
  }
  } finally {
+ sendingRef.current = false;
  setIsLoading(false);
  }
  };
 
  const handleRefresh = () => {
+ if (sendingRef.current || Object.values(actionStateRef.current).includes('pending')) return;
+ actionStateRef.current = {}; setActionStates({});
  setMessages([{ role: 'assistant', content: 'Hello! I am KRAMA AI. How can I help you today?' }]);
  setError(null);
  };
 
- if (!isOpen) {
- return (
- <button 
- onClick={() => setIsOpen(true)}
- className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-surface shadow-xl flex items-center justify-center hover:opacity-90 hover:scale-105 transition-all z-50 group border border-border"
- >
- <Sparkles className="w-6 h-6 group-hover:animate-pulse" />
- </button>
- );
- }
+ if (!isOpen) return null;
 
  return (
  <div className="fixed bottom-6 right-6 w-[calc(100vw-3rem)] sm:w-[420px] h-[650px] max-h-[85vh] flex flex-col v4-card shadow-dark overflow-hidden z-50 animate-in slide-in-from-bottom-4 fade-in duration-200">
@@ -202,20 +244,14 @@ export function AIAssistant() {
  <div>
  <h1 className="font-bold text-primary flex items-center gap-2 text-base">
  <div className="v4-icon-chip v4-icon-chip-blue scale-75 origin-left">
- <Sparkles className="w-5 h-5" />
+ <Bot className="w-5 h-5" />
  </div>
  KRAMA AI
  </h1>
  <div className="flex items-center gap-2 mt-1.5">
- <select
- value={provider}
- onChange={(e) => setProvider(e.target.value as 'gemini' | 'groq')}
- className="text-[10px] bg-surface border border-border px-1.5 py-0.5 rounded text-secondary outline-none cursor-pointer font-medium"
- title="Select AI Agent"
- >
- <option value="gemini">Gemini</option>
- <option value="groq">Groq</option>
- </select>
+ <span className="text-[10px] bg-surface border border-border px-1.5 py-0.5 rounded text-secondary font-medium">
+ {config?.available === false ? 'AI unavailable' : config?.provider === 'gemini' ? 'Gemini' : 'Groq'}{config?.fallbackAvailable ? ' · automatic fallback' : ''}
+ </span>
  {config?.ragEnabled && (
  <button 
  onClick={() => setUseRag(!useRag)}
@@ -233,13 +269,16 @@ export function AIAssistant() {
  <div className="flex items-center gap-1">
  <button 
  onClick={handleRefresh}
- className="p-2 rounded-lg text-muted hover:bg-surface-hover hover:text-primary transition-colors"
+ disabled={isLoading || hasPendingAction}
+ className="p-2 rounded-lg text-muted hover:enabled:bg-surface-hover hover:enabled:text-primary transition-colors disabled:opacity-50"
  title="Refresh Conversation"
  >
  <RefreshCcw className="w-4 h-4" />
  </button>
  <button 
- onClick={() => setIsOpen(false)}
+ onClick={closeAssistant}
+ aria-label="Close AI Assistant"
+ title="Close AI Assistant"
  className="p-2 rounded-lg text-muted hover:bg-surface-hover hover:text-primary transition-colors"
  >
  <X className="w-5 h-5" />
@@ -261,9 +300,9 @@ export function AIAssistant() {
  : 'bg-card border-border text-primary rounded-tl-none'
  }`}>
  {msg.role === 'user' ? (
- <p className="whitespace-pre-wrap leading-relaxed text-sm font-medium">{msg.content as string}</p>
+ <p className="whitespace-pre-wrap leading-relaxed text-sm font-medium">{msg.content}</p>
  ) : (
- <AIResponseRenderer response={msg.content} navigate={navigate} />
+ <AIResponseRenderer response={msg.content} navigate={navigate} messageKey={idx} feedback={actionFeedback} />
  )}
  </div>
  </div>
@@ -279,7 +318,7 @@ export function AIAssistant() {
  </div>
  )}
  {error && (
- <div className="p-3 bg-error-tint text-error rounded-xl text-sm border border-error-tint font-medium">
+ <div role="alert" className="p-3 bg-error-tint text-error rounded-xl text-sm border border-error-tint font-medium">
  {error}
  </div>
  )}
@@ -289,6 +328,9 @@ export function AIAssistant() {
  <div className="p-3 bg-card border-t border-border shrink-0">
  <div className="relative flex items-center">
  <input
+ id="ai-assistant-input"
+ name="ai-assistant-input"
+ aria-label="Ask KRAMA AI Assistant"
  ref={inputRef}
  type="text"
  value={input}
@@ -300,7 +342,9 @@ export function AIAssistant() {
  />
  <button
  onClick={handleSend}
- disabled={!input.trim() || isLoading}
+ aria-label="Send message to AI Assistant"
+ title="Send message"
+ disabled={!input.trim() || isLoading || config?.available === false}
  className="absolute right-2 p-2 bg-primary text-surface rounded-lg disabled:opacity-50 transition-colors shadow-sm hover:opacity-90 disabled:hover:opacity-50"
  >
  <Send className="w-4 h-4" />

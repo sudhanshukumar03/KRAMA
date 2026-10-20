@@ -101,3 +101,53 @@ describe('Tier 1: Habit Streak Timezone Reset & Calculation', () => {
     assert.equal(streak, 1, 'Off-schedule completion for today does not add to scheduled streak');
   });
 });
+
+describe('Tier 1: Weekly Cadence Streak', () => {
+  // Week of Sun 2026-09-13..Sat 2026-09-19; prior week Sun 2026-09-06..Sat 2026-09-12.
+  const timeZone = 'UTC';
+  const now = new Date('2026-09-18T10:00:00.000Z'); // Fri, in week starting 2026-09-13
+
+  it('counts weekly completions on any weekday regardless of scheduledDays', () => {
+    // Regression guard: a daily habit switched to weekly keeps a restrictive
+    // scheduledDays ([Mon]). Weekly logs on other days must still count toward
+    // the target — the engine ignores scheduledDays for weekly cadence and the
+    // service no longer flags off-day weekly logs as offSchedule.
+    const habit = {
+      scheduledDays: [1], // Monday only — deliberately restrictive
+      cadence: 'weekly',
+      metadata: { weeklyTarget: 3 },
+      completions: [
+        // current week, none on Monday
+        { id: 'a1', date: new Date('2026-09-15T12:00:00.000Z'), offSchedule: false },
+        { id: 'a2', date: new Date('2026-09-16T12:00:00.000Z'), offSchedule: false },
+        { id: 'a3', date: new Date('2026-09-17T12:00:00.000Z'), offSchedule: false },
+        // prior week
+        { id: 'b1', date: new Date('2026-09-07T12:00:00.000Z'), offSchedule: false },
+        { id: 'b2', date: new Date('2026-09-08T12:00:00.000Z'), offSchedule: false },
+        { id: 'b3', date: new Date('2026-09-09T12:00:00.000Z'), offSchedule: false },
+      ],
+    };
+
+    const streak = calculateHabitStreak(habit, now, timeZone);
+    assert.equal(streak, 2, 'Two consecutive on-target weeks, off-day completions count');
+  });
+
+  it('does not break a weekly streak when the in-progress current week is below target', () => {
+    const habit = {
+      scheduledDays: [0, 1, 2, 3, 4, 5, 6],
+      cadence: 'weekly',
+      metadata: { weeklyTarget: 3 },
+      completions: [
+        // current week: only 1 completion so far (< target) — still in progress
+        { id: 'a1', date: new Date('2026-09-16T12:00:00.000Z'), offSchedule: false },
+        // prior week met the target
+        { id: 'b1', date: new Date('2026-09-07T12:00:00.000Z'), offSchedule: false },
+        { id: 'b2', date: new Date('2026-09-08T12:00:00.000Z'), offSchedule: false },
+        { id: 'b3', date: new Date('2026-09-09T12:00:00.000Z'), offSchedule: false },
+      ],
+    };
+
+    const streak = calculateHabitStreak(habit, now, timeZone);
+    assert.equal(streak, 1, 'Current week under target does not break; prior on-target week counts');
+  });
+});

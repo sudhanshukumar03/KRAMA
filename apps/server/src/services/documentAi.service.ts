@@ -1,0 +1,53 @@
+import type { Response } from 'express';
+import Groq from 'groq-sdk';
+import { GoogleGenAI } from '@google/genai';
+import { GROQ_MODEL, GEMINI_MODEL } from './ai.service';
+import { streamWithFallback, type TextStreamProvider } from '../lib/providerStream';
+
+/**
+ * Adapt configured text providers to the document SSE protocol.
+ * Cancel provider work when the client disconnects and release its listener.
+ * Delay SSE headers until text is available so early failures can return JSON.
+ */
+export async function sendBrainAiStream(res: Response, systemPrompt: string, prompt: string) {
+  const controller = new AbortController();
+  const onDisconnect = () => { if (!res.writableEnded) controller.abort(); };
+  res.on('close', onDisconnect);
+  const providers: TextStreamProvider[] = [];
+  if (process.env.GROQ_API_KEY) providers.push(async signal => {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const stream = await groq.chat.completions.create({
+      model: GROQ_MODEL,
+      messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }],
+      stream: true,
+    }, { signal, timeout: 30000, maxRetries: 0 });
+    return (async function* () { for await (const chunk of stream) yield chunk.choices[0]?.delta?.content || ''; })();
+  });
+  if (process.env.GEMINI_API_KEY) providers.push(async signal => {
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const stream = await ai.models.generateContentStream({
+      model: GEMINI_MODEL, contents: prompt,
+      config: { systemInstruction: systemPrompt, abortSignal: signal, httpOptions: { timeout: 60000 }, maxOutputTokens: 2048 },
+    });
+    return (async function* () { for await (const chunk of stream) yield chunk.text || ''; })();
+  });
+  const headers = () => {
+    if (res.headersSent) return;
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+  };
+  try {
+    for await (const text of streamWithFallback(providers, controller.signal)) {
+      if (res.destroyed || res.writableEnded) return;
+      headers(); res.write(`data: ${JSON.stringify({ text })}\n\n`);
+    }
+    if (!res.destroyed && !res.writableEnded) { headers(); res.write('data: [DONE]\n\n'); res.end(); }
+  } catch {
+    // Provider authentication failures describe its API key, not the user's
+    // Krama login. They must not trigger session refresh or sign the user out.
+    if (!controller.signal.aborted) throw Object.assign(new Error('AI generation is temporarily unavailable. Your instruction is retained; try again.'), {
+      statusCode: 503, code: 'AI_PROVIDER_UNAVAILABLE',
+    });
+  } finally { res.off('close', onDisconnect); }
+}

@@ -5,17 +5,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
-import type { FocusScheduleData, TimerMode } from '../components/focus/types';
+import type { CompleteSessionParams, FocusScheduleData } from '../components/focus/types';
 import { toast } from 'sonner';
 
-export interface CompleteSessionParams {
-  startTime: string;
-  endTime: string;
-  duration: number;
-  type: TimerMode;
-  taskId?: string;
-  projectId?: string;
-}
+export type { CompleteSessionParams } from '../components/focus/types';
 
 export function useFocusSchedule() {
   const queryClient = useQueryClient();
@@ -26,7 +19,8 @@ export function useFocusSchedule() {
     queryKey: ['focus-schedule', workspaceId],
     queryFn: () => api.focusSessions.getSchedule(),
     enabled: status === 'authed' && !!user,
-    staleTime: 1000 * 60 * 5, // 5 minutes fresh cache
+    staleTime: 0,
+    refetchInterval: 30_000,
     retry: 2,
   });
 
@@ -36,15 +30,13 @@ export function useFocusSchedule() {
       api.focusSessions.complete(sessionData),
     onSuccess: (_, variables) => {
       toast.success(
-        variables.type === 'pomodoro'
-          ? '🎉 Focus session saved! Great work.'
-          : 'Break completed. Ready to focus again!'
+        variables.type === 'pomodoro' || variables.type === 'custom'
+          ? 'Focus session saved'
+          : 'Break saved'
       );
       // Invalidate relevant queries across KRAMA
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['daily-logs'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
     },
     onError: (err: any) => {

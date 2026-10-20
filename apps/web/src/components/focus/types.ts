@@ -2,6 +2,17 @@ export type TimerMode = 'pomodoro' | 'short_break' | 'long_break' | 'custom' | '
 export type OperatingMode = 'manual' | 'planner';
 export type LayoutName = 'standby' | 'centered' | 'overlay' | 'sidebar' | 'card' | 'zen';
 
+/** Duration counts active seconds; retries retain the completion ID and payload. */
+export interface CompleteSessionParams {
+  completionId: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  type: TimerMode;
+  taskId?: string;
+  projectId?: string;
+}
+
 export interface SessionSlot {
   index: number;
   type: TimerMode;
@@ -12,7 +23,7 @@ export interface SessionSlot {
   projectName: string | null;
   label: string;
   timeBlockId: string | null;
-  scheduledStart?: string;
+
 }
 
 export interface FocusScheduleData {
@@ -86,6 +97,7 @@ export interface TimerLayoutProps {
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
   controlsVisible: boolean;
+  bottomInset?: number;
   onToggleControls: () => void;
   onClose: () => void;
 }

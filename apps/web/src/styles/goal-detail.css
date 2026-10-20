@@ -1,0 +1,56 @@
+.goal-detail-panel { min-height: 0; max-height: 100dvh; font-size: 14px; line-height: 1.5; }
+.goal-detail-panel :is(button, select, textarea, summary, input:not([type="radio"]):not([type="checkbox"])) { min-height: 44px; min-width: 44px; }
+.goal-detail-panel :is(button, select, textarea, input:not([type="radio"]):not([type="checkbox"])) { font-size: 14px; }
+.goal-detail-panel :focus-visible { outline: 2px solid var(--accent-fg); outline-offset: 2px; }
+.goal-detail-header { flex-shrink: 0; padding: 20px 24px; border-bottom: 1px solid var(--border-default); background: var(--surface-1); }
+.goal-detail-header-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.goal-detail-identity, .goal-detail-actions { display: flex; align-items: center; gap: 4px; }
+.goal-detail-icon { display: grid; place-items: center; width: 44px; height: 44px; color: var(--text-secondary); }
+.goal-detail-identity select { min-width: 96px; padding: 8px; border: 1px solid var(--border-default); border-radius: 8px; background: var(--surface-1); color: var(--text-primary); }
+.goal-icon-action { display: inline-flex; flex: 0 0 44px; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 1px solid transparent; border-radius: 8px; color: var(--text-secondary); background: transparent; }
+.goal-icon-action:hover { color: var(--text-primary); background: var(--state-hover); }
+.goal-icon-action:disabled { opacity: .5; cursor: default; }
+.goal-detail-panel .goal-detail-title { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.35; letter-spacing: -.025em; white-space: normal; overflow-wrap: anywhere; }
+.goal-detail-context { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; color: var(--text-secondary); font-size: 12px; }
+.goal-detail-context > span { display: inline-flex; align-items: center; gap: 6px; }
+.goal-parent-link { display: flex; align-items: center; gap: 4px; width: 100%; margin-bottom: 8px; color: var(--accent-fg); text-align: left; overflow-wrap: anywhere; }
+.goal-parent-link svg { flex-shrink: 0; }
+.goal-detail-panel [role="tabpanel"] { min-height: 0; overscroll-behavior: contain; }
+.goal-motivation { padding-block: 0 20px; border-bottom: 1px solid var(--border-default); }
+.goal-section-label h3, .goal-progress-heading h3 { margin: 0 0 8px; color: var(--text-secondary); font-size: 14px; font-weight: 500; line-height: 22px; }
+.goal-motivation-text { margin: 0; color: var(--text-primary); font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
+.goal-progress-summary { padding-block: 0 20px; border-bottom: 1px solid var(--border-default); }
+.goal-progress-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.goal-progress-value { margin: 0; font-size: 30px; font-weight: 600; line-height: 1.2; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.goal-progress-value > span { margin-left: 2px; font-size: 16px; color: var(--text-secondary); }
+.goal-progress-deadline, .goal-progress-metric { color: var(--text-secondary); font-size: 13px; }
+.goal-progress-track { height: 6px; overflow: hidden; border-radius: 3px; background: var(--state-hover); }
+.goal-progress-track > span { display: block; height: 100%; background: var(--accent); }
+.goal-progress-metric { margin: 12px 0 0; font-variant-numeric: tabular-nums; }
+.goal-progress-details { margin-top: 12px; }
+.goal-progress-details summary { display: flex; align-items: center; cursor: pointer; color: var(--text-secondary); font-size: 13px; }
+.goal-progress-details summary::before { content: '+'; display: inline-block; margin-right: 8px; }
+.goal-progress-details[open] summary::before { content: '\2212'; }
+.goal-progress-details dl { display: grid; gap: 12px; margin: 0; }
+.goal-progress-details dl > div { display: flex; justify-content: space-between; gap: 16px; font-size: 13px; }
+.goal-progress-details dt { color: var(--text-secondary); }
+.goal-progress-details dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.goal-check-in { display: grid; gap: 16px; padding-bottom: 24px; border-bottom: 1px solid var(--border-default); }
+.goal-check-in > div:first-child > span { color: var(--text-primary); font-size: 16px; font-weight: 600; }
+.goal-progress-control { height: 44px; border-radius: 6px; }
+.goal-progress-control:focus-within { outline: 2px solid var(--accent-fg); outline-offset: 2px; }
+.goal-settings-panel label { font-size: 14px; font-weight: 500; letter-spacing: normal; text-transform: none; }
+.goal-settings-panel label:has(input[type="radio"]) { min-height: 44px; }
+.goal-settings-panel input[type="radio"] { appearance: none; position: relative; width: 44px; height: 44px; flex-shrink: 0; border: 0; background: transparent; }
+.goal-settings-panel input[type="radio"]::before { content: ''; position: absolute; inset: 13px; border: 1px solid var(--text-muted); border-radius: 50%; }
+.goal-settings-panel input[type="radio"]:checked::after { content: ''; position: absolute; inset: 18px; border-radius: 50%; background: var(--accent-fg); }
+.goal-settings-panel input[type="radio"]:disabled { opacity: .5; }
+@media (max-width: 767px) {
+  .goal-detail-header { padding: 16px; }
+  .goal-detail-panel [role="tabpanel"] { padding-inline: 16px; }
+  .goal-detail-panel :is(input:not([type="radio"]):not([type="checkbox"]), textarea, select) { font-size: 16px; }
+  .goal-detail-panel .goal-detail-title { font-size: 20px; line-height: 1.4; }
+  .goal-detail-panel [role="tablist"] { padding-inline: 16px; }
+}
+@media (max-width: 380px) { .goal-detail-icon { display: none; } .goal-detail-header-toolbar { gap: 4px; } .goal-detail-actions { gap: 0; } }
+@media (prefers-reduced-motion: reduce) { .goal-detail-panel { animation: none; } }

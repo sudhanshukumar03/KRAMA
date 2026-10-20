@@ -1,10 +1,3 @@
-import { z } from 'zod';
-import { SignupSchema, LoginSchema, AuthResponseSchema } from '@krama/validation';
-
-export type SignupDto = z.infer<typeof SignupSchema>;
-export type LoginDto = z.infer<typeof LoginSchema>;
-export type AuthResponseDto = z.infer<typeof AuthResponseSchema>;
-
 export interface RequestUser {
   id: string;
   email: string;

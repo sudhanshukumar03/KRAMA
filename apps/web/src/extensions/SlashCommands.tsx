@@ -7,7 +7,7 @@ import '@tiptap/extension-task-list';
 import { 
   Heading1, Heading2, Heading3, 
   List, ListOrdered, CheckSquare, 
-  Code, Quote, Minus, Sparkles
+  Code, Quote, Minus, KanbanSquare
 } from 'lucide-react';
 import { SlashCommandMenu, type SlashCommandMenuRef, type SlashCommandItem } from '../components/editor/SlashCommandMenu';
 
@@ -91,7 +91,7 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
     id: 'create_kanban_task',
     title: 'Create Execution Task',
     description: 'Promote thoughts to an actionable Kanban issue',
-    icon: Sparkles,
+    icon: KanbanSquare,
     keywords: ['task', 'issue', 'ticket', 'kanban', 'action'],
     command: (_editor) => {
       window.dispatchEvent(new CustomEvent('krama:open-task-modal', {

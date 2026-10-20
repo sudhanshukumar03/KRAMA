@@ -4,13 +4,17 @@ import { connection } from '../lib/redis';
 export const QUEUE_NAMES = {
   NOTIFICATIONS: 'notifications',
   HABIT_STREAK: 'habit-streak',
-  SPRINT_REPORT: 'sprint-report',
-  ANALYTICS: 'analytics',
+  // Preserve the existing Redis queue name for scheduled AI prompt retention jobs.
+  AI_RETENTION: 'analytics',
   EMBEDDING: 'embedding',
   DOCUMENT_VERSION: 'document-version',
 };
 
 // Common queue options
+/**
+ * Keep bounded job history and retry transient failures with exponential backoff.
+ * Workers must tolerate redelivery: attempts are not a guarantee of one execution.
+ */
 const defaultJobOptions = {
   removeOnComplete: 100, // Keep last 100 successful jobs
   removeOnFail: 500,     // Keep last 500 failed jobs
@@ -33,17 +37,11 @@ export const habitStreakQueue = new Queue(QUEUE_NAMES.HABIT_STREAK, {
 });
 habitStreakQueue.on('error', () => {});
 
-export const sprintReportQueue = new Queue(QUEUE_NAMES.SPRINT_REPORT, {
+export const aiRetentionQueue = new Queue(QUEUE_NAMES.AI_RETENTION, {
   connection,
   defaultJobOptions,
 });
-sprintReportQueue.on('error', () => {});
-
-export const analyticsQueue = new Queue(QUEUE_NAMES.ANALYTICS, {
-  connection,
-  defaultJobOptions,
-});
-analyticsQueue.on('error', () => {});
+aiRetentionQueue.on('error', () => {});
 
 export const embeddingQueue = new Queue(QUEUE_NAMES.EMBEDDING, {
   connection,

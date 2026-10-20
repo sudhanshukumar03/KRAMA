@@ -12,7 +12,7 @@ export interface BaseButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
 export const BaseButton = forwardRef<HTMLButtonElement, BaseButtonProps>(
  ({ className, variant = 'primary', size = 'md', isLoading, disabled, children, ...props }, ref) => {
  const baseStyles = "krama-btn disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] cursor-pointer select-none";
- 
+
  const variants = {
  primary: "krama-btn-primary shadow-sm hover:shadow-md",
  secondary: "krama-btn-secondary shadow-sm",
@@ -21,7 +21,7 @@ export const BaseButton = forwardRef<HTMLButtonElement, BaseButtonProps>(
  };
 
  const sizes = {
- sm: "h-8 px-3 text-caption",
+ sm: "min-h-11 px-3 text-caption",
  md: "h-11 px-5 text-body",
  lg: "h-12 px-6 text-section"
  };
@@ -32,8 +32,9 @@ export const BaseButton = forwardRef<HTMLButtonElement, BaseButtonProps>(
  className={cn(baseStyles, variants[variant], sizes[size], className)}
  disabled={disabled || isLoading}
  {...props}
+ aria-busy={isLoading || props['aria-busy'] || undefined}
  >
- {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin shrink-0" />}
+ {isLoading && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin shrink-0" />}
  {children}
  </button>
  );

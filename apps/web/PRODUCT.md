@@ -8,51 +8,36 @@ web
 
 ## Users
 
-Engineers, technical founders, and solo-builders managing projects, technical documentation, sprint execution, and strategic milestones in an integrated daily workflow.
+The frontend serves people using Krama as a personal workspace for notes, projects, daily planning, and progress review. The shared [product guide](../../PRODUCT.md) is the source for product scope and priorities.
 
 ## Product Purpose
 
-KRAMA OS is a personal operating system for knowledge, execution, and progress. It unifies notes/docs, tasks/sprints, and goals into a single cohesive system centered around the Project entity with real foreign-keyed relational integrity and automated pace measurement.
+Help the user understand today's work, act on it, and see what persisted. Shared records should remain consistent when the user moves between Brain, Projects, the execution board, Planner, Goals, Habits, and Focus Mode.
 
 ## Positioning
 
-Unlike fragmented productivity stacks (Notion + Jira + spreadsheets) or generic all-in-one apps, KRAMA provides a dedicated Bridge Layer where the Project entity couples Knowledge (nested docs & rich editor), Execution (Kanban with real dependencies & sprints), and Strategic Goals (required vs. actual pace computed mathematically from snapshots, not subjective estimates).
+Keep the daily workflow small. Show deeper planning and analysis when the user needs them, with clear links back to the work behind each summary.
 
 ## Operating Context
 
-- Daily engineering work, sprint planning, and task triage via Kanban boards.
-- Long-form RFC and technical documentation drafting with rich block editing and bidirectional links.
-- Milestone pacing and habit tracking across Dashboard, Timeline, and Planner views.
-- Single-tenant, local-first web application environment.
+The frontend lives in `apps/web` and connects to the API through REST and Socket.IO. Its state comes from TanStack Query, the authentication context, and feature-specific hooks. Local preferences such as theme selection should remain distinct from server-owned records.
 
 ## Capabilities and Constraints
 
-- **Architecture:** React 18, Vite, TypeScript, Tailwind CSS, shadcn/ui, React Query, Tiptap, `@dnd-kit`.
-- **Backend & Data:** Node.js/Express, PostgreSQL 16 with `pgvector`, Redis (locks/cache/BullMQ), Prisma ORM.
-- **Workflow Build Path:** Code-first (direct implementation governed by strict direction contracts and audits).
-- **AI Intelligence:** Chokepointed AI Gateway routing through context-grounded RAG (`pgvector`) and output validation.
+AI actions depend on the backend's provider configuration. Upload controls should explain that uploads are Coming soon while storage is unavailable. Failed writes should retain user input and provide an explicit retry or conflict resolution path.
 
 ## Brand Commitments
 
-- **Name:** KRAMA OS
-- **Voice:** Restrained, sharp, technical, opinionated, direct, high-craft.
-- **Aesthetic:** Dark-mode first, semantic tokens, dense typography, high information-density without visual clutter.
+Use the shared product guide's naming and voice. Action labels and recovery messages should use ordinary language that explains what will happen.
 
 ## Evidence on Hand
 
-- Production web application in `apps/web` with completed implementations for Brain (documents/spaces), Execution (Kanban/sprints), and Goals/Habits.
-- Architecture and schema documentation in `README.md` and `packages/types`.
-- Verified UI screenshots in `docs/screenshots/`.
+Frontend components and hooks are in `src`, while browser checks are in the root `e2e` directory. The [development guide](../../docs/development/README.md) explains which checks use mocked responses and which require a live backend.
 
 ## Product Principles
 
-1. **Restraint over decoration:** Color and visual weight are used deliberately with full semantic dark mode token hierarchy.
-2. **Match structure to data:** The UI reflects mental and data models (e.g., a calendar looks like a calendar, pace is computed).
-3. **Distributed where visibility matters, unified where truth matters:** Multi-surface projections backed by a single relational truth.
-4. **Verify, don't assume:** Verifiable state, real relational dependencies, and end-to-end reliability.
+Present one clear next action, keep navigation predictable, and use the same words for the same entities across screens. Avoid replacing the shared product guide with a second copy of its feature list.
 
 ## Accessibility & Inclusion
 
-- Keyboard navigation across modal dialogs, menus, and Kanban interactions.
-- Full color-contrast compliance across semantic dark/light tokens.
-- Accessible ARIA labeling on icon buttons, form fields, and status badges.
+Follow the [frontend design guide](DESIGN.md) for keyboard controls, dialog behavior, form labels, responsive layouts, and reduced-motion support.

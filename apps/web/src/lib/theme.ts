@@ -66,20 +66,29 @@ if (typeof window !== 'undefined') {
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
     if (currentTheme === 'system') {
       applyThemeToDOM(e.matches ? 'dark' : 'light');
+      listeners.forEach(listener => listener(currentTheme));
     }
   });
 }
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(currentTheme);
+  const [appearance, setAppearance] = useState(() => ({
+    theme: currentTheme,
+    resolvedTheme: currentTheme === 'system' ? getSystemTheme() : currentTheme,
+  }));
 
   useEffect(() => {
-    listeners.add(setThemeState);
+    const updateAppearance = (nextTheme: Theme) => setAppearance({
+      theme: nextTheme,
+      resolvedTheme: nextTheme === 'system' ? getSystemTheme() : nextTheme,
+    });
+    listeners.add(updateAppearance);
+    updateAppearance(currentTheme);
     const resolvedTheme = currentTheme === 'system' ? getSystemTheme() : currentTheme;
     applyThemeToDOM(resolvedTheme);
     
     return () => {
-      listeners.delete(setThemeState);
+      listeners.delete(updateAppearance);
     };
   }, []);
 
@@ -93,5 +102,5 @@ export function useTheme() {
     setGlobalTheme(next, false);
   };
 
-  return { theme, setTheme, toggleTheme, resolvedTheme: theme === 'system' ? getSystemTheme() : theme };
+  return { ...appearance, setTheme, toggleTheme };
 }

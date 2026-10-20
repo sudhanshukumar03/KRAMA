@@ -1,0 +1,496 @@
+{
+  "format": "krama-workspace-backup",
+  "formatVersion": 2,
+  "exportedAt": "2026-10-15T12:00:00.000Z",
+  "includesTrash": true,
+  "workspace": {
+    "createdAt": "2026-10-15T12:00:00.000Z",
+    "updatedAt": "2026-10-15T12:00:00.000Z",
+    "deletedAt": null,
+    "createdBy": "00000000-0000-0000-0000-000000000064",
+    "updatedBy": "00000000-0000-0000-0000-000000000064",
+    "version": 1,
+    "id": "00000000-0000-0000-0000-000000000001",
+    "name": "Personal",
+    "metadata": {},
+    "productivityScore": 10,
+    "members": [
+      {
+        "role": "OWNER",
+        "user": {
+          "id": "00000000-0000-0000-0000-000000000064",
+          "name": "Reader",
+          "email": "reader@example.test"
+        }
+      }
+    ],
+    "spaces": [
+      {
+        "createdAt": "2026-10-15T12:00:00.000Z",
+        "updatedAt": "2026-10-15T12:00:00.000Z",
+        "deletedAt": null,
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-000000000002",
+        "name": "Notes",
+        "icon": "Book",
+        "metadata": {},
+        "order": 0,
+        "folders": [
+          {
+            "id": "00000000-0000-0000-0000-00000000000b",
+            "spaceId": "00000000-0000-0000-0000-000000000002",
+            "parentFolderId": null,
+            "name": "Learning",
+            "color": null,
+            "order": 0
+          }
+        ],
+        "documents": [
+          {
+            "id": "00000000-0000-0000-0000-00000000000c",
+            "spaceId": "00000000-0000-0000-0000-000000000002",
+            "folderId": "00000000-0000-0000-0000-00000000000b",
+            "parentId": null,
+            "projectId": "00000000-0000-0000-0000-000000000003",
+            "title": "Reading notes",
+            "subtitle": null,
+            "icon": null,
+            "contentJson": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Open /app/board?task=00000000-0000-0000-0000-000000000006"
+                    }
+                  ]
+                }
+              ]
+            },
+            "contentMarkdown": "See /app/board?task=00000000-0000-0000-0000-000000000006",
+            "statusBadges": [
+              "Inbox"
+            ],
+            "documentType": "NOTE",
+            "isFavorite": false,
+            "wordCount": 3,
+            "charCount": 40,
+            "deletedAt": null,
+            "createdById": "00000000-0000-0000-0000-000000000064",
+            "lastEditedById": "00000000-0000-0000-0000-000000000064",
+            "createdAt": "2026-10-15T12:00:00.000Z",
+            "updatedAt": "2026-10-15T12:00:00.000Z",
+            "versions": [
+              {
+                "id": "00000000-0000-0000-0000-00000000000e",
+                "documentId": "00000000-0000-0000-0000-00000000000c",
+                "versionNumber": 1,
+                "contentJson": {
+                  "type": "doc",
+                  "content": []
+                },
+                "editedById": "00000000-0000-0000-0000-000000000064",
+                "createdAt": "2026-10-15T12:00:00.000Z"
+              }
+            ],
+            "tags": [
+              {
+                "documentId": "00000000-0000-0000-0000-00000000000c",
+                "tagId": "00000000-0000-0000-0000-000000000014"
+              }
+            ]
+          },
+          {
+            "id": "00000000-0000-0000-0000-00000000000d",
+            "spaceId": "00000000-0000-0000-0000-000000000002",
+            "folderId": "00000000-0000-0000-0000-00000000000b",
+            "parentId": "00000000-0000-0000-0000-00000000000c",
+            "projectId": "00000000-0000-0000-0000-000000000003",
+            "title": "Old note",
+            "subtitle": null,
+            "icon": null,
+            "contentJson": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Open /app/board?task=00000000-0000-0000-0000-000000000006"
+                    }
+                  ]
+                }
+              ]
+            },
+            "contentMarkdown": "See /app/board?task=00000000-0000-0000-0000-000000000006",
+            "statusBadges": [
+              "Inbox"
+            ],
+            "documentType": "NOTE",
+            "isFavorite": false,
+            "wordCount": 3,
+            "charCount": 40,
+            "deletedAt": "2026-10-15T12:00:00.000Z",
+            "createdById": "00000000-0000-0000-0000-000000000064",
+            "lastEditedById": "00000000-0000-0000-0000-000000000064",
+            "createdAt": "2026-10-15T12:00:00.000Z",
+            "updatedAt": "2026-10-15T12:00:00.000Z",
+            "versions": [],
+            "tags": []
+          }
+        ]
+      }
+    ],
+    "goals": [
+      {
+        "createdAt": "2026-10-15T12:00:00.000Z",
+        "updatedAt": "2026-10-15T12:00:00.000Z",
+        "deletedAt": null,
+        "createdBy": "00000000-0000-0000-0000-000000000064",
+        "updatedBy": "00000000-0000-0000-0000-000000000064",
+        "version": 1,
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-000000000004",
+        "title": "Learn a subject",
+        "type": "quarterly",
+        "progress": 25,
+        "targetDate": null,
+        "icon": "Target",
+        "metadata": {},
+        "spaceId": "00000000-0000-0000-0000-000000000002",
+        "parentGoalId": null,
+        "snapshots": [
+          {
+            "id": "00000000-0000-0000-0000-000000000017",
+            "goalId": "00000000-0000-0000-0000-000000000004",
+            "progress": 25,
+            "notes": "Started",
+            "date": "2026-10-15T12:00:00.000Z",
+            "createdAt": "2026-10-15T12:00:00.000Z"
+          }
+        ]
+      },
+      {
+        "createdAt": "2026-10-15T12:00:00.000Z",
+        "updatedAt": "2026-10-15T12:00:00.000Z",
+        "deletedAt": null,
+        "createdBy": "00000000-0000-0000-0000-000000000064",
+        "updatedBy": "00000000-0000-0000-0000-000000000064",
+        "version": 1,
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-000000000005",
+        "title": "Finish the book",
+        "type": "quarterly",
+        "progress": 25,
+        "targetDate": null,
+        "icon": "Target",
+        "metadata": {},
+        "spaceId": "00000000-0000-0000-0000-000000000002",
+        "parentGoalId": "00000000-0000-0000-0000-000000000004",
+        "snapshots": []
+      }
+    ],
+    "projects": [
+      {
+        "createdAt": "2026-10-15T12:00:00.000Z",
+        "updatedAt": "2026-10-15T12:00:00.000Z",
+        "deletedAt": null,
+        "createdBy": "00000000-0000-0000-0000-000000000064",
+        "updatedBy": "00000000-0000-0000-0000-000000000064",
+        "version": 1,
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-000000000003",
+        "name": "Reading project",
+        "problemStatement": "Learn consistently",
+        "status": "active",
+        "metadata": {},
+        "icon": "Book",
+        "goalId": "00000000-0000-0000-0000-000000000004",
+        "spaceId": "00000000-0000-0000-0000-000000000002",
+        "position": 1,
+        "milestones": [
+          {
+            "id": "00000000-0000-0000-0000-000000000018",
+            "title": "Finish part one",
+            "date": "2026-10-15T12:00:00.000Z",
+            "completed": false,
+            "projectId": "00000000-0000-0000-0000-000000000003",
+            "userId": "00000000-0000-0000-0000-000000000064",
+            "createdAt": "2026-10-15T12:00:00.000Z",
+            "updatedAt": "2026-10-15T12:00:00.000Z"
+          }
+        ]
+      }
+    ],
+    "tasks": [
+      {
+        "createdAt": "2026-10-15T12:00:00.000Z",
+        "updatedAt": "2026-10-15T12:00:00.000Z",
+        "deletedAt": null,
+        "createdBy": "00000000-0000-0000-0000-000000000064",
+        "updatedBy": "00000000-0000-0000-0000-000000000064",
+        "version": 1,
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-000000000006",
+        "title": "Study chapter 3",
+        "description": null,
+        "status": "TODO",
+        "priority": "MEDIUM",
+        "position": 6,
+        "metadata": {
+          "inbox": true
+        },
+        "projectId": "00000000-0000-0000-0000-000000000003",
+        "sprintId": "00000000-0000-0000-0000-00000000000a",
+        "assigneeId": "00000000-0000-0000-0000-000000000064",
+        "blockedById": "00000000-0000-0000-0000-000000000007",
+        "parentTaskId": null,
+        "estimateMinutes": 25,
+        "scheduledDate": "2026-10-15T12:00:00.000Z",
+        "dueDate": null,
+        "comments": [
+          {
+            "id": "00000000-0000-0000-0000-000000000016",
+            "taskId": "00000000-0000-0000-0000-000000000006",
+            "authorId": "00000000-0000-0000-0000-000000000064",
+            "content": "Read first",
+            "createdAt": "2026-10-15T12:00:00.000Z",
+            "updatedAt": "2026-10-15T12:00:00.000Z"
+          }
+        ],
+        "labels": [
+          {
+            "taskId": "00000000-0000-0000-0000-000000000006",
+            "labelId": "00000000-0000-0000-0000-000000000015"
+          }
+        ]
+      },
+      {
+        "createdAt": "2026-10-15T12:00:00.000Z",
+        "updatedAt": "2026-10-15T12:00:00.000Z",
+        "deletedAt": null,
+        "createdBy": "00000000-0000-0000-0000-000000000064",
+        "updatedBy": "00000000-0000-0000-0000-000000000064",
+        "version": 1,
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-000000000007",
+        "title": "Collect reading material",
+        "description": null,
+        "status": "DONE",
+        "priority": "MEDIUM",
+        "position": 7,
+        "metadata": {},
+        "projectId": "00000000-0000-0000-0000-000000000003",
+        "sprintId": "00000000-0000-0000-0000-00000000000a",
+        "assigneeId": "00000000-0000-0000-0000-000000000064",
+        "blockedById": null,
+        "parentTaskId": null,
+        "estimateMinutes": 25,
+        "scheduledDate": "2026-10-15T12:00:00.000Z",
+        "dueDate": null,
+        "comments": [],
+        "labels": []
+      }
+    ],
+    "habits": [
+      {
+        "createdAt": "2026-10-15T12:00:00.000Z",
+        "updatedAt": "2026-10-15T12:00:00.000Z",
+        "deletedAt": null,
+        "createdBy": "00000000-0000-0000-0000-000000000064",
+        "updatedBy": "00000000-0000-0000-0000-000000000064",
+        "version": 1,
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-000000000008",
+        "name": "Read every day",
+        "icon": "Book",
+        "streak": 1,
+        "bestStreak": 1,
+        "expectedDurationMinutes": 10,
+        "category": "LEARNING",
+        "difficulty": "EASY",
+        "cadence": "daily",
+        "scheduledDays": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "metadata": {
+          "pinnedToPlanner": true
+        },
+        "linkedGoalId": "00000000-0000-0000-0000-000000000004",
+        "completions": [
+          {
+            "id": "00000000-0000-0000-0000-000000000019",
+            "habitId": "00000000-0000-0000-0000-000000000008",
+            "userId": "00000000-0000-0000-0000-000000000064",
+            "date": "2026-10-15T12:00:00.000Z",
+            "completedAt": "2026-10-15T12:00:00.000Z",
+            "offSchedule": false,
+            "notes": null,
+            "metadata": null
+          }
+        ]
+      }
+    ],
+    "sprints": [
+      {
+        "createdAt": "2026-10-15T12:00:00.000Z",
+        "updatedAt": "2026-10-15T12:00:00.000Z",
+        "deletedAt": null,
+        "createdBy": "00000000-0000-0000-0000-000000000064",
+        "updatedBy": "00000000-0000-0000-0000-000000000064",
+        "version": 1,
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-00000000000a",
+        "name": "October reading",
+        "startDate": "2026-10-15T12:00:00.000Z",
+        "endDate": "2026-10-15T12:00:00.000Z",
+        "status": "active",
+        "metadata": {},
+        "projectId": "00000000-0000-0000-0000-000000000003"
+      }
+    ],
+    "tags": [
+      {
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-000000000014",
+        "name": "learning",
+        "color": null
+      }
+    ],
+    "labels": [
+      {
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-000000000015",
+        "name": "reading",
+        "color": "#123456"
+      }
+    ],
+    "timeBlocks": [
+      {
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-00000000001a",
+        "userId": "00000000-0000-0000-0000-000000000064",
+        "title": "Read",
+        "date": "2026-10-15T12:00:00.000Z",
+        "startTime": "2026-10-15T12:00:00.000Z",
+        "endTime": "2026-10-15T13:00:00.000Z",
+        "type": "STUDY",
+        "taskId": "00000000-0000-0000-0000-000000000006",
+        "projectId": "00000000-0000-0000-0000-000000000003",
+        "notes": null,
+        "syncStatus": "LOCAL_ONLY",
+        "createdAt": "2026-10-15T12:00:00.000Z",
+        "updatedAt": "2026-10-15T12:00:00.000Z"
+      }
+    ],
+    "focusSessions": [
+      {
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-00000000001b",
+        "userId": "00000000-0000-0000-0000-000000000064",
+        "startTime": "2026-10-15T12:00:00.000Z",
+        "endTime": "2026-10-15T12:25:00.000Z",
+        "duration": 1500,
+        "completed": true,
+        "type": "pomodoro",
+        "taskId": "00000000-0000-0000-0000-000000000006",
+        "projectId": "00000000-0000-0000-0000-000000000003",
+        "createdAt": "2026-10-15T12:00:00.000Z"
+      }
+    ],
+    "dailyLogs": [
+      {
+        "createdAt": "2026-10-15T12:00:00.000Z",
+        "updatedAt": "2026-10-15T12:00:00.000Z",
+        "deletedAt": null,
+        "createdBy": "00000000-0000-0000-0000-000000000064",
+        "updatedBy": "00000000-0000-0000-0000-000000000064",
+        "version": 1,
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-00000000001c",
+        "userId": "00000000-0000-0000-0000-000000000064",
+        "date": "2026-10-15T00:00:00.000Z",
+        "wins": [],
+        "blockers": [],
+        "mood": null,
+        "energy": null,
+        "deepWorkMinutes": 25,
+        "notes": null,
+        "metadata": {
+          "personalDay": {
+            "taskIds": [
+              "00000000-0000-0000-0000-000000000006"
+            ],
+            "decisions": {
+              "00000000-0000-0000-0000-000000000006": {
+                "action": "tomorrow",
+                "at": "2026-10-15T12:00:00.000Z"
+              }
+            },
+            "reviewedAt": null
+          }
+        }
+      }
+    ],
+    "sprintReports": [
+      {
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-00000000001d",
+        "sprintId": "00000000-0000-0000-0000-00000000000a",
+        "generatedAt": "2026-10-15T12:00:00.000Z",
+        "tasksCompleted": 1,
+        "tasksPlanned": 2,
+        "metadata": null
+      }
+    ],
+    "activityLogs": [
+      {
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-00000000001e",
+        "userId": "00000000-0000-0000-0000-000000000064",
+        "action": "TASK_CREATED",
+        "entityType": "Task",
+        "entityId": "00000000-0000-0000-0000-000000000006",
+        "metadata": {
+          "title": "Study chapter 3"
+        },
+        "createdAt": "2026-10-15T12:00:00.000Z"
+      }
+    ],
+    "notifications": [
+      {
+        "workspaceId": "00000000-0000-0000-0000-000000000001",
+        "id": "00000000-0000-0000-0000-00000000001f",
+        "userId": "00000000-0000-0000-0000-000000000064",
+        "title": "Reading time",
+        "message": "Ready?",
+        "read": true,
+        "actionUrl": "/app/board?task=00000000-0000-0000-0000-000000000006",
+        "metadata": null,
+        "createdAt": "2026-10-15T12:00:00.000Z"
+      }
+    ]
+  },
+  "entityLinks": [
+    {
+      "id": "00000000-0000-0000-0000-000000000020",
+      "sourceType": "DOCUMENT",
+      "sourceId": "00000000-0000-0000-0000-00000000000c",
+      "targetType": "TASK",
+      "targetId": "00000000-0000-0000-0000-000000000006",
+      "linkType": "REFERENCE",
+      "createdById": "00000000-0000-0000-0000-000000000064",
+      "createdAt": "2026-10-15T12:00:00.000Z"
+    }
+  ],
+  "excluded": []
+}

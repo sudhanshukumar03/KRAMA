@@ -331,6 +331,7 @@ model Habit {
   name                    String
   icon                    String?
   streak                  Int             @default(0)
+  bestStreak              Int             @default(0)
   expectedDurationMinutes Int?
   category                HabitCategory   @default(OTHER)
   difficulty              HabitDifficulty @default(MEDIUM)
