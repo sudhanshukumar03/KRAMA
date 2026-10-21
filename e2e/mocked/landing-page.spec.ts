@@ -330,3 +330,25 @@ test('headline topics fit phones and both themes with reduced motion and a stabl
   writeFileSync(`.audit/hero-topics/colors-${testInfo.project.name}.json`, JSON.stringify(colors, null, 2));
 });
 
+test('headline pill reserves the same width while fallback fonts change', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const topic = page.locator('.landing-hero-topic');
+  await expect(topic).toBeVisible();
+  for (const width of [320, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const dimensions: number[] = [];
+    for (const family of ['Arial, sans-serif', 'system-ui', 'Inter, sans-serif']) {
+      await topic.evaluate((node, font) => { (node as HTMLElement).style.fontFamily = font; }, family);
+      for (const word of ['focus', 'planning', 'habits']) {
+        while ((await topic.getAttribute('data-topic')) !== word) await topic.click();
+        const box = (await topic.boundingBox())!;
+        dimensions.push(box.width);
+        expect(box.x + box.width).toBeLessThanOrEqual(width);
+        expect(await topic.locator('.landing-topic-word').evaluate(node => node.scrollWidth)).toBeLessThanOrEqual(box.width);
+      }
+    }
+    expect(Math.max(...dimensions) - Math.min(...dimensions)).toBeLessThan(.1);
+  }
+});
+

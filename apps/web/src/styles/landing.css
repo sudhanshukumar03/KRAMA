@@ -30,7 +30,9 @@
 .landing-skip:focus { transform: translateY(0); }
 .landing-hero { text-align: center; padding-block: 72px 48px; }
 .krama-landing h1 { max-width: 1120px; margin-inline: auto; font-size: clamp(64px, 7.2vw, 112px); line-height: 1.02; letter-spacing: -.05em; font-weight: 700; }
-.landing-hero-topic { --topic-surface: color-mix(in oklch, var(--topic-hue) 14%, white); display: inline-grid; vertical-align: top; align-items: center; justify-items: center; margin-top: .12em; padding: .1em .3em .12em; border: 1px solid transparent; border-radius: .6em; background: var(--topic-surface); color: #000; font: inherit; font-size: .82em; font-weight: 600; line-height: 1.15; letter-spacing: -.04em; transition: background-color 260ms ease; }
+/* Reserve the normal-font footprint in em units before the webfont arrives.
+   Intrinsic sizing can still grow for user text-spacing overrides. */
+.landing-hero-topic { --topic-surface: color-mix(in oklch, var(--topic-hue) 14%, white); display: inline-grid; min-inline-size: 5.6em; vertical-align: top; align-items: center; justify-items: center; margin-top: .12em; padding: .1em .3em .12em; border: 1px solid transparent; border-radius: .6em; background: var(--topic-surface); color: #000; font: inherit; font-size: .82em; font-weight: 600; line-height: 1.15; letter-spacing: -.04em; transition: background-color 260ms ease; }
 .dark .landing-hero-topic { --topic-surface: color-mix(in oklch, var(--topic-hue) 28%, white); }
 .landing-hero-topic[data-topic="focus"] { --topic-hue: var(--accent-fg); }
 .landing-hero-topic[data-topic="planning"] { --topic-hue: var(--cat-timeblocks); }

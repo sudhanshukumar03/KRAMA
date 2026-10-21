@@ -49,4 +49,6 @@ Line counts describe the resulting composition, not a quality score. Responsibil
 
 ## Work that this slice does not close
 
+Follow-up: the initial PR #9 remote run passed its frontend checks but failed one font-dependent headline width assertion in the three-engine landing stage and a restart check based on aggregate connection-log counts. The [repository cleanup follow-up](2026-10-21-repository-cleanup.md) records the reproduced font-swap defect, reserved-width fix, stronger per-connection protocol/event proof, and passing local landing/HTTPS qualification. It also records removal of unused media and superseded local artifacts. The updated PR requires a fresh remote check; the earlier local success does not override those failed remote results.
+
 Broad control/typography/state migration, remaining type-boundary debt, hostile rich-content and diagnostic/security review, independent screen-reader/usability qualification, physical devices, field measurements and actual public hosting remain separate acceptance items. R2 uploads remain Coming soon by explicit user decision. None is represented as complete because the refactor or automated suite passes.
