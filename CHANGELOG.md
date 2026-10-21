@@ -1,12 +1,12 @@
 # Changelog
 
-This file records dated product changes. Detailed investigation and repair evidence belongs in the [audit archive](docs/archive/audit/README.md).
+This file records dated product changes.
 
 ## Unreleased
 
 The audit branch contains workspace authorization, persistence, authentication, reporting, and configuration repairs. CI covers validation, backend tests, browser regressions, type checks, and production image builds. These changes are tracked in [PR #5](https://github.com/sudhanshukumar03/KRAMA/pull/5); their presence on the default branch depends on the PR's merge state.
 
-Documentation now has separate development, design, and historical review sections. Product and design guidance use shared root documents with short frontend-specific notes.
+Setup and release verification guides are kept under `docs/`.
 
 Dependency cleanup removes redundant root and server packages and repository copies of assistant tooling. Docker installs are scoped to each application, and frontend API contracts no longer depend on Prisma generation.
 

@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { designFixture } from './example-workspace';
 
-const root = '.audit/workflow-film';
+const root = 'test-results/workflow-film';
 const title = 'Write the case study opening';
 const settle = async (page: Page) => { await page.waitForLoadState('networkidle'); await page.evaluate(() => document.fonts.ready); };
 

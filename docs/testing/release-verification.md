@@ -22,7 +22,7 @@ AI verification sends only synthetic fixture text to configured providers and co
 
 `GEMINI_TEXT_MODEL` selects Gemini text generation consistently for global completion, Brain streams and direct verification, independently of embeddings. Restart the server after changing it. This deployment explicitly selects `gemini-3.6-flash` after fresh direct and Gemini-only application qualification; an unset value retains the existing application default. Production Compose forwards the setting to server/worker, and the AI CI environment reads its same-named non-secret variable. Direct verification reports model IDs, and the Gemini-only application case asserts the reported model and absence of fallback.
 
-Staging generates throwaway secrets, private test certificates and settings below ignored `.audit/staging/`. The certificate is valid only for local test names; Playwright permits this self-signed certificate for functional verification. No certificate is installed in a system trust store. This does not verify public DNS, a publicly trusted certificate or an external hosting platform. Existing app services, production volumes and image tags are preserved.
+Staging generates throwaway secrets, private test certificates and settings below ignored `test-results/staging-data/`. The certificate is valid only for local test names; Playwright permits this self-signed certificate for functional verification. No certificate is installed in a system trust store. This does not verify public DNS, a publicly trusted certificate or an external hosting platform. Existing app services, production volumes and image tags are preserved.
 
 ## CI and release gates
 
@@ -35,6 +35,6 @@ Staging generates throwaway secrets, private test certificates and settings belo
 
 Repository activation still requires committing/pushing these files. Configure `GEMINI_API_KEY` and `GROQ_API_KEY` as secrets in the GitHub `ai-verification` environment. Local keys are not uploaded automatically. Configure branch/ruleset protection to require the `release-ready` status, and make any future publishing/deployment job depend on it. Workflow files alone cannot prevent an administrator from publishing a release manually. No remote repository settings or credentials were changed by this work.
 
-The [reviewable GitHub activation sequence](github-release-activation.md) records the observed remote gaps, prepared publication scope and exact protection policy. `corepack pnpm release:github --sha <reviewed-main-sha>` is read-only by default; `--apply` is guarded by successful current core/staging/Groq/Gemini checks and refuses to replace conflicting protection. Test those safeguards with `corepack pnpm test:release-policy`.
+`corepack pnpm release:github --sha <reviewed-main-sha>` is read-only by default; `--apply` is guarded by successful current core/staging/Groq/Gemini checks and refuses to replace conflicting protection. Test those safeguards with `corepack pnpm test:release-policy`.
 
 Failure artifacts are retained for seven days. Test accounts are disposable and cleaned up; do not enable these fixtures against personal application storage or an arbitrary public server. A deployed staging service needs a separate authorized fixture/cleanup contract before mutation tests are run there.

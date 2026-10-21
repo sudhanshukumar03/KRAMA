@@ -133,7 +133,6 @@ jobs:
         name: browser-test-results
         path: |
           test-results/
-          .audit/quality-current/source.json
         retention-days: 7
         if-no-files-found: ignore
 

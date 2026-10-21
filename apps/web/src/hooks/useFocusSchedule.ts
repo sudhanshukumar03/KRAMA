@@ -7,6 +7,7 @@ import { api } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import type { CompleteSessionParams, FocusScheduleData } from '../components/focus/types';
 import { toast } from 'sonner';
+import { errorMessage } from '../lib/utils';
 
 export type { CompleteSessionParams } from '../components/focus/types';
 
@@ -39,9 +40,8 @@ export function useFocusSchedule() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
     },
-    onError: (err: any) => {
-      console.error('Error logging focus session:', err);
-      toast.error('Failed to log session: ' + (err?.message || 'Server error'));
+    onError: (err: unknown) => {
+      toast.error('Failed to log session: ' + errorMessage(err, 'Server error'));
     },
     retry: 2, // Auto-retry on network blip so pomodoro logs aren't lost
   });

@@ -1,4 +1,4 @@
-﻿import { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
@@ -44,8 +44,8 @@ test('scroll starts a muted inline film, leaving pauses, returning resumes, and 
   const measuredRate = (paceEnd.time - paceStart.time) / ((paceEnd.clock - paceStart.clock) / 1000);
   expect(measuredRate).toBeGreaterThan(.8);
   expect(measuredRate).toBeLessThan(1.2);
-  mkdirSync('.audit/faster-intro', { recursive: true });
-  writeFileSync(`.audit/faster-intro/pace-${browserName}.json`, JSON.stringify({ sourceDuration: metadata.duration, playbackRate: metadata.rate, presentationSeconds: metadata.duration / metadata.rate, measuredRate }, null, 2));
+  mkdirSync('test-results/artifacts/faster-intro', { recursive: true });
+  writeFileSync(`test-results/artifacts/faster-intro/pace-${browserName}.json`, JSON.stringify({ sourceDuration: metadata.duration, playbackRate: metadata.rate, presentationSeconds: metadata.duration / metadata.rate, measuredRate }, null, 2));
   await expect(page.getByRole('tab', { name: 'Today', exact: true })).toBeFocused();
   const before = await media(page).evaluate((v: HTMLVideoElement) => v.currentTime);
   await page.evaluate(() => scrollTo(0, 0));
@@ -75,7 +75,7 @@ test('clean inline film keeps keyboard pause and replay without a toolbar or tra
   await expect(film(page).locator('.landing-film-play > span')).toHaveCount(0);
   if (browserName === 'chromium') {
     await page.mouse.move(0, 0);
-    await page.screenshot({ path: '.audit/landing-film/screenshots/playing-without-controls.png' });
+    await page.screenshot({ path: 'test-results/artifacts/landing-film/screenshots/playing-without-controls.png' });
   }
   const pause = film(page).getByRole('button', { name: 'Pause video', exact: true });
   await pause.focus();
@@ -120,10 +120,10 @@ test('inline player fits all required sizes and themes, respects reduced motion 
     await expect(media(page)).toHaveAttribute('src', new RegExp(`-${width <= 600 ? 'portrait' : 'landscape'}${theme === 'light' ? '-light' : ''}\\.(mp4|webm)$`));
     if (!(browserName === 'webkit' && process.platform === 'win32')) expect(await media(page).evaluate((v: HTMLVideoElement) => v.videoWidth)).toBe(width <= 600 ? 720 : 1280);
     await media(page).evaluate((v: HTMLVideoElement) => v.pause());
-    if (testInfo.project.name === 'chromium') await page.screenshot({ path: `.audit/landing-film/screenshots/inline-${width}-${theme}.png` });
+    if (testInfo.project.name === 'chromium') await page.screenshot({ path: `test-results/artifacts/landing-film/screenshots/inline-${width}-${theme}.png` });
   }
-  mkdirSync('.audit/landing-film/measurements', { recursive: true });
-  writeFileSync(`.audit/landing-film/measurements/inline-${testInfo.project.name}.json`, JSON.stringify(measurements, null, 2));
+  mkdirSync('test-results/artifacts/landing-film/measurements', { recursive: true });
+  writeFileSync(`test-results/artifacts/landing-film/measurements/inline-${testInfo.project.name}.json`, JSON.stringify(measurements, null, 2));
 });
 
 test('failed inline sources explain the workflow and recover with keyboard retry', async ({ page, context, browserName }) => {

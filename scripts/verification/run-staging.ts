@@ -8,7 +8,7 @@ import { request } from 'node:https';
 import { validateIntegrationTargets } from '../../apps/server/src/testing/testEnvironment';
 const root = resolve(__dirname, '../..');
 const tag = randomBytes(4).toString('hex'); const project = `krama-verify-${tag}`;
-const data = resolve(root, '.audit/staging', tag); mkdirSync(resolve(data, 'tls'), { recursive: true });
+const data = resolve(root, 'test-results/staging-data', tag); mkdirSync(resolve(data, 'tls'), { recursive: true });
 const logs = resolve(root, 'test-results/services/staging'); mkdirSync(logs, { recursive: true });
 const envFile = resolve(data, 'staging.env');
 const password = randomBytes(24).toString('hex'); const redisPassword = randomBytes(24).toString('hex'); const jwt = randomBytes(48).toString('hex');

@@ -10,7 +10,7 @@ from pathlib import Path
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
-AUDIT = ROOT / '.audit/workflow-film'
+AUDIT = ROOT / 'test-results/workflow-film'
 DEST = ROOT / 'apps/web/public/landing/film'
 DURATIONS = [7, 7, 6]
 FPS = 24
@@ -41,14 +41,12 @@ def encode(ffmpeg, theme, device):
     run([ffmpeg, '-y', '-hide_banner', '-loglevel', 'error', '-ss', '0.1', '-i', str(stem) + '.mp4', '-frames:v', '1', '-q:v', '2', str(stem) + '-poster.jpg'])
     # Contact sheet is an audit artifact, not a product illustration.
     run([ffmpeg, '-y', '-hide_banner', '-loglevel', 'error', '-i', str(stem) + '.mp4', '-vf', 'fps=1/3,scale=384:-1,tile=3x3', '-frames:v', '1', str(AUDIT / f'contact-{device}-{theme}.jpg')])
-    chapters = [('00:00.000', '00:07.000', 'Capture a task in Inbox, then choose Do today.'), ('00:07.000', '00:14.000', 'Create a 25-minute time block in Planner, linked to the same task.'), ('00:14.000', '00:20.000', 'Open the task in a separate Focus tab, use the plan, and start the countdown.')]
-    Path(str(stem) + '.vtt').write_text('WEBVTT\n\n' + '\n\n'.join(f'{start} --> {end}\n{text}' for start, end, text in chapters) + '\n', encoding='utf8')
     return { 'theme': theme, 'device': device, 'duration': 20, 'chapters': DURATIONS, 'files': {Path(str(stem) + ext).name: hashlib.sha256(Path(str(stem) + ext).read_bytes()).hexdigest() for ext in ['.mp4', '.webm', '-poster.jpg']} }
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--theme', choices=['light', 'dark', 'both'], default='both')
-    parser.add_argument('--ffmpeg', type=Path, default=ROOT / '.audit/landing-film/tools/imageio_ffmpeg/binaries/ffmpeg-win-x86_64-v7.1.exe')
+    parser.add_argument('--ffmpeg', type=Path, default=Path('ffmpeg'))
     args = parser.parse_args()
     DEST.mkdir(parents=True, exist_ok=True)
     results = []
@@ -57,4 +55,3 @@ if __name__ == '__main__':
             results.append(encode(args.ffmpeg, theme, device))
             print(f'Encoded {device} {theme}: 20 seconds of actual product actions.', flush=True)
     (AUDIT / 'encoded-manifest.json').write_text(json.dumps(results, indent=2), encoding='utf8')
-    (DEST / 'krama-intro.en.vtt').write_text((DEST / 'krama-intro-landscape.vtt').read_text(encoding='utf8'), encoding='utf8')

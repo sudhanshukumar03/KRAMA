@@ -4,7 +4,7 @@ const { spawnSync } = require('node:child_process');
 const { builtinModules } = require('node:module');
 const builtins = new Set(builtinModules.map(name => name.replace(/^node:/, '')));
 const root = path.resolve(__dirname, '../..');
-const output = '.audit/quality-current/source.json';
+const output = 'test-results/quality/source.json';
 const measured = spawnSync(process.execPath, [path.join(__dirname, 'source-inventory.cjs'), '--output', output], { cwd: root, encoding: 'utf8', windowsHide: true });
 if (measured.status !== 0) { console.error('Source inventory failed.'); process.exit(1); }
 const inventory = JSON.parse(fs.readFileSync(path.join(root, output), 'utf8'));

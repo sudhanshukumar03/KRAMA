@@ -99,7 +99,7 @@ corepack pnpm test:landing
 
 This command builds the current frontend before running its landing and intro-film tests against production preview. The durable configuration is [playwright.landing.config.ts](../../playwright.landing.config.ts); JSON results are saved to `test-results/landing-results.json`. For an already-running local Nginx container, set `KRAMA_LANDING_BASE_URL` to its HTTP origin before running the same command. API responses are mocked and personal records are not changed. Seven actual-media checks are explicitly skipped on Windows WebKit because that runner does not decode the films; Chromium and Firefox exercise actual playback. Safari playback still needs macOS or iOS.
 
-Generated `.audit/` output is local and ignored by Git and Docker. Keep reusable test configuration in the repository and durable findings in `docs/audits/`; do not use local logs, backups or downloaded tools as project source.
+Generated verification output belongs in ignored `test-results/`. Keep reusable test configuration in the repository; local logs, backups and downloaded tools are disposable artifacts.
 
 ### Backend integration tests
 

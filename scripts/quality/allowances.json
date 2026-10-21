@@ -72,7 +72,6 @@
     "apps/web/src/extensions/SlashCommands.tsx": 2,
     "apps/web/src/extensions/WikiLinkExtension.ts": 2,
     "apps/web/src/hooks/useDocumentOutline.ts": 1,
-    "apps/web/src/hooks/useFocusSchedule.ts": 1,
     "apps/web/src/hooks/useHabitCompletion.ts": 4,
     "apps/web/src/lib/documentTemplates.ts": 1,
     "apps/web/src/lib/habitFilters.ts": 8,
