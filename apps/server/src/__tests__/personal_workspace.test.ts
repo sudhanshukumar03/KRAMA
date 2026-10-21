@@ -44,6 +44,12 @@ describe('Personal workspace restoration', () => {
     assert.equal(rows.timeBlock[0]!.type, 'STUDY');
     assert.equal(rows.timeBlock[0]!.syncStatus, 'LOCAL_ONLY');
   });
+  it('remaps the habit snapshot user when importing a personal backup', () => {
+    const backup = structuredClone(source);
+    backup.workspace.habits[0].metadata = { ...backup.workspace.habits[0].metadata, streakUserId: backup.workspace.members[0].user.id };
+    const plan = restore.prepareWorkspaceRestore(backup, userId);
+    assert.equal(plan.rows.habit[0]!.metadata.streakUserId, userId);
+  });
 
   for (const corruption of ['workspace', 'missing reference', 'duplicate', 'cycle', 'foreign user', 'members', 'version'] as const) {
     it(`rejects ${corruption} corruption before touching storage`, () => {

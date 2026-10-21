@@ -143,6 +143,7 @@ export function prepareWorkspaceRestore(input: unknown, userId: string) {
     }
     if (model === 'workspace') { data.name = `${workspace.name.slice(0, 100)} (restored)`; data.deletedAt = null; data.createdBy = userId; data.updatedBy = userId; }
     if (model === 'timeBlock') data.syncStatus = 'LOCAL_ONLY';
+    if (model === 'habit' && typeof data.metadata?.streakUserId === 'string') data.metadata.streakUserId = userId;
     // Nullable JSON columns distinguish database NULL from a JSON null.
     if (data.metadata === null) data.metadata = Prisma.DbNull;
     prepared[model].push(data);

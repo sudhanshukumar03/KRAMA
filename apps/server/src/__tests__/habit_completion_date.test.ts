@@ -69,7 +69,8 @@ describe('Habit service enforces creation bounds before persisting completion', 
     assert.equal(writes, 0);
   });
   it('allows the creation day even when creation was on the preceding UTC date', async () => {
-    await log('2026-10-18'); assert.equal(writes, 1);
+    const result = await log('2026-10-18'); assert.equal(writes, 1);
+    assert.equal((result.metadata as any).streakUserId, 'user');
   });
   it('keeps valid historical backfill for older habits', async () => {
     habit.createdAt = new Date('2026-10-01T00:00:00Z');
@@ -84,7 +85,8 @@ describe('Habit service enforces creation bounds before persisting completion', 
   });
   it('allows undoing an invalid legacy completion before creation', async () => {
     completions = [{ id: 'legacy', date: new Date('2026-10-17T12:00:00Z') }];
-    await service.unlogHabitCompletion('h', 'ws', 'user', '2026-10-17', '2026-10-17T12:00:00Z');
+    const result = await service.unlogHabitCompletion('h', 'ws', 'user', '2026-10-17', '2026-10-17T12:00:00Z');
     assert.equal(completions.length, 0);
+    assert.equal((result.metadata as any).streakUserId, 'user');
   });
 });

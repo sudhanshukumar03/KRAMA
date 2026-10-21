@@ -39,6 +39,7 @@ import { CANCELED_COLUMN, STATUS_COLUMNS, STATUS_IDS, taskDay } from './kanban/b
 import { Column, PriorityBadge } from './kanban/BoardPrimitives';
 import { IssueCreateModal } from './kanban/IssueCreateModal';
 import { IssueEditModal } from './kanban/IssueEditModal';
+import { taskPositionForMove } from './kanban/taskOrdering';
 import { ErrorState } from './ui/ErrorState';
 import { LoadingState } from './ui/LoadingState';
 import { PageHeader } from './ui/PageHeader';
@@ -285,8 +286,10 @@ export function KanbanBoard({
   const moveRelative = (issue: IssueWithRelations, direction: number) => {
     const siblings = filteredIssues.filter(item => item.status === issue.status); const from = siblings.findIndex(item => item.id === issue.id); const target = from + direction;
     if (target < 0 || target >= siblings.length || updateIssueMutation.isPending) return;
-    const rest = siblings.filter(item => item.id !== issue.id); const before = rest[target - 1]; const after = rest[target];
-    const position = before && after ? (before.position + after.position) / 2 : before ? before.position + 1000 : after.position - 1000;
+    const anchor = siblings[target];
+    if (!anchor) return;
+    const position = taskPositionForMove(issues, issue.id, issue.status, anchor.id, direction > 0 ? 'after' : 'before');
+    if (position === null) { toast.error('Could not reorder directive. Refresh the board and try again.'); return; }
     updateIssueMutation.mutate({ id: issue.id, data: { position, version: issue.version } }, { onError: () => toast.error('Could not reorder directive. The board has been refreshed.') });
   };
 
@@ -344,44 +347,13 @@ export function KanbanBoard({
     let newPosition = activeIssueData.position;
 
     if (activeId !== overId) {
-      const statusIssues = filteredIssues
-        .filter(i => i.status === newStatus)
-        .sort((a, b) => a.position - b.position);
-
-      if (STATUS_IDS.includes(overId)) {
-        // Dropped on empty space or column header
-        const otherIssues = statusIssues.filter(i => i.id !== activeId);
-        const lastCard = otherIssues[otherIssues.length - 1];
-        newPosition = (lastCard?.position ?? 0) + 1000;
-      } else {
-        const filtered = statusIssues.filter(i => i.id !== activeId);
-        let insertIndex = filtered.findIndex(i => i.id === overId);
-
-        if (insertIndex === -1) {
-          const lastCard = filtered[filtered.length - 1];
-          newPosition = (lastCard?.position ?? 0) + 1000;
-        } else {
-          const activeIndex = statusIssues.findIndex(i => i.id === activeId);
-          if (activeIssueData.status === newStatus && activeIndex !== -1 && activeIndex < insertIndex) {
-            insertIndex += 1;
-          }
-
-          if (insertIndex === 0) {
-            const firstCard = filtered[0];
-            newPosition = firstCard ? (firstCard.position > 0 ? firstCard.position / 2 : firstCard.position - 500) : 1000;
-          } else if (insertIndex >= filtered.length) {
-            const lastCard = filtered[filtered.length - 1];
-            newPosition = (lastCard?.position ?? 0) + 1000;
-          } else {
-            const aboveCard = filtered[insertIndex - 1];
-            const belowCard = filtered[insertIndex];
-            newPosition = ((aboveCard?.position ?? 0) + (belowCard?.position ?? (aboveCard?.position ?? 0) + 1000)) / 2;
-            if (newPosition === aboveCard?.position || newPosition === belowCard?.position) {
-              newPosition = (aboveCard?.position ?? 0) + 1;
-            }
-          }
-        }
-      }
+      const visibleColumn = filteredIssues.filter(issue => issue.status === newStatus);
+      const activeIndex = visibleColumn.findIndex(issue => issue.id === activeId);
+      const overIndex = visibleColumn.findIndex(issue => issue.id === overId);
+      const placement = activeIssueData.status === newStatus && activeIndex >= 0 && activeIndex < overIndex ? 'after' : 'before';
+      const position = taskPositionForMove(issues, activeId, newStatus, STATUS_IDS.includes(overId) ? undefined : overId, placement);
+      if (position === null) { toast.error('Could not reorder directive. Refresh the board and try again.'); return; }
+      newPosition = position;
     }
 
     if (activeIssueData.status !== newStatus || activeIssueData.position !== newPosition) {

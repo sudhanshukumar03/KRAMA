@@ -98,7 +98,7 @@ export const rebalanceTasks = async (req: Request, res: Response) => {
   try {
     const workspaceId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
     if (!workspaceId) return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'workspaceId is required' });
-    await taskService.rebalanceTasks(workspaceId);
+    await taskService.rebalanceTasks(workspaceId, req.user!.id);
     return res.status(200).json({ success: true });
   } catch (error) {
     return handleControllerError(res, error, 'Failed to rebalance tasks');

@@ -1,4 +1,3 @@
-import { prisma } from '../prisma';
 import { taskRepository } from '../repositories/task.repository';
 import { TaskStatus } from '@prisma/client';
 import { runInTransaction, type TxClient, type PostCommitPublisher } from '../prisma';
@@ -43,32 +42,25 @@ async function validateTaskLinks(tx: any, workspaceId: string, data: any, taskId
 
 class TaskService {
   
-  async rebalanceTasks(workspaceId: string): Promise<void> {
-    const tasks = await prisma.task.findMany({
-      where: { workspaceId },
-      orderBy: [
-        { status: 'asc' },
-        { position: 'asc' },
-        { createdAt: 'asc' }
-      ]
+  async rebalanceTasks(workspaceId: string, userId: string): Promise<void> {
+    await runInTransaction(async (tx, publishAfterCommit) => {
+      // Allow the FK checks made by an editor's activity-log insert while that
+      // editor still holds a task row lock. Ordering operations still serialize.
+      await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR NO KEY UPDATE`;
+      // Lock before computing positions, including against edits that do not take
+      // the workspace lock. The next statement sees their committed values.
+      await tx.$queryRaw`SELECT id FROM "Task" WHERE "workspaceId" = ${workspaceId} AND "deletedAt" IS NULL ORDER BY id FOR UPDATE`;
+      const changed = await tx.$queryRaw<Array<{ id: string }>>`
+        WITH positions AS (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY status ORDER BY position, "createdAt", id) * 1000 AS position
+          FROM "Task" WHERE "workspaceId" = ${workspaceId} AND "deletedAt" IS NULL
+        )
+        UPDATE "Task" AS task SET position = positions.position,
+          version = task.version + 1, "updatedBy" = ${userId}, "updatedAt" = CURRENT_TIMESTAMP
+        FROM positions WHERE task.id = positions.id AND task.position IS DISTINCT FROM positions.position
+        RETURNING task.id`;
+      for (const task of changed) publishAfterCommit('TASK_UPDATED', { taskId: task.id, workspaceId, userId });
     });
-    
-    let currentStatus = '';
-    let currentOrder = 0;
-    
-    for (const task of tasks) {
-      if (task.status !== currentStatus) {
-        currentStatus = task.status;
-        currentOrder = 1000;
-      } else {
-        currentOrder += 1000;
-      }
-      
-      await prisma.task.update({
-        where: { id: task.id },
-        data: { position: currentOrder }
-      });
-    }
   }
 
   async listTasks(workspaceId: string, filters: { projectId?: string; status?: string; limit?: number; cursor?: string }) {
@@ -92,6 +84,8 @@ class TaskService {
   }
 
   async createTaskWithinTransaction(tx: TxClient, publishAfterCommit: PostCommitPublisher, data: any, userId: string) {
+      // A new task must choose its position after any in-flight rebalance.
+      await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${data.workspaceId} FOR NO KEY UPDATE`;
       const maxPos = await taskRepository.findMaxPosition(data.workspaceId, tx);
       const position = maxPos + 1.0;
 

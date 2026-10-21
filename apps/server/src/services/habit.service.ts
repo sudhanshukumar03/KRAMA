@@ -74,6 +74,7 @@ class HabitService {
       const { timeOfDay, pinnedToPlanner, weeklyTarget, metadata: incomingMetadata, ...restData } = data;
       await this.validateGoal(restData.linkedGoalId, restData.workspaceId, tx);
       const metadata: Record<string, any> = typeof incomingMetadata === "object" && incomingMetadata && !Array.isArray(incomingMetadata) ? { ...incomingMetadata } : {};
+      delete metadata.streakUserId; // Snapshot ownership is set only by Log/Undo.
       if (timeOfDay !== undefined) metadata.timeOfDay = timeOfDay;
       if (pinnedToPlanner !== undefined) metadata.pinnedToPlanner = pinnedToPlanner;
       if (weeklyTarget !== undefined) metadata.weeklyTarget = weeklyTarget;
@@ -116,6 +117,8 @@ class HabitService {
 
       delete metadata.goalUndo;
       if (data.linkedGoalId === undefined && existingMeta.goalUndo) metadata.goalUndo = existingMeta.goalUndo;
+      delete metadata.streakUserId;
+      if (typeof existingMeta.streakUserId === 'string') metadata.streakUserId = existingMeta.streakUserId;
       const habit = await habitRepository.update(id, {
         ...restData,
         metadata,
@@ -183,7 +186,7 @@ class HabitService {
 
       // Lock the habit row before checking completion history. Concurrent Log/Undo
       // requests must recompute streaks in order, even though this lock leaves version unchanged.
-      await tx.habit.update({ where: { id, workspaceId, deletedAt: null }, data: { version: { increment: 0 } } });
+      const lockedHabit = await tx.habit.update({ where: { id, workspaceId, deletedAt: null }, data: { version: { increment: 0 } } });
       const dateUser = await tx.user.findUnique({ where: { id: userId }, select: { metadata: true, countryCode: true } });
       const dateKeyStr = dateStr || (dateIso ? new Date(dateIso).toISOString().slice(0, 10) : getUserLocalDateStr(new Date(), resolveUserTimeZone(dateUser, requestedZone)));
       const targetDate = new Date(`${dateKeyStr}T12:00:00.000Z`);
@@ -193,8 +196,8 @@ class HabitService {
       if (unavailableReason === 'before_creation') throw Object.assign(new Error('Invalid completion date: this habit had not been created yet.'), { statusCode: 400 });
       if (unavailableReason === 'future') throw Object.assign(new Error('Invalid completion date: future days cannot be completed.'), { statusCode: 400 });
 
-      const scheduled = existing.scheduledDays && existing.scheduledDays.length > 0
-        ? existing.scheduledDays
+      const scheduled = lockedHabit.scheduledDays && lockedHabit.scheduledDays.length > 0
+        ? lockedHabit.scheduledDays
         : [0, 1, 2, 3, 4, 5, 6];
 
       // Weekly habits are loggable on any day of the week (the target is N
@@ -203,7 +206,7 @@ class HabitService {
       // scheduled weekday. Without this, a daily habit edited into a weekly one
       // keeps its restricted scheduledDays and its off-day logs get silently
       // dropped from the weekly target/streak.
-      const offSchedule = existing.cadence === 'weekly'
+      const offSchedule = lockedHabit.cadence === 'weekly'
         ? false
         : !scheduled.includes(targetDate.getUTCDay());
 
@@ -229,10 +232,11 @@ class HabitService {
       });
       const timeZone = resolveUserTimeZone(user, requestedZone);
       await rememberUserTimeZone(userId, requestedZone, tx);
-      const { current, best } = await computeStreak(existing, id, timeZone, tx, userId);
+      const { current, best } = await computeStreak(lockedHabit, id, timeZone, tx, userId);
       const updatedHabit = await habitRepository.update(id, {
         streak: current,
         bestStreak: best,
+        metadata: { ...(typeof lockedHabit.metadata === 'object' && lockedHabit.metadata ? lockedHabit.metadata : {}), streakUserId: userId },
         version: { increment: 1 },
         updatedBy: userId,
       }, tx);
@@ -279,7 +283,7 @@ class HabitService {
 
       // Lock the habit row before checking completion history. Concurrent Log/Undo
       // requests must recompute streaks in order, even though this lock leaves version unchanged.
-      await tx.habit.update({ where: { id, workspaceId, deletedAt: null }, data: { version: { increment: 0 } } });
+      const lockedHabit = await tx.habit.update({ where: { id, workspaceId, deletedAt: null }, data: { version: { increment: 0 } } });
       const dateUser = await tx.user.findUnique({ where: { id: userId }, select: { metadata: true, countryCode: true } });
       const dateKeyStr = dateStr || (dateIso ? new Date(dateIso).toISOString().slice(0, 10) : getUserLocalDateStr(new Date(), resolveUserTimeZone(dateUser, requestedZone)));
       const targetDate = new Date(`${dateKeyStr}T12:00:00.000Z`);
@@ -300,11 +304,12 @@ class HabitService {
       });
       const timeZone = resolveUserTimeZone(user, requestedZone);
       await rememberUserTimeZone(userId, requestedZone, tx);
-      const { current, best } = await computeStreak(existing, id, timeZone, tx, userId);
+      const { current, best } = await computeStreak(lockedHabit, id, timeZone, tx, userId);
 
       const updatedHabit = await habitRepository.update(id, {
         streak: current,
         bestStreak: best,
+        metadata: { ...(typeof lockedHabit.metadata === 'object' && lockedHabit.metadata ? lockedHabit.metadata : {}), streakUserId: userId },
         version: { increment: 1 },
         updatedBy: userId,
       }, tx);

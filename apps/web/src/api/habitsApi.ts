@@ -9,7 +9,7 @@ export function createHabitsApi(fetchApi: JsonRequest) {
     update: (id: string, data: HabitUpdateInput) => fetchApi<Habit>(`/habits/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetchApi<{ message: string }>(`/habits/${id}`, { method: 'DELETE' }),
     restore: (id: string) => fetchApi<Habit>(`/habits/${id}/restore`, { method: 'POST' }),
-    complete: (id: string, date?: string, dateIso?: string) => fetchApi<Habit>(`/habits/${id}/log`, { method: 'POST', ...(date ? { body: JSON.stringify({ date, dateIso }) } : {}) }),
+    complete: (id: string, date?: string, dateIso?: string) => fetchApi<Habit>(`/habits/${id}/log`, { method: 'POST', ...(date || dateIso ? { body: JSON.stringify({ date, dateIso }) } : {}) }),
     uncomplete: (id: string, date?: string, dateIso?: string) => fetchApi<Habit>(`/habits/${id}/log?date=${date || ''}&dateIso=${dateIso || ''}`, { method: 'DELETE' }),
     };
 }
