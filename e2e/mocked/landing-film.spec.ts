@@ -204,7 +204,7 @@ test('switching appearance changes the actual film while preserving progress and
 test('leaving the route releases inline media', async ({ page }) => {
   await page.goto('/'); await revealFilm(page);
   const retainedVideo = await media(page).elementHandle();
-  await page.locator('.landing-header').getByRole('link', { name: 'Open KRAMA', exact: true }).click();
+  await page.getByRole('link', { name: 'Open KRAMA', exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(await retainedVideo!.evaluate((v: HTMLVideoElement) => ({ paused: v.paused, source: v.getAttribute('src') }))).toEqual({ paused: true, source: null });
 });

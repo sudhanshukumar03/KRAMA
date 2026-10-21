@@ -1,10 +1,9 @@
 import { useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowRight, BookOpen, CalendarDays, ChevronDown, CircleCheck, FolderKanban, Inbox, LayoutDashboard, LayoutGrid, Menu, Moon, Sun, Target, Timer, X, ZoomIn } from 'lucide-react';
+import { ArrowDown, ArrowRight, BookOpen, CalendarDays, ChevronDown, CircleCheck, FolderKanban, Inbox, LayoutDashboard, LayoutGrid, Menu, Moon, Sun, Target, Timer, X } from 'lucide-react';
 import { IntroVideo } from './landing/IntroVideo';
 import { HeroTopic } from './landing/HeroTopic';
-import { PreviewDialog } from './landing/PreviewDialog';
 import { useTheme } from '../lib/theme';
 import '../styles/landing.css';
 
@@ -22,7 +21,7 @@ const workflow = [
 ] as const;
 
 const questions = [
-  { question: 'What is KRAMA?', answer: 'A personal workspace for capturing ideas, planning tasks and doing focused work. Goals, projects and habits help you keep the longer view.' },
+  { question: 'What is KRAMA?', answer: 'KRAMA brings your tasks, notes and plans into one workspace. You can jot something down, choose what to work on today and keep your longer projects and goals in view.' },
   { question: 'How is Inbox different from Tasks?', answer: 'Inbox holds the things you have just captured. When you review them, keep tasks in Tasks and notes in Brain. Choose Do today when you want to work on a task today.' },
   { question: 'Does Focus open in a separate tab?', answer: 'Yes. Start Focus from a task and the timer opens in a new tab. Your plan and notes stay open, so you can return to them whenever you need.' },
   { question: 'Can I use KRAMA on a small screen?', answer: 'Yes. Open KRAMA in your phone’s browser. The workspace adjusts to the smaller screen, and you can switch between light and dark mode.' },
@@ -39,19 +38,12 @@ export function LandingPage() {
   const [failedImage, setFailedImage] = useState('');
   const [loadedImage, setLoadedImage] = useState('');
   const [imageAttempt, setImageAttempt] = useState(0);
-  const [expandedPreview, setExpandedPreview] = useState<'workspace' | 'note' | null>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const mainHeading = useRef<HTMLHeadingElement>(null);
   const preview = previews[previewIndex];
-  // Focus has the same appearance in both themes, so share its screenshots.
-  const previewTheme = preview.id === 'focus' ? 'dark' : resolvedTheme;
-  const imageKey = `${preview.id}-${previewTheme}-${imageAttempt}`;
+  const imageKey = `${preview.id}-${resolvedTheme}-${imageAttempt}`;
   const imageLoading = loadedImage !== imageKey && failedImage !== imageKey;
-  const expandedImage = expandedPreview === 'note'
-    ? { id: 'brain-detail', title: 'Brain note preview', alt: 'Example portfolio note with the problem, design decisions and a next writing session.' }
-    : { id: preview.id, title: `${preview.label} preview`, alt: preview.alt };
-  const expandedTheme = expandedImage.id === 'focus' ? 'dark' : resolvedTheme;
 
   function closeMenu() {
     setMenuOpen(false);
@@ -104,10 +96,10 @@ export function LandingPage() {
       <main>
         <section className="landing-container landing-hero" aria-labelledby="landing-main">
           <div>
-            <h1 id="landing-main" tabIndex={-1} ref={mainHeading} aria-label="Your tasks, notes and plans in one workspace."><span aria-hidden="true">One place for</span><br /><HeroTopic /></h1>
+            <h1 id="landing-main" tabIndex={-1} ref={mainHeading} aria-label="Make room for focus, planning and habits."><span aria-hidden="true">Make room for</span><br /><HeroTopic /></h1>
           </div>
           <div className="landing-hero-copy">
-            <p>Capture an idea, plan the task and start Focus. Your notes stay close.</p>
+            <p>Plan your day, keep your notes close and focus on what’s next.</p>
             <a href="#workspace" tabIndex={0} className="landing-hero-link" onClick={() => navigateSection('workspace')}><LayoutGrid size={16} aria-hidden="true" />Explore the workspace <ArrowDown size={16} aria-hidden="true" /></a>
           </div>
         </section>
@@ -121,14 +113,11 @@ export function LandingPage() {
           <div role="tabpanel" id="landing-preview-panel" aria-labelledby={`preview-tab-${preview.id}`} aria-busy={imageLoading} tabIndex={0} className="landing-preview-panel" data-preview={preview.id}>
             {imageLoading && <span className="landing-preview-loading" role="status">Loading preview…</span>}
             {failedImage === imageKey ? <div className="landing-preview-error" role="alert"><p>The product preview could not load.</p><button className="landing-button" type="button" onClick={() => { setImageAttempt(value => value + 1); document.getElementById('landing-preview-panel')?.focus({ preventScroll: true }); }}>Try again</button></div> : <picture key={imageKey}>
-              <source media="(max-width: 600px)" srcSet={`/landing/${preview.id}-mobile-${previewTheme}.png`} />
-              <img src={`/landing/${preview.id}-desktop-${previewTheme}.png`} alt={preview.alt} width="1440" height="900" fetchPriority="high" onLoad={() => setLoadedImage(imageKey)} onError={() => setFailedImage(imageKey)} />
+              <source media="(max-width: 600px)" srcSet={`/landing/${preview.id}-mobile-${resolvedTheme}.png`} />
+              <img src={`/landing/${preview.id}-desktop-${resolvedTheme}.png`} alt={preview.alt} width="1440" height="900" fetchPriority="high" onLoad={() => setLoadedImage(imageKey)} onError={() => setFailedImage(imageKey)} />
             </picture>}
           </div>
-          <div className="landing-preview-caption">
-            <div aria-live="polite" aria-atomic="true"><strong>{preview.title}</strong><p>{preview.description}</p></div>
-            <button type="button" className="landing-preview-expand" aria-label={`Enlarge ${preview.label} preview`} aria-haspopup="dialog" onClick={event => { event.currentTarget.focus({ preventScroll: true }); setExpandedPreview('workspace'); }}><ZoomIn size={18} aria-hidden="true" /><span>View larger</span></button>
-          </div>
+          <div className="landing-preview-caption" aria-live="polite" aria-atomic="true"><div><strong>{preview.title}</strong><p>{preview.description}</p></div></div>
         </section>
 
         <section id="how-it-works" tabIndex={-1} className="landing-container landing-workflow landing-section" aria-labelledby="workflow-heading">
@@ -143,7 +132,7 @@ export function LandingPage() {
                   {step.kind === 'focus' && <div className="landing-focus-example"><span className="landing-workflow-clock">25:00</span><span className="landing-workflow-task">Write the case study</span></div>}
                 </div>
               </div>
-              <div className="landing-step-copy"><h3>{step.title}</h3><p>{step.body}</p></div>
+              <h3>{step.title}</h3><p>{step.body}</p>
             </li>)}
           </ol>
         </section>
@@ -153,23 +142,23 @@ export function LandingPage() {
         <section className="landing-bigger-section" aria-labelledby="workspace-heading">
           <div className="landing-container landing-bigger">
             <div className="landing-section-heading">
-              <h2 id="workspace-heading">Keep the context behind the task</h2>
+              <h2 id="workspace-heading">Keep your notes and plans connected</h2>
             </div>
             <div className="landing-knowledge">
               <div className="landing-knowledge-copy">
                 <BookOpen size={26} strokeWidth={1.5} aria-hidden="true" />
-                <h3>Turn a note into a next step</h3>
-                <p>Keep meeting notes, references and ideas in Brain. Turn a next step into a task without copying it elsewhere.</p>
+                <h3>Find the thought you need</h3>
+                <p>Use Brain for the notes you want to come back to: a meeting, something you read, or an idea for a project. When a note gives you something to do, create a task from it.</p>
               </div>
               <figure className="landing-knowledge-preview">
                 <picture><source media="(max-width: 600px)" srcSet={`/landing/brain-detail-mobile-${resolvedTheme}.png`} /><img src={`/landing/brain-detail-desktop-${resolvedTheme}.png`} alt="Example portfolio note with the problem, design decisions and a next writing session." width="848" height="580" loading="lazy" /></picture>
-                <figcaption><span>Brain Workspace</span><button type="button" className="landing-preview-expand" aria-label="Enlarge note preview" aria-haspopup="dialog" onClick={event => { event.currentTarget.focus({ preventScroll: true }); setExpandedPreview('note'); }}><ZoomIn size={18} aria-hidden="true" /><span>View larger</span></button></figcaption>
+                <figcaption>Brain Workspace</figcaption>
               </figure>
             </div>
             <div className="landing-project-story">
               <div className="landing-project-copy">
-                <h3>See how the work adds up</h3>
-                <p>Connect a project to a goal, track its tasks and keep the supporting notes alongside.</p>
+                <h3>Know what to work on next.</h3>
+                <p>Keep your project’s tasks and notes in one place. See what’s done and choose what to work on next.</p>
               </div>
               <figure className="landing-project-example" aria-label="Example: a goal connected to a project and its tasks">
                 <div className="landing-project-stage">
@@ -194,14 +183,6 @@ export function LandingPage() {
           <div className="landing-faq-list">{questions.map(item => <details key={item.question}><summary>{item.question}<ChevronDown size={18} aria-hidden="true" /></summary><p>{item.answer}</p></details>)}</div>
         </section>
 
-        <section className="landing-container landing-closing" aria-labelledby="closing-heading">
-          <div>
-            <h2 id="closing-heading">What will you make time for?</h2>
-            <p>Choose one task. Give it a place in your day.</p>
-          </div>
-          <Link to="/app" className="landing-button">Open KRAMA <ArrowRight size={18} aria-hidden="true" /></Link>
-        </section>
-
       </main>
 
       <footer className="landing-footer">
@@ -214,7 +195,6 @@ export function LandingPage() {
           <small className="landing-footer-copyright">© {new Date().getFullYear()} KRAMA</small>
         </div>
       </footer>
-      {expandedPreview && <PreviewDialog title={expandedImage.title} alt={expandedImage.alt} desktopSrc={`/landing/${expandedImage.id}-desktop-${expandedTheme}.png`} mobileSrc={`/landing/${expandedImage.id}-mobile-${expandedTheme}.png`} onClose={() => setExpandedPreview(null)} />}
     </div>
   );
 }
