@@ -310,9 +310,9 @@ for (const theme of ['light', 'dark']) test(`personal Inbox and review fit a sma
   await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /dark/ : /^(?!.*dark)/);
   await expect(page.getByRole('heading', { name: 'Inbox', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
-  await page.screenshot({ path: `.audit/personal-inbox-${theme}.png`, fullPage: true });
+  await page.screenshot({ path: `test-results/artifacts/personal-inbox-${theme}.png`, fullPage: true });
   await page.goto('/app/'); await page.getByRole('button', { name: 'Review unfinished work', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Close your day', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
-  await page.screenshot({ path: `.audit/personal-review-${theme}.png`, fullPage: true });
+  await page.screenshot({ path: `test-results/artifacts/personal-review-${theme}.png`, fullPage: true });
 });

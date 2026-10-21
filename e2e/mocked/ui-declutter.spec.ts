@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { designFixture } from '../../scripts/media/example-workspace';
 
-const root = '.audit/declutter';
+const root = 'test-results/artifacts/declutter';
 const routes = [
   ['dashboard', '/app/'], ['inbox', '/app/inbox'], ['planner', '/app/planner?mode=day&date=2026-10-17'],
   ['goals', '/app/goals'], ['project', '/app/projects/design-project-0'], ['brain', '/app/brain?doc=design-doc-0'],

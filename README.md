@@ -12,10 +12,6 @@ Goals and habits provide longer-term progress and recurring check-ins. Focus Mod
 
 Image and wallpaper uploads remain **Coming soon** until R2 storage is configured. A custom domain and public deployment are outside the current personal-workspace setup.
 
-![Krama landing page](docs/screenshots/landing.png)
-
-![Krama dashboard](docs/screenshots/dashboard.png)
-
 ## Run the application
 
 Install Docker Desktop, then create the root environment file. In PowerShell:
@@ -70,11 +66,9 @@ apps/web/             Frontend, feature components and theme styles
 packages/types/       Shared TypeScript contracts
 packages/validation/  Shared validation schemas
 e2e/                  Module, mocked browser and live browser tests
-docs/                 Development guides, design guidance and archived reviews
+docs/                 Setup and release verification guides
 ```
 
 ## Documentation
 
-Start with the [documentation index](docs/README.md). The [product guide](PRODUCT.md) describes the intended daily workflow, and the [design guide](DESIGN.md) explains the shared interface rules. [CHANGELOG.md](CHANGELOG.md) records product changes.
-
-Earlier reviews and repair notes are kept in the [audit archive](docs/archive/audit/README.md). They describe specific revisions and should be read as historical evidence. Current behavior should be checked against source code and tests.
+Use the [development guide](docs/development/README.md) for setup and maintenance, and the [release verification guide](docs/testing/release-verification.md) for test commands. [CHANGELOG.md](CHANGELOG.md) records product changes.

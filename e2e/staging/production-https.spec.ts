@@ -79,7 +79,7 @@ test('server worker and web restart preserve data, HTTPS session and socket reco
   const project = process.env.KRAMA_STAGING_PROJECT || '';
   const envFile = process.env.KRAMA_STAGING_ENV_FILE || '';
   const root = resolve(__dirname, '../..');
-  if (!/^krama-verify-[a-f0-9]{8}$/.test(project) || !resolve(envFile).startsWith(resolve(root,'.audit/staging') + require('node:path').sep)) throw new Error('Refusing restart outside the generated verification stack.');
+  if (!/^krama-verify-[a-f0-9]{8}$/.test(project) || !resolve(envFile).startsWith(resolve(root,'test-results/staging-data') + require('node:path').sep)) throw new Error('Refusing restart outside the generated verification stack.');
   await new Promise<void>((done,reject) => execFile('docker',['compose','--env-file',envFile,'--project-name',project,'-f','compose.verification.yml','restart','server','worker','web'], { cwd: root, timeout: 60000, windowsHide: true }, error => error ? reject(new Error('Isolated service restart failed.')) : done()));
   await expect.poll(async () => {
     // A restart can reset the connection before ingress can return a status.

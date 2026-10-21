@@ -10,7 +10,7 @@ from pathlib import Path
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
-AUDIT = ROOT / '.audit/workflow-film'
+AUDIT = ROOT / 'test-results/workflow-film'
 DEST = ROOT / 'apps/web/public/landing/film'
 DURATIONS = [7, 7, 6]
 FPS = 24
@@ -46,7 +46,7 @@ def encode(ffmpeg, theme, device):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--theme', choices=['light', 'dark', 'both'], default='both')
-    parser.add_argument('--ffmpeg', type=Path, default=ROOT / '.audit/landing-film/tools/imageio_ffmpeg/binaries/ffmpeg-win-x86_64-v7.1.exe')
+    parser.add_argument('--ffmpeg', type=Path, default=Path('ffmpeg'))
     args = parser.parse_args()
     DEST.mkdir(parents=True, exist_ok=True)
     results = []

@@ -92,7 +92,7 @@ test('Refresh fits small and large screens in both themes', async ({ page, conte
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
       expect(bounds!.height).toBeGreaterThanOrEqual(44);
       if (testInfo.project.name === 'chromium' && width !== 768) {
-        await button.locator('xpath=ancestor::header').screenshot({ path: `.audit/dashboard-refresh-${width}-${theme}.png` });
+        await button.locator('xpath=ancestor::header').screenshot({ path: `test-results/artifacts/dashboard-refresh-${width}-${theme}.png` });
       }
     }
   }

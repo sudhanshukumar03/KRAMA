@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { bugFixture } from '../fixtures/current-bug-fixture';
 
 test.beforeEach(async ({ context }) => {
@@ -53,15 +53,14 @@ test('public page fits phone, tablet and desktop sizes in both themes with usabl
         await page.locator('#intro').scrollIntoViewIfNeeded();
         await expect(page.locator('#intro video')).toHaveAttribute('poster', /poster\.jpg$/);
         await page.locator('#intro video').evaluate(async (video: HTMLVideoElement) => { const poster = new Image(); poster.src = video.poster; await poster.decode(); });
-        await page.locator('.landing-knowledge').screenshot({ path: `.audit/landing/screenshots/knowledge-${width}-${theme}.png`, style: '.landing-header { visibility: hidden !important; }' });
-        await page.locator('.landing-project-story').screenshot({ path: `.audit/landing/screenshots/project-${width}-${theme}.png`, style: '.landing-header { visibility: hidden !important; }' });
+        await page.locator('.landing-knowledge').screenshot({ path: testInfo.outputPath(`knowledge-${width}-${theme}.png`), style: '.landing-header { visibility: hidden !important; }' });
+        await page.locator('.landing-project-story').screenshot({ path: testInfo.outputPath(`project-${width}-${theme}.png`), style: '.landing-header { visibility: hidden !important; }' });
       }
-      await page.screenshot({ path: `.audit/landing/screenshots/final-${width}-${theme}.png`, fullPage: true });
-      if (width === 1440 || width === 1920 || width === 390) { await page.evaluate(() => window.scrollTo(0, 0)); await page.screenshot({ path: `.audit/landing/screenshots/hero-${width}-${theme}.png` }); }
+      await page.screenshot({ path: testInfo.outputPath(`final-${width}-${theme}.png`), fullPage: true });
+      if (width === 1440 || width === 1920 || width === 390) { await page.evaluate(() => window.scrollTo(0, 0)); await page.screenshot({ path: testInfo.outputPath(`hero-${width}-${theme}.png`) }); }
     }
   }
-  mkdirSync('.audit/landing/measurements', { recursive: true });
-  writeFileSync(`.audit/landing/measurements/${testInfo.project.name}.json`, JSON.stringify({ measurements, runtime, failedResponses }, null, 2));
+  writeFileSync(testInfo.outputPath(`${testInfo.project.name}.json`), JSON.stringify({ measurements, runtime, failedResponses }, null, 2));
   expect(runtime).toEqual([]);
   expect(failedResponses).toEqual([]);
 });
@@ -237,8 +236,7 @@ test('landing text and primary actions meet contrast requirements in both themes
     report.push({ theme, measurements });
     for (const measurement of measurements) expect.soft(measurement.ratio, `${theme} ${measurement.selector}`).toBeGreaterThanOrEqual(measurement.minimum);
   }
-  mkdirSync('.audit/landing/measurements', { recursive: true });
-  writeFileSync(`.audit/landing/measurements/${testInfo.project.name}-contrast.json`, JSON.stringify(report, null, 2));
+  writeFileSync(testInfo.outputPath(`${testInfo.project.name}-contrast.json`), JSON.stringify(report, null, 2));
 });
 
 test('headline cycles without layout shifts and supports keyboard pause, resume and offscreen suspension', async ({ page }) => {
@@ -319,15 +317,14 @@ test('headline topics fit phones and both themes with reduced motion and a stabl
       backgrounds.add(palette.background); colors.push({ width, theme, word, ...palette });
       if (testInfo.project.name === 'chromium' && (width === 390 || width === 1440)) {
         await page.evaluate(() => { (document.activeElement as HTMLElement)?.blur(); scrollTo(0, 0); });
-        await page.screenshot({ path: `.audit/hero-topics/${width}-${theme}-${word}.png` });
-        await topic.screenshot({ path: `.audit/hero-topics/${width}-${theme}-${word}-pill.png` });
+        await page.screenshot({ path: testInfo.outputPath(`${width}-${theme}-${word}.png`) });
+        await topic.screenshot({ path: testInfo.outputPath(`${width}-${theme}-${word}-pill.png`) });
       }
     }
     expect(Math.max(...dimensions) - Math.min(...dimensions)).toBeLessThan(.1);
     expect(backgrounds.size).toBe(3);
   }
-  mkdirSync('.audit/hero-topics', { recursive: true });
-  writeFileSync(`.audit/hero-topics/colors-${testInfo.project.name}.json`, JSON.stringify(colors, null, 2));
+  writeFileSync(testInfo.outputPath(`colors-${testInfo.project.name}.json`), JSON.stringify(colors, null, 2));
 });
 
 test('headline pill reserves the same width while fallback fonts change', async ({ page }) => {
