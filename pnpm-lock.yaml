@@ -255,9 +255,6 @@ importers:
       '@krama/validation':
         specifier: workspace:*
         version: link:../validation
-      zod:
-        specifier: ^3.25.76
-        version: 3.25.76
     devDependencies:
       typescript:
         specifier: ^5.0.0

@@ -196,18 +196,6 @@ export function calculateHabitStreak(habit: StreakHabit, now: Date, timeZone: st
   return dailyCurrentStreak(dayKeys, scheduledDaysOf(habit), todayKey);
 }
 
-// Longest streak ever achieved over the full completion history.
-export function calculateBestStreak(habit: StreakHabit, now: Date, timeZone: string): number {
-  const dayKeys = completedDayKeys(habit);
-  if (dayKeys.size === 0) return 0;
-  const todayKey = getUserLocalDateStr(now, timeZone);
-
-  if (habit.cadence === 'weekly') {
-    return weeklyBestStreak(weekCompletionCounts(dayKeys), weeklyTargetOf(habit), todayKey);
-  }
-  return dailyBestStreak(dayKeys, scheduledDaysOf(habit), todayKey);
-}
-
 export function calculateHabitStats(
   habit: StreakHabit,
   now: Date,

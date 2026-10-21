@@ -7,8 +7,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@krama/validation": "workspace:*",
-    "zod": "^3.25.76"
+    "@krama/validation": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

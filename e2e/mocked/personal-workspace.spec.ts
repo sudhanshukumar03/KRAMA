@@ -77,6 +77,53 @@ async function mock(context: BrowserContext) {
   return { tasks, documents, getPlan: () => plan, failCapture: (fail: boolean) => { captureFailure = fail; }, getRestores: () => writes, changeUser: (id: string) => { activeUser = id; } };
 }
 
+test('Quick Capture keeps labelled fields and actions usable on narrow and short screens', async ({ page, context }, testInfo) => {
+  await mock(context);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/app/inbox');
+  for (const [width, height, theme] of [[320, 640, 'light'], [390, 844, 'dark'], [768, 900, 'light'], [1440, 900, 'dark'], [390, 360, 'light']] as const) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(theme => localStorage.setItem('krama-theme', theme), theme);
+    await page.reload();
+    const opener = page.getByRole('button', { name: 'Capture something', exact: true });
+    await opener.click();
+    const dialog = page.getByRole('dialog', { name: 'Quick capture', exact: true });
+    await expect(dialog.getByRole('heading', { name: 'Quick capture', exact: true })).toBeVisible();
+    for (const mode of ['Task', 'Note', 'Idea', 'Link']) {
+      await dialog.getByRole('button', { name: mode, exact: true }).click();
+      await expect(dialog.getByRole('button', { name: mode, exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await expect(dialog.locator('label[for]')).toHaveCount(2);
+      await dialog.getByLabel('Title', { exact: true }).fill(`${mode} draft`);
+      await dialog.getByLabel(mode === 'Link' ? 'Link URL' : 'Details', { exact: true }).fill(mode === 'Link' ? 'https://example.test/reading' : 'A useful next step.');
+      const geometry = await dialog.evaluate(node => {
+        const bounds = node.getBoundingClientRect();
+        return { left: bounds.left, right: bounds.right, top: bounds.top, bottom: bounds.bottom, overflow: node.scrollWidth > node.clientWidth,
+          controls: [...node.querySelectorAll('button,input,textarea')].map(el => { const box = el.getBoundingClientRect(); return { width: box.width, height: box.height }; }),
+          fieldSizes: [...node.querySelectorAll('input,textarea')].map(el => parseFloat(getComputedStyle(el).fontSize)),
+          modeRows: new Set([...node.querySelectorAll('.krama-capture-mode')].map(el => el.getBoundingClientRect().top)).size };
+      });
+      expect(geometry.left).toBeGreaterThanOrEqual(0); expect(geometry.right).toBeLessThanOrEqual(width);
+      expect(geometry.top).toBeGreaterThanOrEqual(0); expect(geometry.bottom).toBeLessThanOrEqual(height);
+      expect(geometry.overflow).toBe(false); expect(geometry.modeRows).toBe(1);
+      for (const target of geometry.controls) { expect(target.width).toBeGreaterThanOrEqual(44); expect(target.height).toBeGreaterThanOrEqual(44); }
+      for (const size of geometry.fieldSizes) expect(size).toBeGreaterThanOrEqual(16);
+      await expect(dialog.getByRole('button', { name: 'Save to Inbox', exact: true })).toBeInViewport();
+      await expect(dialog.getByRole('button', { name: 'Close modal', exact: true })).toBeInViewport();
+    }
+    if (height === 360) {
+      await dialog.getByLabel('Link URL').fill('not-a-valid-url');
+      await dialog.getByRole('button', { name: 'Save to Inbox', exact: true }).click();
+      await expect(dialog.getByRole('alert')).toBeFocused();
+      await expect(dialog.getByRole('alert')).toBeInViewport();
+      await expect(dialog.getByLabel('Link URL')).toHaveAttribute('aria-invalid', 'true');
+      await dialog.getByRole('button', { name: 'Discard draft', exact: true }).click();
+      await expect(dialog.getByRole('alert')).toHaveCount(0);
+    }
+    await dialog.screenshot({ path: testInfo.outputPath(`capture-${width}-${height}-${theme}.png`) });
+    await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0); await expect(opener).toBeFocused();
+  }
+});
+
 test('Quick Capture preserves separate drafts through closing, mode changes, reload and failed saves', async ({ page, context }) => {
   const state = await mock(context);
   await page.goto('/app/inbox');

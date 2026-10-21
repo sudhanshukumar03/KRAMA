@@ -74,6 +74,7 @@ export function Sidebar({
  });
  const { toggleTheme, resolvedTheme } = useTheme();
   const { user, logout, workspaceId } = useAuth();
+  const activeWorkspaceName = user?.memberships.find(member => member.workspaceId === workspaceId)?.workspace?.name || 'Personal workspace';
   const canExport = user?.memberships.some(member => member.workspaceId === workspaceId && member.role === 'OWNER');
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
@@ -214,22 +215,23 @@ export function Sidebar({
  const settingsControl = (
 <div className="krama-sidebar-account relative" ref={settingsRef}>
         <button
+          type="button"
           onClick={() => setSettingsOpen((prev) => !prev)}
           className={cn(
             "krama-sidebar-account-trigger w-full min-h-11 flex items-center gap-3 rounded-xl text-secondary hover:text-primary hover:bg-surface-hover transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent cursor-pointer border border-transparent text-left",
             settingsOpen && "text-primary bg-surface-hover border-border"
           )}
-          title="Settings & Preferences"
           aria-label="Settings"
+          aria-description={`${user?.name || 'Krama'}. ${activeWorkspaceName}`}
           aria-expanded={settingsOpen}
         >
           <span className="krama-sidebar-avatar" aria-hidden="true">{user?.name?.charAt(0).toUpperCase() || 'K'}</span>
-          <span className="krama-sidebar-identity"><strong>{user?.name || 'Krama'}</strong><span>{user?.memberships.find(member => member.workspaceId === workspaceId)?.workspace?.name || 'Personal workspace'}</span></span>
+          <span className="krama-sidebar-identity"><strong>{user?.name || 'Krama'}</strong><span>{activeWorkspaceName}</span></span>
           <Settings className="w-4 h-4 shrink-0" aria-hidden="true" />
         </button>
 
         {settingsOpen && (
-          <div className="krama-sidebar-settings absolute left-0 bottom-full mb-3 w-64 max-h-[calc(100dvh-120px)] overflow-y-auto bg-surface border border-border rounded-lg shadow-level-2 z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+          <div role="region" aria-label="Account settings" className="krama-sidebar-settings absolute left-0 bottom-full mb-3 w-64 max-h-[calc(100dvh-120px)] overflow-y-auto bg-surface border border-border rounded-lg shadow-level-2 z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
             {/* Profile Details */}
             <div className="p-2.5 rounded-md bg-surface-hover/70 border border-border/80 mb-1">
               <div className="flex items-center justify-between mb-2">
@@ -243,14 +245,18 @@ export function Sidebar({
                 <div className="w-8 h-8 rounded-full bg-accent-tint border border-accent/20 flex items-center justify-center text-accent font-mono font-semibold text-caption shrink-0">
                   {user?.name ? user.name.substring(0, 2).toUpperCase() : 'ME'}
                 </div>
-                <div className="min-w-0">
-                  <div className="text-caption font-semibold text-primary truncate leading-tight">
+                <div className="min-w-0 flex-1">
+                  <div className="text-caption font-semibold text-primary break-words leading-tight">
                     {user?.name || 'User'}
                   </div>
-                  <div className="text-badge text-muted font-mono truncate leading-tight mt-0.5">
+                  <div className="text-badge text-muted break-words leading-relaxed mt-0.5">
                     {user?.email || 'user@krama.os'}
                   </div>
                 </div>
+              </div>
+              <div className="mt-3 border-t border-border/70 pt-2.5 text-caption leading-relaxed">
+                <span className="block text-muted">Workspace</span>
+                <p className="mt-1 break-words text-primary">{activeWorkspaceName}</p>
               </div>
             </div>
 

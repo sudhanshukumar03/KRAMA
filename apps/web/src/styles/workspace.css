@@ -193,9 +193,6 @@
 
 .workspace-habit-main { padding: var(--workspace-gutter); }
 .workspace-habit-empty { padding: 48px 24px; }
-.workspace-habit-empty .workspace-habit-promises { display: none; }
-.workspace-habit-time-filters { gap: 8px; }
-.workspace-habit-time-filters button { font-size: 13px; }
 .workspace-habit-card { min-width: 0; }
 .workspace-habit-card-heading { display: grid; grid-template-columns: 36px minmax(0, 1fr) 44px; align-items: center; gap: 10px; }
 .workspace-habit-card-heading h3 { font-size: 15px; font-weight: 600; line-height: 22px; overflow-wrap: anywhere; }

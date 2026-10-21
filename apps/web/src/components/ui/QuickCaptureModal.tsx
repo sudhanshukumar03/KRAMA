@@ -1,5 +1,5 @@
 import { useModalA11y } from '../../hooks/useModalA11y';
-import { useState, useRef } from 'react';
+import { useEffect, useId, useState, useRef } from 'react';
 import { X, FileText, CheckSquare, Lightbulb, Link as LinkIcon } from 'lucide-react';
 import { BaseButton } from './BaseButton';
 import { formatLocalDate } from '../../lib/utils';
@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { captureDraftKey, readCaptureDrafts, writeCaptureDraft, type CaptureMode } from '../../lib/captureDraft';
+import './primitives.css';
 
 interface QuickCaptureModalProps {
   open: boolean;
@@ -24,6 +25,7 @@ export function QuickCaptureModal({ open, onClose, defaultMode = 'task', default
 }
 
 function CaptureDialog({ storageKey, onClose, defaultMode = 'task', defaultScheduledDate }: Omit<QuickCaptureModalProps, 'open'> & { storageKey: string }) {
+  const id = useId();
   const [mode, setMode] = useState(defaultMode);
   const [drafts, setDrafts] = useState(() => readCaptureDrafts(storageKey));
   const { title = '', content = '' } = drafts[mode] || {};
@@ -32,14 +34,20 @@ function CaptureDialog({ storageKey, onClose, defaultMode = 'task', defaultSched
   const [storageAvailable, setStorageAvailable] = useState(true);
   const queryClient = useQueryClient();
   const [error, setError] = useState('');
+  const errorRef = useRef<HTMLParagraphElement>(null);
   const dismiss = () => { if (!submitting.current) onClose(); };
   const dialogRef = useModalA11y(true, dismiss);
+  useEffect(() => {
+    // Keep validation and save failures visible when the form has to scroll.
+    if (error) errorRef.current?.focus();
+  }, [error]);
   const updateDraft = (change: { title?: string; content?: string }) => {
     const draft = { title, content, ...change };
     setDrafts(previous => ({ ...previous, [mode]: draft }));
     setStorageAvailable(writeCaptureDraft(storageKey, mode, draft));
   };
   const discardDraft = () => {
+    setError('');
     setDrafts(previous => ({ ...previous, [mode]: { title: '', content: '' } }));
     setStorageAvailable(writeCaptureDraft(storageKey, mode, null, { title, content }));
   };
@@ -109,66 +117,74 @@ function CaptureDialog({ storageKey, onClose, defaultMode = 'task', defaultSched
   ] as const;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4" onClick={dismiss}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Quick capture" aria-busy={isSubmitting} onClick={e => e.stopPropagation()} className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-2xl">
-
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-hover/50">
-          <div className="grid grid-cols-2 sm:flex gap-2">
+    <div className="krama-capture-backdrop" onClick={dismiss}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`${id}-heading`} aria-describedby={`${id}-description`} aria-busy={isSubmitting} data-mode={mode} onClick={e => e.stopPropagation()} className="krama-quick-capture">
+        <header className="krama-capture-header">
+          <div className="krama-capture-heading">
+            <h2 id={`${id}-heading`}>Quick capture</h2>
+            <button type="button" onClick={dismiss} disabled={isSubmitting} className="krama-capture-close" aria-label="Close modal"><X size={18} aria-hidden="true" /></button>
+          </div>
+          <div className="krama-capture-modes" role="group" aria-label="Capture type">
             {tabs.map(t => (
               <button
                 key={t.id}
                 type="button"
                 aria-pressed={mode === t.id} disabled={isSubmitting}
                 onClick={() => { setMode(t.id as CaptureMode); setError(''); }}
-                className={`flex items-center gap-1.5 min-h-11 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${mode === t.id ? 'bg-primary text-surface' : 'text-secondary hover:text-primary hover:bg-surface'}`}
+                className="krama-capture-mode"
               >
-                <t.icon className="w-4 h-4" />
+                <t.icon size={16} aria-hidden="true" />
                 {t.label}
               </button>
             ))}
           </div>
-          <button onClick={dismiss} disabled={isSubmitting} className="w-11 h-11 shrink-0 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-hover hover:text-primary cursor-pointer" aria-label="Close modal">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        </header>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <p className="text-sm text-secondary">{defaultScheduledDate && mode === 'task' ? 'This task will be scheduled in Planner.' : 'Saved items appear together in Inbox. Organize them when you are ready.'}</p>
-          <div>
+        <form id={`${id}-form`} onSubmit={handleSubmit} className="krama-capture-body">
+          <p id={`${id}-description`} className="krama-capture-description">{defaultScheduledDate && mode === 'task' ? 'This task will be scheduled in Planner.' : 'Save to Inbox, then organise it when you’re ready.'}</p>
+          <div className="krama-field">
+            <label htmlFor={`${id}-title`}>Title{mode === 'link' && <span className="krama-capture-optional">Optional</span>}</label>
             <input
-              id="quick-capture-title"
+              id={`${id}-title`}
               name="title"
               type="text"
               value={title}
               disabled={isSubmitting}
               maxLength={255}
               onChange={e => updateDraft({ title: e.target.value })}
-              placeholder={mode === 'link' ? "Page title (optional)" : `What's your ${mode}?`}
-              className="w-full text-lg font-medium bg-transparent border-none focus:outline-none focus:ring-0 placeholder:text-muted text-primary"
+              placeholder={mode === 'link' ? 'A name for this page' : mode === 'task' ? 'What do you want to do?' : `Give your ${mode} a title`}
+              className="krama-field-control"
               aria-label="Title"
+              aria-required={mode !== 'link'}
             />
           </div>
 
-          <div>
+          <div className="krama-field">
+            <label htmlFor={`${id}-content`}>{mode === 'link' ? 'Link URL' : 'Details'}{mode !== 'link' && <span className="krama-capture-optional">Optional</span>}</label>
             <textarea
+              id={`${id}-content`}
               aria-label={mode === 'link' ? 'Link URL' : 'Details'}
+              aria-required={mode === 'link'}
+              aria-invalid={(mode === 'link' && error === 'Enter a valid http or https link.') || undefined}
+              aria-describedby={error ? `${id}-error` : undefined}
               value={content}
               disabled={isSubmitting}
               onChange={e => updateDraft({ content: e.target.value })}
-              placeholder={mode === 'link' ? "https://..." : "Add more details..."}
-              className="w-full bg-transparent border-none focus:outline-none focus:ring-0 placeholder:text-muted text-secondary min-h-[100px] resize-none"
+              placeholder={mode === 'link' ? 'https://example.com' : 'Add context, a reminder or a next step…'}
+              rows={mode === 'link' ? 2 : 3}
+              className="krama-field-control"
             />
           </div>
 
-          {error && <p role="alert" className="text-sm text-danger-fg">{error}</p>}
-          <p className="text-xs text-secondary" role="status">{storageAvailable ? 'Drafts stay on this browser until saved or discarded.' : 'Browser storage is unavailable. Keep this dialog open to preserve your draft.'}</p>
-          <div className="flex flex-wrap justify-between gap-3 pt-4 border-t border-border">
-            <BaseButton type="button" variant="secondary" disabled={isSubmitting || (!title && !content)} onClick={discardDraft}>Discard draft</BaseButton>
-            <BaseButton type="submit" variant="primary" disabled={isSubmitting || (!title.trim() && mode !== 'link')}>
+          {error && <p ref={errorRef} id={`${id}-error`} role="alert" tabIndex={-1} className="krama-capture-error">{error}</p>}
+          <p className="krama-capture-draft-hint" role="status">{storageAvailable ? 'Drafts stay in this browser until you save or discard them.' : 'Browser storage is unavailable. Keep this dialog open to preserve your draft.'}</p>
+        </form>
+        <footer className="krama-capture-actions">
+            <BaseButton type="button" variant="ghost" disabled={isSubmitting || (!title && !content)} onClick={discardDraft}>Discard draft</BaseButton>
+            <BaseButton type="submit" form={`${id}-form`} variant="primary" isLoading={isSubmitting} disabled={!title.trim() && mode !== 'link'}>
               {isSubmitting ? 'Saving...' : (defaultScheduledDate && mode === 'task' ? 'Schedule Task' : 'Save to Inbox')}
             </BaseButton>
-          </div>
-        </form>
+        </footer>
       </div>
     </div>
   );

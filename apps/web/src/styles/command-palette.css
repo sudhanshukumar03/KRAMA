@@ -140,28 +140,6 @@
 .workspace-search-item > svg { flex-shrink: 0; }
 .workspace-search-item > span:last-child:not(:first-child) { flex-shrink: 0; margin-left: auto; }
 
-.workspace-search-action-icon {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
-}
-
-.workspace-search-description {
-  margin-top: 3px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 18px;
-}
-
-.workspace-search-enter { opacity: 0; }
-.workspace-search-item[aria-selected="true"] .workspace-search-enter { opacity: 1; }
-
 .workspace-search-footer {
   display: flex;
   align-items: center;

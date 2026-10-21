@@ -264,16 +264,14 @@
   }
 
   /* Krama Standard Dialog & Modal with Specular Rim Highlight */
-  .krama-dialog,
-  .krama-modal {
+  .krama-dialog {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-dialog);
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
   }
 
-  .dark .krama-dialog,
-  .dark .krama-modal {
+  .dark .krama-dialog {
     background-color: var(--surface-2);
     border-color: var(--border-strong);
     box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
@@ -383,9 +381,8 @@
     color: var(--text-primary);
   }
 
-  /* Categorical Icon Chips (.v4-icon-chip & .krama-icon-chip) */
-  .v4-icon-chip,
-  .krama-icon-chip {
+  /* Categorical icon chip used by the assistant. */
+  .v4-icon-chip {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -394,12 +391,7 @@
     height: 32px;
   }
 
-  .v4-icon-chip-blue, .krama-icon-chip-blue { background-color: var(--cat-tasks-bg); color: var(--cat-tasks); }
-  .v4-icon-chip-purple, .krama-icon-chip-purple { background-color: var(--cat-routines-bg); color: var(--cat-routines); }
-  .v4-icon-chip-green, .krama-icon-chip-green { background-color: var(--success-bg); color: var(--success-fg); }
-  .v4-icon-chip-orange, .krama-icon-chip-orange { background-color: var(--cat-projects-bg); color: var(--cat-projects); }
-  .v4-icon-chip-red, .krama-icon-chip-red { background-color: var(--danger-bg); color: var(--danger-fg); }
-  .v4-icon-chip-teal, .krama-icon-chip-teal { background-color: var(--cat-timeblocks-bg); color: var(--cat-timeblocks); }
+  .v4-icon-chip-blue { background-color: var(--cat-tasks-bg); color: var(--cat-tasks); }
 }
 
 @layer utilities {
@@ -438,13 +430,6 @@
     background: rgba(255, 255, 255, 0.14);
   }
 
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
 
   /* TipTap Task List & Interactive Checklists */
   ul[data-type="taskList"] {
@@ -534,7 +519,7 @@
 /* Reduced motion retains color/focus feedback and explicit loading indicators. */
 @media (prefers-reduced-motion: reduce) {
   :root { --ease-spring: linear; }
-  .animate-in, .animate-out, .animate-pulse { animation: none !important; }
+  .animate-in, .animate-pulse { animation: none !important; }
   .krama-btn, .krama-card, .v4-card, button, [role="button"] {
     transition-property: color, background-color, border-color, opacity !important;
   }

@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { BarChart2, CalendarDays, Timer } from 'lucide-react';
+import { BookOpen, CalendarDays, Inbox } from 'lucide-react';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 
 const topics = [
-  { word: 'focus', icon: Timer },
-  { word: 'planning', icon: CalendarDays },
-  { word: 'habits', icon: BarChart2 },
+  { word: 'tasks', icon: Inbox },
+  { word: 'notes', icon: BookOpen },
+  { word: 'plans', icon: CalendarDays },
 ];
 const HOLD_MS = 3200;
 
@@ -47,7 +47,7 @@ export function HeroTopic() {
         if (reducedMotion) { setAdvanced(false); setIndex(value => (value + 1) % topics.length); }
         else setPaused(value => !value);
       }}>
-      <span className="landing-topic-measure" aria-hidden="true"><CalendarDays />planning</span>
+      <span className="landing-topic-measure" aria-hidden="true"><Inbox />tasks</span>
       {advanced && <span key={`previous-${index}`} className="landing-topic-word landing-topic-leave" data-topic={previous.word} aria-hidden="true"><previous.icon />{previous.word}</span>}
       <span key={index} className={`landing-topic-word${advanced ? ' landing-topic-enter' : ''}`} data-topic={current.word} aria-hidden="true"><current.icon />{current.word}</span>
     </button>

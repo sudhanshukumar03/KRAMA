@@ -19,15 +19,6 @@ export const ChangePasswordSchema = z.object({
   newPassword: SignupSchema.shape.password,
 });
 
-export const AuthResponseSchema = z.object({
-  accessToken: z.string(),
-  user: z.object({
-    id: z.string(),
-    email: z.string(),
-    name: z.string().nullable(),
-  }),
-});
-
 export const PreferencesSchema = z.object({
   timerPreferences: z.object({
     focusDuration: z.number().int().min(1).max(1440).optional(),

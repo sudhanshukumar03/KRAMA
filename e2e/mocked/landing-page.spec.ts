@@ -16,7 +16,7 @@ test('public page fits phone, tablet and desktop sizes in both themes with usabl
   for (const width of [320, 390, 768, 1440, 1920]) for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Make room for focus, planning and habits.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your tasks, notes and plans in one workspace.' })).toBeVisible();
     if ((await page.locator('html').evaluate(node => node.classList.contains('dark'))) !== (theme === 'dark')) await page.getByRole('button', { name: `Switch to ${theme} mode` }).click();
     await page.evaluate(() => document.fonts.ready);
     await page.locator('.landing-preview-panel img').evaluate((image: HTMLImageElement) => image.decode());
@@ -33,7 +33,7 @@ test('public page fits phone, tablet and desktop sizes in both themes with usabl
       const preview = document.querySelector('.landing-preview-panel')!.getBoundingClientRect();
       const readingText = Array.from(document.querySelectorAll('.landing-hero-copy > p, .landing-workflow-list p, .landing-knowledge-copy > p, .landing-project-copy > p, .landing-faq-list details > p'));
       const headingScale = parseFloat(getComputedStyle(document.querySelector('h1')!).fontSize) / parseFloat(getComputedStyle(document.querySelector('.landing-workflow h2')!).fontSize);
-      return { viewportWidth: innerWidth, documentWidth: document.documentElement.scrollWidth, productTop: product.top + scrollY, previewRatio: preview.width / preview.height, desktopTypography: matchMedia('(min-width: 768px)').matches, headingScale, minimumReadingSize: Math.min(...readingText.map(node => parseFloat(getComputedStyle(node).fontSize))), minimumWidth: Math.min(...controls.map(node => node.width)), minimumHeight: Math.min(...controls.map(node => node.height)), offenders: controls.filter(node => node.width < 43.9 || node.height < 43.9) };
+      return { viewportWidth: innerWidth, documentWidth: document.documentElement.scrollWidth, productTop: product.top + scrollY, previewRatio: preview.width / preview.height, workflowHeight: document.querySelector('.landing-workflow')!.getBoundingClientRect().height, desktopTypography: matchMedia('(min-width: 768px)').matches, headingScale, minimumReadingSize: Math.min(...readingText.map(node => parseFloat(getComputedStyle(node).fontSize))), minimumWidth: Math.min(...controls.map(node => node.width)), minimumHeight: Math.min(...controls.map(node => node.height)), offenders: controls.filter(node => node.width < 43.9 || node.height < 43.9) };
     });
     measurements.push({ width, theme, ...metrics });
     expect.soft(metrics.documentWidth, `${width} ${theme} overflow`).toBeLessThanOrEqual(width);
@@ -45,7 +45,8 @@ test('public page fits phone, tablet and desktop sizes in both themes with usabl
     await expect.poll(() => page.locator('.landing-knowledge-preview img').evaluate((image: HTMLImageElement, expected) => image.complete && image.naturalWidth > 0 && image.currentSrc.endsWith(expected), `brain-detail-${width <= 600 ? 'mobile' : 'desktop'}-${theme}.png`)).toBe(true);
     await expect(page.getByRole('figure', { name: 'Example: a goal connected to a project and its tasks' })).toContainText('Portfolio refresh');
     if (width === 1440) expect.soft(metrics.productTop, 'product preview starts within the first screen').toBeLessThan(550);
-    if (width >= 768) expect.soft(metrics.previewRatio, 'desktop preview preserves the full product image').toBeCloseTo(1.6, 1);
+    if (width >= 768) expect.soft(metrics.previewRatio, 'desktop preview keeps a stable frame').toBeCloseTo(1.6, 1);
+    if (width === 390) expect.soft(metrics.workflowHeight, 'the mobile workflow fits in one screen').toBeLessThan(900);
     if (metrics.desktopTypography) expect.soft(metrics.headingScale, 'hero and section headings have distinct hierarchy').toBeGreaterThanOrEqual(1.6);
     await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /dark/ : /^(?!.*\bdark\b)/);
     if (testInfo.project.name === 'chromium') {
@@ -63,6 +64,72 @@ test('public page fits phone, tablet and desktop sizes in both themes with usabl
   writeFileSync(testInfo.outputPath(`${testInfo.project.name}.json`), JSON.stringify({ measurements, runtime, failedResponses }, null, 2));
   expect(runtime).toEqual([]);
   expect(failedResponses).toEqual([]);
+});
+
+test('full-size previews support readable images, fitting, keyboard focus and dismissal', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  for (const width of [320, 390, 768, 1440]) for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    if ((await page.locator('html').evaluate(node => node.classList.contains('dark'))) !== (theme === 'dark')) await page.getByRole('button', { name: `Switch to ${theme} mode` }).click();
+    const opener = page.getByRole('button', { name: 'Enlarge Today preview', exact: true });
+    await expect(opener).toBeEnabled();
+    const originalOverflow = await page.evaluate(() => document.body.style.overflow);
+    await opener.focus(); await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog', { name: 'Today preview', exact: true });
+    const canvas = dialog.getByRole('region', { name: 'Today preview image', exact: true });
+    const close = dialog.getByRole('button', { name: 'Close preview', exact: true });
+    await expect(dialog).toBeVisible(); await expect(close).toBeFocused();
+    await expect(canvas).toHaveAttribute('aria-busy', 'false');
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
+    const original = await canvas.locator('img').evaluate((img: HTMLImageElement) => ({ rendered: img.getBoundingClientRect().width, natural: img.naturalWidth }));
+    expect(original.rendered).toBeCloseTo(original.natural, 1);
+    await canvas.focus(); await page.keyboard.press('ArrowDown');
+    await expect.poll(() => canvas.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+    await dialog.getByRole('button', { name: 'Fit preview', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: 'Fit preview', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    const fitted = await canvas.evaluate(node => ({ horizontal: node.scrollWidth > node.clientWidth, vertical: node.scrollHeight > node.clientHeight }));
+    expect(fitted).toEqual({ horizontal: false, vertical: false });
+    await close.focus();
+    for (const target of [dialog.getByRole('button', { name: 'Fit preview', exact: true }), dialog.getByRole('button', { name: 'Actual size', exact: true }), canvas, close]) {
+      await page.keyboard.press('Tab'); await expect(target).toBeFocused();
+    }
+    await page.keyboard.press('Shift+Tab'); await expect(canvas).toBeFocused();
+    const targets = await dialog.locator('button').evaluateAll(nodes => nodes.map(node => ({ width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height })));
+    for (const target of targets) { expect(target.width).toBeGreaterThanOrEqual(44); expect(target.height).toBeGreaterThanOrEqual(44); }
+    await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0); await expect(opener).toBeFocused();
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe(originalOverflow);
+  }
+});
+
+test('note enlargement and failed preview recovery retain a usable close action', async ({ page, context }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const note = page.getByRole('button', { name: 'Enlarge note preview', exact: true });
+  await note.click();
+  const noteDialog = page.getByRole('dialog', { name: 'Brain note preview', exact: true });
+  await expect(noteDialog.locator('img')).toBeVisible();
+  await expect.poll(() => noteDialog.locator('img').evaluate((img: HTMLImageElement) => img.complete && img.currentSrc.includes('brain-detail-mobile'))).toBe(true);
+  await noteDialog.getByRole('button', { name: 'Close preview', exact: true }).click();
+  await expect(noteDialog).toHaveCount(0); await expect(note).toBeFocused();
+  const enlarge = page.getByRole('button', { name: 'Enlarge Today preview', exact: true });
+  await expect(enlarge).toBeEnabled();
+  await context.route('**/landing/dashboard-*.png?unavailable=1', route => route.abort());
+  await enlarge.click();
+  const dialog = page.getByRole('dialog', { name: 'Today preview', exact: true });
+  await expect(dialog.getByRole('region')).toHaveAttribute('aria-busy', 'false');
+  // A distinct request bypasses the already-loaded image cache and produces a
+  // real browser load failure inside the viewer, without breaking its opener.
+  await dialog.locator('source').evaluate((source: HTMLSourceElement) => { source.srcset += '?unavailable=1'; });
+  await expect(dialog.getByRole('alert')).toContainText('preview could not load');
+  await context.unroute('**/landing/dashboard-*.png?unavailable=1');
+  await dialog.getByRole('button', { name: 'Try again', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await expect(dialog.getByRole('region')).toHaveAttribute('aria-busy', 'false');
+  await expect(dialog.getByRole('region')).toBeFocused();
+  await page.mouse.click(2, 2);
+  await expect(dialog).toHaveCount(0); await expect(enlarge).toBeFocused();
 });
 
 test('keyboard preview selection, reduced motion, FAQ, and theme persistence work', async ({ page }) => {
@@ -99,7 +166,7 @@ test('keyboard preview selection, reduced motion, FAQ, and theme persistence wor
 test('mobile disclosure supports keyboard, Escape focus return, and section navigation', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 700 });
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Find the thought you need', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Turn a note into a next step', exact: true })).toBeVisible();
   const trigger = page.getByRole('button', { name: /^(Open|Close) navigation$/ });
   await trigger.focus(); await page.keyboard.press('Enter');
   await expect(trigger).toHaveAttribute('aria-expanded', 'true');
@@ -114,7 +181,7 @@ test('mobile disclosure supports keyboard, Escape focus return, and section navi
   await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeHidden();
   await expect(page.locator('#how-it-works')).toBeFocused();
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Make room for focus, planning and habits.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your tasks, notes and plans in one workspace.' })).toBeVisible();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
   await page.keyboard.press('Enter');
@@ -141,13 +208,13 @@ test('preview loading failure is recoverable and selection remains interruptible
   await expect(page.getByRole('tabpanel')).toHaveAccessibleName('Brain');
 });
 
-test('one persistent entry opens login and preserves account creation for visitors', async ({ page }) => {
+test('header and closing actions open login and preserve account creation for visitors', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  const entry = page.getByRole('link', { name: 'Open KRAMA', exact: true });
+  const entry = page.locator('.landing-header').getByRole('link', { name: 'Open KRAMA', exact: true });
   for (const width of [320, 360, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    await expect(page.locator('.krama-landing a[href^="/app"]')).toHaveCount(1);
+    await expect(page.locator('.krama-landing a[href^="/app"]')).toHaveCount(2);
     await expect(page.locator('.krama-landing a[href="/signup"], .krama-landing a[href="/login"]')).toHaveCount(0);
     await page.locator('#questions').scrollIntoViewIfNeeded();
     await expect(entry).toBeInViewport();
@@ -169,7 +236,7 @@ test('one persistent entry opens login and preserves account creation for visito
   await expect(page).toHaveURL(/#workspace$/);
   await expect(page.getByRole('region', { name: 'Explore KRAMA', exact: true })).toBeFocused();
   await expect(page.getByRole('tab', { name: 'Today', exact: true })).toBeInViewport();
-  await entry.focus(); await page.keyboard.press('Enter');
+  await page.getByRole('region', { name: 'What will you make time for?' }).getByRole('link', { name: 'Open KRAMA', exact: true }).focus(); await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
   await page.getByRole('link', { name: 'Sign up', exact: true }).click();
@@ -180,10 +247,10 @@ test('one persistent entry opens login and preserves account creation for visito
 test('signed-in visitors resume the workspace instead of being sent to signup', async ({ page, context }) => {
   await bugFixture(context);
   await page.goto('/');
-  await expect(page.getByRole('link', { name: 'Open KRAMA', exact: true })).toBeVisible();
-  await expect(page.locator('.krama-landing a[href^="/app"]')).toHaveCount(1);
+  await expect(page.locator('.landing-header').getByRole('link', { name: 'Open KRAMA', exact: true })).toBeVisible();
+  await expect(page.locator('.krama-landing a[href^="/app"]')).toHaveCount(2);
   await expect(page.getByRole('link', { name: 'Create your workspace', exact: true })).toHaveCount(0);
-  await page.getByRole('link', { name: 'Open KRAMA', exact: true }).focus();
+  await page.getByRole('region', { name: 'What will you make time for?' }).getByRole('link', { name: 'Open KRAMA', exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/app\/?$/);
   await expect(page.getByRole('heading', { name: /Good .*Reader/ })).toBeVisible();
@@ -200,6 +267,20 @@ test('system appearance changes update theme assets together with the page color
   await expect(page.locator('html')).not.toHaveClass(/dark/);
   await expect(page.locator('.landing-header .landing-brand-image')).toHaveAttribute('src', '/brand/krama-logo-light.svg');
   await expect(page.locator('.landing-preview-panel img')).toHaveAttribute('src', '/landing/dashboard-desktop-light.png');
+  await page.getByRole('tab', { name: 'Focus', exact: true }).click();
+  await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.locator('.landing-preview-panel img')).toHaveAttribute('src', '/landing/focus-desktop-dark.png');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('html')).toHaveClass(/dark/);
+  await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-busy', 'false');
+  await page.getByRole('button', { name: 'Enlarge Focus preview', exact: true }).click();
+  const focusPreview = page.getByRole('dialog', { name: 'Focus preview', exact: true });
+  await expect(focusPreview.locator('img')).toHaveAttribute('src', '/landing/focus-desktop-dark.png');
+  await expect(focusPreview.getByRole('region')).toHaveAttribute('aria-busy', 'false');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(page.locator('html')).not.toHaveClass(/dark/);
+  await expect(focusPreview.getByRole('region')).toHaveAttribute('aria-busy', 'false');
+  await focusPreview.getByRole('button', { name: 'Close preview', exact: true }).click();
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect(page.locator('html')).toHaveClass(/dark/);
   await expect(page.locator('.landing-header .landing-brand-image')).toHaveAttribute('src', '/brand/krama-logo-dark.svg');
@@ -218,7 +299,7 @@ test('landing text and primary actions meet contrast requirements in both themes
       const ctx = canvas.getContext('2d')!;
       const pixel = () => Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
       const luminance = (rgb: number[]) => rgb.map(value => { const s = value / 255; return s <= .04045 ? s / 12.92 : ((s + .055) / 1.055) ** 2.4; }).reduce((sum, value, i) => sum + value * [.2126, .7152, .0722][i], 0);
-      const selectors = ['h1', 'h2', 'h3', '.landing-hero-copy > p', '.landing-hero-link', '.landing-desktop-nav a', '.landing-button', '.landing-preview-tabs [aria-selected="true"]', '.landing-preview-tabs [aria-selected="false"]', '.landing-preview-caption strong', '.landing-preview-caption p', '.landing-step-app', '.landing-workflow-task', '.landing-workflow-meta', '.landing-workflow-clock', '.landing-plan-hours', '.landing-plan-block .landing-workflow-task', '.landing-plan-block .landing-workflow-meta', '.landing-workflow-list p', '.landing-knowledge-copy h3', '.landing-knowledge-copy > p', '.landing-knowledge-preview figcaption', '.landing-project-copy h3', '.landing-project-copy > p', '.landing-example-goal p', '.landing-example-project h4', '.landing-example-task-label', '.landing-example-next-task p', '.landing-example-note p', '.landing-example-project li', '.landing-example-project small', '.landing-example-project-footer', '.landing-faq-list summary', '.landing-faq-list details > p', '.landing-footer p'];
+      const selectors = ['h1', 'h2', 'h3', '.landing-hero-copy > p', '.landing-hero-link', '.landing-desktop-nav a', '.landing-button', '.landing-preview-tabs [aria-selected="true"]', '.landing-preview-tabs [aria-selected="false"]', '.landing-preview-caption strong', '.landing-preview-caption p', '.landing-preview-expand', '.landing-step-app', '.landing-workflow-task', '.landing-workflow-meta', '.landing-workflow-clock', '.landing-plan-hours', '.landing-plan-block .landing-workflow-task', '.landing-plan-block .landing-workflow-meta', '.landing-workflow-list p', '.landing-knowledge-copy h3', '.landing-knowledge-copy > p', '.landing-knowledge-preview figcaption', '.landing-project-copy h3', '.landing-project-copy > p', '.landing-example-goal p', '.landing-example-project h4', '.landing-example-task-label', '.landing-example-next-task p', '.landing-example-note p', '.landing-example-project li', '.landing-example-project small', '.landing-example-project-footer', '.landing-faq-list summary', '.landing-faq-list details > p', '.landing-closing p', '.landing-footer p'];
       return selectors.map(selector => {
         const node = document.querySelector<HTMLElement>(`.krama-landing ${selector}`)!;
         const ancestors: HTMLElement[] = []; let ancestor: HTMLElement | null = node;
@@ -247,7 +328,7 @@ test('headline cycles without layout shifts and supports keyboard pause, resume 
   await expect(topic).toHaveAttribute('data-running', 'true');
   const initial = await topic.boundingBox();
   const productTop = await page.locator('.landing-product').evaluate(node => node.getBoundingClientRect().top);
-  for (const word of ['planning', 'habits', 'focus']) {
+  for (const word of ['notes', 'plans', 'tasks']) {
     await page.clock.fastForward(3300);
     await expect(topic).toHaveAttribute('data-topic', word);
     const box = await topic.boundingBox();
@@ -258,11 +339,11 @@ test('headline cycles without layout shifts and supports keyboard pause, resume 
   await topic.focus(); await page.keyboard.press('Enter');
   await expect(topic).toHaveAccessibleName('Resume headline animation');
   await page.clock.fastForward(10000);
-  await expect(topic).toHaveAttribute('data-topic', 'focus');
+  await expect(topic).toHaveAttribute('data-topic', 'tasks');
   await page.keyboard.press('Space');
   await expect(topic).toHaveAccessibleName('Pause headline animation');
   await page.clock.fastForward(3300);
-  await expect(topic).toHaveAttribute('data-topic', 'planning');
+  await expect(topic).toHaveAttribute('data-topic', 'notes');
   await page.locator('#questions').scrollIntoViewIfNeeded();
   await expect(topic).toHaveAttribute('data-running', 'false');
   const offscreenWord = await topic.getAttribute('data-topic');
@@ -271,7 +352,7 @@ test('headline cycles without layout shifts and supports keyboard pause, resume 
   await page.evaluate(() => scrollTo(0, 0));
   await expect(topic).toHaveAttribute('data-running', 'true');
   await page.clock.fastForward(3300);
-  const resumedWord = ['focus', 'planning', 'habits'][(['focus', 'planning', 'habits'].indexOf(offscreenWord!) + 1) % 3];
+  const resumedWord = ['tasks', 'notes', 'plans'][(['tasks', 'notes', 'plans'].indexOf(offscreenWord!) + 1) % 3];
   await expect(topic).toHaveAttribute('data-topic', resumedWord);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(topic).toHaveAttribute('data-running', 'false');
@@ -291,9 +372,9 @@ test('headline topics fit phones and both themes with reduced motion and a stabl
     if ((await page.locator('html').evaluate(node => node.classList.contains('dark'))) !== (theme === 'dark')) await page.getByRole('button', { name: `Switch to ${theme} mode` }).click();
     const dimensions = [];
     const backgrounds = new Set<string>();
-    for (const word of ['focus', 'planning', 'habits']) {
+    for (const word of ['tasks', 'notes', 'plans']) {
       while ((await topic.getAttribute('data-topic')) !== word) await topic.click();
-      await expect(page.getByRole('heading', { name: 'Make room for focus, planning and habits.' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Your tasks, notes and plans in one workspace.' })).toBeVisible();
       expect(await topic.evaluate(node => node.getAnimations({ subtree: true }).length)).toBe(0);
       const box = (await topic.boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(width);
@@ -337,7 +418,7 @@ test('headline pill reserves the same width while fallback fonts change', async 
     const dimensions: number[] = [];
     for (const family of ['Arial, sans-serif', 'system-ui', 'Inter, sans-serif']) {
       await topic.evaluate((node, font) => { (node as HTMLElement).style.fontFamily = font; }, family);
-      for (const word of ['focus', 'planning', 'habits']) {
+      for (const word of ['tasks', 'notes', 'plans']) {
         while ((await topic.getAttribute('data-topic')) !== word) await topic.click();
         const box = (await topic.boundingBox())!;
         dimensions.push(box.width);

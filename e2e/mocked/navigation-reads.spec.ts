@@ -1,6 +1,34 @@
 import { test, expect } from '@playwright/test';
 import { designFixture } from '../../scripts/media/example-workspace';
 
+test('empty Inbox shortcuts fit the workspace and open the matching capture type', async ({ page, context }, testInfo) => {
+  await designFixture(context, true);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => localStorage.setItem('krama.sidebar.collapsed', 'false'));
+  await page.goto('/app/inbox');
+  for (const width of [320, 390, 768, 1440]) for (const theme of ['light', 'dark']) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(theme => localStorage.setItem('krama-theme', theme), theme);
+    await page.reload();
+    const shortcuts = page.getByRole('group', { name: 'Capture suggestions', exact: true });
+    await expect(shortcuts.getByRole('button')).toHaveCount(4);
+    for (const [label, mode] of [['A task', 'Task'], ['A note', 'Note'], ['An idea', 'Idea'], ['A link', 'Link']]) {
+      const shortcut = shortcuts.getByRole('button', { name: label, exact: true });
+      await shortcut.focus(); await page.keyboard.press('Enter');
+      const dialog = page.getByRole('dialog', { name: 'Quick capture', exact: true });
+      await expect(dialog.getByRole('button', { name: mode, exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0); await expect(shortcut).toBeFocused();
+    }
+    const bounds = await shortcuts.evaluate(node => {
+      const group = node.getBoundingClientRect();
+      return { width: group.width, overflow: node.scrollWidth > node.clientWidth, targets: [...node.querySelectorAll('button')].map(button => { const box = button.getBoundingClientRect(); return { width: box.width, height: box.height }; }) };
+    });
+    expect(bounds.overflow).toBe(false);
+    for (const target of bounds.targets) { expect(target.width).toBeGreaterThanOrEqual(44); expect(target.height).toBeGreaterThanOrEqual(44); expect(target.width).toBeCloseTo(bounds.targets[0].width, 1); }
+    await shortcuts.screenshot({ path: testInfo.outputPath(`shortcuts-${width}-${theme}.png`) });
+  }
+});
+
 test('navigation badges and command suggestions do not download unrelated collections', async ({ page, context }) => {
   await designFixture(context);
   const reads: string[] = [];
@@ -31,7 +59,7 @@ test('a successful capture refreshes navigation counts through the shared write 
   await page.getByRole('button', { name: 'Capture something', exact: true }).click();
   const capture = page.getByRole('dialog', { name: 'Quick capture', exact: true });
   await capture.getByRole('textbox', { name: 'Title', exact: true }).fill('A new captured task');
-  await capture.getByRole('button', { name: 'Save to Inbox', exact: true }).click();
+  await capture.getByRole('textbox', { name: 'Title', exact: true }).press('Enter');
   await expect(page.getByRole('link', { name: 'Tasks 4', exact: true })).toBeVisible();
   expect(summaryReads).toBeGreaterThan(before);
 });

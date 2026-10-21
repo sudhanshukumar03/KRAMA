@@ -83,6 +83,8 @@ test('capture richer real product previews from the same example project', async
     await context.addInitScript(value => { localStorage.setItem('krama-theme', value); localStorage.setItem('krama.sidebar.collapsed', 'false'); }, theme);
     const page = await context.newPage(); await page.clock.setFixedTime(new Date('2026-10-17T09:30:00Z'));
     for (const [name, path] of [['dashboard', '/app/'], ['planner', '/app/planner?date=2026-10-17'], ['brain', '/app/brain?doc=design-doc-0'], ['focus', '/focus']]) {
+      // Focus uses a single appearance in both workspace themes.
+      if (name === 'focus' && theme === 'light') continue;
       await page.goto(path); await settle(page);
       await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
       await page.screenshot({ path: `apps/web/public/landing/${name}-${device}-${theme}.png`, animations: 'disabled' });

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowDownToLine, ArrowUpRight, CalendarDays, FileText, Lightbulb, Link2, ListTodo, Plus } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpRight, CalendarDays, CheckSquare, FileText, Lightbulb, Link2, ListTodo, Plus } from 'lucide-react';
 import { api } from '../api/client';
 import { useDashboard } from '../hooks/useDashboard';
 import { taskMetadata } from '../lib/personalTasks';
@@ -15,6 +15,13 @@ import type { DocumentWithRelations, IssueWithRelations } from '../types/schema'
 import '../styles/inbox.css';
 
 type InboxItem = { kind: 'task'; item: IssueWithRelations } | { kind: 'note'; item: DocumentWithRelations };
+
+const captureSuggestions = [
+  { mode: 'task', label: 'A task', Icon: CheckSquare },
+  { mode: 'note', label: 'A note', Icon: FileText },
+  { mode: 'idea', label: 'An idea', Icon: Lightbulb },
+  { mode: 'link', label: 'A link', Icon: Link2 },
+] as const;
 
 function itemPresentation(entry: InboxItem) {
   if (entry.kind === 'task') return { label: 'Task', Icon: ListTodo, tone: 'task' };
@@ -140,9 +147,9 @@ export function Inbox() {
         </section>
         {isEmpty && <div className="inbox-suggestions">
           <p>Try capturing:</p>
-          <div>
-            {([{ mode: 'task', label: 'A task', Icon: FileText }, { mode: 'idea', label: 'An idea', Icon: Lightbulb }, { mode: 'task', label: 'A plan', Icon: CalendarDays }, { mode: 'note', label: 'A note', Icon: ListTodo }] as const).map(({ mode, label, Icon }) => (
-              <button key={label} title={label === 'A plan' ? 'Capture a task to plan later' : undefined} onClick={event => openCapture(event.currentTarget, mode)}><Icon size={18} aria-hidden="true" />{label}</button>
+          <div role="group" aria-label="Capture suggestions">
+            {captureSuggestions.map(({ mode, label, Icon }) => (
+              <button key={mode} type="button" aria-haspopup="dialog" onClick={event => openCapture(event.currentTarget, mode)}><Icon size={18} aria-hidden="true" /><span>{label}</span></button>
             ))}
           </div>
         </div>}
