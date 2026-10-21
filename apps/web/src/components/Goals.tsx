@@ -1,3 +1,4 @@
+import { WorkspaceSearchField } from './ui/WorkspaceSearchField';
 import { goalMetadata } from '../lib/goalUtils';
 import type { GoalCreateInput, GoalUpdateInput } from '../types/schema';
 import { useSearchParams } from 'react-router-dom';
@@ -5,8 +6,9 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import {
-  Target, Plus, Search, X, LayoutGrid, ListTree
+  Plus, LayoutGrid, ListTree
 } from 'lucide-react';
+import { GoalIcon } from './ui/GoalIcon';
 import { PageHeader } from './ui/PageHeader';
 import { EmptyState } from './ui/EmptyState';
 import { LoadingState } from './ui/LoadingState';
@@ -18,6 +20,7 @@ import { toast } from 'sonner';
 // Subcomponents & Constants
 import { GoalKpiStrip } from './goals/GoalKpiStrip';
 import { GoalCard } from './goals/GoalCard';
+import { goalMatchesSearch } from '../lib/goalUtils';
 import { GoalPillarBoard } from './goals/GoalPillarBoard';
 import { GoalDetailDrawer } from './goals/GoalDetailDrawer';
 import { GoalFormModal, type GoalFormModalProps } from './goals/GoalFormModal';
@@ -61,23 +64,19 @@ export function Goals() {
   const [defaultPillarForModal, setDefaultPillarForModal] = useState<string>('health');
   const [parentGoalForModal, setParentGoalForModal] = useState<{ id: string; title: string } | null>(null);
   const [editingGoal, setEditingGoal] = useState<GoalWithRelations | null>(null);
-  const [detailGoal, setDetailGoal] = useState<GoalWithRelations | null>(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedGoalId = searchParams.get('goal');
+  const detailGoal = goals.find(goal => goal.id === requestedGoalId) || null;
   useEffect(() => {
     if (!requestedGoalId || goalsLoading || goalsError) return;
-    const selected = goals.find((goal: GoalWithRelations) => goal.id === requestedGoalId);
-    if (selected) setDetailGoal(selected);
-    else {
-      setDetailGoal(null);
+    if (!goals.some(goal => goal.id === requestedGoalId)) {
       toast.error('This goal is no longer available in this workspace');
       setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('goal'); return next; }, { replace: true });
     }
   }, [requestedGoalId, goals, goalsLoading, goalsError, setSearchParams]);
 
   const openGoal = useCallback((goal: GoalWithRelations) => {
-    setDetailGoal(goal);
     setSearchParams(previous => { const next = new URLSearchParams(previous); next.set('goal', goal.id); return next; });
   }, [setSearchParams]);
 
@@ -205,7 +204,7 @@ export function Goals() {
       setFormModalOpen(false);
       setEditingGoal(null);
       if (updated.linkFailures) toast.error(`Goal saved, but ${updated.linkFailures} links failed. Reopen Edit to retry.`);
-      else toast.success('Aspiration updated successfully');
+      else toast.success('Goal updated');
     },
     onError: () => {
       toast.error('Failed to update goal');
@@ -299,11 +298,7 @@ export function Goals() {
 
       // Search Query
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesTitle = g.title.toLowerCase().includes(q);
-        const matchesWhy = (meta.whyStatement || meta.description || '').toLowerCase().includes(q);
-        const matchesChild = (g.childGoals || []).some((c) => c.title.toLowerCase().includes(q));
-        if (!matchesTitle && !matchesWhy && !matchesChild) return false;
+        if (!goalMatchesSearch(g, searchQuery)) return false;
       }
 
       return true;
@@ -327,24 +322,24 @@ export function Goals() {
     });
   }, [filteredGoals, sortBy]);
 
-  if (goalsLoading || projectsLoading || habitsLoading) {
+  if (goalsLoading) {
     return (
       <LoadingState
         variant="goals"
-        title="Loading Life Aspirations..."
-        description="Gathering personal life architecture, habit links, and pace metrics..."
+        title="Loading Goals..."
+        description="Loading your goals and their linked projects and habits..."
       />
     );
   }
 
-  if (goalsError || projectsError || habitsError) {
+  if (goalsError && goals.length === 0) {
     return (
       <div className="p-8">
         <ErrorState
           title="Failed to load Goals"
           message="Could not retrieve goals data from the server. Please verify your connection."
           onRetry={() => {
-            void Promise.all([retryGoals(), retryProjects(), retryHabits()]);
+            void retryGoals();
           }}
         />
       </div>
@@ -352,79 +347,39 @@ export function Goals() {
   }
 
   return (
-    <div className="p-6 md:p-8 flex flex-col h-full bg-canvas overflow-y-auto min-w-0 animate-in fade-in duration-150">
+    <div className="workspace-page workspace-goals p-6 md:p-8 flex flex-col h-full bg-canvas overflow-y-auto min-w-0 animate-in fade-in duration-150">
       <PageHeader
-        icon={Target}
-        title="Life Aspirations & Goals"
-        description="Personal vision, quarterly milestones, and daily momentum across your life pillars."
+        icon={GoalIcon}
+        title="Goals"
+        description="Choose a goal to work towards, then connect the projects and habits that help you get there."
         primaryAction={{
-          label: 'New Aspiration',
+          label: 'New Goal',
           icon: Plus,
           onClick: () => handleCreateGoal(),
         }}
         className="mb-6"
       />
 
+      {(goalsError || projectsError || habitsError) && <ErrorState title="Some goal connections are unavailable" message="Your goals remain usable. Retry to refresh missing projects or habits; existing links are retained." onRetry={() => { if (goalsError) void retryGoals(); if (projectsError) void retryProjects(); if (habitsError) void retryHabits(); }} />}
       {/* EXECUTIVE KPI SUMMARY STRIP */}
       <GoalKpiStrip goals={goals} onOpenGoal={openGoal} />
 
       {/* UNIFIED STRATEGIC COMMAND TOOLBAR */}
-      <div className="krama-card p-3.5 mb-6 space-y-3">
-        {/* Pillar Filter Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-          {LIFE_PILLARS.map((p) => {
-            const PillarIcon = p.icon;
-            const isSelected = selectedPillar === p.id;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setSelectedPillar(p.id)}
-                className={cn(
-                  'px-3.5 py-1.5 rounded-lg text-xs font-sans font-medium whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer group/pill active:scale-[0.98]',
-                  isSelected
-                    ? cn('border font-semibold shadow-xs', p.color)
-                    : 'bg-surface hover:bg-surface-hover text-secondary hover:text-primary border border-border/80'
-                )}
-              >
-                <PillarIcon
-                  className={cn(
-                    'w-3.5 h-3.5 shrink-0 stroke-[2]',
-                    isSelected ? '' : 'text-secondary group-hover/pill:text-primary'
-                  )}
-                />
-                <span>{p.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
+      <div className="workspace-toolbar space-y-3">
         {/* Second Row: Search + Cadence + Status Tabs + View Switcher */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-2 border-t border-border/60">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
           {/* Search Box */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-secondary absolute left-3 top-2.5" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search aspirations, key results, habits..."
-              className="w-full pl-9 pr-8 py-1.5 bg-background border border-border rounded-lg text-xs text-primary placeholder:text-secondary/60 focus:outline-none focus:border-accent font-sans"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2 text-secondary hover:text-primary cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+          <WorkspaceSearchField id="goals-search" value={searchQuery} onChange={setSearchQuery} label="Search goals" placeholder="Search goals..." />
 
           <div className="flex items-center gap-2 flex-wrap">
+            <select aria-label="Filter by life pillar" value={selectedPillar} onChange={event => setSelectedPillar(event.target.value)} className="px-2.5 py-1 text-xs border border-border rounded-lg bg-surface text-secondary focus:border-accent">
+              {LIFE_PILLARS.map(pillar => <option key={pillar.id} value={pillar.id}>{pillar.label}</option>)}
+            </select>
             {/* Horizon / Cadence Dropdown */}
             <select
+              id="goals-horizon-filter"
+              name="horizonFilter"
+              aria-label="Filter by time horizon"
               value={selectedHorizon}
               onChange={(e) => setSelectedHorizon(e.target.value)}
               className="px-2.5 py-1 text-xs border border-border rounded-lg bg-surface text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer font-mono"
@@ -437,6 +392,9 @@ export function Goals() {
 
             {/* Sort Dropdown */}
             <select
+              id="goals-sort-filter"
+              name="sortBy"
+              aria-label="Sort goals"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="px-2.5 py-1 text-xs border border-border rounded-lg bg-surface text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer font-mono"
@@ -448,9 +406,11 @@ export function Goals() {
             </select>
 
             {/* Status Tabs */}
-            <div className="flex items-center bg-surface-hover p-0.5 rounded-lg border border-border text-caption font-mono">
+            <div role="tablist" aria-label="Goal status filter" className="flex items-center bg-surface-hover p-0.5 rounded-lg border border-border text-caption font-mono">
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'all'}
                 onClick={() => setActiveTab('all')}
                 className={cn(
                   'px-2.5 py-1 rounded-md transition-all cursor-pointer text-xs',
@@ -463,6 +423,8 @@ export function Goals() {
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'active'}
                 onClick={() => setActiveTab('active')}
                 className={cn(
                   'px-2.5 py-1 rounded-md transition-all cursor-pointer text-xs',
@@ -475,6 +437,8 @@ export function Goals() {
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'completed'}
                 onClick={() => setActiveTab('completed')}
                 className={cn(
                   'px-2.5 py-1 rounded-md transition-all cursor-pointer text-xs',
@@ -488,6 +452,8 @@ export function Goals() {
               {pausedCount > 0 && (
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={activeTab === 'paused'}
                   onClick={() => setActiveTab('paused')}
                   className={cn(
                     'px-2.5 py-1 rounded-md transition-all cursor-pointer text-xs',
@@ -502,9 +468,11 @@ export function Goals() {
             </div>
 
             {/* View Mode Toggle: Tree vs Board */}
-            <div className="flex items-center bg-surface-hover p-0.5 rounded-lg border border-border">
+            <div role="group" aria-label="Goal view mode" className="flex items-center bg-surface-hover p-0.5 rounded-lg border border-border">
               <button
                 type="button"
+                aria-pressed={viewMode === 'tree'}
+                aria-label="Hierarchy Tree View"
                 onClick={() => setViewMode('tree')}
                 className={cn(
                   'p-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1 text-xs font-mono',
@@ -520,6 +488,8 @@ export function Goals() {
 
               <button
                 type="button"
+                aria-pressed={viewMode === 'board'}
+                aria-label="Life Pillar Matrix Board"
                 onClick={() => setViewMode('board')}
                 className={cn(
                   'p-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1 text-xs font-mono',
@@ -554,6 +524,7 @@ export function Goals() {
               <GoalCard
                 key={goal.id}
                 goal={goal}
+                searchQuery={searchQuery}
                 onAddChild={handleAddChild}
                 onEdit={handleEdit}
                 onOpenDetail={openGoal}
@@ -565,18 +536,18 @@ export function Goals() {
             {sortedGoals.length === 0 && (
               <div className="border border-border rounded-2xl bg-surface h-72 flex items-center justify-center shadow-sm p-6 text-center">
                 <EmptyState
-                  icon={Target}
+                  icon={GoalIcon}
                   description={
                     searchQuery
                       ? `No goals matching "${searchQuery}"`
                       : selectedPillar !== 'all'
                       ? `No goals found under ${getPillar(selectedPillar).label}.`
                       : activeTab === 'all'
-                      ? 'No life aspirations configured yet. Plant a seed for your future!'
+                      ? 'What would you like to work towards? Create your first goal to get started.'
                       : `No ${activeTab} goals found.`
                   }
                   actionLabel={
-                    activeTab === 'all' && !searchQuery ? 'Create New Aspiration' : undefined
+                    activeTab === 'all' && !searchQuery ? 'Create New Goal' : undefined
                   }
                   onAction={
                     activeTab === 'all' && !searchQuery ? () => handleCreateGoal() : undefined
@@ -603,14 +574,18 @@ export function Goals() {
         defaultPillar={defaultPillarForModal}
         projects={projects}
         allHabits={allHabits}
+        projectsAvailable={!projectsError && !projectsLoading}
+        habitsAvailable={!habitsError && !habitsLoading}
       />
 
       {/* Goal Detail Cockpit Drawer */}
       {detailGoal && (
         <GoalDetailDrawer
+          key={detailGoal.id}
           goal={detailGoal}
           projects={projects}
-          onClose={() => { setDetailGoal(null); setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('goal'); return next; }, { replace: true }); }}
+          projectsAvailable={!projectsError && !projectsLoading}
+          onClose={() => { setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete('goal'); return next; }, { replace: true }); }}
           onAddChild={handleAddChild}
           onSelectGoal={openGoal}
         />

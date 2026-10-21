@@ -27,7 +27,7 @@ test('Focus settings keep keyboard focus inside the dialog and persist bounded d
   const duration = dialog.getByRole('spinbutton', { name: 'Focus Duration', exact: true });
   await duration.fill('999');
   await expect(duration).toHaveValue('120');
-  await expect.poll(async () => (await account.call('GET', 'auth/me')).user.metadata.timerPreferences.focusDuration).toBe(120);
+  await expect.poll(async () => (await account.call('GET', 'auth/me')).user.metadata?.timerPreferences?.focusDuration).toBe(120);
   await duration.press('Escape');
   await expect(dialog).toBeHidden();
   await page.reload();
@@ -54,17 +54,17 @@ test('Workspace export downloads a readable backup of the signed-in workspace', 
 test('Project-linked task survives refresh', async ({ page, account }) => {
   await account.signIn(page);
   await page.goto('/app/projects');
-  await page.getByRole('button', { name: 'New Initiative', exact: true }).click();
-  await page.getByPlaceholder('e.g., Autonomous Decision Engine v2').fill('Persistence project');
-  await page.getByRole('button', { name: 'Launch Initiative', exact: true }).click();
+  await page.getByRole('button', { name: 'New Project', exact: true }).click();
+  await page.getByPlaceholder('e.g. Launch the Krama workspace').fill('Persistence project');
+  await page.getByRole('button', { name: 'Create Project', exact: true }).click();
   await expect(page.getByText('Persistence project', { exact: true }).first()).toBeVisible();
   const project = (await account.call('GET', 'projects')).find((item: any) => item.name === 'Persistence project');
   await page.goto('/app/board');
-  await page.getByRole('button', { name: 'New Directive', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Create New Directive' });
-  await dialog.getByLabel('Directive Title *', { exact: true }).fill('Persistence task');
+  await page.getByRole('button', { name: 'New Task', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create New Task' });
+  await dialog.getByLabel('Task Title *', { exact: true }).fill('Persistence task');
   await dialog.getByLabel('Project Scope', { exact: true }).selectOption(project.id);
-  await dialog.getByRole('button', { name: 'Create Directive', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Create Task', exact: true }).click();
   await expect(dialog).toBeHidden();
   const task = (await account.call('GET', 'tasks')).find((item: any) => item.title === 'Persistence task');
   expect(task.projectId).toBe(project.id);
@@ -76,7 +76,7 @@ test('Task completion persists in Done', async ({ page, account }) => {
   const task = await account.call('POST', 'tasks', { title: 'Completion task' }, 201);
   await account.signIn(page); await page.goto('/app/board');
   await page.getByText(task.title, { exact: true }).first().click();
-  const dialog = page.getByRole('dialog', { name: 'Directive Details' });
+  const dialog = page.getByRole('dialog', { name: 'Task Details' });
   await dialog.getByLabel('Column / Status').selectOption('DONE');
   await dialog.getByRole('button', { name: 'Save Changes', exact: true }).click();
   await expect(dialog).toBeHidden();
@@ -107,17 +107,17 @@ test('Two-tab edits reject stale saves and retain the draft', async ({ page, con
       await tab.goto('/app/board'); await connected;
       await tab.getByText(task.title, { exact: true }).first().click();
     }
-    const first = page.getByRole('dialog', { name: 'Directive Details' });
-    const second = other.getByRole('dialog', { name: 'Directive Details' });
-    await first.getByLabel('Directive Title *', { exact: true }).fill('Saved task');
-    await second.getByLabel('Directive Title *', { exact: true }).fill('Retained draft');
+    const first = page.getByRole('dialog', { name: 'Task Details' });
+    const second = other.getByRole('dialog', { name: 'Task Details' });
+    await first.getByLabel('Task Title *', { exact: true }).fill('Saved task');
+    await second.getByLabel('Task Title *', { exact: true }).fill('Retained draft');
     await first.getByRole('button', { name: 'Save Changes', exact: true }).click(); await expect(first).toBeHidden();
     await expect(second.getByText(/This task changed elsewhere/)).toBeVisible();
     const response = other.waitForResponse(r => r.request().method() === 'PATCH' && r.url().endsWith(`/tasks/${task.id}`));
     await second.getByRole('button', { name: 'Save Changes', exact: true }).click();
     expect((await response).status()).toBe(409);
     await expect(second.getByRole('alert')).toContainText('draft is retained');
-    await expect(second.getByLabel('Directive Title *', { exact: true })).toHaveValue('Retained draft');
+    await expect(second.getByLabel('Task Title *', { exact: true })).toHaveValue('Retained draft');
     expect((await account.call('GET', `tasks/${task.id}`)).title).toBe('Saved task');
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('button', { name: 'Sign Out', exact: true }).click();
@@ -137,6 +137,7 @@ test('Workspace isolation rejects foreign task access', async ({ page, account }
   await account.signIn(page);
   await page.evaluate(id => localStorage.setItem('krama_active_workspace', id), account.workspaceId);
   await page.goto('/app/board');
+  await expect(page.getByRole('heading', { name: 'Tasks', exact: true })).toBeVisible({ timeout: 15000 });
   await expect(page.getByText(owned.title, { exact: true }).first()).toBeVisible();
   await expect(page.getByText(foreign.title, { exact: true })).toHaveCount(0);
 });

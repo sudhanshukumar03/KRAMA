@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  Brain, BookOpen, Plus, Search, FileText, Network, Upload, 
+import {
+  Brain, BookOpen, Plus, Search, FileText, Network, Upload,
   ListTree, Star, Clock, FileSignature, FolderKanban, Trash2, RotateCcw, Settings2
 } from 'lucide-react';
 import type { DocumentWithRelations } from '../types/schema';
@@ -14,6 +14,7 @@ import { BaseButton } from './ui/BaseButton';
 import { PageHeader } from './ui/PageHeader';
 import { LoadingState } from './ui/LoadingState';
 import { ErrorState } from './ui/ErrorState';
+import { PaginatedItems } from './ui/PaginatedItems';
 import { toast } from 'sonner';
 import { resolveIcon } from '../lib/iconResolver';
 
@@ -27,19 +28,29 @@ import { ManageSpaceModal } from './brain/modals/ManageSpaceModal';
 
 export function BrainWorkspace() {
   const queryClient = useQueryClient();
-  const [selectedSpaceId, setSelectedSpaceId] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('krama_brain_selected_space') || 'ALL';
-    }
-    return 'ALL';
+  const { user, workspaceId } = useAuth();
+  const spacePreferenceKey = `krama:brain-space:v1:${user?.id}:${workspaceId}`;
+  const [preferredSpaceId, setPreferredSpaceId] = useState<string>(() => {
+    try { return localStorage.getItem(spacePreferenceKey) || 'ALL'; }
+    catch { return 'ALL'; }
   });
-
-  const handleSelectSpace = (val: string) => {
-    setSelectedSpaceId(val);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('krama_brain_selected_space', val);
+  const { data: spaces = [], isSuccess: spacesLoaded, isPending: spacesLoading } = useQuery({
+    queryKey: ['spaces'],
+    queryFn: api.spaces.list,
+  });
+  // A removed or foreign space must not hide this workspace's documents.
+  const selectedSpaceId = spacesLoaded && !spaces.some(space => space.id === preferredSpaceId)
+    ? 'ALL' : preferredSpaceId;
+  useEffect(() => {
+    if (spacesLoaded && selectedSpaceId !== preferredSpaceId) {
+      try { localStorage.setItem(spacePreferenceKey, selectedSpaceId); } catch { /* Storage is optional. */ }
     }
-  };
+  }, [spacesLoaded, selectedSpaceId, preferredSpaceId, spacePreferenceKey]);
+
+  const handleSelectSpace = useCallback((val: string) => {
+    setPreferredSpaceId(val);
+    try { localStorage.setItem(spacePreferenceKey, val); } catch { /* Storage is optional. */ }
+  }, [spacePreferenceKey]);
 
   const [spaceModalConfig, setSpaceModalConfig] = useState<{
     isOpen: boolean;
@@ -56,24 +67,20 @@ export function BrainWorkspace() {
   };
 
   const [sidebarTab, setSidebarTab] = useState<'tree' | 'favorites' | 'recent' | 'trash'>('tree');
-  const { data: pages = [], isLoading, isError } = useQuery({ 
-    queryKey: ['documents', selectedSpaceId], 
-    queryFn: () => api.documents.list(selectedSpaceId === 'ALL' ? undefined : selectedSpaceId) 
+  const { data: pages = [], isLoading, isError, isFetched: pagesLoaded } = useQuery({
+    queryKey: selectedSpaceId === 'ALL' ? ['documents'] : ['documents', selectedSpaceId],
+    queryFn: () => api.documents.list(selectedSpaceId === 'ALL' ? undefined : selectedSpaceId),
+    enabled: selectedSpaceId === 'ALL' || !spacesLoading,
   });
-  const { data: deletedPages = [] } = useQuery({
+  const { data: deletedPages = [], isLoading: trashLoading, isError: trashError, refetch: retryTrash } = useQuery({
     queryKey: ['documents', 'deleted', selectedSpaceId],
     queryFn: () => api.documents.listDeleted(selectedSpaceId === 'ALL' ? undefined : selectedSpaceId),
-    enabled: sidebarTab === 'trash',
-  });
-  const { data: spaces = [] } = useQuery({ 
-    queryKey: ['spaces'], 
-    queryFn: api.spaces.list 
+    enabled: sidebarTab === 'trash' && (selectedSpaceId === 'ALL' || !spacesLoading),
   });
   const { data: projects = [], isLoading: projectsLoading, isError: projectsError, refetch: retryProjects } = useQuery({
-    queryKey: ['projects'], 
-    queryFn: api.projects.list 
+    queryKey: ['projects'],
+    queryFn: api.projects.list
   });
-  const { workspaceId } = useAuth();
   const { data: workspaces = [] } = useQuery({
     queryKey: ['workspaces'],
     queryFn: api.workspaces.list
@@ -129,8 +136,8 @@ export function BrainWorkspace() {
     if (docParam) { setMobilePane('editor'); setViewMode('editor'); }
   }, [docParam]);
   useEffect(() => {
-    if (docParam && !isLoading && !pages.some(p => p.id === docParam) && selectedSpaceId !== 'ALL') handleSelectSpace('ALL');
-  }, [docParam, isLoading, pages, selectedSpaceId]);
+    if (docParam && pagesLoaded && !isLoading && !pages.some(p => p.id === docParam) && selectedSpaceId !== 'ALL') handleSelectSpace('ALL');
+  }, [docParam, pagesLoaded, isLoading, pages, selectedSpaceId, handleSelectSpace]);
 
   const handleImportSpecClick = () => {
     fileInputRef.current?.click();
@@ -147,7 +154,7 @@ export function BrainWorkspace() {
       try {
         const res = await api.documents.importSpec({
           content,
-          spaceId: selectedPage?.spaceId || spaces[0]?.id || undefined
+          spaceId: selectedSpaceId !== 'ALL' ? selectedSpaceId : selectedPage?.spaceId || spaces[0]?.id || undefined
         });
         queryClient.invalidateQueries({ queryKey: ['documents'] });
         if (res.document?.id) {
@@ -169,8 +176,7 @@ export function BrainWorkspace() {
     return [...pages].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 20);
   }, [pages]);
 
-  if (isLoading) return <LoadingState variant="brain" title="Loading Knowledge Base..." description="Compiling technical specs and document hierarchy..." />;
-  if (projectParam && projectsError) return <div className="p-8"><ErrorState title="Could not load project context" onRetry={() => { retryProjects(); }} /></div>;
+  if (isLoading || (spacesLoading && preferredSpaceId !== 'ALL')) return <LoadingState variant="brain" title="Loading Knowledge Base..." description="Loading your notes and document spaces..." />;
   if (isError) {
     return (
       <div className="p-8 font-sans">
@@ -182,11 +188,19 @@ export function BrainWorkspace() {
     );
   }
 
-  const rootPages = pages.filter(p => !p.parentId || !pages.some(parent => parent.id === p.parentId));
+  const pagesById = new Map(pages.map(page => [page.id, page]));
+  const rootPages = pages.filter(p => !p.parentId || !pagesById.has(p.parentId));
   const selectedPage = pages.find(p => p.id === selectedPageId);
+  let selectedRoot = selectedPage;
+  const seenParents = new Set<string>();
+  while (selectedRoot?.parentId && pagesById.has(selectedRoot.parentId) && !seenParents.has(selectedRoot.id)) {
+    seenParents.add(selectedRoot.id);
+    selectedRoot = pagesById.get(selectedRoot.parentId);
+  }
 
   return (
-    <div className="flex flex-col h-full w-full bg-canvas font-sans text-primary select-none overflow-hidden animate-in fade-in duration-150">
+    <div data-pane={mobilePane} className="workspace-brain flex flex-col h-full w-full bg-canvas font-sans text-primary select-none overflow-hidden animate-in fade-in duration-150">
+      {projectsError && <ErrorState title="Project links are unavailable" message="Your notes remain usable. Retry to load project choices." onRetry={() => { void retryProjects(); }} />}
       <input
         type="file"
         ref={fileInputRef}
@@ -200,7 +214,7 @@ export function BrainWorkspace() {
         icon={Brain}
         iconColorClass="bg-accent-subtle text-accent-fg border border-accent/20"
         title="Brain Workspace"
-        description="Engineering specs, RFCs, technical notes, and linked knowledge — your second brain."
+        description="Save a thought, work through an idea or find the note you need for your next task."
         className="mb-0 rounded-none border-x-0 border-t-0 border-b bg-surface shadow-none px-6 py-3.5"
       >
         {/* Actions & View Mode Toggle & Search trigger */}
@@ -213,24 +227,28 @@ export function BrainWorkspace() {
             className="text-caption py-1.5 px-3 flex items-center gap-1.5 font-mono font-bold"
           >
             <Upload className="w-3.5 h-3.5 text-accent-fg" />
-            <span className="hidden sm:inline">Import Spec</span>
+            <span className="hidden sm:inline">Import</span>
           </BaseButton>
 
           <button
-            aria-label="Search Specs..."
-            onClick={() => setIsSearchOpen(true)}
+            aria-label="Search documents"
+            onClick={event => { event.currentTarget.focus(); setIsSearchOpen(true); }}
+            aria-haspopup="dialog"
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border bg-surface hover:bg-surface-hover text-secondary hover:text-primary text-caption font-mono transition-all cursor-pointer"
           >
             <Search className="w-3.5 h-3.5 text-accent-fg" />
-            <span className="hidden sm:inline">Search Specs...</span>
+            <span className="hidden sm:inline">Search</span>
           </button>
 
-          <div className="flex items-center p-1 rounded-xl bg-surface-hover border border-border">
+          <div role="group" aria-label="Brain workspace view mode" className="flex items-center p-1 rounded-xl bg-surface-hover border border-border">
             <button
+              type="button"
+              aria-pressed={viewMode === 'editor'}
+              title="Editor View"
               onClick={() => setViewMode('editor')}
               className={cn("px-3 py-1 rounded-lg text-caption font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer",
-                viewMode === 'editor' 
-                  ? "bg-surface text-accent-fg shadow-2xs border border-border/80" 
+                viewMode === 'editor'
+                  ? "bg-surface text-accent-fg shadow-2xs border border-border/80"
                   : "text-secondary hover:text-primary"
               )}
             >
@@ -238,10 +256,13 @@ export function BrainWorkspace() {
               <span>Editor</span>
             </button>
             <button
+              type="button"
+              aria-pressed={viewMode === 'graph'}
+              title="Knowledge Graph View"
               onClick={() => setViewMode('graph')}
               className={cn("px-3 py-1 rounded-lg text-caption font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer",
-                viewMode === 'graph' 
-                  ? "bg-surface text-accent-fg shadow-2xs border border-border/80" 
+                viewMode === 'graph'
+                  ? "bg-surface text-accent-fg shadow-2xs border border-border/80"
                   : "text-secondary hover:text-primary"
               )}
             >
@@ -253,7 +274,7 @@ export function BrainWorkspace() {
       </PageHeader>
 
       {viewMode === 'editor' && (
-        <nav aria-label="Document view" className="flex gap-2 px-3 py-2 border-b border-border md:hidden">
+        <nav aria-label="Document view" className="workspace-brain-pane-nav flex gap-2 px-3 py-2 border-b border-border md:hidden">
           <button type="button" aria-pressed={mobilePane === 'list'} onClick={() => setMobilePane('list')} className="min-h-11 flex-1 rounded-lg border border-border text-caption text-primary aria-pressed:bg-accent-subtle aria-pressed:text-accent-fg aria-pressed:border-accent">Documents</button>
           <button type="button" aria-pressed={mobilePane === 'editor'} onClick={() => setMobilePane('editor')} className="min-h-11 flex-1 rounded-lg border border-border text-caption text-primary aria-pressed:bg-accent-subtle aria-pressed:text-accent-fg aria-pressed:border-accent">Editor</button>
         </nav>
@@ -268,14 +289,15 @@ export function BrainWorkspace() {
         ) : (
           <>
             {/* Sidebar Column */}
-            <div className={cn("w-full md:w-80 border-r border-border bg-surface-hover/30 flex-col h-full shrink-0 select-none", mobilePane === "list" ? "flex" : "hidden md:flex")}>
+            <div className={cn("workspace-brain-library w-full md:w-80 border-r border-border bg-surface-hover/30 flex-col h-full shrink-0 select-none", mobilePane === "list" ? "flex" : "hidden md:flex")}>
               <div className="px-3.5 py-2.5 border-b border-border flex flex-col gap-2 bg-surface">
                 <div className="flex justify-between items-center">
                   <span className="text-badge font-mono font-semibold text-secondary uppercase tracking-widest flex items-center gap-1.5">
                     <BookOpen className="w-3.5 h-3.5 text-accent-fg stroke-[1.75]" /> Documents
                   </span>
-                  <button 
-                    onClick={() => setCreateDocTarget({})}
+                  <button
+                    onClick={event => { event.currentTarget.focus(); setCreateDocTarget({}); }}
+                    aria-haspopup="dialog"
                     className="text-secondary hover:text-accent-fg hover:bg-accent-subtle border border-transparent hover:border-accent/20 transition-all rounded-lg p-1 cursor-pointer"
                     title="Add Document"
                   >
@@ -288,6 +310,8 @@ export function BrainWorkspace() {
                       className: "w-3 h-3 text-secondary shrink-0"
                     })}
                     <select
+                      id="brain-space-select"
+                      name="brainSpaceSelect"
                       aria-label="Document space"
                       value={selectedSpaceId}
                       onChange={(e) => {
@@ -329,8 +353,11 @@ export function BrainWorkspace() {
               </div>
 
               {/* Tab Switcher: Tree | Favorites | Recent | Trash */}
-              <div className="flex items-center px-2 py-1.5 border-b border-border/70 bg-surface/50 gap-1 text-caption font-mono">
+              <div role="tablist" aria-label="Document view filter" className="flex items-center px-2 py-1.5 border-b border-border/70 bg-surface/50 gap-1 text-caption font-mono">
                 <button
+                  type="button"
+                  role="tab"
+                  aria-selected={sidebarTab === 'tree'}
                   onClick={() => setSidebarTab('tree')}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-md font-bold transition-all cursor-pointer",
@@ -339,12 +366,16 @@ export function BrainWorkspace() {
                       : "text-secondary hover:text-primary hover:bg-surface-hover/50"
                   )}
                   title="Hierarchical Document Tree"
+                  aria-label="Hierarchical Document Tree"
                 >
                   <ListTree className="w-3.5 h-3.5" />
                   <span>Tree</span>
                 </button>
 
                 <button
+                  type="button"
+                  role="tab"
+                  aria-selected={sidebarTab === 'favorites'}
                   onClick={() => setSidebarTab('favorites')}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-md font-bold transition-all cursor-pointer",
@@ -353,6 +384,7 @@ export function BrainWorkspace() {
                       : "text-secondary hover:text-primary hover:bg-surface-hover/50"
                   )}
                   title="Starred Favorites"
+                  aria-label="Starred Favorites"
                 >
                   <Star className="w-3.5 h-3.5 text-warning-fg" />
                   <span>Favs</span>
@@ -364,6 +396,9 @@ export function BrainWorkspace() {
                 </button>
 
                 <button
+                  type="button"
+                  role="tab"
+                  aria-selected={sidebarTab === 'recent'}
                   onClick={() => setSidebarTab('recent')}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-md font-bold transition-all cursor-pointer",
@@ -372,12 +407,16 @@ export function BrainWorkspace() {
                       : "text-secondary hover:text-primary hover:bg-surface-hover/50"
                   )}
                   title="Recently Modified Documents"
+                  aria-label="Recently Modified Documents"
                 >
                   <Clock className="w-3.5 h-3.5" />
                   <span>Recent</span>
                 </button>
 
                 <button
+                  type="button"
+                  role="tab"
+                  aria-selected={sidebarTab === 'trash'}
                   onClick={() => setSidebarTab('trash')}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-md font-bold transition-all cursor-pointer",
@@ -386,6 +425,7 @@ export function BrainWorkspace() {
                       : "text-secondary hover:text-danger-fg hover:bg-surface-hover/50"
                   )}
                   title="Soft-Deleted Documents (Trash)"
+                  aria-label="Soft-Deleted Documents (Trash)"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Trash</span>
@@ -399,17 +439,19 @@ export function BrainWorkspace() {
 
               <div className="flex-1 overflow-y-auto p-2.5 space-y-0.5">
                 {sidebarTab === 'tree' && (
-                  rootPages.map(page => (
-                    <PageTreeNode 
-                      key={page.id} 
-                      page={page} 
-                      pages={pages} 
-                      onSelect={handleSelectDoc} 
-                      selectedId={selectedPage?.id || null} 
+                  <PaginatedItems key={selectedSpaceId} items={rootPages} label="documents" activeId={selectedRoot?.id} className="space-y-0.5">
+                  {visible => visible.map(page => (
+                    <PageTreeNode
+                      key={page.id}
+                      page={page}
+                      pages={pages}
+                      onSelect={handleSelectDoc}
+                      selectedId={selectedPage?.id || null}
                       onMoveDoc={setMoveDocTarget}
                       onCreateDoc={setCreateDocTarget}
                     />
-                  ))
+                  ))}
+                  </PaginatedItems>
                 )}
 
                 {sidebarTab === 'favorites' && (
@@ -420,7 +462,7 @@ export function BrainWorkspace() {
                       <p className="text-muted mt-1 text-badge">Click the star in any document to bookmark it here.</p>
                     </div>
                   ) : (
-                    favoritePages.map(p => {
+                    <PaginatedItems items={favoritePages} label="favorite documents" activeId={selectedPage?.id}>{visible => visible.map(p => {
                       const IconComp = resolveIcon(p.icon);
                       const isSelected = p.id === selectedPage?.id;
                       return (
@@ -454,7 +496,7 @@ export function BrainWorkspace() {
                           </div>
                         </button>
                       );
-                    })
+                    })}</PaginatedItems>
                   )
                 )}
 
@@ -493,8 +535,11 @@ export function BrainWorkspace() {
                   )
                 )}
 
-                {sidebarTab === 'trash' && (
-                  deletedPages.length === 0 ? (
+                {sidebarTab === 'trash' && <>
+                  {trashError && <ErrorState title="Could not load Trash" message="Deleted documents are unavailable. Try again to see items you can restore." onRetry={() => { void retryTrash(); }} />}
+                  {trashLoading ? (
+                    <p className="py-8 text-center text-caption text-secondary" role="status">Loading Trash...</p>
+                  ) : !trashError && deletedPages.length === 0 ? (
                     <div className="py-8 text-center text-secondary font-mono text-caption px-3">
                       <Trash2 className="w-6 h-6 text-muted mx-auto mb-2 opacity-40" />
                       <p>Trash is empty.</p>
@@ -528,8 +573,15 @@ export function BrainWorkspace() {
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   try {
-                                    await api.documents.restore(p.id);
-                                    queryClient.invalidateQueries({ queryKey: ['documents'] });
+                                    const restored = await api.documents.restore(p.id);
+                                    queryClient.removeQueries({ queryKey: ['document'], type: 'inactive' });
+                                    queryClient.setQueryData(['document', p.id], restored);
+                                    await Promise.all([
+                                      queryClient.invalidateQueries({ queryKey: ['documents'] }),
+                                      queryClient.invalidateQueries({ queryKey: ['spaces'] }),
+                                      queryClient.invalidateQueries({ queryKey: ['graph'] }),
+                                    ]);
+                                    handleSelectSpace(restored.spaceId);
                                     toast.success(`Restored "${p.title}"`);
                                     handleSelectDoc(p.id);
                                     setSidebarTab('tree');
@@ -570,28 +622,29 @@ export function BrainWorkspace() {
                         );
                       })}
                     </div>
-                  )
-                )}
+                  )}
+                </>}
               </div>
             </div>
 
             {/* Editor Area Column */}
-            <div className={cn("flex-1 min-w-0 h-full bg-surface relative overflow-hidden flex-col", mobilePane === "editor" ? "flex" : "hidden md:flex")}>
+            <div className={cn("workspace-brain-editor flex-1 min-w-0 h-full bg-surface relative overflow-hidden flex-col", mobilePane === "editor" ? "flex" : "hidden md:flex")}>
               {selectedPage ? (
-                <Editor 
-                  key={selectedPage.id} 
-                  page={selectedPage} 
-                  pages={pages} 
+                <Editor
+                  key={selectedPage.id}
+                  page={selectedPage}
+                  pages={pages}
                   projects={projects}
+                  projectsAvailable={!projectsError && !projectsLoading}
                   onSelectDoc={handleSelectDoc}
                   onMoveDoc={setMoveDocTarget}
                 />
               ) : (
                 <div className="h-full flex items-center justify-center p-8">
-                  <EmptyState 
+                  <EmptyState
                     icon={FileSignature}
                     title={docParam ? "Document unavailable" : "No Specification Selected"}
-                    description={docParam ? "This document may have been moved to Trash or is unavailable in this workspace. Choose another document or create one." : "Select a document from the page tree on the left or create a new specification to start writing."}
+                    description={docParam ? "This document may have been moved to Trash or is unavailable in this workspace. Choose another document or create one." : "Choose a note from Documents, or create one to start writing."}
                     actionLabel="Create New Spec"
                     onAction={() => setCreateDocTarget({})}
                   />
@@ -617,7 +670,14 @@ export function BrainWorkspace() {
         pages={pages}
         isOpen={!!moveDocTarget}
         onClose={() => setMoveDocTarget(null)}
-        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['documents'] })}
+        onSuccess={async moved => {
+          queryClient.setQueryData(['document', moved.id], previous => ({ ...(previous || {}), ...moved }));
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['documents'] }),
+            queryClient.invalidateQueries({ queryKey: ['document'] }),
+          ]);
+          await handleSelectDoc(moved.id);
+        }}
       />
 
       {/* Create Document Dialog */}

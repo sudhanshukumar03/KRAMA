@@ -110,7 +110,9 @@ export function ManageSpaceModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-muted hover:text-primary rounded-lg hover:bg-surface-hover transition-colors"
+            aria-label="Close dialog"
+            title="Close dialog"
+            className="p-1 text-muted hover:text-primary rounded-lg hover:bg-surface-hover transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -119,7 +121,7 @@ export function ManageSpaceModal({
         {/* Content */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4 font-sans text-caption">
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5">
+            <label htmlFor="space-name-input" className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5">
               Space Icon & Name
             </label>
             <div className="flex items-center gap-2">
@@ -136,6 +138,7 @@ export function ManageSpaceModal({
                       e.stopPropagation();
                       setIcon(null);
                     }}
+                    aria-label="Remove custom icon"
                     className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-surface border border-border text-muted hover:text-danger-fg hover:border-danger/40 flex items-center justify-center text-badge shadow-2xs transition-colors cursor-pointer"
                     title="Remove custom icon"
                   >
@@ -144,6 +147,9 @@ export function ManageSpaceModal({
                 )}
               </div>
               <input
+                id="space-name-input"
+                name="spaceName"
+                aria-label="Space name"
                 autoFocus
                 type="text"
                 value={name}

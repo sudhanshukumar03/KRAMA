@@ -1,14 +1,30 @@
-name: KRAMA OS CI/CD
+name: KRAMA release checks
 
 on:
   push:
     branches: [ "main" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main" ]
+
+  workflow_dispatch:
+    inputs:
+      real_ai:
+        description: Run synthetic checks using configured real AI providers
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: krama-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     services:
       postgres:
         image: pgvector/pgvector:pg15
@@ -53,11 +69,14 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 22
+        node-version: 24
         cache: 'pnpm'
 
     - name: Install Dependencies
       run: pnpm install --frozen-lockfile
+
+    - name: Check high and critical dependency advisories
+      run: pnpm audit:dependencies
 
     - name: Lint Workspace
       run: pnpm -r run lint
@@ -65,12 +84,14 @@ jobs:
     - name: Generate Prisma Client
       run: pnpm --filter server exec prisma generate
 
-    # CI uses a disposable database recreated from the current Prisma schema.
-    - name: Prepare Test Database
-      run: pnpm --filter server exec prisma db push
+    - name: Verify committed migrations on disposable CI storage
+      run: pnpm --filter server db:deploy
 
     - name: Build Monorepo Packages
       run: pnpm -r build
+
+    - name: Enforce code boundary and production asset budgets
+      run: pnpm quality:check
 
     - name: Check Test and Config Types
       run: pnpm exec tsc --noEmit -p tsconfig.json
@@ -78,42 +99,162 @@ jobs:
     - name: Run Validation Unit Tests
       run: pnpm --filter @krama/validation test
 
+    - name: Test release activation safeguards
+      run: pnpm test:release-policy
+
     - name: Run Backend Integration & Unit Tests
       run: |
         pnpm --filter server test
         pnpm --filter server test:integration
         pnpm --filter server test:startup
 
-    - name: Install Chromium
-      run: pnpm exec playwright install --with-deps chromium
+    - name: Install browser engines
+      run: pnpm exec playwright install --with-deps chromium firefox webkit
 
     - name: Run Frontend Module and Mocked Browser Tests
       run: pnpm test:ui
+
+    - name: Verify production landing in Chromium, Firefox and WebKit
+      run: pnpm test:landing
+
+    - name: Run full live workspace regressions
+      run: pnpm test:live
+
+    - name: Verify controlled production-client and API budgets
+      run: pnpm quality:baseline
+
+    - name: Qualify mature personal workspace performance
+      run: pnpm quality:scale
 
     - name: Upload Browser Failure Artifacts
       if: failure()
       uses: actions/upload-artifact@v4
       with:
         name: browser-test-results
-        path: test-results/
+        path: |
+          test-results/
         retention-days: 7
         if-no-files-found: ignore
 
-  production-images:
+  production-staging:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    # Compose requires these settings even when only building images. These
-    # disposable values are never used to start services or access user data.
-    env:
-      POSTGRES_PASSWORD: ci-build-only-postgres-password
-      REDIS_PASSWORD: ci-build-only-redis-password
-      JWT_SECRET: ci-build-only-signing-secret-at-least-forty-eight-characters-long
+    timeout-minutes: 35
     steps:
-    - name: Checkout Code
+    - name: Checkout code
       uses: actions/checkout@v4
+    - name: Install pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 9.15.0
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+    - name: Install dependencies and browser
+      run: |
+        pnpm install --frozen-lockfile
+        pnpm exec playwright install --with-deps chromium
+    - name: Build and verify isolated HTTPS production images
+      run: pnpm test:staging
+    - name: Upload staging verification evidence
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: staging-verification
+        path: |
+          test-results/staging.json
+          test-results/staging/
+          test-results/services/staging/
+        retention-days: 7
+        if-no-files-found: ignore
 
-    - name: Validate Production Compose
-      run: docker compose -f docker-compose.prod.yml config --quiet
+  real-ai:
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [groq, gemini]
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.real_ai)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ai-verification
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: krama
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d krama"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/krama?schema=public
+      REDIS_URL: redis://localhost:6379
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/krama_ai_test?schema=public
+      TEST_REDIS_URL: redis://localhost:6379/15
+      JWT_SECRET: ci-only-ai-test-signing-secret-at-least-forty-eight-characters-long
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_TEXT_MODEL: ${{ vars.GEMINI_TEXT_MODEL }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Install pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 9.15.0
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+    - name: Generate and build shared contracts
+      run: |
+        pnpm --filter server exec prisma generate
+        pnpm --filter @krama/types... run build
+        pnpm exec playwright install --with-deps chromium
+    - name: Verify provider credentials and configured model directly
+      run: pnpm --filter server exec tsx ../../scripts/verification/verify-providers.ts ${{ matrix.provider }}
+    - name: Verify real synthetic AI workflows
+      run: pnpm --filter server exec tsx ../../scripts/verification/run-live.ts ai ${{ matrix.provider }}
+    - name: Upload AI verification evidence
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: real-ai-verification-${{ matrix.provider }}
+        path: |
+          test-results/live-ai.json
+          test-results/live-ai/
+          test-results/services/ai/
+        retention-days: 7
+        if-no-files-found: ignore
 
-    - name: Build Production Images
-      run: docker compose --progress=plain -f docker-compose.prod.yml build migrate server web
+  release-ready:
+    if: always()
+    needs: [build-and-test, production-staging, real-ai]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Require all applicable release checks
+      env:
+        CORE_RESULT: ${{ needs.build-and-test.result }}
+        STAGING_RESULT: ${{ needs.production-staging.result }}
+        AI_RESULT: ${{ needs.real-ai.result }}
+        AI_REQUIRED: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.real_ai) }}
+      run: |
+        test "$CORE_RESULT" = success
+        test "$STAGING_RESULT" = success
+        if [ "$AI_REQUIRED" = true ]; then
+          test "$AI_RESULT" = success
+        else
+          test "$AI_RESULT" = success || test "$AI_RESULT" = skipped
+        fi

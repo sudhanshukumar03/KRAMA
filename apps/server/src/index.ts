@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import crypto from 'node:crypto';
+import { handleControllerError } from './utils/errors';
 
 import { z } from 'zod';
 
@@ -85,6 +85,7 @@ app.use(cors(corsOptions));
 app.options(/(.*)/, cors(corsOptions));
 
 // Parsers
+app.use('/api/v1/workspaces/restore', express.json({ limit: '25mb' }));
 app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
 
@@ -144,17 +145,9 @@ app.use('/api/v1', (_req, res) => {
 });
 
 // Global Error Handler
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  const requestId = crypto.randomUUID();
-  console.error(`[Global Error Handler] ${requestId}`, err);
-  const requestedStatus = Number(err.status || err.statusCode || 500);
-  const status = requestedStatus >= 400 && requestedStatus < 600 ? requestedStatus : 500;
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  res.status(status).json({
-    message: status >= 500 && !isDevelopment ? 'Internal server error' : (err.message || 'Internal server error'),
-    ...(isDevelopment ? { errors: err.errors, stack: err.stack } : {}),
-    requestId,
-  });
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (res.headersSent) return _next(err);
+  return handleControllerError(res, err);
 });
 
 const PORT = process.env.PORT || 3000;

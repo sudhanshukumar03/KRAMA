@@ -119,7 +119,7 @@ export function IssueEditModal({
             <div className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center font-bold font-mono text-xs">
               KR
             </div>
-            <h3 id={`${dialogId}-title`} className="text-card text-primary font-bold">Directive Details</h3>
+            <h3 id={`${dialogId}-title`} className="text-card text-primary font-bold">Task Details</h3>
           </div>
           <button
             onClick={dismiss}
@@ -135,7 +135,7 @@ export function IssueEditModal({
           {error && <p role="alert" className="text-sm text-danger-fg">{error} Your draft is retained.</p>}
           <div>
             <label htmlFor={`${dialogId}-field-1`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
-              Directive Title *
+              Task Title *
             </label>
             <input id={`${dialogId}-field-1`}
               type="text"

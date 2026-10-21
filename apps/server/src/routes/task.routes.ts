@@ -5,8 +5,11 @@ import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middlewar
 
 const router: Router = express.Router();
 
-const ensureWorkspaceId = (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+const ensureWorkspaceId = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const workspaceId = req.headers['x-workspace-id'] || req.query.workspaceId;
+  if (workspaceId && req.body?.workspaceId && req.body.workspaceId !== workspaceId) {
+    return res.status(403).json({ message: 'Workspace scope mismatch' });
+  }
   if (!req.body) req.body = {}; if (workspaceId && !req.body.workspaceId) {
     req.body.workspaceId = workspaceId; // Inject for requireWorkspaceRole
   }

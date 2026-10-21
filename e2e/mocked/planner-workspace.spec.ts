@@ -1,11 +1,11 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
 const day = '2025-10-15';
 const task = { id: 't1', title: 'Release checklist', status: 'TODO', scheduledDate: `${day}T12:00:00.000Z` };
 const block = { id: 'b1', title: 'Deep work', date: `${day}T12:00:00.000Z`, startTime: `${day}T09:00:00.000Z`, endTime: `${day}T10:00:00.000Z`, type: 'WORK' };
 const milestone = { id: 'm1', title: 'Launch milestone', date: `${day}T12:00:00.000Z`, projectId: 'p1', completed: false };
 const planner = { tasks: [task], timeBlocks: [block], milestones: [milestone], routines: [], occurrences: [], days: [], projects: [{ id: 'p1', name: 'Launch' }], goalDeadlines: [], capacity: { weeklyCapacityMinutes: 2430, occupiedMinutes: 60, meetingMinutes: 0, otherMinutes: 60, freeMinutes: 2370 }, config: { countryCode: 'IN' } };
-async function mock(page: Page) {
+async function mock(page: Page | BrowserContext) {
   await page.route('**/socket.io/**', r => r.abort());
   await page.route('**/api/v1/**', r => {
     const path = new URL(r.request().url()).pathname.replace('/api/v1', '');
@@ -37,7 +37,7 @@ test('week and month navigation survives reload and browser history', async ({ p
 test('invalid URL dates recover without crashing', async ({ page }) => {
   await mock(page); await page.goto('/app/planner?mode=day&date=broken-date');
   await expect(page.getByRole('heading', { name: 'Planner', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '+ Time Block', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add Time Block', exact: true })).toBeVisible();
 });
 test('calendar day keys stay on the same day in UTC+14', async ({ browser }) => {
   const context = await browser.newContext({ timezoneId: 'Pacific/Kiritimati' });
@@ -50,7 +50,7 @@ test('calendar day keys stay on the same day in UTC+14', async ({ browser }) => 
 test('time-block form is labelled, validates times and scrolls on a small screen', async ({ page }) => {
   await mock(page); await page.setViewportSize({ width: 320, height: 568 });
   await page.goto(`/app/planner?mode=day&date=${day}`);
-  await page.getByRole('button', { name: '+ Time Block', exact: true }).click();
+  await page.getByRole('button', { name: 'Add Time Block', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Add Time Block' });
   await dialog.getByLabel('Time block title').fill('New work');
   await dialog.getByLabel('Date', { exact: true }).fill(day);
@@ -103,7 +103,7 @@ test('missing regional dates are disclosed in the calendar and capacity views', 
 test('day-view task completion preserves its version and linked time-block draft', async ({ page }) => {
   await mock(page);
   const versioned = { ...task, version: 7, projectId: 'p1', completed: false };
-  await page.route('**/api/v1/tasks', route => route.fulfill({ json: [versioned] }));
+  await page.route(url => url.pathname === '/api/v1/tasks', route => route.fulfill({ json: [versioned] }));
   let patch: Record<string, unknown> | undefined;
   await page.route('**/api/v1/tasks/t1', route => {
     patch = route.request().postDataJSON();
@@ -121,7 +121,7 @@ test('day-view task completion preserves its version and linked time-block draft
 const secondTask = { ...task, id: "t2", title: "Review release notes", version: 3, estimateMinutes: 30 };
 const secondBlock = { ...block, id: "b3", taskId: secondTask.id, title: secondTask.title, startTime: day + "T18:00:00.000Z", endTime: day + "T18:30:00.000Z" };
 
-async function scheduledFocusMock(page: Page, minutes = 60, includeSecondTask = false) {
+async function scheduledFocusMock(page: Page | BrowserContext, minutes = 60, includeSecondTask = false) {
   await mock(page);
   const storedTask = { ...task, version: 7, estimateMinutes: minutes, projectId: 'p1', project: { id: 'p1', name: 'Launch' } };
   let storedBlock = { ...block, taskId: task.id, endTime: new Date(new Date(block.startTime).getTime() + minutes * 60000).toISOString() };
@@ -147,26 +147,105 @@ async function scheduledFocusMock(page: Page, minutes = 60, includeSecondTask = 
   return state;
 }
 
-test('Planner task click opens the reserved Focus duration and completes the versioned task', async ({ page }) => {
-  const state = await scheduledFocusMock(page);
+test('Planner task click opens Focus in a new tab and completes the versioned task', async ({ page, context }) => {
+  const state = await scheduledFocusMock(context);
   await page.goto('/app/planner?mode=day&date=' + day);
+  const popup = context.waitForEvent('page');
   await page.getByRole('button', { name: task.title, exact: true }).click();
-  await expect(page).toHaveURL(/focus\?.*task=t1.*block=b1/);
-  const setup = page.getByRole('dialog', { name: 'Plan your focus time' });
+  const focusPage = await popup;
+  await expect(page).toHaveURL('/app/planner?mode=day&date=' + day);
+  await expect(focusPage).toHaveURL(/focus\?.*task=t1.*block=b1/);
+  const setup = focusPage.getByRole('dialog', { name: 'Plan your focus time' });
   await expect(setup).toContainText('60 minutes reserved');
   await setup.getByRole('button', { name: 'Use this plan' }).click();
-  await expect(page).toHaveTitle(/60:00/);
-  await page.clock.install();
-  await page.getByTitle('Click or press Enter to start', { exact: true }).click();
-  await page.clock.fastForward(60 * 60000);
-  const decision = page.getByRole('dialog', { name: 'Is this task done?' });
+  await expect(focusPage).toHaveTitle(/60:00/);
+  expect(await focusPage.evaluate(() => window.opener === null)).toBe(true);
+  await focusPage.clock.install();
+  await focusPage.getByTitle('Click or press Enter to start', { exact: true }).click();
+  await focusPage.clock.fastForward(60 * 60000);
+  const decision = focusPage.getByRole('dialog', { name: 'Is this task done?' });
   await expect(decision).toBeVisible();
   expect(state.completions).toHaveLength(1);
   expect(state.completions[0]).toMatchObject({ duration: 3600, taskId: 't1', projectId: 'p1', type: 'custom' });
   await decision.getByRole('button', { name: 'Mark task done' }).click();
   await expect.poll(() => state.updates).toEqual([{ status: 'DONE', version: 7 }]);
-  await expect(page.getByText('Task completed', { exact: true }).first()).toBeVisible();
+  await expect(focusPage.getByText('Task completed', { exact: true }).first()).toBeVisible();
 });
+
+test('Planner tasks without a time block open their estimate in a new Focus tab', async ({ page, context }) => {
+  await scheduledFocusMock(context, 35);
+  await context.route('**/api/v1/planner/week*', route => route.fulfill({ json: { ...planner, timeBlocks: [] } }));
+  await page.goto('/app/planner?mode=day&date=' + day);
+  const popup = context.waitForEvent('page');
+  await page.getByRole('button', { name: task.title, exact: true }).click();
+  const focusPage = await popup;
+  await expect(focusPage).toHaveURL('/focus?task=t1&date=' + day);
+  await expect(focusPage.getByRole('dialog', { name: 'Plan your focus time' })).toContainText('35 minutes reserved');
+  await expect(page).toHaveURL('/app/planner?mode=day&date=' + day);
+});
+
+test('day time-block keyboard activation opens Focus without leaving Planner', async ({ page, context }) => {
+  await scheduledFocusMock(context);
+  await page.goto('/app/planner?mode=day&date=' + day);
+  await page.getByRole('button').filter({ has: page.getByText('Deep work', { exact: true }) }).focus();
+  const popup = context.waitForEvent('page');
+  await page.keyboard.press('Enter');
+  const focusPage = await popup;
+  await expect(page).toHaveURL('/app/planner?mode=day&date=' + day);
+  await expect(focusPage).toHaveURL(/focus\?.*block=b1.*task=t1/);
+  await expect(focusPage.getByRole('dialog', { name: 'Plan your focus time' })).toContainText('60 minutes reserved');
+});
+
+test('weekly time-block Focus link opens the linked task in a new tab', async ({ page, context }) => {
+  await scheduledFocusMock(context);
+  await page.goto('/app/planner?mode=plan&date=' + day);
+  const popup = context.waitForEvent('page');
+  await page.getByRole('link', { name: 'Focus on Deep work', exact: true }).click();
+  const focusPage = await popup;
+  await expect(page).toHaveURL('/app/planner?mode=plan&date=' + day);
+  await expect(focusPage).toHaveURL(/focus\?.*block=b1.*task=t1/);
+  await expect(focusPage.getByRole('dialog', { name: 'Plan your focus time' })).toContainText('60 minutes reserved');
+});
+
+test('Dashboard Start Focus opens its displayed task in a new tab', async ({ page, context }) => {
+  await scheduledFocusMock(context);
+  await context.route('**/api/v1/dashboard', route => route.fulfill({ json: {
+    stats: { totalProjects: 1, totalTasks: 1, totalHabits: 0, totalNotes: 0, totalGoals: 0 },
+    today: { tasks: [{ ...task, priority: 'HIGH' }], overdueTaskIds: [], focusMinutes: 0, focusSessions: [] },
+    habits: [], goals: [], projects: [], activity: [], focus: { sessions: [] },
+    features: { aiInsights: false, quickCapture: true }, dateKey: day,
+  } }));
+  await page.goto('/app/');
+  const popup = context.waitForEvent('page');
+  await page.getByRole('button', { name: 'Start Focus', exact: true }).click();
+  const focusPage = await popup;
+  await expect(page).toHaveURL('/app/');
+  await expect(focusPage).toHaveURL('/focus?task=t1&date=' + day);
+  const setup = focusPage.getByRole('dialog', { name: 'Plan your focus time' });
+  await expect(setup).toContainText(task.title);
+  await expect(setup).toContainText('60 minutes reserved');
+});
+
+for (const entry of ['sidebar', 'shortcut', 'command palette'] as const) {
+  test(`${entry} opens Focus in a new tab and keeps the workspace open`, async ({ page, context }) => {
+    await scheduledFocusMock(context);
+    await page.goto('/app/planner?mode=day&date=' + day);
+    await expect(page.getByRole('heading', { name: 'Planner', exact: true })).toBeVisible();
+    const popup = context.waitForEvent('page');
+    if (entry === 'sidebar') {
+      await page.getByRole('button', { name: /^Focus Timer/ }).click();
+    } else if (entry === 'shortcut') {
+      await page.keyboard.press('Control+Shift+Q');
+    } else {
+      await page.keyboard.press('Control+k');
+      await page.getByRole('option', { name: 'Focus Timer', exact: true }).click();
+    }
+    const focusPage = await popup;
+    await expect(focusPage).toHaveURL('/focus');
+    await expect(focusPage.getByRole('button', { name: 'Settings and options' })).toBeVisible();
+    await expect(page).toHaveURL('/app/planner?mode=day&date=' + day);
+  });
+}
 
 test('multi-hour Focus blocks support a custom split without changing account defaults', async ({ page }) => {
   await scheduledFocusMock(page, 240); await page.setViewportSize({ width: 320, height: 568 });
@@ -219,15 +298,20 @@ test('Focus overrun requires explicit next-block rescheduling and retains the de
   expect(state.completions).toHaveLength(1);
 });
 
-test('weekly task titles open Focus with Enter while the edit action retains task details', async ({ page }) => {
-  await scheduledFocusMock(page);
+test('weekly task titles open Focus in a new tab with Enter while the edit action retains task details', async ({ page, context }) => {
+  await scheduledFocusMock(context);
   await page.goto('/app/planner?mode=plan&date=' + day);
   await page.getByRole('button', { name: 'Edit task ' + task.title, exact: true }).click();
-  await expect(page.getByRole('dialog').getByLabel('Directive Title *', { exact: true })).toHaveValue(task.title);
+  await expect(page.getByRole('dialog').getByLabel('Task Title *', { exact: true })).toHaveValue(task.title);
   await page.keyboard.press('Escape');
   const title = page.getByRole('button', { name: task.title, exact: true });
-  await title.focus(); await page.keyboard.press('Enter');
-  await expect(page.getByRole('dialog', { name: 'Plan your focus time' })).toContainText('60 minutes reserved');
+  await title.focus();
+  const popup = context.waitForEvent('page');
+  await page.keyboard.press('Enter');
+  const focusPage = await popup;
+  await expect(focusPage.getByRole('dialog', { name: 'Plan your focus time' })).toContainText('60 minutes reserved');
+  await expect(page).toHaveURL('/app/planner?mode=plan&date=' + day);
+  await expect(title).toBeFocused();
 });
 
 async function changeFocusSelection(page: Page, taskId: string, blockId: string) {
@@ -323,10 +407,11 @@ test('a delayed earlier session response cannot clear a newer unsaved task sessi
   await setup.getByRole('button', { name: 'Use this plan' }).click();
   await page.getByTitle('Click or press Enter to start', { exact: true }).click();
   await page.clock.fastForward(60000);
-  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('krama.focus.unsaved.u1.ws1') || 'null')?.taskId)).toBe('t2');
+  const pendingTaskIds = () => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('krama.focus.unsaved.u1.ws1.completion.')).map(key => JSON.parse(localStorage.getItem(key)!).taskId));
+  await expect.poll(pendingTaskIds).toContain('t2');
   const oldResponse = page.waitForResponse(response => response.url().endsWith('/focus-sessions') && response.status() === 200);
   releaseFirst(); await oldResponse;
   await page.clock.runFor(4000);
   await expect(page.getByRole('button', { name: 'Retry saving session' })).toBeVisible();
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('krama.focus.unsaved.u1.ws1') || 'null')?.taskId)).toBe('t2');
+  expect(await pendingTaskIds()).toContain('t2');
 });

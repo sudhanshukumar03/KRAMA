@@ -43,7 +43,7 @@ test('animated raster uploads retain their frames after sanitization', async () 
 });
 
 test('production upload controller rejects disguised content and stores only verified bytes', async () => {
-  const settings = { R2_ACCOUNT_ID: 'abcdef1234', R2_ACCESS_KEY_ID: 'test-key', R2_SECRET_ACCESS_KEY: 'test-secret', R2_BUCKET_NAME: 'test-bucket', R2_PUBLIC_URL: 'https://storage.example.invalid' };
+  const settings = { NODE_ENV: 'production', R2_ACCOUNT_ID: 'abcdef1234', R2_ACCESS_KEY_ID: 'test-key', R2_SECRET_ACCESS_KEY: 'test-secret', R2_BUCKET_NAME: 'test-bucket', R2_PUBLIC_URL: 'https://storage.example.invalid' };
   const previous = Object.fromEntries(Object.keys(settings).map(key => [key, process.env[key]]));
   Object.assign(process.env, settings);
   const { r2Client } = await import('../config/r2');
@@ -65,6 +65,16 @@ test('production upload controller rejects disguised content and stores only ver
     assert.match(commands[0].Key, /^uploads\/test-user\/[a-f0-9-]+\.webp$/);
     assert.equal(commands[0].ContentType, 'image/webp');
     assert.equal((await sharp(commands[0].Body).metadata()).format, 'webp');
+    for (const error of [null, new Error('private-storage-secret signed-request-body')]) {
+      const stub = mock.method(r2Client, 'send', async () => { throw error; });
+      try {
+        const failed = response();
+        await uploadFile({ user: { id: 'test-user' }, file: { originalname: 'image.png', buffer: png } } as any, failed as any);
+        assert.equal(failed.code, 500);
+        assert.doesNotMatch(JSON.stringify(failed.body), /private-storage-secret|signed-request-body/);
+        assert.match(failed.body.requestId, /^[0-9a-f-]{36}$/);
+      } finally { stub.mock.restore(); }
+    }
   } finally {
     mock.restoreAll();
     for (const [key, value] of Object.entries(previous)) {

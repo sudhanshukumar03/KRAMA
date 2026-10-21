@@ -36,9 +36,9 @@ test('previous presentation, navigation and Escape behavior remain usable', asyn
   await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeFocused();
   await expect(page.getByRole('button', { name: /Focus Mode Active/ })).toHaveCount(0);
   const sections = [
-    ['Dashboard', /Good/], ['Execution Board', 'Execution Board'],
-    ['Planner', 'Planner'], ['Goals', 'Life Aspirations & Goals'],
-    ['Habits', 'Habits & Daily Architecture'], ['Projects', 'Projects & Strategic Initiatives'], ['Brain Workspace', 'Brain Workspace'],
+    ['Dashboard', /Good/], ['Tasks', 'Tasks'],
+    ['Planner', 'Planner'], ['Goals', 'Goals'],
+    ['Habits', 'Habits'], ['Projects', 'Projects'], ['Brain Workspace', 'Brain Workspace'],
   ] as const;
   for (const [link, title] of sections) {
     await page.getByRole('link', { name: new RegExp('^' + link) }).click();

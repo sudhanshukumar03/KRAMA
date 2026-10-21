@@ -81,6 +81,7 @@ export const GoalPillarBoard = React.memo(function GoalPillarBoard({
                 onClick={() => onAddGoalWithPillar(pillar.id)}
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary hover:text-accent-fg hover:bg-surface-hover transition-all cursor-pointer border border-transparent hover:border-border hover:shadow-2xs active:scale-[0.98]"
                 title={`Add goal to ${pillar.label}`}
+                aria-label={`Add goal to ${pillar.label}`}
               >
                 <Plus className="w-4 h-4 stroke-[2]" />
               </button>
@@ -89,7 +90,7 @@ export const GoalPillarBoard = React.memo(function GoalPillarBoard({
             {/* Column Content */}
             <div className="p-3.5 space-y-3 flex-1 min-h-[180px] overflow-y-auto">
               {pillarGoals.map((goal) => {
-                const GoalIcon = resolveIcon(goal.icon || 'Target');
+                const GoalIcon = resolveIcon(goal.icon || 'Goal');
                 const pace = computeGoalPace(goal);
                 const isDone = goal.progress >= 100;
                 const childCount = goal.childGoals?.length || 0;
@@ -97,8 +98,17 @@ export const GoalPillarBoard = React.memo(function GoalPillarBoard({
                 return (
                   <div
                     key={goal.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Open goal: ${goal.title}`}
                     onClick={() => onOpenGoal(goal)}
-                    className="p-3.5 rounded-xl bg-surface/60 hover:bg-surface border border-border/70 hover:border-accent/40 shadow-2xs hover:shadow-xs transition-all duration-200 cursor-pointer group/tile hover:-translate-y-[1px]"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onOpenGoal(goal);
+                      }
+                    }}
+                    className="p-3.5 rounded-xl bg-surface/60 hover:bg-surface border border-border/70 hover:border-accent/40 shadow-2xs hover:shadow-xs transition-all duration-200 cursor-pointer group/tile hover:-translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     <div className="flex items-start justify-between gap-2.5 mb-2.5">
                       <div className="flex items-center gap-2 min-w-0">
@@ -157,8 +167,17 @@ export const GoalPillarBoard = React.memo(function GoalPillarBoard({
               {/* Inspirational Empty State */}
               {pillarGoals.length === 0 && (
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Add aspiration to ${pillar.label}`}
                   onClick={() => onAddGoalWithPillar(pillar.id)}
-                  className="h-32 rounded-xl border border-dashed border-border/80 hover:border-accent/40 bg-gradient-to-b from-surface-hover/30 to-transparent flex flex-col items-center justify-center text-center p-4 cursor-pointer group/empty transition-all duration-200 hover:shadow-2xs"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onAddGoalWithPillar(pillar.id);
+                    }
+                  }}
+                  className="h-32 rounded-xl border border-dashed border-border/80 hover:border-accent/40 bg-gradient-to-b from-surface-hover/30 to-transparent flex flex-col items-center justify-center text-center p-4 cursor-pointer group/empty transition-all duration-200 hover:shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <div className="w-8 h-8 rounded-full bg-surface-hover/80 text-secondary group-hover/empty:text-accent-fg group-hover/empty:bg-accent-subtle/80 flex items-center justify-center mb-2 transition-all group-hover/empty:scale-110 shadow-2xs">
                     <Plus className="w-4 h-4 stroke-[2]" />

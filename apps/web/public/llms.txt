@@ -1,0 +1,11 @@
+# Krama OS
+
+> Local-first engineering workspace and knowledge tree for solo builders.
+
+Krama unites strategic quarterly planning, structured technical documentation, and daily task execution into a single unified workspace.
+
+## Documentation and Navigation
+- [Workspace Dashboard](/app/): Overview of active projects, scheduled focus tasks, and daily habit metrics.
+- [Execution Board](/app/board): Agile Kanban board for task tracking, bug resolution, and engineering workflows.
+- [Knowledge Tree](/app/brain): Hierarchical document repository for Architecture Decision Records (ADRs) and engineering specs.
+- [Strategic Goals](/app/goals): OKR pacing engine and objective tracking.

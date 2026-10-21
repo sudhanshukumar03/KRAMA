@@ -20,11 +20,13 @@ export async function documentLinkExists(tx: Prisma.TransactionClient, workspace
  */
 export async function reconcileDocumentLinks(tx: Prisma.TransactionClient, documentId: string, workspaceId: string, previous: any, content: any, userId: string) {
   const links = extractEntityLinks(content);
-  for (const link of links) {
-    if (!await documentLinkExists(tx, workspaceId, link)) throw Object.assign(new Error('Referenced entity must be active in this workspace'), { statusCode: 400 });
-  }
   const key = (l: { targetType: string; targetId: string }) => `${l.targetType}:${l.targetId}`;
   const before = new Set(extractEntityLinks(previous).map(key));
+  for (const link of links) {
+    // Existing mentions are historical content. Deleting their destination must
+    // not prevent the rest of this document from being saved.
+    if (!before.has(key(link)) && !await documentLinkExists(tx, workspaceId, link)) throw Object.assign(new Error('Referenced entity must be active in this workspace'), { statusCode: 400 });
+  }
   const after = new Set(links.map(key));
   const existing = await tx.entityLink.findMany({ where: { sourceType: 'DOCUMENT', sourceId: documentId } });
   const removed = existing.filter(l => l.linkType === 'REFERENCE' && before.has(key(l)) && !after.has(key(l)));

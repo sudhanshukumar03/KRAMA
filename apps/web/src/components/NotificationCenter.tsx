@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Check, CheckCheck, Clock, ExternalLink, Inbox } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -8,26 +9,133 @@ import { cn } from '../lib/utils';
 import { toast } from 'sonner';
 import type { Notification as NotificationItem } from '../types/schema';
 
-export function NotificationCenter({ className }: { className?: string }) {
+function notificationTarget(notification: NotificationItem) {
+  const metadata = notification.metadata;
+  const taskId = metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? (metadata as Record<string, unknown>).taskId : null;
+  return notification.actionUrl || (typeof taskId === 'string' && taskId ? `/app/board?task=${encodeURIComponent(taskId)}` : null);
+}
+
+export function NotificationCenter({
+  className,
+  align = 'auto',
+}: {
+  className?: string;
+  align?: 'left' | 'right' | 'auto';
+}) {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const [focusAfterRender, setFocusAfterRender] = useState<{ id?: string } | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Query notifications
-  const { data: notifications = [], isLoading, isError, refetch } = useQuery<NotificationItem[]>({
-    queryKey: ['notifications'],
-    queryFn: api.notifications.list,
+  const { data, isLoading, isError, refetch, hasNextPage, fetchNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
+    queryKey: ['notifications', 'pages'],
+    queryFn: ({ pageParam }) => api.notifications.listPage(pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: page => page.nextCursor ?? undefined,
     refetchInterval: 180000, // 3-minute fallback cadence; primary delivery is real-time via SocketProvider
   });
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const notifications = data?.pages.flatMap(page => page.items) ?? [];
+  const unreadCount = data?.pages[0]?.unreadCount ?? 0;
+  const loadOlder = async () => {
+    const pageCount = data?.pages.length ?? 0;
+    const result = await fetchNextPage();
+    const firstNew = result.data?.pages[pageCount]?.items[0];
+    if (firstNew && panelRef.current) setFocusAfterRender({ id: firstNew.id });
+  };
+  // Query completion can precede React's commit. Move keyboard focus after the
+  // corresponding row is present, including when the load-more button vanishes.
+  useLayoutEffect(() => {
+    if (!isOpen || !focusAfterRender) return;
+    const target = panelRef.current?.querySelector<HTMLButtonElement>(focusAfterRender.id
+      ? `[data-notification-id="${CSS.escape(focusAfterRender.id)}"]` : 'button');
+    if (target) { target.focus(); setFocusAfterRender(null); }
+  }, [isOpen, focusAfterRender, data]);
+
+  // Viewport-aware positioning directly anchored to the trigger button
+  const updatePosition = useCallback(() => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const isMobile = viewportWidth < 640;
+    const menuWidth = isMobile ? Math.min(360, viewportWidth - 24) : 384;
+
+    // Determine horizontal positioning
+    let left: number;
+    if (align === 'left') {
+      left = rect.left;
+    } else if (align === 'right') {
+      left = rect.right - menuWidth;
+    } else {
+      // Auto: if right-alignment overflows off-screen or button is in left half of screen, anchor left
+      if (rect.right - menuWidth < 12 || rect.left < viewportWidth / 2) {
+        left = rect.left;
+      } else {
+        left = rect.right - menuWidth;
+      }
+    }
+
+    // Safety clamp to ensure dropdown stays within screen boundaries
+    if (left + menuWidth > viewportWidth - 12) {
+      left = Math.max(12, viewportWidth - menuWidth - 12);
+    }
+    if (left < 12) {
+      left = 12;
+    }
+
+    const below = Math.max(0, viewportHeight - rect.bottom - 24);
+    const above = Math.max(0, rect.top - 24);
+    const openAbove = below < 200 && above > below;
+    const maxHeight = Math.min(480, Math.max(0, viewportHeight - 24), openAbove ? above : below);
+    const top = Math.max(12, openAbove ? rect.top - 8 - maxHeight : Math.min(rect.bottom + 8, viewportHeight - 12 - maxHeight));
+
+    setDropdownStyle({
+      position: 'fixed',
+      ...(openAbove ? { bottom: `${Math.max(12, viewportHeight - rect.top + 8)}px` } : { top: `${top}px` }),
+      left: `${left}px`,
+      width: `${menuWidth}px`,
+      maxHeight: `${maxHeight}px`,
+      zIndex: 9999,
+    });
+  }, [align]);
+
+  // Synchronously compute position before browser paints and listen to scroll/resize
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [isOpen, updatePosition]);
+
+  const handleToggle = () => {
+    if (!isOpen) {
+      updatePosition();
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) panelRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+  }, [isOpen, isLoading]);
 
   // Mark single as read
   const markReadMutation = useMutation({
     mutationFn: (id: string) => api.notifications.markAsRead(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    onSuccess: async (_result, id) => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      if (panelRef.current) setFocusAfterRender({ id });
     },
     onError: () => {
       toast.error('Failed to mark notification as read');
@@ -37,8 +145,9 @@ export function NotificationCenter({ className }: { className?: string }) {
   // Mark all as read
   const markAllReadMutation = useMutation({
     mutationFn: () => api.notifications.markAllAsRead(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      if (panelRef.current) setFocusAfterRender({});
       toast.success('All notifications marked as read');
     },
     onError: () => {
@@ -51,45 +160,57 @@ export function NotificationCenter({ className }: { className?: string }) {
     if (!n.read) {
       markReadMutation.mutate(n.id);
     }
-    if (n.actionUrl) {
+    const target = notificationTarget(n);
+    if (target) {
       setIsOpen(false);
-      navigate(n.actionUrl);
+      navigate(target);
     }
   };
 
   // Close on outside click or escape
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        buttonRef.current &&
+        !buttonRef.current.contains(target) &&
+        panelRef.current &&
+        !panelRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
         setIsOpen(false);
+        buttonRef.current?.focus();
       }
     };
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleKeyDown);
-    }
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown, true);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [isOpen]);
 
   return (
-    <div className={cn("relative", className)} ref={dropdownRef}>
+    <div className={cn("relative inline-flex", className)}>
       <button
-        onClick={() => setIsOpen((prev) => !prev)}
+        ref={buttonRef}
+        onClick={handleToggle}
         className={cn(
-          "p-1.5 rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors outline-none cursor-pointer border border-transparent relative",
+            "min-h-11 min-w-11 p-1.5 rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors outline-none cursor-pointer border border-transparent relative",
           isOpen && "text-primary bg-surface-hover border-border"
         )}
         title="Notifications"
         aria-label="Notifications"
+        aria-expanded={isOpen}
       >
         <Bell className="w-4 h-4" />
         {unreadCount > 0 && (
@@ -99,8 +220,15 @@ export function NotificationCenter({ className }: { className?: string }) {
         )}
       </button>
 
-      {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-surface border border-border rounded-xl shadow-level-2 z-50 overflow-hidden flex flex-col max-h-[480px] animate-in fade-in zoom-in-95 duration-150">
+      {isOpen && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={panelRef}
+            role="region"
+            aria-label="Notifications"
+            style={dropdownStyle}
+            className="workspace-popover bg-surface border border-border rounded-xl shadow-level-2 z-[9999] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150"
+          >
           {/* Header */}
           <div className="p-3 border-b border-border flex items-center justify-between bg-surface-hover/40 shrink-0">
             <div className="flex items-center gap-2">
@@ -126,7 +254,14 @@ export function NotificationCenter({ className }: { className?: string }) {
 
           {/* List Content */}
           <div className="flex-1 overflow-y-auto divide-y divide-border/60">
-            {isError && notifications.length > 0 && <div className="p-3 text-caption text-secondary" role="alert">Showing saved notifications. <button className="text-accent" onClick={() => refetch()}>Try again</button></div>}
+            {isError && notifications.length > 0 && (
+              <div className="p-3 text-caption text-secondary" role="alert">
+                Showing saved notifications.{' '}
+                <button className="text-accent" onClick={() => refetch()}>
+                  Try again
+                </button>
+              </div>
+            )}
             {isLoading ? (
               <div className="p-4 space-y-3">
                 {[1, 2, 3].map((i) => (
@@ -139,7 +274,9 @@ export function NotificationCenter({ className }: { className?: string }) {
             ) : isError && notifications.length === 0 ? (
               <div className="p-6 text-center" role="alert">
                 <p className="text-body text-primary">Notifications could not be loaded.</p>
-                <button onClick={() => refetch()} className="mt-3 text-sm text-accent">Try again</button>
+                <button onClick={() => refetch()} className="mt-3 text-sm text-accent">
+                  Try again
+                </button>
               </div>
             ) : notifications.length === 0 ? (
               <div className="p-8 text-center flex flex-col items-center justify-center">
@@ -161,12 +298,12 @@ export function NotificationCenter({ className }: { className?: string }) {
                 return (
                   <div
                     key={n.id}
-                    onClick={() => handleNotificationClick(n)}
                     className={cn(
                       "p-3 flex items-start gap-2.5 transition-colors group cursor-pointer",
                       !n.read ? "bg-accent-subtle/20 hover:bg-accent-subtle/30" : "hover:bg-surface-hover"
                     )}
                   >
+                    <button type="button" data-notification-id={n.id} aria-label={`${notificationTarget(n) ? 'Open' : 'Read'} notification: ${n.title}. ${n.message}`} onClick={() => handleNotificationClick(n)} className="flex flex-1 min-w-0 min-h-11 items-start gap-2.5 text-left rounded">
                     {/* Unread indicator / status dot */}
                     <div className="mt-1 shrink-0">
                       {!n.read ? (
@@ -178,10 +315,12 @@ export function NotificationCenter({ className }: { className?: string }) {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <span className={cn(
-                          "text-caption truncate",
-                          !n.read ? "font-semibold text-primary" : "font-medium text-secondary"
-                        )}>
+                        <span
+                          className={cn(
+                            "text-caption truncate",
+                            !n.read ? "font-semibold text-primary" : "font-medium text-secondary"
+                          )}
+                        >
                           {n.title}
                         </span>
                         <span className="text-[10px] font-mono text-muted flex items-center gap-1 shrink-0">
@@ -194,7 +333,7 @@ export function NotificationCenter({ className }: { className?: string }) {
                         {n.message}
                       </p>
 
-                      {n.actionUrl && (
+                      {notificationTarget(n) && (
                         <div className="flex items-center gap-1 text-[11px] font-medium text-accent hover:underline mt-1">
                           <span>View details</span>
                           <ExternalLink className="w-2.5 h-2.5" />
@@ -202,6 +341,7 @@ export function NotificationCenter({ className }: { className?: string }) {
                       )}
                     </div>
 
+                    </button>
                     {/* Mark read button */}
                     {!n.read && (
                       <button
@@ -209,7 +349,7 @@ export function NotificationCenter({ className }: { className?: string }) {
                           e.stopPropagation();
                           markReadMutation.mutate(n.id);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-surface text-muted hover:text-primary transition-all shrink-0 cursor-pointer"
+                        className="min-h-11 min-w-11 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 p-1 rounded hover:bg-surface text-muted hover:text-primary transition-all shrink-0 cursor-pointer"
                         title="Mark as read"
                       >
                         <Check className="w-3.5 h-3.5" />
@@ -219,8 +359,14 @@ export function NotificationCenter({ className }: { className?: string }) {
                 );
               })
             )}
+            {hasNextPage && <div className="p-3 border-t border-border">
+              <button type="button" disabled={isFetchingNextPage} onClick={() => { void loadOlder(); }} className="min-h-11 w-full rounded-lg border border-border text-caption text-accent-fg hover:bg-surface-hover disabled:opacity-50">
+                {isFetchingNextPage ? 'Loading older notifications...' : isFetchNextPageError ? 'Retry older notifications' : 'Load older notifications'}
+              </button>
+            </div>}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

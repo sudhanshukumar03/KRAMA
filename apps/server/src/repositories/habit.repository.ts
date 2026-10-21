@@ -1,6 +1,6 @@
 import type { BaseRepository } from './base.repository';
 import { prisma } from '../prisma';
-import type { Habit, Prisma } from '@prisma/client';
+import type { Habit, HabitCompletion, Prisma } from '@prisma/client';
 import type { TxClient } from './user.repository';
 
 class HabitRepository implements BaseRepository<Habit, Prisma.HabitUncheckedCreateInput, Prisma.HabitUncheckedUpdateInput> {
@@ -21,7 +21,7 @@ class HabitRepository implements BaseRepository<Habit, Prisma.HabitUncheckedCrea
     return (tx || prisma).habit.findMany(options || {});
   }
 
-  async findManyByWorkspace(workspaceId: string, tx?: TxClient, userId?: string): Promise<Habit[]> {
+  async findManyByWorkspace(workspaceId: string, tx?: TxClient, userId?: string) {
     return (tx || prisma).habit.findMany({
       where: {
         workspaceId,
@@ -40,6 +40,19 @@ class HabitRepository implements BaseRepository<Habit, Prisma.HabitUncheckedCrea
 
   async create(data: Prisma.HabitUncheckedCreateInput, tx?: TxClient): Promise<Habit> {
     return (tx || prisma).habit.create({ data });
+  }
+
+  async findRecentCompletions(workspaceId: string, userId: string) {
+    // Apply the per-habit limit in PostgreSQL using (habitId,userId,date).
+    // Old backfills must not push recent days out of the visible history grid.
+    return prisma.$queryRaw<HabitCompletion[]>`
+      SELECT c.* FROM "Habit" h
+      JOIN LATERAL (
+        SELECT hc.* FROM "HabitCompletion" hc
+        WHERE hc."habitId" = h.id AND hc."userId" = ${userId}
+        ORDER BY hc.date DESC LIMIT 120
+      ) c ON true
+      WHERE h."workspaceId" = ${workspaceId} AND h."deletedAt" IS NULL`;
   }
 
   async update(id: string, data: Prisma.HabitUncheckedUpdateInput, tx?: TxClient, guard?: Prisma.HabitWhereUniqueInput): Promise<Habit> {

@@ -75,11 +75,11 @@ for (const theme of ['light', 'dark']) {
 test('Kanban dialog traps focus and Escape restores trigger', async ({ page }, testInfo) => {
   await mockApi(page);
   await page.goto('/app/board');
-  const trigger = page.getByRole('button', { name: 'New Directive', exact: true }).first();
+  const trigger = page.getByRole('button', { name: 'New Task', exact: true }).first();
   await trigger.click();
-  const dialog = page.getByRole('dialog', { name: 'Create New Directive' });
+  const dialog = page.getByRole('dialog', { name: 'Create New Task' });
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel('Directive Title', { exact: false }).fill('Accessible task');
+  await dialog.getByLabel('Task Title', { exact: false }).fill('Accessible task');
   for (let i = 0; i < 14; i++) {
     await page.keyboard.press('Tab');
     expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBeTruthy();
@@ -180,18 +180,18 @@ for (const theme of ['light', 'dark']) {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await mockAspirationApi(page);
       await page.goto('/app/goals');
-      const trigger = page.getByRole('button', { name: 'New Aspiration', exact: true });
+      const trigger = page.getByRole('button', { name: 'New Goal', exact: true });
       await trigger.click();
-      const dialog = page.getByRole('dialog', { name: 'New Life Aspiration' });
+      const dialog = page.getByRole('dialog', { name: 'New Goal' });
       const body = dialog.locator('[data-goal-form-body]');
-      const submit = dialog.getByRole('button', { name: 'Create Aspiration', exact: true });
+      const submit = dialog.getByRole('button', { name: 'Create Goal', exact: true });
       await expect(dialog).toBeVisible();
       await expect(submit).toBeDisabled();
       await expect(dialog.getByRole('button', { name: 'Health', exact: true })).toHaveAttribute('aria-pressed', 'true');
       const expectContained = async () => {
         const panel = (await dialog.boundingBox())!;
         const action = (await submit.boundingBox())!;
-        const heading = (await dialog.getByRole('heading', { name: 'New Life Aspiration' }).boundingBox())!;
+        const heading = (await dialog.getByRole('heading', { name: 'New Goal' }).boundingBox())!;
         expect(panel.x).toBeGreaterThanOrEqual(0);
         expect(panel.y).toBeGreaterThanOrEqual(0);
         expect(panel.x + panel.width).toBeLessThanOrEqual(viewport.width);
@@ -201,7 +201,7 @@ for (const theme of ['light', 'dark']) {
         expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBeTruthy();
       };
       await expectContained();
-      await dialog.getByLabel('Aspiration / Goal Title', { exact: false }).fill('Train consistently');
+      await dialog.getByLabel('Goal Title', { exact: false }).fill('Train consistently');
       await dialog.getByRole('button', { name: 'Pick an icon' }).click();
       const iconSearch = dialog.getByPlaceholder('Search icons...');
       await expect(iconSearch).toBeVisible();
@@ -212,6 +212,7 @@ for (const theme of ['light', 'dark']) {
       expect(picker.y + picker.height).toBeLessThanOrEqual(scrollArea.y + scrollArea.height);
       await iconSearch.fill('Heart');
       await dialog.getByRole('button', { name: 'Heart', exact: true }).click();
+      await dialog.getByText('Advanced goal options', { exact: true }).click();
       await dialog.getByRole('checkbox', { name: 'Track Numeric Metric', exact: false }).check();
       await dialog.getByLabel('Current value', { exact: true }).fill('3');
       await dialog.getByLabel('Target value', { exact: true }).fill('12');
@@ -251,12 +252,13 @@ test('aspiration form preserves failed drafts, blocks duplicate saves and links 
     return route.fulfill({ json: { ...aspirationFixture, ...data, id: 'new-goal' } });
   });
   await page.goto('/app/goals');
-  await page.getByRole('button', { name: 'New Aspiration', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'New Life Aspiration' });
-  await dialog.getByLabel('Aspiration / Goal Title', { exact: false }).fill('  Train consistently  ');
+  await page.getByRole('button', { name: 'New Goal', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'New Goal' });
+  await dialog.getByLabel('Goal Title', { exact: false }).fill('  Train consistently  ');
   await dialog.getByLabel('Why this matters').fill('More energy every day');
   await dialog.getByLabel('Goal horizon').selectOption('monthly');
   await dialog.getByLabel('Target date').fill('2026-11-12');
+  await dialog.getByText('Advanced goal options', { exact: true }).click();
   await dialog.getByRole('checkbox', { name: 'Track Numeric Metric', exact: false }).check();
   await dialog.getByLabel('Current value').fill('3');
   await dialog.getByLabel('Target value', { exact: true }).fill('12');
@@ -264,14 +266,16 @@ test('aspiration form preserves failed drafts, blocks duplicate saves and links 
   await dialog.getByRole('checkbox', { name: 'Pin to Focus Spotlight' }).check();
   await dialog.getByRole('checkbox', { name: 'Strength training', exact: true }).check();
   await dialog.getByRole('checkbox', { name: 'Morning movement', exact: true }).check();
-  await dialog.getByRole('button', { name: 'Create Aspiration' }).click();
+  await dialog.getByRole('button', { name: 'Create Goal' }).click();
   await expect(page.getByText('Failed to create goal', { exact: true })).toBeVisible();
-  await expect(dialog.getByLabel('Aspiration / Goal Title', { exact: false })).toHaveValue('  Train consistently  ');
-  await dialog.getByRole('button', { name: 'Create Aspiration' }).click();
+  await expect(dialog.getByLabel('Goal Title', { exact: false })).toHaveValue('  Train consistently  ');
+  // Dismiss the error toast before retrying the footer action it can overlap.
+  await page.getByRole('button', { name: 'Close toast', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Create Goal' }).click();
   await expect(dialog.getByRole('button', { name: 'Saving...' })).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel('Aspiration / Goal Title', { exact: false }).press('Enter');
+  await dialog.getByLabel('Goal Title', { exact: false }).press('Enter');
   expect(attempts).toBe(2);
   releaseSave();
   await expect(dialog).not.toBeVisible();
@@ -286,6 +290,21 @@ test('aspiration form preserves failed drafts, blocks duplicate saves and links 
   ]));
 });
 
+test('parent aspiration editing explains its derived progress and disables alternate sources', async ({ page }) => {
+  await mockAspirationApi(page, true);
+  const parent = { ...aspirationFixture, metadata: { ...aspirationFixture.metadata, progressMode: 'auto' }, childGoals: [{ ...aspirationFixture, id: 'kr', title: 'Train twelve times', parentGoalId: aspirationFixture.id }] };
+  await page.route('**/api/v1/goals**', route => route.fulfill({ json: new URL(route.request().url()).pathname.endsWith('/goal-layout') ? parent : [parent] }));
+  await page.goto('/app/goals');
+  await page.getByRole('button', { name: 'Options for ' + aspirationFixture.title }).click();
+  await page.getByRole('button', { name: 'Edit Goal', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit Goal', exact: true });
+  await expect(dialog.getByRole('radio', { name: 'Manual', exact: true })).toBeDisabled();
+  await expect(dialog.getByRole('radio', { name: 'Auto from Tasks', exact: true })).toBeDisabled();
+  await expect(dialog.getByText(/Progress is calculated from the weighted key results/)).toBeVisible();
+  await expect(dialog.getByRole('slider')).toHaveCount(0);
+  await expect(dialog.getByRole('checkbox', { name: 'Track Numeric Metric', exact: false })).toHaveCount(0);
+});
+
 test('aspiration edit retains metadata and existing links; key results retain their parent', async ({ page }) => {
   const writes = await mockAspirationApi(page, true);
   await page.goto('/app/goals');
@@ -294,7 +313,7 @@ test('aspiration edit retains metadata and existing links; key results retain th
   const edit = page.getByRole('dialog', { name: 'Edit Goal', exact: true });
   await expect(edit.getByRole('checkbox', { name: 'Strength training', exact: true })).toBeChecked();
   await expect(edit.getByRole('checkbox', { name: 'Morning movement', exact: true })).toBeChecked();
-  await edit.getByLabel('Aspiration / Goal Title', { exact: false }).fill('A stronger routine');
+  await edit.getByLabel('Goal Title', { exact: false }).fill('A stronger routine');
   await edit.getByRole('button', { name: 'Save Changes' }).click();
   await expect(edit).not.toBeVisible();
   expect(writes.find(write => write.path === '/goals/goal-layout')?.data).toMatchObject({
@@ -357,11 +376,11 @@ for (const editing of [true, false]) {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await mockInitiativeApi(page);
       await page.goto(editing ? '/app/projects/initiative-layout' : '/app/projects');
-      const trigger = page.getByRole('button', { name: editing ? 'Edit Initiative' : 'New Initiative', exact: true });
+      const trigger = page.getByRole('button', { name: editing ? 'Edit Project' : 'New Project', exact: true });
       await trigger.click();
-      const dialog = page.getByRole('dialog', { name: editing ? 'Edit Initiative Settings' : 'New Project', exact: true });
+      const dialog = page.getByRole('dialog', { name: editing ? 'Edit Project Settings' : 'New Project', exact: true });
       const body = dialog.locator('[data-project-form-body]');
-      const action = dialog.getByRole('button', { name: editing ? 'Save Initiative' : 'Launch Initiative', exact: true });
+      const action = dialog.getByRole('button', { name: editing ? 'Save Project' : 'Create Project', exact: true });
       await expect(dialog).toBeVisible();
       const checkBounds = async () => {
         const panel = (await dialog.boundingBox())!;
@@ -376,7 +395,7 @@ for (const editing of [true, false]) {
         expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBeTruthy();
       };
       await checkBounds();
-      await dialog.getByLabel('Initiative Name', { exact: true }).fill('Workspace release');
+      await dialog.getByLabel('Project Name', { exact: true }).fill('Workspace release');
       await dialog.getByRole('button', { name: 'Pick an icon' }).click();
       const search = dialog.getByPlaceholder('Search icons...');
       const chooser = (await search.locator('..').locator('..').boundingBox())!;
@@ -413,29 +432,29 @@ for (const editing of [true, false]) {
 test('initiative editing preserves stale drafts and recovers without overwriting remote changes', async ({ page }) => {
   const state = await mockInitiativeApi(page);
   await page.goto('/app/projects/initiative-layout');
-  await page.getByRole('button', { name: 'Edit Initiative', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Edit Initiative Settings' });
+  await page.getByRole('button', { name: 'Edit Project', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit Project Settings' });
   await expect(dialog.getByLabel('Strategic OKR / Linked Goal')).toHaveValue('goal-layout');
   await expect(dialog.getByLabel('Target Date', { exact: true })).toHaveValue('2026-12-10');
-  await dialog.getByLabel('Initiative Name', { exact: true }).fill('Preserved draft');
+  await dialog.getByLabel('Project Name', { exact: true }).fill('Preserved draft');
   state.project = { ...state.project, version: 8, problemStatement: 'Scope updated remotely' };
   const refresh = page.waitForResponse(response => response.url().endsWith('/api/v1/projects/initiative-layout') && response.request().method() === 'GET');
-  await dialog.getByRole('button', { name: 'Save Initiative', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Save Project', exact: true }).click();
   await refresh;
   await expect(dialog.getByRole('alert')).toContainText('This project changed elsewhere');
-  await expect(dialog.getByLabel('Initiative Name', { exact: true })).toHaveValue('Preserved draft');
+  await expect(dialog.getByLabel('Project Name', { exact: true })).toHaveValue('Preserved draft');
   await expect(page.getByText('Project changed elsewhere', { exact: true })).toBeVisible();
   expect(state.writes[0].data.version).toBe(7);
   expect(state.project.problemStatement).toBe('Scope updated remotely');
   await expect(dialog).toBeVisible();
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Edit Initiative', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit Project', exact: true }).click();
   await expect(dialog.getByLabel('Problem Statement / Technical Scope')).toHaveValue('Scope updated remotely');
-  await dialog.getByLabel('Initiative Name', { exact: true }).fill('  Refined initiative  ');
+  await dialog.getByLabel('Project Name', { exact: true }).fill('  Refined initiative  ');
   await dialog.getByLabel('Status', { exact: true }).selectOption('paused');
   await dialog.getByLabel('Target Date', { exact: true }).fill('');
   await dialog.getByLabel('Strategic OKR / Linked Goal').selectOption('');
-  await dialog.getByRole('button', { name: 'Save Initiative', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Save Project', exact: true }).click();
   await expect(dialog).not.toBeVisible();
   expect(state.writes[1].data).toMatchObject({
     name: 'Refined initiative', problemStatement: 'Scope updated remotely', status: 'paused',
@@ -458,28 +477,28 @@ test('initiative creation retains a failed draft, prevents duplicate submissions
     return route.fulfill({ json: { ...initiativeFixture, ...data } });
   });
   await page.goto('/app/projects');
-  const trigger = page.getByRole('button', { name: 'New Initiative', exact: true });
+  const trigger = page.getByRole('button', { name: 'New Project', exact: true });
   await trigger.click();
   const dialog = page.getByRole('dialog', { name: 'New Project', exact: true });
-  const launch = dialog.getByRole('button', { name: 'Launch Initiative', exact: true });
+  const launch = dialog.getByRole('button', { name: 'Create Project', exact: true });
   await expect(launch).toBeDisabled();
-  await dialog.getByLabel('Initiative Name', { exact: true }).fill('Cancelled draft');
+  await dialog.getByLabel('Project Name', { exact: true }).fill('Cancelled draft');
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await trigger.click();
-  await expect(dialog.getByLabel('Initiative Name', { exact: true })).toHaveValue('');
-  await dialog.getByLabel('Initiative Name', { exact: true }).fill('  Workspace launch  ');
+  await expect(dialog.getByLabel('Project Name', { exact: true })).toHaveValue('');
+  await dialog.getByLabel('Project Name', { exact: true }).fill('  Workspace launch  ');
   await dialog.getByLabel('Problem Statement / Technical Scope').fill('  Build a focused workspace  ');
   await dialog.getByLabel('Linked Strategic Goal / OKR').selectOption('goal-next');
   await dialog.getByLabel('Status', { exact: true }).selectOption('idea');
   await dialog.getByLabel('Target Date', { exact: true }).fill('2026-12-15');
   await launch.click();
   await expect(page.getByText('Failed to initialize project', { exact: true })).toBeVisible();
-  await expect(dialog.getByLabel('Initiative Name', { exact: true })).toHaveValue('  Workspace launch  ');
+  await expect(dialog.getByLabel('Project Name', { exact: true })).toHaveValue('  Workspace launch  ');
   await launch.click();
   await expect(dialog.getByRole('button', { name: 'Creating...', exact: true })).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel('Initiative Name', { exact: true }).press('Enter');
+  await dialog.getByLabel('Project Name', { exact: true }).press('Enter');
   expect(attempts).toBe(2);
   releaseSave();
   await expect(dialog).not.toBeVisible();

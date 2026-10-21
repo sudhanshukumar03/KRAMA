@@ -77,15 +77,17 @@ test('weighted progress, moving children, last-child deletion and deep Undo stay
 });
 
 test('habit dates, duplicate checkoffs and delete/Undo preserve history', async () => {
-  const habit = await json('POST', 'habits', { name: 'Completion dates', cadence: 'daily', scheduledDays: [1] }, 201);
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+  const weekday = new Date(`${day}T12:00:00Z`).getUTCDay();
+  const habit = await json('POST', 'habits', { name: 'Completion dates', cadence: 'daily', scheduledDays: [(weekday + 1) % 7] }, 201);
   expect((await call('POST', `habits/${habit.id}/log`, { date: '2026-02-30' })).status()).toBe(400);
   expect((await call('POST', `habits/${habit.id}/log`, { date: '2026-10-07', dateIso: '2026-10-06T12:00:00.000Z' })).status()).toBe(400);
-  const writes = await Promise.all([call('POST', `habits/${habit.id}/log`, { date: '2026-10-07' }), call('POST', `habits/${habit.id}/log`, { date: '2026-10-07' })]);
+  const writes = await Promise.all([call('POST', `habits/${habit.id}/log`, { date: day }), call('POST', `habits/${habit.id}/log`, { date: day })]);
   expect(writes.map(r => r.status()).sort()).toEqual([200, 400]);
   let loaded = await json('GET', `habits/${habit.id}`); expect(loaded.completions).toHaveLength(1); expect(loaded.completions[0].offSchedule).toBe(true);
   await json('DELETE', `habits/${habit.id}`); expect((await call('GET', `habits/${habit.id}`)).status()).toBe(404);
   await json('POST', `habits/${habit.id}/restore`); loaded = await json('GET', `habits/${habit.id}`); expect(loaded.completions).toHaveLength(1);
-  await json('DELETE', `habits/${habit.id}/log?date=2026-10-07`); expect((await json('GET', `habits/${habit.id}`)).completions).toHaveLength(0);
+  await json('DELETE', `habits/${habit.id}/log?date=${day}`); expect((await json('GET', `habits/${habit.id}`)).completions).toHaveLength(0);
 });
 
 test('shared habits show only the signed-in member’s completions and streak', async () => {
@@ -109,11 +111,11 @@ test('shared habits show only the signed-in member’s completions and streak', 
 
 test('goal and habit forms work on mobile, retain failed drafts and support Escape', async ({ page }) => {
   await login(page); await page.setViewportSize({ width: 320, height: 640 });
-  await page.goto('/app/goals'); await page.getByRole('button', { name: 'New Aspiration', exact: true }).click();
-  let dialog = page.getByRole('dialog', { name: 'New Life Aspiration' }); await expect(dialog).toBeVisible(); await dialog.getByLabel('Aspiration / Goal Title').fill('Mobile draft');
+  await page.goto('/app/goals'); await page.getByRole('button', { name: 'New Goal', exact: true }).click();
+  let dialog = page.getByRole('dialog', { name: 'New Goal' }); await expect(dialog).toBeVisible(); await dialog.getByLabel('Goal Title').fill('Mobile draft');
   const box = await dialog.boundingBox(); expect(box!.y).toBeGreaterThanOrEqual(0); expect(box!.y + box!.height).toBeLessThanOrEqual(640);
   await dialog.screenshot({ path: test.info().outputPath('goal-mobile.png') });
-  await page.keyboard.press('Escape'); await expect(dialog).toBeHidden(); await expect(page.getByRole('button', { name: 'New Aspiration', exact: true })).toBeFocused();
+  await page.keyboard.press('Escape'); await expect(dialog).toBeHidden(); await expect(page.getByRole('button', { name: 'New Goal', exact: true })).toBeFocused();
   await page.goto('/app/habits'); await page.getByRole('button', { name: 'Create Habit', exact: true }).first().click();
   dialog = page.getByRole('dialog', { name: 'Create New Routine / Habit' }); await expect(dialog).toBeVisible(); await dialog.getByLabel('Routine name').fill('Retained failed routine');
   await dialog.screenshot({ path: test.info().outputPath('habit-mobile.png') });
@@ -130,14 +132,15 @@ test('goal drawer keeps an edit draft through a remote change and rejects stale 
   await json('PATCH', `goals/${goal.id}`, { title: 'Remote drawer title', version: goal.version }); await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')));
   await expect(dialog.getByText(/This goal changed elsewhere/)).toBeVisible(); await expect(dialog.getByLabel('Goal title')).toHaveValue('Unsaved drawer draft');
   const conflict = page.waitForResponse(r => r.request().method() === 'PATCH' && r.url().endsWith(`/goals/${goal.id}`)); await dialog.getByRole('button', { name: 'Save Settings', exact: true }).click(); expect((await conflict).status()).toBe(409);
-  await expect(dialog.getByLabel('Goal title')).toHaveValue('Unsaved drawer draft'); await page.keyboard.press('Escape'); await expect(dialog).toBeHidden();
+  await expect(dialog.getByLabel('Goal title')).toHaveValue('Unsaved drawer draft'); await page.keyboard.press('Escape'); await page.getByRole('alertdialog', { name: 'Discard unsaved changes?' }).getByRole('button', { name: 'Discard changes' }).click(); await expect(dialog).toBeHidden();
 });
 
 test('Goals and Habits failures offer a working retry', async ({ page }) => {
   await login(page);
   for (const section of ['goals', 'habits']) {
-    let fail = true; await page.route(`**/api/v1/${section}`, route => fail ? route.fulfill({ status: 503, json: { message: 'Retry test failure' } }) : route.continue());
-    await page.goto(`/app/${section}`); const retry = page.getByRole('button', { name: 'Try Again', exact: true }); await expect(retry).toBeVisible({ timeout: 15000 }); fail = false; await retry.click(); await expect(retry).toBeHidden(); await page.unroute(`**/api/v1/${section}`);
+    const collection = (url: URL) => url.pathname === `/api/v1/${section}`;
+    let fail = true; await page.route(collection, route => fail ? route.fulfill({ status: 503, json: { message: 'Retry test failure' } }) : route.continue());
+    await page.goto(`/app/${section}`); const retry = page.getByRole('button', { name: 'Try Again', exact: true }); await expect(retry).toBeVisible({ timeout: 15000 }); fail = false; await retry.click(); await expect(retry).toBeHidden(); await page.unroute(collection);
   }
 });
 
@@ -159,11 +162,11 @@ test('automatic goal progress refreshes both goals when a completed task moves',
 
 test('goal creation retains its draft on linked-data refresh and reports failed links honestly', async ({ page }) => {
   const project = await json('POST', 'projects', { name: 'Link failure project' }, 201);
-  await login(page); await page.goto('/app/goals'); await page.getByRole('button', { name: 'New Aspiration', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'New Life Aspiration' }); await dialog.getByLabel('Aspiration / Goal Title').fill('Partial goal creation'); await dialog.getByRole('checkbox', { name: 'Link failure project', exact: true }).check();
-  await json('POST', 'habits', { name: 'Background habit refresh' }, 201); await expect(dialog.getByRole('checkbox', { name: 'Background habit refresh', exact: true })).toBeVisible(); await expect(dialog.getByLabel('Aspiration / Goal Title')).toHaveValue('Partial goal creation'); await expect(dialog.getByRole('checkbox', { name: 'Link failure project', exact: true })).toBeChecked();
+  await login(page); await page.goto('/app/goals'); await page.getByRole('button', { name: 'New Goal', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'New Goal' }); await dialog.getByLabel('Goal Title').fill('Partial goal creation'); await dialog.getByText('Advanced goal options', { exact: true }).click(); await dialog.getByRole('checkbox', { name: 'Link failure project', exact: true }).check();
+  await json('POST', 'habits', { name: 'Background habit refresh' }, 201); await expect(dialog.getByRole('checkbox', { name: 'Background habit refresh', exact: true })).toBeVisible(); await expect(dialog.getByLabel('Goal Title')).toHaveValue('Partial goal creation'); await expect(dialog.getByRole('checkbox', { name: 'Link failure project', exact: true })).toBeChecked();
   await page.route(`**/api/v1/projects/${project.id}`, route => route.request().method() === 'PATCH' ? route.fulfill({ status: 409, json: { message: 'Conflict: simulated link failure' } }) : route.continue());
-  await dialog.getByRole('button', { name: 'Create Aspiration', exact: true }).click(); await expect(dialog).toBeHidden(); await expect(page.getByText('Goal created, but 1 links failed. Reopen Edit to retry.', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Create Goal', exact: true }).click(); await expect(dialog).toBeHidden(); await expect(page.getByText('Goal created, but 1 links failed. Reopen Edit to retry.', { exact: true })).toBeVisible();
   expect((await json('GET', 'goals')).filter((g: any) => g.title === 'Partial goal creation')).toHaveLength(1); expect((await json('GET', `projects/${project.id}`)).goalId).toBeNull();
   await page.unroute(`**/api/v1/projects/${project.id}`); await page.getByRole('button', { name: 'Options for Partial goal creation', exact: true }).click(); await page.getByRole('button', { name: 'Edit Goal', exact: true }).click();
   const edit = page.getByRole('dialog', { name: 'Edit Goal', exact: true }); await edit.getByRole('checkbox', { name: 'Link failure project', exact: true }).check(); await edit.getByRole('button', { name: 'Save Changes', exact: true }).click(); await expect(edit).toBeHidden();

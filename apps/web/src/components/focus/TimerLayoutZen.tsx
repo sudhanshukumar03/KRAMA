@@ -32,6 +32,7 @@ export const TimerLayoutZen: React.FC<TimerLayoutProps> = ({
   isFullscreen,
   onToggleFullscreen,
   controlsVisible,
+  bottomInset = 0,
   onClose,
 }) => {
   const mins = Math.floor(timeLeft / 60);
@@ -48,26 +49,26 @@ export const TimerLayoutZen: React.FC<TimerLayoutProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 w-full h-full flex flex-col justify-between items-center p-6 md:p-12 select-none overflow-hidden z-10">
+    <div style={{ bottom: bottomInset }} className="fixed inset-0 w-full flex flex-col justify-between items-center p-6 md:p-12 select-none overflow-hidden z-10">
       {/* Top minimal header — always visible in normal tab, hidden by default in fullscreen */}
       <div
-        className={`w-full flex items-center justify-between transition-all duration-300 z-30 ${
+        className={`w-full flex flex-wrap items-center justify-between gap-3 transition-all duration-300 z-30 ${
           controlsVisible ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-3 pointer-events-none'
         }`}
       >
         {operatingMode === 'manual' ? (
-          <div className="flex items-center gap-1.5 p-1 bg-black/40 backdrop-blur-2xl rounded-full border border-white/10 shadow-2xl">
-            <button type="button" onClick={() => onChangeMode('pomodoro')}
+          <div role="tablist" aria-label="Timer mode" className="flex max-w-full flex-wrap items-center gap-1.5 p-1 bg-black/40 backdrop-blur-2xl rounded-full border border-white/10 shadow-2xl">
+            <button type="button" role="tab" aria-selected={mode === 'pomodoro'} onClick={() => onChangeMode('pomodoro')}
               className={`px-3 py-1 text-xs font-light tracking-wider rounded-full transition-all cursor-pointer ${mode === 'pomodoro' ? 'bg-white text-black font-normal' : 'text-white/60 hover:text-white'}`}>FLOW</button>
-            <button type="button" onClick={() => onChangeMode('short_break')}
+            <button type="button" role="tab" aria-selected={mode === 'short_break'} onClick={() => onChangeMode('short_break')}
               className={`px-3 py-1 text-xs font-light tracking-wider rounded-full transition-all cursor-pointer ${mode === 'short_break' ? 'bg-white text-black font-normal' : 'text-white/60 hover:text-white'}`}>REST</button>
-            <button type="button" onClick={() => onChangeMode('long_break')}
+            <button type="button" role="tab" aria-selected={mode === 'long_break'} onClick={() => onChangeMode('long_break')}
               className={`px-3 py-1 text-xs font-light tracking-wider rounded-full transition-all cursor-pointer ${mode === 'long_break' ? 'bg-white text-black font-normal' : 'text-white/60 hover:text-white'}`}>RECOVERY</button>
-            <button type="button" onClick={() => onChangeMode('custom')}
+            <button type="button" role="tab" aria-selected={mode === 'custom'} onClick={() => onChangeMode('custom')}
               className={`px-3 py-1 text-xs font-light tracking-wider rounded-full transition-all cursor-pointer flex items-center gap-1 ${mode === 'custom' ? 'bg-white text-black font-normal' : 'text-white/60 hover:text-white'}`}>
               <Sliders className="w-3 h-3" /><span>CUSTOM</span>
             </button>
-            <button type="button" onClick={() => onChangeMode('clock')}
+            <button type="button" role="tab" aria-selected={mode === 'clock'} onClick={() => onChangeMode('clock')}
               className={`px-3 py-1 text-xs font-light tracking-wider rounded-full transition-all cursor-pointer ${mode === 'clock' ? 'bg-white text-black font-normal' : 'text-white/60 hover:text-white'}`}>CLOCK</button>
           </div>
         ) : (
@@ -81,7 +82,7 @@ export const TimerLayoutZen: React.FC<TimerLayoutProps> = ({
           </div>
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto shrink-0">
           {/* Full Screen Action Button */}
           <button
             type="button"
@@ -115,7 +116,7 @@ export const TimerLayoutZen: React.FC<TimerLayoutProps> = ({
         {mode === 'clock' ? (
           <div className="flex flex-col items-center select-none">
             <div className="flex items-baseline justify-center font-extralight font-mono tracking-tighter drop-shadow-[0_20px_45px_rgba(0,0,0,0.9)] leading-none">
-              <span className="text-[8rem] sm:text-[11rem] md:text-[14rem]" style={{ color: digitsColor || '#ffffff' }}>{clock.timeStr}</span>
+              <span className="text-[clamp(3rem,18vw,8rem)] sm:text-[11rem] md:text-[14rem]" style={{ color: digitsColor || '#ffffff' }}>{clock.timeStr}</span>
               <span className="text-3xl sm:text-5xl md:text-6xl text-white/40 ml-3 font-mono">{clock.secondsStr}</span>
               <span className="text-xl sm:text-2xl md:text-3xl font-sans font-light text-teal-400 ml-4">{clock.ampm}</span>
             </div>
@@ -131,11 +132,12 @@ export const TimerLayoutZen: React.FC<TimerLayoutProps> = ({
             <button
               type="button"
               onClick={handleToggleTimer}
+              aria-label={isActive ? 'Pause timer' : 'Start timer'}
               className="group relative focus:outline-none cursor-pointer bg-transparent border-0 p-0 text-center transition-transform duration-200 active:scale-[0.98]"
               title={isActive ? 'Click or press Enter to pause' : 'Click or press Enter to start'}
             >
               <span
-                className={`text-[9rem] sm:text-[12rem] md:text-[16rem] font-extralight font-mono tracking-tighter leading-none drop-shadow-[0_20px_50px_rgba(0,0,0,0.95)] transition-opacity duration-300 block ${
+                className={`text-[clamp(3rem,18vw,9rem)] sm:text-[12rem] md:text-[16rem] font-extralight font-mono tracking-tighter leading-none drop-shadow-[0_20px_50px_rgba(0,0,0,0.95)] transition-opacity duration-300 block ${
                   isActive ? 'opacity-100' : 'opacity-85 group-hover:opacity-100'
                 }`}
                 style={{ color: digitsColor || '#ffffff' }}
@@ -161,7 +163,7 @@ export const TimerLayoutZen: React.FC<TimerLayoutProps> = ({
 
             {/* Custom Presets shown only when controls toggled in custom mode */}
             {mode === 'custom' && controlsVisible && !isActive && (
-              <div className="flex items-center gap-2 mt-4 bg-black/40 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 animate-in fade-in duration-150">
+              <div className="flex max-w-full flex-wrap items-center justify-center gap-2 mt-4 bg-black/40 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 animate-in fade-in duration-150">
                 <span className="text-xs text-white/40 font-mono">Sprint:</span>
                 {CUSTOM_PRESETS.map((p) => (
                   <button

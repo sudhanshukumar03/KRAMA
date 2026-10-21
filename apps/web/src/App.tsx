@@ -15,13 +15,15 @@ const Signup = lazy(() => import('./components/Signup').then(m => ({ default: m.
 const FocusPage = lazy(() => import('./components/FocusPage').then(m => ({ default: m.FocusPage })));
 
 function App() {
-  useTheme();
+  const { resolvedTheme } = useTheme();
   return (
     <>
-      <Toaster 
-        position="bottom-right" 
+      <Toaster
+        position="bottom-right"
         duration={4000}
         closeButton
+        theme={resolvedTheme}
+        toastOptions={{ className: 'krama-toast' }}
       />
       <Suspense fallback={<LoadingState variant="default" />}>
         <Routes>

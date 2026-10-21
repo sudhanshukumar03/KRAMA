@@ -1,4 +1,5 @@
 import {
+  Bot,
   Dumbbell,
   BookOpen,
   Monitor,
@@ -65,6 +66,7 @@ import {
   CheckSquare,
   Lightbulb,
 } from "lucide-react";
+import { GoalIcon, GoalSummitIcon, GoalReticleIcon, GoalVectorIcon } from "../components/ui/GoalIcon";
 
 const ICONS = {
   // Fitness & Health
@@ -79,6 +81,7 @@ const ICONS = {
   GraduationCap,
 
   // Work & Productivity
+  Bot,
   Code,
   Briefcase,
   Monitor,
@@ -119,6 +122,12 @@ const ICONS = {
   Paintbrush,
   Video,
 
+  // Strategic Goal & Ambition (Bespoke Krama Icons)
+  Goal: GoalIcon,
+  GoalSummit: GoalSummitIcon,
+  GoalReticle: GoalReticleIcon,
+  GoalVector: GoalVectorIcon,
+
   // Organization & General
   Target,
   Users,
@@ -153,6 +162,7 @@ export type IconKey = keyof typeof ICONS;
 
 export const ICON_CATEGORIES: Record<string, IconKey[]> = {
   "Productivity & Work": [
+    "Bot",
     "Code",
     "Briefcase",
     "Monitor",
@@ -183,6 +193,10 @@ export const ICON_CATEGORIES: Record<string, IconKey[]> = {
     "Video",
   ],
   "General & Status": [
+    "Goal",
+    "GoalSummit",
+    "GoalReticle",
+    "GoalVector",
     "Target",
     "Users",
     "Zap",

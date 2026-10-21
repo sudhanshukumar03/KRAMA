@@ -1,7 +1,10 @@
 import { HolidaySyncService } from '../services/holidays/HolidaySyncService';
-import { prisma, type TxClient } from '../prisma';
+import { prisma, runInTransaction, type TxClient, type PostCommitPublisher } from '../prisma';
+import { taskService } from './task.service';
 import { calculateCapacity } from '../services/capacity.service';
 import { habitService } from '../services/habit.service';
+import { habitCompletionUnavailableReason, type HabitCompletionUnavailableReason } from './habitCompletionDate';
+import { resolveUserTimeZone } from './habitStreak.service';
 import { socketService } from '../services/socket.service';
 import {
   TimeBlockSchema,
@@ -20,7 +23,7 @@ import {
 } from '../services/plannerTime';
 
 
-export interface PlannerContext { userId: string; workspaceId: string; id?: string; }
+export interface PlannerContext { userId: string; workspaceId: string; id?: string; timeZone?: string; }
 export class PlannerError extends Error {
   constructor(public readonly statusCode: number, public readonly payload: { message: string; code?: string }) {
     super(payload.message);
@@ -50,10 +53,10 @@ function isWriteConflict(error: unknown): boolean {
  * concurrent edits cannot both reserve a time slot that initially looked free.
  * Retry serialization conflicts at most twice before returning a recoverable 409.
  */
-async function writePlannerBlock<T>(write: (tx: TxClient) => Promise<T>): Promise<T> {
+async function writePlannerBlock<T>(write: (tx: TxClient, publishAfterCommit: PostCommitPublisher) => Promise<T>): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await prisma.$transaction(write, { isolationLevel: 'Serializable' });
+      return await runInTransaction(write, { isolationLevel: 'Serializable' });
     } catch (error) {
       // Query conflicts are P2034; adapter commit conflicts retain their cause.
       if (!isWriteConflict(error)) throw error;
@@ -69,18 +72,22 @@ async function writePlannerBlock<T>(write: (tx: TxClient) => Promise<T>): Promis
 async function verifyBlockLinks(
   workspaceId: string,
   taskId: string | null,
-  projectId: string | null,
+  projectId: string | null | undefined,
   db: TxClient = prisma
-): Promise<{ ok: true } | { status: number; message: string }> {
+): Promise<{ ok: true; projectId: string | null } | { status: number; message: string }> {
   if (taskId) {
     const task = await db.task.findUnique({
       where: { id: taskId },
-      select: { workspaceId: true, deletedAt: true },
+      select: { workspaceId: true, deletedAt: true, projectId: true },
     });
     if (!task || task.deletedAt) return { status: 404, message: 'Linked task not found' };
     if (workspaceId && task.workspaceId !== workspaceId) {
       return { status: 403, message: 'Forbidden: task belongs to another workspace' };
     }
+    if (projectId && task.projectId !== projectId) return { status: 400, message: 'The block project must match the linked task project' };
+    // A task owns its project attribution. Derive omitted links from its current
+    // project so partial edits remain valid after the task moves projects.
+    projectId = task.projectId;
   }
   if (projectId) {
     const project = await db.project.findUnique({
@@ -92,7 +99,7 @@ async function verifyBlockLinks(
       return { status: 403, message: 'Forbidden: project belongs to another workspace' };
     }
   }
-  return { ok: true };
+  return { ok: true, projectId: projectId || null };
 }
 
 
@@ -107,9 +114,11 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { weeklyCapacityMinutes: true, countryCode: true, regionCode: true },
+      select: { weeklyCapacityMinutes: true, countryCode: true, regionCode: true, metadata: true },
     });
     if (!user) throw new PlannerError(401, { message: 'User not found' });
+    const timeZone = resolveUserTimeZone(user, context.timeZone);
+    const now = new Date();
 
     const [
       habits,
@@ -246,6 +255,9 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
     const routines = habitsWithPinned.filter((h) => h.pinnedToPlanner).map((h) => ({
       id: h.id,
       name: h.name,
+      cadence: h.cadence,
+      scheduledDays: h.scheduledDays,
+      weeklyTarget: h.metadata && typeof h.metadata === 'object' && !Array.isArray(h.metadata) && typeof h.metadata.weeklyTarget === 'number' ? h.metadata.weeklyTarget : 3,
     }));
 
     const plannerProjects = projects.map((p) => ({
@@ -263,9 +275,10 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
       const dayOfWeek = currentDay.getUTCDay(); // 0 = Sun, 1 = Mon, etc.
       const dateStr = currentDay.toISOString().split('T')[0] as string;
 
-      const dayOccurrences: { id: string; habitId: string; date: string; completed: boolean; completedAt: string | null; isVirtual: boolean }[] = [];
+      const dayOccurrences: { id: string; habitId: string; date: string; completed: boolean; completedAt: string | null; isVirtual: boolean; scheduled: boolean; offSchedule: boolean; unavailableReason?: HabitCompletionUnavailableReason }[] = [];
       for (const habit of habitsWithPinned) {
-        const isScheduled = habit.scheduledDays && habit.scheduledDays.includes(dayOfWeek);
+        const scheduledDays = habit.scheduledDays?.length ? habit.scheduledDays : [0, 1, 2, 3, 4, 5, 6];
+        const isScheduled = habit.cadence === 'weekly' || scheduledDays.includes(dayOfWeek);
         const isPinned = habit.pinnedToPlanner;
 
         if (isScheduled || isPinned) {
@@ -274,12 +287,16 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
           const completion = habitCompletions.find((c) =>
             c.habitId === habit.id && c.date && (c.date instanceof Date ? c.date.toISOString() : new Date(c.date).toISOString()) === targetDateStr
           );
+          const unavailableReason = habitCompletionUnavailableReason(habit.createdAt, dateStr, now, timeZone);
 
           dayOccurrences.push({
             id: completion ? completion.id : `${habit.id}-${dateStr}`,
             habitId: habit.id,
             date: targetDateStr, // Always send the canonical UTC noon
             completed: !!completion,
+            scheduled: isScheduled,
+            ...(unavailableReason ? { unavailableReason } : {}),
+            offSchedule: completion?.offSchedule ?? false,
             completedAt: completion?.completedAt ? (completion.completedAt instanceof Date ? completion.completedAt.toISOString() : new Date(completion.completedAt).toISOString()) : null,
             isVirtual: !completion
           });
@@ -287,10 +304,11 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
       }
 
       const dayTasks = tasks.filter((t) => {
-        const d = t.scheduledDate || t.dueDate;
-        if (!d) return false;
-        const dObj = d instanceof Date ? d : new Date(d);
-        return !isNaN(dObj.getTime()) && dObj.toISOString().startsWith(dateStr);
+        return [t.scheduledDate, t.dueDate].some(d => {
+          if (!d) return false;
+          const dObj = d instanceof Date ? d : new Date(d);
+          return !isNaN(dObj.getTime()) && dObj.toISOString().startsWith(dateStr);
+        });
       }).map((t) => ({
         id: t.id,
         title: t.title,
@@ -342,12 +360,12 @@ async function getWeek(context: PlannerContext, query: ReturnType<typeof WeekQue
     }));
 
     const allOccurrences = days.flatMap(d => d.occurrences);
-    const allMappedTasks = [...days.flatMap(d => d.tasks), ...unscheduledTasks];
+    const scheduledThisWeek = [...new Map(days.flatMap(d => d.tasks).map(task => [task.id, task])).values()];
+    const allMappedTasks = [...scheduledThisWeek, ...unscheduledTasks];
 
     // Real weekly task-completion: how many of this week's scheduled tasks are
     // done. Distinct from capacity.completionPercent, which is capacity
     // utilization (occupied / weekly capacity) and duplicates the "Planned" tile.
-    const scheduledThisWeek = days.flatMap(d => d.tasks);
     const completedThisWeek = scheduledThisWeek.filter((t) => t.status === 'DONE');
     const taskCompletionPercent = scheduledThisWeek.length === 0
       ? 0
@@ -403,7 +421,9 @@ async function createTimeBlock(context: PlannerContext, body: ReturnType<typeof 
     // Wrap the overlap check + create in a serializable transaction and re-check
     // inside it, so two concurrent creates can't both pass the check and land
     // overlapping blocks (TOCTOU race).
-    const result = await writePlannerBlock(async (tx) => {
+    const result = await writePlannerBlock(async (tx, publishAfterCommit) => {
+      const currentLinks = await verifyBlockLinks(workspaceId, taskId, projectId, tx);
+      if ('status' in currentLinks) throw new PlannerError(currentLinks.status, { message: currentLinks.message });
       const overlapping = await tx.timeBlock.findFirst({
         where: {
           userId,
@@ -426,10 +446,11 @@ async function createTimeBlock(context: PlannerContext, body: ReturnType<typeof 
           endTime,
           type: body.type,
           taskId,
-          projectId,
+          projectId: currentLinks.projectId,
           notes: body.notes,
         },
       });
+      if (taskId) await taskService.scheduleTaskWithinTransaction(tx, publishAfterCommit, taskId, workspaceId, blockDate, userId);
       return { conflict: false as const, block: created };
     });
 
@@ -490,7 +511,7 @@ async function updateTimeBlock(context: PlannerContext, body: ReturnType<typeof 
 
     // Read omitted fields in the same serializable transaction as the write.
     // A retried partial edit must merge against the latest committed block.
-    const result = await writePlannerBlock(async (tx) => {
+    const result = await writePlannerBlock(async (tx, publishAfterCommit) => {
       const existing = await tx.timeBlock.findFirst({
         where: { id: context.id!, userId, ...(workspaceId ? { workspaceId } : {}) },
       });
@@ -529,7 +550,8 @@ async function updateTimeBlock(context: PlannerContext, body: ReturnType<typeof 
       const fallbackMember = !existing.workspaceId && !workspaceId ? await tx.workspaceMember.findFirst({ where: { userId }, select: { workspaceId: true } }) : null;
       const linkWorkspaceId = existing.workspaceId || workspaceId || fallbackMember?.workspaceId || '';
       if (!linkWorkspaceId && (taskId || projectId)) throw new PlannerError(403, { message: 'Workspace access required for linked items' });
-      const links = await verifyBlockLinks(linkWorkspaceId, taskId ?? null, projectId ?? null, tx);
+      const effectiveTaskId = taskId === undefined ? existing.taskId : taskId;
+      const links = await verifyBlockLinks(linkWorkspaceId, effectiveTaskId, effectiveTaskId ? projectId : (projectId === undefined ? existing.projectId : projectId), tx);
       if ('status' in links) {
         throw new PlannerError(links.status, { message: links.message });
       }
@@ -558,10 +580,15 @@ async function updateTimeBlock(context: PlannerContext, body: ReturnType<typeof 
           endTime,
           type: body.type,
           taskId,
-          projectId,
+          projectId: links.projectId,
           notes: body.notes,
         },
       });
+      // Notes/time edits preserve an intentional deferral. An actual relink or
+      // calendar-day move plans the linked task as part of this same commit.
+      if (block.taskId && (block.taskId !== existing.taskId || date.getTime() !== existing.date.getTime())) {
+        await taskService.scheduleTaskWithinTransaction(tx, publishAfterCommit, block.taskId, linkWorkspaceId, date, userId);
+      }
       return { conflict: false as const, block };
     });
 
@@ -633,6 +660,7 @@ async function updateRoutineOccurrence(context: PlannerContext, body: ReturnType
         userId,
         workspaceId,
         dateIso: targetDate.toISOString(),
+        timeZone: context.timeZone,
       });
     } else {
       await habitService.unlogHabitCompletion({
@@ -640,6 +668,7 @@ async function updateRoutineOccurrence(context: PlannerContext, body: ReturnType
         userId,
         workspaceId,
         dateIso: targetDate.toISOString(),
+        timeZone: context.timeZone,
       });
     }
 

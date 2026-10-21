@@ -68,78 +68,26 @@ export function CapacitySummary({ capacity, onEdit }: Props) {
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 shrink-0">
-      {cards.map((card) => (
-        <div
-          key={card.label}
-          className="group relative krama-card p-3 flex flex-col justify-between gap-2 shadow-sm transition-all duration-200"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${card.iconBg} shrink-0`}>
-                <card.icon size={11} className={card.accentColor} />
-              </div>
-              <span className="text-[10px] font-semibold text-secondary truncate tracking-tight">{card.label}</span>
-            </div>
-            {card.label === 'Weekly Capacity' && onEdit && (
-              <button 
-                onClick={(e) => { e.preventDefault(); onEdit(); }} 
-                className="text-[9px] font-semibold text-accent hover:text-accent-fg bg-accent/10 hover:bg-accent/20 px-1.5 py-0.5 rounded transition-colors shrink-0"
-              >
-                Edit
-              </button>
-            )}
-            {card.percent !== null && (
-              <span className="text-[10px] font-bold text-muted tabular-nums shrink-0">
-                {card.percent}%
-              </span>
-            )}
-          </div>
-          
-          <div className="flex items-baseline justify-between mt-0.5">
-            <span className="text-xs font-bold text-primary tabular-nums tracking-tight font-mono">
-              {formatMinutes(card.value)}
-            </span>
-          </div>
-
-          <div className="w-full bg-border/40 rounded-full h-1 overflow-hidden">
-            <div
-              className={`h-full rounded-full bg-gradient-to-r ${card.gradient} transition-all duration-300`}
-              style={{ width: `${card.percent ?? 100}%` }}
-            />
-          </div>
+    <section className="planner-capacity" aria-label="Weekly capacity and progress">
+      {cards.map(card => <div key={card.label} className="planner-capacity-cell">
+        <div className="planner-capacity-label">
+          <card.icon size={15} className={card.accentColor} aria-hidden="true" />
+          <span>{card.label}</span>
         </div>
-      ))}
-      
-      {/* Completion */}
-      <div className="group relative bg-surface/70 hover:bg-surface/90 border border-border/80 hover:border-border rounded-xl p-3 flex flex-col justify-between gap-2 shadow-sm transition-all duration-200 backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <div className="w-5 h-5 rounded-md flex items-center justify-center border bg-success-bg border-success-border text-success-fg shrink-0">
-              <CheckCircle2 size={11} />
-            </div>
-            <span className="text-[10px] font-semibold text-secondary truncate tracking-tight">Completion</span>
-          </div>
-          <span className="text-[9px] font-semibold text-muted bg-surface-hover px-1.5 py-0.5 rounded">This Week</span>
+        <div className="planner-capacity-value">
+          <strong>{formatMinutes(card.value)}</strong>
+          {card.percent !== null && <span>{card.percent}%</span>}
         </div>
-        <div className="flex items-baseline justify-between mt-0.5">
-          <span className="text-xs font-black text-primary tabular-nums font-mono">
-            {capacity.taskCompletionPercent ?? 0}%
-          </span>
-          {typeof capacity.scheduledTaskCount === 'number' && capacity.scheduledTaskCount > 0 && (
-            <span className="text-[10px] font-semibold text-muted tabular-nums font-mono">
-              {capacity.completedTaskCount ?? 0}/{capacity.scheduledTaskCount}
-            </span>
-          )}
-        </div>
-        <div className="w-full bg-border/40 rounded-full h-1 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-success-fg transition-all duration-300"
-            style={{ width: `${Math.min(100, capacity.taskCompletionPercent ?? 0)}%` }}
-          />
-        </div>
+        {card.label === 'Weekly Capacity' && onEdit && <button type="button" onClick={onEdit} className="planner-capacity-edit">Edit</button>}
+        <progress className="krama-progress" max={100} value={Math.min(100, Math.max(0, card.percent ?? 100))} aria-label={`${card.label} percentage`} />
+      </div>)}
+      <div className="planner-capacity-cell">
+        <div className="planner-capacity-label"><CheckCircle2 size={15} aria-hidden="true" /><span>Completion</span></div>
+        <div className="planner-capacity-value"><strong>{capacity.taskCompletionPercent ?? 0}%</strong></div>
+        <span className="planner-capacity-context">{typeof capacity.scheduledTaskCount === 'number' && capacity.scheduledTaskCount > 0 ? `${capacity.completedTaskCount ?? 0}/${capacity.scheduledTaskCount} tasks` : 'This week'}</span>
+        <progress className="krama-progress" max={100} value={Math.min(100, capacity.taskCompletionPercent ?? 0)} aria-label="Weekly task completion" />
       </div>
-    </div>
+    </section>
   );
 }
 

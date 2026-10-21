@@ -7,8 +7,8 @@ import { cn } from '../../lib/utils';
  */
 export function EditorFormattingToolbar({ editor }: { editor: Editor }) {
   return (
-            <div className="bg-surface-hover/80 backdrop-blur-md px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0 border-b border-border">
-              <div className="flex flex-wrap items-center gap-1">
+            <div className="bg-surface-hover/80 px-2 py-2 flex items-center min-w-0 shrink-0 border-b border-border">
+              <div role="group" aria-label="Document formatting" className="workspace-document-formatting flex items-center gap-1 max-w-full overflow-x-auto">
                 <button
                   onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
                   className={cn("px-2 py-1 rounded-md text-[12px] font-mono font-bold transition-all cursor-pointer active:scale-[0.98]",

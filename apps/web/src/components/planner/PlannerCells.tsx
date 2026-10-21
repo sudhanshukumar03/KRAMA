@@ -10,9 +10,9 @@ import type { PlannerTask, TimeBlock, Milestone, GoalDeadline } from "../../type
 
 function safeTimeFormat(isoString: string) { return formatBlockTime(isoString); }
 
-export const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, onClickTask, onEditTask, onToggleTask, onDeleteTask }: { task: PlannerTask, onClickTask?: (task: PlannerTask) => void, onEditTask?: (task: PlannerTask) => void, onToggleTask?: (task: PlannerTask, e: React.MouseEvent) => void, onDeleteTask?: (task: PlannerTask) => void }) {
+export const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, occurrenceDate, onClickTask, onEditTask, onToggleTask, onDeleteTask }: { task: PlannerTask, occurrenceDate?: string, onClickTask?: (task: PlannerTask) => void, onEditTask?: (task: PlannerTask) => void, onToggleTask?: (task: PlannerTask, e: React.MouseEvent) => void, onDeleteTask?: (task: PlannerTask) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `task-${task.id}`,
+    id: `task-${task.id}-${occurrenceDate ?? 'backlog'}`,
     data: { type: 'Task', task }
   });
 
@@ -25,10 +25,12 @@ export const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, onC
       style={style}
       {...attributes}
       {...listeners}
-      className={`group flex items-start gap-1.5 cursor-grab active:cursor-grabbing p-1.5 -mx-1.5 rounded-md transition-colors hover:bg-surface-hover ${isDragging ? 'opacity-50 shadow-md ring-2 ring-accent z-50 bg-surface' : ''}`}
+      className={`planner-matrix-task group cursor-grab active:cursor-grabbing p-1.5 -mx-1.5 rounded-md transition-colors hover:bg-surface-hover ${isDragging ? 'opacity-50 shadow-md ring-2 ring-accent z-50 bg-surface' : ''}`}
     >
       <button
         type="button"
+        aria-label={`${isDone ? 'Reopen' : 'Complete'} task ${task.title}`}
+        aria-pressed={isDone}
         className="mt-[3px] shrink-0 transition-transform active:scale-[0.98]"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
@@ -53,8 +55,10 @@ export const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, onC
         <span className={"text-badge font-medium leading-snug block " + (isDone ? "text-muted line-through" : "text-primary group-hover:text-primary")}>
           {task.title}
         </span>
+        {occurrenceDate && <span className="text-badge text-secondary">{task.dueDate?.slice(0, 10) === occurrenceDate ? 'Due' : 'Scheduled'}</span>}
       </button>
-      {onEditTask && <button type="button" aria-label={`Edit task ${task.title}`} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onEditTask(task); }} className="min-h-8 min-w-8 flex items-center justify-center rounded hover:bg-surface-hover"><Edit3 size={12} /></button>}
+      {(onEditTask || onDeleteTask) && <div className="planner-matrix-task-actions">
+      {onEditTask && <button type="button" aria-label={`Edit task ${task.title}`} title="Edit task" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onEditTask(task); }} className="min-h-8 min-w-8 flex items-center justify-center rounded hover:bg-surface-hover"><Edit3 size={12} /></button>}
       {onDeleteTask && (
         <button
           type="button"
@@ -69,12 +73,13 @@ export const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, onC
             e.preventDefault();
             onDeleteTask(task);
           }}
-          className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-error-tint text-error rounded transition-opacity shrink-0"
+          className="min-h-8 min-w-8 flex items-center justify-center hover:bg-error-tint text-error rounded shrink-0"
           title="Delete task"
         >
           <Trash2 size={10} />
         </button>
       )}
+      </div>}
     </div>
   );
 });
@@ -92,7 +97,7 @@ export function DroppableTaskCell({ day, tasks, dateKeyFn, onClickTask, onEditTa
       className={`relative group border-r border-border last:border-r-0 p-2 pb-6 flex flex-col gap-1 min-h-[48px] transition-colors ${isOver ? 'bg-accent/10' : ''}`}
     >
       {tasks.map((task: PlannerTask) => (
-        <MatrixTaskComponent key={task.id} task={task} onClickTask={onClickTask} onEditTask={onEditTask} onToggleTask={onToggleTask} onDeleteTask={onDeleteTask} />
+        <MatrixTaskComponent key={task.id} task={task} occurrenceDate={dKey} onClickTask={onClickTask} onEditTask={onEditTask} onToggleTask={onToggleTask} onDeleteTask={onDeleteTask} />
       ))}
 
       {onAddTask && (
@@ -187,7 +192,7 @@ export const DroppableTimeBlock = memo(function DroppableTimeBlock({ block, task
       <div className="text-badge font-semibold leading-tight text-primary line-clamp-2">
         {block.title}
       </div>
-      {!block.isExternal && !['MEETING', 'PERSONAL'].includes(block.type) && <Link aria-label={'Focus on ' + block.title} to={'/focus?' + new URLSearchParams({ block: block.id, date: block.date.slice(0, 10), ...(block.taskId ? { task: block.taskId } : {}) })} onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()} className="min-h-8 inline-flex items-center text-accent underline">Focus</Link>}
+      {!block.isExternal && !['MEETING', 'PERSONAL'].includes(block.type) && <Link aria-label={'Focus on ' + block.title} title="Open Focus in a new tab" target="_blank" rel="noopener noreferrer" to={'/focus?' + new URLSearchParams({ block: block.id, date: block.date.slice(0, 10), ...(block.taskId ? { task: block.taskId } : {}) })} onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()} className="min-h-8 inline-flex items-center text-accent underline">Focus</Link>}
       {block.taskId && (
         <div className="mt-1 bg-surface-hover rounded px-1.5 py-0.5 text-badge font-medium text-secondary truncate flex items-center gap-1 border border-border">
           <CheckCircle2 size={8} className="text-accent" />

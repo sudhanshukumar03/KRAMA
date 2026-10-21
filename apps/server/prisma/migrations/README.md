@@ -41,4 +41,4 @@ Prisma represents the embedding column as an unsupported vector type and does no
 
 ## Deployment and test databases
 
-Deployment uses migration files. The primary CI database is disposable and is prepared with `prisma db push`; the separate integration database is prepared with migration deployment. Those workflows serve different purposes. Do not use the disposable CI procedure as an upgrade plan for a database containing personal records.
+Deployment uses migration files. The primary CI database and the separate integration database are disposable and are both prepared with committed migration deployment. Do not use the disposable CI procedure as an upgrade plan for a database containing personal records.

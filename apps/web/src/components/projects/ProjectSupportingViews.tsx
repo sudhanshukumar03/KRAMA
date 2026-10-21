@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Calendar, FolderKanban } from 'lucide-react';
+import { GoalSummitIcon } from '../ui/GoalIcon';
 import type { DocumentWithRelations, IssueWithRelations, ProjectWithRelations } from '../../types/schema';
-import { cn } from '../../lib/utils';
+import { cn, parseLocalDate } from '../../lib/utils';
 import { resolveIcon } from '../../lib/iconResolver';
 import { EmptyState } from '../ui/EmptyState';
 import { BaseButton } from '../ui/BaseButton';
@@ -32,7 +33,7 @@ export function ProjectDocuments({ documents, projectId }: { documents: Document
             ))}
             {documents.length === 0 && (
               <div className="col-span-full py-16 bg-surface/50 rounded-2xl border border-border border-dashed flex flex-col items-center justify-center gap-3">
-                <EmptyState icon={FolderKanban} description="No engineering knowledge documents linked to this initiative" />
+                <EmptyState icon={FolderKanban} description="No engineering knowledge documents linked to this project" />
                 <BaseButton
                   variant="primary"
                   size="sm"
@@ -60,9 +61,9 @@ export function ProjectTimeline({ projectTargetDate, daysRemaining, projectMiles
                     <Calendar className="w-5 h-5 stroke-[1.75]" />
                   </div>
                   <div>
-                    <h3 className="text-body font-bold text-primary">Initiative Horizon Timeline</h3>
+                    <h3 className="text-body font-bold text-primary">Project Horizon Timeline</h3>
                     <p className="text-caption text-secondary font-mono">
-                      Target deadline: {projectTargetDate ? new Date(projectTargetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No target date set'}
+                      Target deadline: {parseLocalDate(projectTargetDate)?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) || 'No target date set'}
                     </p>
                   </div>
                 </div>
@@ -76,11 +77,36 @@ export function ProjectTimeline({ projectTargetDate, daysRemaining, projectMiles
               </div>
 
               <div className="space-y-3 pt-3 border-t border-border/60">
-                <h4 className="text-caption font-mono font-bold uppercase text-secondary">Project Milestones ({projectMilestones.length})</h4>
+                <div className="flex items-center gap-2">
+                  <GoalSummitIcon className="w-4 h-4 text-accent stroke-[1.75]" />
+                  <h4 className="text-caption font-mono font-bold uppercase text-secondary">Project Milestones ({projectMilestones.length})</h4>
+                </div>
                 {projectMilestones.map(milestone => (
-                  <div key={milestone.id} className="p-3.5 rounded-xl border border-border bg-surface-hover/30 flex flex-wrap items-center justify-between gap-3">
-                    <span className="text-caption font-semibold text-primary">{milestone.title}</span>
-                    <span className="text-caption text-secondary">{new Date(milestone.date).toLocaleDateString()} · {milestone.completed ? 'Completed' : 'Upcoming'}</span>
+                  <div key={milestone.id} className="p-3.5 rounded-xl border border-border bg-surface-hover/30 hover:bg-surface-hover flex flex-wrap items-center justify-between gap-3 transition-colors">
+                    <div className="flex items-center gap-2.5">
+                      <div className={cn(
+                        "w-6 h-6 rounded-lg flex items-center justify-center border",
+                        milestone.completed
+                          ? "bg-success-bg text-success-fg border-success-border"
+                          : "bg-surface text-accent border-border"
+                      )}>
+                        <GoalSummitIcon className="w-3.5 h-3.5 stroke-[2]" />
+                      </div>
+                      <span className={cn("text-caption font-semibold", milestone.completed ? "line-through text-muted" : "text-primary")}>
+                        {milestone.title}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-caption font-mono tabular-nums text-secondary">
+                      <span>{new Date(milestone.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      <span className={cn(
+                        "text-badge font-bold uppercase px-2 py-0.5 rounded border",
+                        milestone.completed
+                          ? "bg-success-bg text-success-fg border-success-border"
+                          : "bg-surface-hover text-secondary border-border"
+                      )}>
+                        {milestone.completed ? 'Delivered' : 'Upcoming'}
+                      </span>
+                    </div>
                   </div>
                 ))}
                 {projectMilestones.length === 0 && <p className="text-caption text-muted py-3">No project milestones yet. Add a milestone in Planner and link it to this project.</p>}
@@ -101,7 +127,7 @@ export function ProjectTimeline({ projectTargetDate, daysRemaining, projectMiles
                   </div>
                 ))}
                 {projectIssues.length === 0 && (
-                  <p className="text-caption text-muted font-mono italic text-center py-6">No directives scheduled for this initiative yet.</p>
+                  <p className="text-caption text-muted font-mono italic text-center py-6">No directives scheduled for this project yet.</p>
                 )}
               </div>
             </div>

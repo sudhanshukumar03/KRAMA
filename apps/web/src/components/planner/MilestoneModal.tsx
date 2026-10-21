@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Target, Trash2 } from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
+import { GoalSummitIcon } from '../ui/GoalIcon';
 import { format } from 'date-fns';
 import { useModalA11y } from '../../hooks/useModalA11y';
 import type { Milestone } from '../../types/planner';
@@ -67,7 +68,7 @@ export function MilestoneModal({ open, onClose, onSubmit, onDelete, defaultDate,
       >
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2 text-primary">
-            <Target size={18} className="text-accent" />
+            <GoalSummitIcon size={18} className="text-accent" />
             <h3 id="milestone-modal-title" className="font-bold text-sm">{editingMilestone ? 'Edit Milestone' : 'New Milestone'}</h3>
           </div>
           <button onClick={onClose} aria-label="Close" className="p-1.5 hover:bg-surface-hover rounded-lg text-muted transition-colors">
@@ -120,8 +121,8 @@ export function MilestoneModal({ open, onClose, onSubmit, onDelete, defaultDate,
           )}
 
           {editingMilestone && (
-            <label className="flex items-center gap-2 text-xs font-medium text-secondary cursor-pointer">
-              <input type="checkbox" checked={completed} onChange={e => setCompleted(e.target.checked)} className="accent-accent" />
+            <label htmlFor="milestone-completed" className="flex items-center gap-2 text-xs font-medium text-secondary cursor-pointer">
+              <input id="milestone-completed" aria-label="Mark milestone as completed" type="checkbox" checked={completed} onChange={e => setCompleted(e.target.checked)} className="accent-accent" />
               Mark as completed
             </label>
           )}

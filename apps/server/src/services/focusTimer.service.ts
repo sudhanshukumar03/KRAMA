@@ -2,6 +2,7 @@ import { prisma } from '../prisma';
 import { calculateCapacity } from './capacity.service';
 import { reportingClock, shiftDay } from './reportingTime';
 import { localDayBoundsUtc } from './plannerTime';
+import { getPersonalDay } from './personalDay.service';
 
 export interface TimerPreferences {
   focusDuration?: number;     // default: 25 min
@@ -86,8 +87,10 @@ export async function buildFocusSchedule(
   const clock = reportingClock(user, requestedZone, requestedOffset);
   const localDateKey = clock.dateKey(new Date());
   const { start: startOfDay, end: endOfDay } = localDayBoundsUtc(localDateKey);
+  const dayPlan = await getPersonalDay(workspaceId, userId, localDateKey);
+  const priorityRank = new Map(dayPlan.taskIds.map((id, index) => [id, index]));
 
-  const [timeBlocks, tasks, completedSessions, projects] = await Promise.all([
+  const [timeBlocks, candidateTasks, completedSessions, projects] = await Promise.all([
     prisma.timeBlock.findMany({
       where: { userId, workspaceId, date: { gte: startOfDay, lte: endOfDay } },
       orderBy: { startTime: 'asc' }
@@ -96,13 +99,17 @@ export async function buildFocusSchedule(
       where: {
         workspaceId,
         deletedAt: null,
-        status: { notIn: ['DONE', 'CANCELED'] },
+        status: { notIn: ['DONE', 'CANCELED', 'BACKLOG'] },
         OR: [
-          { scheduledDate: { gte: startOfDay, lte: endOfDay } },
-          { dueDate: { gte: startOfDay, lte: endOfDay } },
+          { id: { in: dayPlan.taskIds } },
+          { scheduledDate: { lte: endOfDay } },
+          // A deadline surfaces unscheduled work. A later explicit work date
+          // takes precedence unless today's priority/block branches opt it in.
+          { scheduledDate: null, dueDate: { lte: endOfDay } },
           { timeBlocks: { some: { userId, workspaceId, date: { gte: startOfDay, lte: endOfDay } } } }
         ]
       },
+      include: { blockedBy: { select: { id: true, status: true, workspaceId: true, deletedAt: true } } },
       orderBy: [{ priority: 'desc' }, { dueDate: 'asc' }]
     }),
     prisma.focusSession.findMany({
@@ -118,6 +125,11 @@ export async function buildFocusSchedule(
       select: { id: true, name: true }
     })
   ]);
+
+  const tasks = candidateTasks.filter(task => {
+    const blocker = task.blockedBy;
+    return !dayPlan.decisions[task.id] && !(blocker && blocker.workspaceId === workspaceId && !blocker.deletedAt && !['DONE', 'CANCELED'].includes(blocker.status));
+  }).sort((a, b) => (priorityRank.get(a.id) ?? 3) - (priorityRank.get(b.id) ?? 3));
 
   const projectMap = new Map(projects.map(p => [p.id, p.name]));
 
@@ -159,7 +171,9 @@ export async function buildFocusSchedule(
     const blockDuration = Math.min(rawBlockDuration, MAX_DAILY_FOCUS_MINUTES);
     const linkedTask = block.taskId ? taskMap.get(block.taskId) : null;
     if (block.taskId && !linkedTask) continue;
-    const candidateProject = block.projectId ?? linkedTask?.projectId ?? null;
+    // A task may have moved projects since this block was created. Its current
+    // project is authoritative, including an explicit lack of project.
+    const candidateProject = linkedTask ? linkedTask.projectId : block.projectId;
     const projId = candidateProject && projectMap.has(candidateProject) ? candidateProject : null;
     workSlots.push({
       blockId: block.id,
@@ -172,9 +186,13 @@ export async function buildFocusSchedule(
     });
   }
 
-  // If no time blocks, create synthetic slots from high-priority tasks
-  if (workSlots.length === 0 && workBlocks.length === 0 && tasks.length > 0) {
-    for (const task of tasks.slice(0, 5)) {
+  // Preserve timed blocks; append explicitly chosen priorities without blocks.
+  // When there are no eligible blocks, offer today's ready and overdue tasks.
+  const representedTasks = new Set(workSlots.map(slot => slot.taskId));
+  const estimatedTasks = workSlots.length === 0 ? tasks.slice(0, 5)
+    : tasks.filter(task => priorityRank.has(task.id) && !representedTasks.has(task.id));
+  if (estimatedTasks.length > 0) {
+    for (const task of estimatedTasks) {
       const estimate = task.estimateMinutes ?? prefs.focusDuration;
       const projId = task.projectId ?? null;
       workSlots.push({

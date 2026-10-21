@@ -5,22 +5,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
-import type { FocusScheduleData, TimerMode } from '../components/focus/types';
+import type { CompleteSessionParams, FocusScheduleData } from '../components/focus/types';
 import { toast } from 'sonner';
+import { errorMessage } from '../lib/utils';
 
-/**
- * duration is active work/break time in seconds, not endTime minus startTime.
- * Keep completionId and the payload unchanged when retrying a failed save.
- */
-export interface CompleteSessionParams {
-  completionId: string;
-  startTime: string;
-  endTime: string;
-  duration: number;
-  type: TimerMode;
-  taskId?: string;
-  projectId?: string;
-}
+export type { CompleteSessionParams } from '../components/focus/types';
 
 export function useFocusSchedule() {
   const queryClient = useQueryClient();
@@ -51,9 +40,8 @@ export function useFocusSchedule() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
     },
-    onError: (err: any) => {
-      console.error('Error logging focus session:', err);
-      toast.error('Failed to log session: ' + (err?.message || 'Server error'));
+    onError: (err: unknown) => {
+      toast.error('Failed to log session: ' + errorMessage(err, 'Server error'));
     },
     retry: 2, // Auto-retry on network blip so pomodoro logs aren't lost
   });

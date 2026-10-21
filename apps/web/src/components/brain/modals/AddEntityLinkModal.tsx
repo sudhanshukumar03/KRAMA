@@ -104,7 +104,7 @@ export function AddEntityLinkModal({
             <Link2 className="w-4 h-4 text-accent-fg" />
             <span id="add-entity-link-title" className="font-bold text-primary text-body">Link Document</span>
           </div>
-          <button onClick={onClose} className="p-1 text-muted hover:text-primary">
+          <button onClick={onClose} aria-label="Close dialog" title="Close dialog" className="p-1 text-muted hover:text-primary cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -150,8 +150,11 @@ export function AddEntityLinkModal({
           </div>
 
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5">Relation Type</label>
+            <label htmlFor="link-relation-type" className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5">Relation Type</label>
             <select
+              id="link-relation-type"
+              name="linkRelationType"
+              aria-label="Relation Type"
               value={linkType}
               onChange={(e) => setLinkType(e.target.value as any)}
               className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent font-mono text-caption"
@@ -162,8 +165,11 @@ export function AddEntityLinkModal({
           </div>
 
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5">Select Target</label>
+            <label htmlFor="link-target-id" className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5">Select Target</label>
             <select
+              id="link-target-id"
+              name="linkTargetId"
+              aria-label="Select Target"
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
               disabled={

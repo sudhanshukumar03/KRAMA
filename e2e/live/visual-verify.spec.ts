@@ -6,10 +6,10 @@ test('Goal creation and linked project/habit navigation persist', async ({ page,
   const project = await account.call('POST', 'projects', { name: 'Linked UI project', goalId: goal.id }, 201);
   await account.signIn(page); await page.goto('/app/goals');
   await expect(page.getByText(goal.title, { exact: true }).first()).toBeVisible();
-  await page.getByRole('button', { name: 'New Aspiration', exact: true }).click();
-  const form = page.getByRole('dialog', { name: 'New Life Aspiration' });
-  await form.getByLabel('Aspiration / Goal Title').fill('UI-created aspiration');
-  await form.getByRole('button', { name: 'Create Aspiration', exact: true }).click(); await expect(form).toBeHidden();
+  await page.getByRole('button', { name: 'New Goal', exact: true }).click();
+  const form = page.getByRole('dialog', { name: 'New Goal' });
+  await form.getByLabel('Goal Title').fill('UI-created aspiration');
+  await form.getByRole('button', { name: 'Create Goal', exact: true }).click(); await expect(form).toBeHidden();
   await expect(page.getByText('UI-created aspiration', { exact: true }).first()).toBeVisible();
   expect((await account.call('GET', 'goals')).some((item: any) => item.title === 'UI-created aspiration')).toBe(true);
   await page.getByText(goal.title, { exact: true }).first().click();

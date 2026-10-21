@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { SocketContext } from '../hooks/useSocket';
 import { api } from '../api/client';
+import { publishWorkspaceChange } from '../lib/workspaceChanges';
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -26,6 +27,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketInstance.on('connect', () => {
       console.log('Real-time connection established');
       setIsConnected(true);
+      queryClient.invalidateQueries({ queryKey: ['workspace-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['search', 'recent'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -64,6 +67,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Socket events announce committed changes. Refetch the affected query families
     // so Board, Planner, Focus, reporting and Goals read their own current records.
     const invalidateTasksAndGoals = () => {
+      queryClient.invalidateQueries({ queryKey: ['day-plan'] });
+      queryClient.invalidateQueries({ queryKey: ['focus-task'] });
       queryClient.invalidateQueries({ queryKey: ['task'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -126,6 +131,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketInstance.on('goal:updated', invalidateGoals);
     socketInstance.on('goal:deleted', invalidateGoals);
     socketInstance.on('goal:restored', invalidateGoals);
+
+    for (const event of ['task:created','task:updated','task:deleted', 'project:created','project:updated','project:deleted','project:restored',
+      'habit:created','habit:updated','habit:deleted','habit:restored', 'goal:created','goal:updated','goal:deleted','goal:restored',
+      'document:created','document:updated','document:deleted','document:restored','space:deleted','space:restored']) {
+      socketInstance.on(event, (payload?: { workspaceId?: string }) => publishWorkspaceChange(payload?.workspaceId));
+    }
 
     socketInstance.on('focus:session:completed', () => {
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });

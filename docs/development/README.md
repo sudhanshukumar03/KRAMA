@@ -6,6 +6,8 @@ This guide describes the current repository and its supported local workflows. C
 
 Use Docker Desktop for the complete local stack. Host development also needs a supported Node.js version and pnpm 9.15.0. The exact Node ranges are declared in [package.json](../../package.json); the application Dockerfiles use Node 24.
 
+Use `corepack pnpm` in place of `pnpm` in the commands below when another global pnpm version is installed. Root scripts also invoke Corepack for nested workspace commands so they retain the project's pinned version.
+
 PostgreSQL must include pgvector. The supplied Compose files use `pgvector/pgvector:pg15`, and Redis uses `redis:7-alpine`. A plain PostgreSQL image without the extension does not provide the vector storage needed by the schema.
 
 ## Run through Docker
@@ -87,6 +89,17 @@ pnpm test:ui
 ```
 
 The default backend test command runs unit suites against deliberately unreachable database and Redis URLs. Database-backed suites use `test:integration`. Default Playwright checks start only the frontend and use module tests or mocked API responses.
+
+### Production landing and intro film
+
+```sh
+corepack pnpm exec playwright install chromium firefox webkit
+corepack pnpm test:landing
+```
+
+This command builds the current frontend before running its landing and intro-film tests against production preview. The durable configuration is [playwright.landing.config.ts](../../playwright.landing.config.ts); JSON results are saved to `test-results/landing-results.json`. For an already-running local Nginx container, set `KRAMA_LANDING_BASE_URL` to its HTTP origin before running the same command. API responses are mocked and personal records are not changed. Seven actual-media checks are explicitly skipped on Windows WebKit because that runner does not decode the films; Chromium and Firefox exercise actual playback. Safari playback still needs macOS or iOS.
+
+Generated verification output belongs in ignored `test-results/`. Keep reusable test configuration in the repository; local logs, backups and downloaded tools are disposable artifacts.
 
 ### Backend integration tests
 

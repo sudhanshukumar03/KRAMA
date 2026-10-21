@@ -16,6 +16,8 @@ function scopedTask(row: any): any {
   return result;
 }
 
+const taskListInclude = { project: { include: { goal: true } }, blockedBy: true, blocking: { select: { id: true, title: true, workspaceId: true, deletedAt: true } }, parentTask: { select: { id: true, workspaceId: true, deletedAt: true } }, childTasks: true } satisfies Prisma.TaskInclude;
+
 class TaskRepository implements BaseRepository<Task, Prisma.TaskUncheckedCreateInput, Prisma.TaskUncheckedUpdateInput> {
   async findById(id: string, tx?: TxClient): Promise<Task | null> {
     return (tx || prisma).task.findUnique({
@@ -44,9 +46,20 @@ class TaskRepository implements BaseRepository<Task, Prisma.TaskUncheckedCreateI
       // and comment threads are only shown in the detail modal, which fetches the
       // single task (findById) on open. Keeping them out avoids loading every
       // task's full thread on every board render.
-      include: { project: { include: { goal: true } }, blockedBy: true, blocking: { select: { id: true, title: true, workspaceId: true, deletedAt: true } }, parentTask: { select: { id: true, workspaceId: true, deletedAt: true } }, childTasks: true },
+      include: taskListInclude,
       orderBy: { position: 'asc' },
     }).then(scopedTask);
+  }
+
+  async findPageByWorkspace(workspaceId: string, filters: { projectId?: string; status?: TaskStatus; limit: number; cursor?: string }) {
+    const rows = await prisma.task.findMany({
+      where: { workspaceId, deletedAt: null, status: filters.status || { not: 'CANCELED' },
+        ...(filters.projectId ? { projectId: filters.projectId } : {}), ...(filters.cursor ? { id: { gt: filters.cursor } } : {}) },
+      include: taskListInclude, orderBy: { id: 'asc' }, take: filters.limit + 1,
+    });
+    const hasMore = rows.length > filters.limit;
+    const items = rows.slice(0, filters.limit);
+    return { items: items.map(scopedTask), nextCursor: hasMore ? items.at(-1)!.id : null };
   }
 
   async findMaxPosition(workspaceId: string, tx?: TxClient): Promise<number> {

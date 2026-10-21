@@ -97,7 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           api.setAccessToken(data.accessToken);
           const meData = await api.auth.me();
           if (isCurrent() && meData.user) {
-            const savedWid = localStorage.getItem('krama_active_workspace');
+            const currentUrl = new URL(window.location.href);
+            const savedWid = currentUrl.searchParams.get('workspaceSwitch') || localStorage.getItem('krama_active_workspace');
             const memberships = meData.user.memberships || [];
             const hasSavedMembership = memberships.some((m) => m.workspaceId === savedWid);
             const wid = (hasSavedMembership ? savedWid : null) || memberships[0]?.workspaceId || null;
@@ -105,6 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             api.setWorkspaceId(wid); // Synchronously set to avoid race condition with React Query mounts
             if (wid) localStorage.setItem('krama_active_workspace', wid);
             else localStorage.removeItem('krama_active_workspace');
+            if (currentUrl.searchParams.has('workspaceSwitch')) {
+              currentUrl.searchParams.delete('workspaceSwitch');
+              window.history.replaceState(window.history.state, '', currentUrl.pathname + currentUrl.search + currentUrl.hash);
+            }
             
             setAuthState({
               status: 'authed',
@@ -151,12 +156,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   
   const switchWorkspace = (id: string) => {
-    if (authState.status === 'authed') {
-      setAuthState({ ...authState, workspaceId: id });
-    }
-    api.setWorkspaceId(id);
-    localStorage.setItem('krama_active_workspace', id);
-    window.location.reload(); // Quick way to wipe all React Query state for the old workspace
+    if (authState.status !== 'authed' || id === authState.workspaceId || !authState.user.memberships?.some(member => member.workspaceId === id)) return;
+    // Keep the old session, API scope and drafts intact if beforeunload is
+    // cancelled. Bootstrap commits the validated choice only after navigation.
+    const destination = new URL('/app/', window.location.origin);
+    destination.searchParams.set('workspaceSwitch', id);
+    window.location.assign(destination.href);
   };
 
   const updateUser = (newUser: User) => {

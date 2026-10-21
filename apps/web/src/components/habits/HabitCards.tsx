@@ -22,49 +22,6 @@ import { resolveIcon } from "../../lib/iconResolver";
 import { cn, formatLocalDate } from "../../lib/utils";
 
 
-export function RadialProgress({ pct = 0, size = 76, strokeWidth = 6 }: { pct: number; size?: number; strokeWidth?: number }) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (pct / 100) * circumference;
-  const gradId = `habit-radial-grad-${size}`;
-
-  return (
-    <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90 filter drop-shadow-[0_2px_8px_var(--cat-projects-bg)]">
-        <defs>
-          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="var(--cat-projects)" />
-            <stop offset="50%" stopColor="var(--warning-fg)" />
-            <stop offset="100%" stopColor="var(--danger-fg)" />
-          </linearGradient>
-        </defs>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          className="text-border/40"
-          fill="transparent"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={`url(#${gradId})`}
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          className="transition-all duration-700 ease-out"
-          fill="transparent"
-        />
-      </svg>
-      <span className="absolute text-sm font-bold font-mono text-primary tabular-nums tracking-tight">{pct}%</span>
-    </div>
-  );
-}
-
 export function PlantIllustration() {
   return (
     <div className="w-20 h-20 rounded-full bg-surface-hover border border-border flex items-center justify-center mb-4 shadow-2xs">
@@ -89,63 +46,6 @@ export function PlantIllustration() {
 
 
 
-export function HabitTrackerRow({ habit, index }: { habit: any; index: number }) {
- const { isCompletedToday, toggleHabit, isPending } = useHabitCompletion(habit);
-
- return (
- <div
- onClick={() => {
- if (isPending) return;
- toggleHabit();
- }}
- className={cn(
- "flex items-center gap-3 group p-2 rounded-lg transition-all border",
- isCompletedToday
- ? "bg-surface-hover border-transparent cursor-pointer"
- : "bg-surface border-border hover:border-primary shadow-2xs cursor-pointer",
- isPending && "opacity-50 cursor-not-allowed"
- )}
- >
- <div className="w-5 text-right text-badge font-mono text-muted tabular-nums">
- {(index + 1).toString().padStart(2, "0")}
- </div>
- <button
- type="button"
- className="focus:outline-none"
- disabled={isPending}
- onClick={(e) => {
- e.stopPropagation();
- if (isPending) return;
- toggleHabit();
- }}
- >
- {isCompletedToday ? (
- <div className="w-5 h-5 rounded-md bg-primary text-white flex items-center justify-center shadow-2xs transition-all animate-in zoom-in-50 duration-150">
- <Check className="w-3.5 h-3.5 stroke-[2.5]" />
- </div>
- ) : (
- <div className="w-5 h-5 rounded-md border border-border bg-surface group-hover:border-primary transition-all flex items-center justify-center shadow-2xs" />
- )}
- </button>
- <div className="min-w-0 flex-1">
- <span
- className={cn(
- "text-caption font-medium transition-colors min-w-0 truncate block",
- isCompletedToday
- ? "text-muted line-through decoration-border"
- : "text-primary group-hover:text-primary",
- )}
- >
- {habit.name}
- </span>
- <span className="text-[10px] text-secondary font-mono">
- {habit.category} • {habit.expectedDurationMinutes || 15}m
- </span>
- </div>
- </div>
- );
-}
-
 function HabitCardMenu({
   habit,
   onTogglePin,
@@ -167,8 +67,19 @@ function HabitCardMenu({
       }
     }
     if (open) {
+      const handleEscape = (event: KeyboardEvent) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        setOpen(false);
+        menuRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+      };
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+        document.removeEventListener('keydown', handleEscape);
+      };
     }
   }, [open]);
 
@@ -188,6 +99,7 @@ function HabitCardMenu({
         )}
         title="More options"
         aria-label="Habit options"
+        aria-expanded={open}
       >
         <MoreVertical className="w-3.5 h-3.5" />
       </button>
@@ -250,18 +162,6 @@ function HabitCardMenu({
 }
 
 // ---- Habit grid card helpers ---------------------------------------------
-
-const DIFFICULTY_LEVEL: Record<string, number> = {
-  VERY_EASY: 1,
-  EASY: 2,
-  MEDIUM: 3,
-  HARD: 4,
-  EXTREME: 5,
-};
-
-function difficultyLevel(difficulty?: string): number {
-  return DIFFICULTY_LEVEL[difficulty ?? ""] ?? 3;
-}
 
 // Sunday-start week key for a YYYY-MM-DD, matching the server/habitFilters
 // UTC-noon keying so client visuals agree with the server's streak week bounds.
@@ -330,9 +230,8 @@ function consistencyRate(habit: any): number | null {
   return Math.round((done / scheduled) * 100);
 }
 
-// A GitHub-style consistency grid of the last 13 weeks. Rows are weekdays
-// (Sun→Sat), the rightmost column is the current week. Completed days are
-// filled, scheduled-but-missed days outlined, everything else faint.
+// Rows are weekdays (Sun→Sat); the rightmost column is the current week.
+// Keep inactive days visible without presenting them as missed completions.
 function HabitHeatmap({ habit }: { habit: any }) {
   const WEEKS = 13;
   const completed = completedDateKeys(habit);
@@ -343,6 +242,7 @@ function HabitHeatmap({ habit }: { habit: any }) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayKey = formatLocalDate(today);
+  const createdKey = habit.createdAt ? formatLocalDate(new Date(habit.createdAt)) : null;
   const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (6 - today.getDay()));
   const total = WEEKS * 7;
 
@@ -351,30 +251,41 @@ function HabitHeatmap({ habit }: { habit: any }) {
       const offsetFromEnd = total - 1 - (w * 7 + r);
       const d = new Date(end.getFullYear(), end.getMonth(), end.getDate() - offsetFromEnd);
       const key = formatLocalDate(d);
-      let cls = "bg-heat-0";
-      let label = key ?? "";
-      if (key && todayKey && key > todayKey) {
-        return { cls: "bg-transparent", label: "" };
+      let state = 'inactive';
+      let label = `${key}: not scheduled`;
+      if (key && createdKey && key < createdKey) {
+        label = `${key}: before this habit was created`;
+      } else if (key && todayKey && key > todayKey) {
+        state = 'future';
+        label = '';
       } else if (key && completed.has(key)) {
-        cls = "bg-heat-4";
+        state = 'done';
         label = `${key} · done`;
-      } else if (!weekly && scheduledDays.includes(d.getDay())) {
-        cls = "bg-heat-0 ring-1 ring-inset ring-accent/25";
-        label = `${key} · missed`;
+      } else if (weekly || scheduledDays.includes(d.getDay())) {
+        state = !weekly && key !== todayKey ? 'missed' : 'pending';
+        label = `${key} · ${state === 'missed' ? 'missed' : 'not logged'}`;
       }
-      return { cls, label };
+      return { state, label };
     })
   );
 
   return (
-    <div className="flex gap-[3px]" aria-hidden>
-      {columns.map((col, ci) => (
-        <div key={ci} className="flex flex-col gap-[3px]">
-          {col.map((cell, ri) => (
-            <span key={ri} title={cell.label} className={cn("w-2.5 h-2.5 rounded-[3px]", cell.cls)} />
-          ))}
-        </div>
-      ))}
+    <div className="habit-history">
+      <p className="habit-history-heading">Last 13 weeks</p>
+      <div className="habit-history-grid" role="img" aria-label={`${habit.name}: completion history for the last 13 weeks; ${columns.flat().filter(cell => cell.state === 'done').length} recorded days.`}>
+        {columns.map((col, ci) => (
+          <div key={ci} className="habit-history-column" aria-hidden="true">
+            {col.map((cell, ri) => (
+              <span key={ri} title={cell.label || undefined} data-history-state={cell.state} className="habit-history-cell" />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="habit-history-legend" aria-hidden="true">
+        <span><i className="habit-history-cell" data-history-state="done" />Done</span>
+        <span><i className="habit-history-cell" data-history-state="pending" />No log</span>
+        <span><i className="habit-history-cell" data-history-state="inactive" />Inactive</span>
+      </div>
     </div>
   );
 }
@@ -394,8 +305,6 @@ export function HabitGridCard({
 }) {
   const Icon = resolveIcon(habit.icon);
   const { isCompletedToday, toggleHabit, isPending } = useHabitCompletion(habit);
-  const level = difficultyLevel(habit.difficulty);
-  const dots = Array.from({ length: 5 }).map((_, i) => i < level);
   const linkedGoal = goals.find((g) => g.id === habit.linkedGoalId);
   const weekly = isWeeklyHabit(habit);
   const weeklyDone = weekly ? weeklyCompletionCount(habit) : 0;
@@ -406,69 +315,29 @@ export function HabitGridCard({
   const canToggle = loggable || isCompletedToday;
 
   return (
-    <div className="relative krama-card p-5 group flex flex-col gap-3.5 backdrop-blur-sm">
-      <div className="flex items-start gap-3.5">
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); if (canToggle) toggleHabit(); }}
-          disabled={isPending || !canToggle}
-          title={isCompletedToday ? "Completed today — click to undo" : loggable ? "Mark complete for today" : "Not scheduled today"}
-          className={cn(
-            "w-9 h-9 rounded-full border-2 flex items-center justify-center transition-all duration-200 shrink-0 cursor-pointer disabled:cursor-not-allowed",
-            isCompletedToday
-              ? "bg-gradient-to-br from-success-fg to-accent border-success-border text-white shadow-[0_0_12px_rgba(16,185,129,0.35)] scale-105 active:scale-[0.98]"
-              : canToggle
-              ? "border-border/80 text-muted hover:border-success-fg hover:text-success-fg active:scale-[0.98] bg-surface"
-              : "border-border/40 text-muted/30 bg-surface-hover/30"
-          )}
-        >
-          <Check className="w-4 h-4 stroke-[2.5]" />
-        </button>
-        <div className="w-11 h-11 bg-surface-hover rounded-xl border border-border/80 flex items-center justify-center shrink-0 group-hover:border-primary/40 transition-all shadow-2xs">
-          <Icon className="w-5 h-5 text-primary transition-colors stroke-[1.75]" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <h3 className="text-sm font-bold text-primary truncate tracking-tight">{habit.name}</h3>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {habit.pinnedToPlanner && (
-                <span className="p-1 rounded-md bg-accent/10 text-accent font-semibold" title="Pinned to Planner">
-                  <Pin className="w-3.5 h-3.5 fill-current" />
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-warning-bg border border-warning-border text-warning-fg font-mono text-[11px] font-bold tracking-tight">
-                <Flame className="w-3.5 h-3.5 fill-warning-fg/20 text-warning-fg stroke-[2]" /> {habit.streak}{weekly ? "w" : "d"}
-              </span>
-              <HabitCardMenu habit={habit} onTogglePin={onTogglePin} onEdit={onEdit} onDelete={onDelete} />
-            </div>
-          </div>
-          {linkedGoal && (
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-accent-subtle border border-accent/20 text-accent-fg text-[10px] font-medium truncate max-w-full mb-2">
-              <Target className="w-3 h-3 shrink-0" />
-              <span className="truncate">Goal: {linkedGoal.title}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-secondary font-medium">{habit.category || "Uncategorized"}</span>
-            <span className="text-border font-light">•</span>
-            <span className="text-[11px] text-secondary font-mono">{habit.expectedDurationMinutes || 15}m</span>
-            <span className="text-border font-light">•</span>
-            <div className="flex items-center gap-0.5" title={`Difficulty: ${habit.difficulty || "MEDIUM"}`}>
-              {dots.map((active, i) => (
-                <span
-                  key={i}
-                  className={cn(
-                    "w-1 h-2 rounded-2xs transition-colors",
-                    active ? "bg-accent" : "bg-surface-hover border border-border/60"
-                  )}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="workspace-habit-card relative krama-card p-5 group flex flex-col gap-3.5">
+      <header className="workspace-habit-card-heading">
+        <span className="workspace-habit-card-icon" aria-hidden="true"><Icon size={20} strokeWidth={1.75} /></span>
+        <h3>{habit.name}</h3>
+        <HabitCardMenu habit={habit} onTogglePin={onTogglePin} onEdit={onEdit} onDelete={onDelete} />
+      </header>
+      <div className="workspace-habit-metadata">
+        <span><Flame size={14} aria-hidden="true" /> {habit.streak}{weekly ? 'w' : 'd'} streak</span>
+        <span>{habit.expectedDurationMinutes || 15} min</span>
+        <span className="workspace-habit-category">{habit.category || 'Uncategorized'}</span>
+        {habit.pinnedToPlanner && <span title="Pinned to Planner"><Pin size={13} aria-hidden="true" /> Planner</span>}
 
-      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-secondary">
+      </div>
+      {linkedGoal && <div className="workspace-habit-goal"><Target size={14} aria-hidden="true" /><span>{linkedGoal.title}</span></div>}
+      <button type="button" onClick={event => { event.stopPropagation(); if (canToggle) toggleHabit(); }}
+        disabled={isPending || !canToggle} aria-pressed={isCompletedToday} aria-busy={isPending}
+        aria-label={isPending ? `Saving: ${habit.name}` : isCompletedToday ? `Completed today: ${habit.name}. Undo completion.` : `Complete for today: ${habit.name}`}
+        title={isCompletedToday ? 'Completed today \u2014 click to undo' : loggable ? 'Mark complete for today' : 'Not scheduled today'}
+        className={cn('workspace-habit-complete krama-btn', isCompletedToday ? 'workspace-habit-completed' : 'krama-btn-secondary')}>
+        <Check size={17} aria-hidden="true" />
+        {isPending ? 'Saving...' : isCompletedToday ? 'Completed today' : loggable ? 'Complete for today' : 'Not scheduled today'}
+      </button>
+      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-secondary">
         {best > 0 && (
           <span className="inline-flex items-center gap-1" title="Longest streak">
             <Award className="w-3.5 h-3.5 text-warning-fg" /> Best {best}{weekly ? "w" : "d"}

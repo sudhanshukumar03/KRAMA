@@ -29,6 +29,7 @@ export type HabitUpdateInput = WriteInput<UpdateHabitInput>;
 export type TaskUpdateInput = Omit<WriteInput<UpdateTaskInput>, "metadata"> & { metadata?: JsonValue };
 export interface WorkspaceCreateInput { name: string; metadata?: Record<string, unknown> }
 export type WorkspaceUpdateInput = Partial<WorkspaceCreateInput>;
+export interface WorkspaceSummary { inbox: number; openIssues: number; projects: number; goals: number; habits: number; documents: number }
 export interface SpaceCreateInput { name: string; icon?: string | null; metadata?: unknown }
 export type SpaceUpdateInput = Partial<SpaceCreateInput>;
 export interface TelemetryInput { mood?: string; energy?: string; reflection?: string; sessionSeconds?: number; wins?: number }
@@ -42,6 +43,11 @@ export type Document = StoredDocument;
 export type DocumentVersion = StoredDocumentVersion;
 export type Tag = StoredTag;
 export type Notification = StoredNotification;
+export interface NotificationPage {
+  items: Notification[];
+  nextCursor: string | null;
+  unreadCount: number;
+}
 export type EntityLink = StoredEntityLink;
 export type FocusSession = StoredFocusSession;
 export type ActivityLog = StoredActivityLog;
@@ -103,7 +109,7 @@ export interface FocusCompletionInput {
 
 export type Habit = StoredHabit & {
   linkedGoal?: Goal | null;
-  completions?: HabitCompletion[];
+  completions?: Array<Pick<HabitCompletion, 'date' | 'offSchedule'> & Partial<Omit<HabitCompletion, 'date' | 'offSchedule'>>>;
   pinnedToPlanner?: boolean;
   timeOfDay?: NonNullable<HabitCreateInput["timeOfDay"]>;
   // Weekly cadence target is stored in metadata and exposed by formatHabit.
@@ -146,7 +152,7 @@ export type DocumentMetadataInput = Partial<Pick<Document,
   'title' | 'subtitle' | 'statusBadges' | 'documentType' | 'isFavorite' | 'icon' | 'projectId'
 >> & { linkedProjectId?: string | null; expectedUpdatedAt?: string };
 export type DocumentCreateInput = Pick<Document, 'title'> & Partial<Pick<Document,
-  'spaceId' | 'folderId' | 'parentId' | 'projectId' | 'documentType'
+  'spaceId' | 'folderId' | 'parentId' | 'projectId' | 'documentType' | 'statusBadges'
 >> & { workspaceId?: string; contentJson?: unknown };
 export type DocumentSearchResult = Pick<Document,
   'id' | 'title' | 'subtitle' | 'icon' | 'documentType' | 'statusBadges' | 'projectId' | 'updatedAt'
@@ -161,6 +167,13 @@ export interface WallpaperResponse {
   error?: 'UNSPLASH_NOT_CONFIGURED';
   status?: number;
   wallpapers: { id: string; url: string; thumb: string; credit: string; creditUrl: string }[];
+}
+
+export interface PersonalDayPlan {
+  revision: number;
+  taskIds: string[];
+  decisions: Record<string, { action: 'tomorrow' | 'backlog' | 'cancel'; at: string }>;
+  reviewedAt: string | null;
 }
 
 export interface DashboardData {

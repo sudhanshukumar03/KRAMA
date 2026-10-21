@@ -26,8 +26,8 @@
     "@google/genai": "^2.19.0",
     "@krama/types": "workspace:*",
     "@krama/validation": "workspace:*",
-    "@prisma/adapter-pg": "^7.10.0",
-    "@prisma/client": "^7.10.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@socket.io/redis-adapter": "^8.3.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^6.0.0",
@@ -40,7 +40,7 @@
     "helmet": "^8.3.0",
     "ioredis": "^5.11.1",
     "jwt-simple": "^0.5.6",
-    "multer": "^2.3.0",
+    "multer": "^2.4.0",
     "pg": "^8.23.0",
     "rate-limit-redis": "^6.0.0",
     "sharp": "^0.35.5",
@@ -59,7 +59,7 @@
     "@types/pg": "^8.23.1",
     "concurrently": "^8.2.2",
     "oxlint": "^1.76.0",
-    "prisma": "7.10.0",
+    "prisma": "7.10.1",
     "typescript": "^6.0.3"
   }
 }

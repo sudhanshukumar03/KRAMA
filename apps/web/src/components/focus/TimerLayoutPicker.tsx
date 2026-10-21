@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Check, LayoutGrid } from 'lucide-react';
 import type { LayoutName } from './types';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 interface TimerLayoutPickerProps {
   currentLayout: LayoutName;
@@ -150,9 +151,10 @@ export const TimerLayoutPicker: React.FC<TimerLayoutPickerProps> = ({
   onSelectLayout,
   onClose,
 }) => {
+  const dialogRef = useModalA11y(true, onClose);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl krama-dialog rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] text-primary">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Timer Layout" className="w-full max-w-2xl krama-dialog rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88dvh] text-primary">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-border/80 shrink-0">
           <div className="flex items-center gap-2.5">

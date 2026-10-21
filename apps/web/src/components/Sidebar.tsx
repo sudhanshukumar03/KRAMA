@@ -1,23 +1,27 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useWorkspaceSummary } from '../hooks/useWorkspaceSummary';
 import { api } from '../api/client';
 import { toast } from 'sonner';
-import { 
-  Home, BookOpen, Target,
+import {
+  Home, BookOpen, Inbox,
   Calendar, KanbanSquare, BarChart2,
-  Search, LogOut, Moon, Sun, Download, X, 
+  Search, LogOut, Moon, Sun, Download, X,
   Settings, User, Briefcase,
   PanelLeftClose, Timer, ExternalLink,
-  KeyRound, Eye, EyeOff
+  KeyRound, Eye, EyeOff, Bot
 } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import { useModalA11y } from '../hooks/useModalA11y';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
+import { openFocusTab } from '../lib/focusNavigation';
 import { KramaLogo } from './ui/KramaLogo';
+import { GoalIcon } from './ui/GoalIcon';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import { NotificationCenter } from './NotificationCenter';
+import { WorkspaceRestoreDialog } from './ui/WorkspaceRestoreDialog';
+import '../styles/sidebar.css';
 
 interface NavItem {
   name: string;
@@ -31,16 +35,17 @@ interface NavItem {
 // 5 Rule-of-5-7 Groups per KRAMA UI Design Direction
 const overviewItems: NavItem[] = [
   { name: 'Dashboard', path: '/app/', icon: Home, shortcut: 'G D', badgeKey: null },
+  { name: 'Inbox', path: '/app/inbox', icon: Inbox, shortcut: 'G I', badgeKey: 'inbox' },
 ];
 
 const planAndExecuteItems: NavItem[] = [
-  { name: 'Execution Board', path: '/app/board', icon: KanbanSquare, shortcut: 'E K', badgeKey: 'openIssues' },
+  { name: 'Tasks', path: '/app/board', icon: KanbanSquare, shortcut: 'E K', badgeKey: 'openIssues' },
   { name: 'Planner', path: '/app/planner', icon: Calendar, shortcut: 'E W', badgeKey: null },
   { name: 'Focus Timer', path: '/focus', icon: Timer, shortcut: '⌃⇧Q', badgeKey: null, external: true },
 ];
 
 const strategyItems: NavItem[] = [
-  { name: 'Goals', path: '/app/goals', icon: Target, shortcut: 'G G', badgeKey: 'goals' },
+  { name: 'Goals', path: '/app/goals', icon: GoalIcon, shortcut: 'G G', badgeKey: 'goals' },
   { name: 'Habits', path: '/app/habits', icon: BarChart2, shortcut: 'E H', badgeKey: 'habits' },
   { name: 'Projects', path: '/app/projects', icon: Briefcase, shortcut: 'G P', badgeKey: 'projects' },
 ];
@@ -49,23 +54,29 @@ const knowledgeItems: NavItem[] = [
   { name: 'Brain Workspace', path: '/app/brain', icon: BookOpen, shortcut: 'G B', badgeKey: 'documents' },
 ];
 
-export function Sidebar({ 
-  mobileOpen = false, 
+export function Sidebar({
+  mobileOpen = false,
   onMobileClose,
   isCollapsed = false,
   onToggleCollapse
-}: { 
-  mobileOpen?: boolean; 
+}: {
+  mobileOpen?: boolean;
   onMobileClose?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }) {
  const location = useLocation();
- const mobileDialogRef = useModalA11y(mobileOpen, () => onMobileClose?.());
+ const mobileDialogRef = useModalA11y(mobileOpen, () => {
+   if (settingsOpen) {
+     setSettingsOpen(false);
+     settingsRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+   } else onMobileClose?.();
+ });
  const { toggleTheme, resolvedTheme } = useTheme();
   const { user, logout, workspaceId } = useAuth();
   const canExport = user?.memberships.some(member => member.workspaceId === workspaceId && member.role === 'OWNER');
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
 
@@ -95,22 +106,9 @@ export function Sidebar({
     };
   }, [settingsOpen]);
 
-  // Fetch live counts for badges
-  const { data: issues = [] } = useQuery({ queryKey: ['issues'], queryFn: api.tasks.list });
-  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: api.projects.list });
-  const { data: goals = [] } = useQuery({ queryKey: ['goals', 'lite'], queryFn: api.goals.listLite });
-  const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: api.habits.list });
-  const { data: documents = [] } = useQuery({ queryKey: ['documents'], queryFn: () => api.documents.list() });
-
-  const openIssuesCount = issues.filter(i => i.status !== "DONE" && i.status !== "CANCELED").length;
-  const activeProjectsCount = projects.filter(p => p.status === 'active').length;
-
+  const { data: summary } = useWorkspaceSummary();
   const getBadgeValue = (key: string | null) => {
-    if (key === 'openIssues') return openIssuesCount;
-    if (key === 'projects') return activeProjectsCount;
-    if (key === 'goals') return goals.filter((g: any) => !g.parentGoalId && g.progress < 100 && (g.metadata?.status !== 'COMPLETED' && g.metadata?.status !== 'CANCELED')).length;
-    if (key === 'habits') return habits.length;
-    if (key === 'documents') return documents.length;
+    if (key === 'inbox' || key === 'openIssues' || key === 'projects' || key === 'goals' || key === 'habits' || key === 'documents') return summary?.[key] ?? null;
     return null;
   };
 
@@ -147,9 +145,9 @@ export function Sidebar({
           type="button"
           onClick={() => {
             onMobileClose?.();
-            window.open(item.path, '_blank');
+            openFocusTab();
           }}
-          className="w-full group flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption transition-colors duration-150 outline-none select-none relative text-secondary hover:text-primary hover:bg-surface-hover border border-transparent cursor-pointer text-left"
+          className="krama-sidebar-link w-full group flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption transition-colors duration-150 outline-none select-none relative text-secondary hover:text-primary hover:bg-surface-hover border border-transparent cursor-pointer text-left"
           title={`${item.name} (Opens in new full-screen tab)`}
         >
           <div className="flex items-center gap-2.5 min-w-0 z-10 pl-1">
@@ -175,9 +173,9 @@ export function Sidebar({
         to={item.path}
         onClick={onMobileClose}
         className={cn(
-          "group flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption transition-colors duration-150 outline-none select-none relative",
-          isActive 
-            ? "text-primary font-medium bg-surface-hover border border-border" 
+          "krama-sidebar-link group flex items-center justify-between px-2.5 py-1.5 rounded-md text-caption transition-colors duration-150 outline-none select-none relative",
+          isActive
+            ? "krama-sidebar-link-active text-primary font-medium border border-transparent"
             : "text-secondary hover:text-primary hover:bg-surface-hover border border-transparent"
         )}
       >
@@ -196,8 +194,8 @@ export function Sidebar({
           {badgeVal !== null && badgeVal > 0 && (
             <span className={cn(
               "px-1.5 py-0.2 rounded font-mono text-badge leading-tight border transition-colors",
-              isActive 
-                ? "bg-accent-tint text-accent border-accent/20 font-semibold" 
+              isActive
+                ? "bg-accent-tint text-accent border-accent/20 font-semibold"
                 : "bg-surface-hover text-muted border-border/80 group-hover:text-secondary"
             )}>
               {badgeVal}
@@ -213,49 +211,31 @@ export function Sidebar({
     );
   };
 
- const sidebarContent = (
- <div className="w-[260px] lg:w-[280px] border-r border-border bg-surface flex flex-col h-full flex-shrink-0 select-none shadow-level-1 z-10">
- {/* Header / Brand */}
- <div className="h-13 flex items-center justify-between px-4 border-b border-border bg-surface">
-      <Link to="/app/" className="hover:opacity-90 transition-opacity">
-        <KramaLogo size="sm" withText textClassName="font-semibold tracking-tight text-primary text-body leading-none block" />
-      </Link>
-      <div className="flex items-center gap-1">
-        {onToggleCollapse && (
-          <button
-            onClick={onToggleCollapse}
-            className="hidden md:inline-flex p-1.5 rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors outline-none cursor-pointer border border-transparent"
-            title="Collapse sidebar (Ctrl+\)"
-            aria-label="Collapse sidebar"
-          >
-            <PanelLeftClose className="w-4 h-4" />
-          </button>
-        )}
-        <NotificationCenter />
-        <div className="relative" ref={settingsRef}>
+ const settingsControl = (
+<div className="krama-sidebar-account relative" ref={settingsRef}>
         <button
           onClick={() => setSettingsOpen((prev) => !prev)}
           className={cn(
-            "min-h-11 min-w-11 flex items-center justify-center rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent cursor-pointer border border-transparent",
+            "krama-sidebar-account-trigger w-full min-h-11 flex items-center gap-3 rounded-xl text-secondary hover:text-primary hover:bg-surface-hover transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent cursor-pointer border border-transparent text-left",
             settingsOpen && "text-primary bg-surface-hover border-border"
           )}
           title="Settings & Preferences"
           aria-label="Settings"
+          aria-expanded={settingsOpen}
         >
-          <Settings className="w-4 h-4" />
+          <span className="krama-sidebar-avatar" aria-hidden="true">{user?.name?.charAt(0).toUpperCase() || 'K'}</span>
+          <span className="krama-sidebar-identity"><strong>{user?.name || 'Krama'}</strong><span>{user?.memberships.find(member => member.workspaceId === workspaceId)?.workspace?.name || 'Personal workspace'}</span></span>
+          <Settings className="w-4 h-4 shrink-0" aria-hidden="true" />
         </button>
 
         {settingsOpen && (
-          <div className="absolute right-0 top-full mt-2 w-64 bg-surface border border-border rounded-lg shadow-level-2 z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+          <div className="krama-sidebar-settings absolute left-0 bottom-full mb-3 w-64 max-h-[calc(100dvh-120px)] overflow-y-auto bg-surface border border-border rounded-lg shadow-level-2 z-50 p-2 space-y-1 animate-in fade-in zoom-in-95 duration-150">
             {/* Profile Details */}
             <div className="p-2.5 rounded-md bg-surface-hover/70 border border-border/80 mb-1">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-muted flex items-center gap-1.5">
                   <User className="w-3 h-3 text-accent" />
                   <span>Profile Details</span>
-                </span>
-                <span className="text-badge font-mono text-muted bg-surface px-1.5 py-0.2 rounded border border-border">
-                  PRO
                 </span>
               </div>
 
@@ -269,10 +249,6 @@ export function Sidebar({
                   </div>
                   <div className="text-badge text-muted font-mono truncate leading-tight mt-0.5">
                     {user?.email || 'user@krama.os'}
-                  </div>
-                  <div className="text-badge text-muted font-mono flex items-center gap-1 mt-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-success inline-block" />
-                    <span>Focused</span>
                   </div>
                 </div>
               </div>
@@ -316,6 +292,7 @@ export function Sidebar({
               className="w-full flex items-center gap-2 px-2.5 min-h-11 rounded-md text-caption text-secondary hover:text-primary hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
               <KeyRound aria-hidden="true" className="w-3.5 h-3.5" /> Change password
             </button>
+            <button type="button" onClick={() => { setSettingsOpen(false); onMobileClose?.(); setRestoreOpen(true); }} className="w-full min-h-11 px-2.5 text-left rounded-md text-caption text-secondary hover:text-primary hover:bg-surface-hover">Restore backup</button>
             <div className="my-1 border-t border-border/80" />
 
             <button
@@ -334,19 +311,41 @@ export function Sidebar({
           </div>
         )}
       </div>
+ );
+
+ const sidebarContent = (
+ <div className="krama-sidebar w-[248px] border-r border-border bg-surface flex flex-col h-full flex-shrink-0 select-none shadow-level-1 z-10">
+ {/* Header / Brand */}
+ <div className="krama-sidebar-brand flex items-center justify-between px-4 bg-surface">
+      <Link to="/app/" className="hover:opacity-90 transition-opacity">
+        <KramaLogo size="md" withText textClassName="font-semibold tracking-tight text-primary text-body leading-none block" />
+      </Link>
+      <div className="flex items-center gap-1">
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            className="hidden md:inline-flex p-1.5 rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors outline-none cursor-pointer border border-transparent"
+            title="Collapse sidebar (Ctrl+\)"
+            aria-label="Collapse sidebar"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
+        )}
+        <NotificationCenter align="left" />
       {mobileOpen && <button type="button" onClick={onMobileClose} aria-label="Close navigation" className="md:hidden min-h-11 min-w-11 flex items-center justify-center rounded-md text-secondary hover:text-primary hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"><X aria-hidden="true" className="w-4 h-4" /></button>}
       </div>
   </div>
 
   {/* Workspace Switcher */}
-  <div className="px-3 py-2 border-b border-border bg-surface/50">
+  {(user?.memberships.length || 0) > 1 && <div className="px-3 py-2 border-b border-border bg-surface/50">
     <WorkspaceSwitcher />
-  </div>
+  </div>}
 
   {/* Search / Command Palette Trigger */}
- <div className="p-3 border-b border-border bg-surface">
- <button 
- onClick={() => {
+ <div className="krama-sidebar-search p-3">
+ <button
+ onClick={event => {
+ event.currentTarget.focus();
  onMobileClose?.();
  window.dispatchEvent(new CustomEvent('open-cmdk'));
  }}
@@ -361,10 +360,10 @@ export function Sidebar({
  </div>
 
  {/* Navigation Sections */}
- <div className="flex-1 overflow-y-auto p-3 space-y-5">
+ <div className="krama-sidebar-nav flex-1 overflow-y-auto p-3 space-y-5">
  {/* 1. Overview */}
  <div>
- <div className="text-badge font-mono font-semibold text-muted uppercase tracking-wider mb-1 px-2.5">
+ <div className="text-badge font-sans font-medium text-muted mb-1 px-2.5">
  Overview
  </div>
  <div className="space-y-0.5">
@@ -374,8 +373,8 @@ export function Sidebar({
 
  {/* 2. Plan & Execute */}
  <div>
- <div className="text-badge font-mono font-semibold text-muted uppercase tracking-wider mb-1 px-2.5">
- Plan & Execute
+ <div className="text-badge font-sans font-medium text-muted mb-1 px-2.5">
+ Daily work
  </div>
  <div className="space-y-0.5">
  {planAndExecuteItems.map(renderLink)}
@@ -384,8 +383,8 @@ export function Sidebar({
 
  {/* 3. Strategy */}
  <div>
- <div className="text-badge font-mono font-semibold text-muted uppercase tracking-wider mb-1 px-2.5">
- Strategy
+ <div className="text-badge font-sans font-medium text-muted mb-1 px-2.5">
+ Goals & routines
  </div>
  <div className="space-y-0.5">
  {strategyItems.map(renderLink)}
@@ -394,7 +393,7 @@ export function Sidebar({
 
  {/* 4. Knowledge */}
  <div>
- <div className="text-badge font-mono font-semibold text-muted uppercase tracking-wider mb-1 px-2.5">
+ <div className="text-badge font-sans font-medium text-muted mb-1 px-2.5">
  Knowledge
  </div>
  <div className="space-y-0.5">
@@ -402,15 +401,22 @@ export function Sidebar({
  </div>
  </div>
  </div>
+ <div className="krama-sidebar-footer">
+ <button type="button" aria-label="Open AI Assistant" title="Open AI Assistant" onClick={event => { event.currentTarget.focus(); window.dispatchEvent(new Event('open-ai-assistant')); }}
+   className="hidden md:flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-sm text-secondary hover:text-primary hover:bg-surface-hover">
+   <Bot aria-hidden="true" size={18} /> Ask KRAMA
+ </button>
+ {settingsControl}
+ </div>
  </div>
  );
 
  return (
  <>
       <div className={cn(
-        "hidden md:block h-full shrink-0 transition-[width,opacity] duration-200 ease-in-out relative overflow-hidden",
-        isCollapsed ? "w-0 opacity-0 pointer-events-none" : "w-[260px] lg:w-[280px] opacity-100"
-      )}>
+        "krama-sidebar-slot hidden md:block h-full shrink-0 transition-[width,opacity] duration-200 ease-in-out relative",
+        isCollapsed ? "w-0 opacity-0 pointer-events-none overflow-hidden" : "w-[248px] opacity-100 z-20"
+      )} data-collapsed={isCollapsed} inert={isCollapsed} aria-hidden={isCollapsed || undefined}>
         {sidebarContent}
       </div>
 
@@ -428,6 +434,7 @@ export function Sidebar({
    if (trigger?.offsetParent !== null && trigger) trigger.focus();
    else document.querySelector<HTMLButtonElement>('button[aria-label="Open navigation"]')?.focus();
  }} />}
+ {restoreOpen && <WorkspaceRestoreDialog onClose={() => setRestoreOpen(false)} />}
  </>
  );
 }

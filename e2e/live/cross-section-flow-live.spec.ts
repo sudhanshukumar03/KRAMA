@@ -64,17 +64,24 @@ test('verify repaired related task flows across workspaces without changing real
   const completedSchedule = await freshSchedule();
   record('Completed task → Focus exclusion', !completedSchedule.plan.some((entry: any) => entry.taskId === task.id), 'Completing a task should also exclude it when an existing Planner block still links to it.');
   const sessionInput = { type: 'pomodoro', duration: 120, startTime: new Date(Date.now() - 120000).toISOString(), endTime: new Date().toISOString(), taskId: unscheduled.id, projectId: project.id };
+  const sessionDay = reportingClock(null, 'Asia/Kolkata').dateKey(new Date(sessionInput.startTime));
+  const currentDayMinutes = sessionDay === today ? 2 : 0;
   const completion = await json('POST', 'focus-sessions', sessionInput, 201);
-  dashboard = await json('GET', 'dashboard');
-  record('Focus → Dashboard task history', dashboard.today.focusSessions.some((entry: any) => entry.id === completion.session.id && entry.taskId === unscheduled.id && entry.projectId === project.id) && dashboard.today.focusMinutes === 2, 'A completed two-minute work session preserves task/project identity and contributes two minutes to the Dashboard summary.');
+  dashboard = await json('GET', `dashboard?date=${sessionDay}`);
+  record('Focus → Dashboard task history', dashboard.today.focusSessions.some((entry: any) => entry.id === completion.session.id && entry.taskId === unscheduled.id && entry.projectId === project.id) && dashboard.today.focusMinutes === 2, 'A completed two-minute work session preserves task/project identity and contributes two minutes to its local-day Dashboard summary.');
   const breakEnd = new Date();
   await json('POST', 'focus-sessions', { ...sessionInput, type: 'short_break', duration: 600, startTime: new Date(+breakEnd - 600000).toISOString(), endTime: breakEnd.toISOString() }, 201);
-  const afterBreak = await json('GET', 'dashboard'); const afterBreakSchedule = await freshSchedule();
-  record('Focus breaks → work totals', afterBreak.today.focusMinutes === 2 && afterBreakSchedule.alreadyLoggedMinutes === 2, 'Breaks remain in history but do not inflate work totals or consume the work cap.');
-  const morningStart = new Date(`${shiftDay(today, -1)}T20:00:00Z`);
-  await json('POST', 'focus-sessions', { ...sessionInput, duration: 120, startTime: morningStart.toISOString(), endTime: new Date(+morningStart + 120000).toISOString() }, 201);
+  const afterBreak = await json('GET', `dashboard?date=${sessionDay}`); const afterBreakSchedule = await freshSchedule();
+  record('Focus breaks → work totals', afterBreak.today.focusMinutes === 2 && afterBreakSchedule.alreadyLoggedMinutes === currentDayMinutes, 'Breaks remain in history but do not inflate work totals or consume the work cap.');
+  // Yesterday's 01:30 is always in the past, including CI runs before 01:32.
+  const morningDay = shiftDay(today, -1);
+  const morningStart = new Date(`${shiftDay(morningDay, -1)}T20:00:00Z`);
+  const morningSession = await json('POST', 'focus-sessions', { ...sessionInput, duration: 120, startTime: morningStart.toISOString(), endTime: new Date(+morningStart + 120000).toISOString() }, 201);
+  const morningOverview = await json('GET', `dashboard?date=${morningDay}`);
+  expect(morningOverview.today.focusSessions.some((entry: any) => entry.id === morningSession.session.id)).toBe(true);
+  expect(morningOverview.today.focusMinutes).toBe(2 + (sessionDay === morningDay ? 2 : 0));
   const dayOverview = await json('GET', 'dashboard'); const daySchedule = await freshSchedule();
-  record('Focus daily cap ↔ Dashboard timezone', daySchedule.alreadyLoggedMinutes === dayOverview.today.focusMinutes, `India-local early-morning work should agree across views; Focus cap reports ${daySchedule.alreadyLoggedMinutes} min and Dashboard reports ${dayOverview.today.focusMinutes} min.`);
+  record('Focus daily cap ↔ Dashboard timezone', daySchedule.alreadyLoggedMinutes === dayOverview.today.focusMinutes && dayOverview.today.focusMinutes === currentDayMinutes, `India-local early-morning work belongs to its reporting day and is excluded from today's cap; Focus cap reports ${daySchedule.alreadyLoggedMinutes} min and Dashboard reports ${dayOverview.today.focusMinutes} min.`);
   const duplicate = await json('POST', 'focus-sessions', sessionInput, 201);
   record('Focus save retries → one session', duplicate.session.id === completion.session.id, 'Reposting the same completion returns its original session without counting work twice.');
   habit = await json('POST', 'habits', { name: 'Flow routine', cadence: 'daily', pinnedToPlanner: true }, 201);
@@ -95,19 +102,24 @@ test('verify repaired related task flows across workspaces without changing real
   record('Goal deadline → Planner', week.goalDeadlines.some((row: any) => row.id === goal.id), 'The automatic goal deadline appears in Planner.');
   await login(page); await page.goto('/app/');
   await page.getByRole('button', { name: 'Open task Flow scheduled task', exact: true }).click(); await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByRole('dialog').getByLabel('Directive Title *', { exact: true })).toHaveValue(task.title);
+  await expect(page.getByRole('dialog').getByLabel('Task Title *', { exact: true })).toHaveValue(task.title);
   record('Dashboard → Board task dialog', true, 'The Dashboard task link opens the correct task details in Execution Board.');
   await json('PATCH', 'auth/me/preferences', { timerPreferences: { focusDuration: 1, shortBreak: 5, longBreak: 15, longBreakAfter: 4 } }); await freshSchedule();
   await page.evaluate(id => localStorage.setItem(`krama.focus.${id}.settings`, JSON.stringify({ focusDuration: 1, shortBreak: 5, longBreak: 15, longBreakAfter: 4, customDuration: 45, autoStartBreaks: false, autoStartPomodoros: false, soundEnabled: false })), userId);
   let submittedSeconds: number | undefined;
-  await page.route('**/api/v1/focus-sessions', async route => {
+  await page.context().route('**/api/v1/focus-sessions', async route => {
     if (route.request().method() !== 'POST') return route.continue();
     submittedSeconds = route.request().postDataJSON().duration;
     await route.fulfill({ status: 201, json: { session: { id: 'simulated-timer-audit' } } });
   });
-  await page.goto('/app/'); await page.getByRole('button', { name: 'Start Focus', exact: true }).click(); await expect(page).toHaveURL(/\/focus$/);
+  await page.goto('/app/'); const opened = page.context().waitForEvent('page'); await page.getByRole('button', { name: 'Start Focus', exact: true }).click(); page = await opened;
+  await expect(page).toHaveURL(url => url.pathname === '/focus' && url.searchParams.get('task') === unscheduled.id && url.searchParams.get('date') === today);
   record('Dashboard → Focus navigation', true, 'Start Focus now uses the mounted /focus route.');
-  await page.clock.install(); await page.reload(); await expect(page.getByRole('button', { name: 'Settings and options' })).toBeVisible();
+  // The reserved task now has a real planned date, so Dashboard correctly opens
+  // its block plan. Test the separate one-minute preference timer without that
+  // selected-task setup or the reservation's thirty-minute duration.
+  await page.goto('/focus');
+  await page.clock.install({ time: new Date(Date.now() - 600000) }); await page.reload(); await expect(page.getByRole('button', { name: 'Settings and options' })).toBeVisible();
   await expect.poll(async () => page.title()).toContain('(01:00)');
   await page.keyboard.press('Space'); await page.clock.runFor(20000); await page.keyboard.press('Space'); await page.clock.runFor(120000); await page.keyboard.press('Space'); await page.clock.runFor(41000);
   await expect.poll(() => submittedSeconds).toBeDefined();
@@ -154,7 +166,7 @@ test('mounted Focus refreshes Planner changes and preserves a failed save across
   const originalSlot = (await json('GET', 'focus-sessions/schedule')).plan[0];
   let failed = true;
   const payloads: any[] = [];
-  await page.route('**/api/v1/focus-sessions', async route => {
+  await page.context().route('**/api/v1/focus-sessions', async route => {
     if (route.request().method() !== 'POST') return route.continue();
     payloads.push(route.request().postDataJSON());
     if (failed) return route.fulfill({ status: 503, json: { message: 'Simulated save outage' } });
@@ -176,7 +188,7 @@ test('mounted Focus refreshes Planner changes and preserves a failed save across
   expect(payloads[0].duration).toBe(60);
   expect(payloads[0].taskId).toBe(originalSlot.taskId);
   record('Active Focus → stable task identity', true, 'Reassigning its Planner block while the timer runs does not change the recorded task.');
-  const saved = await page.evaluate((key: string) => JSON.parse(localStorage.getItem(key)!), `krama.focus.unsaved.${userId}.${workspaceId}`);
+  const saved = await page.evaluate((key: string) => JSON.parse(localStorage.getItem(key)!), `krama.focus.unsaved.${userId}.${workspaceId}.completion.${encodeURIComponent(payloads[0].completionId)}`);
   expect(saved).toEqual(payloads[0]);
   await page.screenshot({ path: test.info().outputPath('unsaved-session.png') });
   await page.reload();
@@ -187,7 +199,7 @@ test('mounted Focus refreshes Planner changes and preserves a failed save across
   await expect(retry).not.toBeVisible();
   expect(payloads).toHaveLength(4);
   expect(payloads[3]).toEqual(saved);
-  await expect.poll(() => page.evaluate((key: string) => localStorage.getItem(key), `krama.focus.unsaved.${userId}.${workspaceId}`)).toBeNull();
+  await expect.poll(() => page.evaluate((key: string) => localStorage.getItem(key), `krama.focus.unsaved.${userId}.${workspaceId}.completion.${encodeURIComponent(payloads[0].completionId)}`)).toBeNull();
   const history = await json('GET', 'dashboard');
   expect(history.today.focusSessions.filter((entry: any) => entry.id === saved.completionId)).toHaveLength(1);
   record('Failed Focus save → reload and explicit retry', true, 'Exhausted retries keep the exact unsaved completion, reload restores Retry, and a successful retry records it once and clears the draft.');

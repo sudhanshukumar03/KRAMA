@@ -45,14 +45,15 @@ export type TxClient = Omit<Prisma.TransactionClient, '$transaction'>;
  * If the transaction rolls back, subscribers never see its tentative changes.
  */
 export const runInTransaction = async <T>(
-  fn: (tx: TxClient, publishAfterCommit: PostCommitPublisher) => Promise<T>
+  fn: (tx: TxClient, publishAfterCommit: PostCommitPublisher) => Promise<T>,
+  options?: { isolationLevel?: Prisma.TransactionIsolationLevel },
 ): Promise<T> => {
   const postCommitQueue: Array<{ type: string; payload: any }> = [];
   const publishAfterCommit: PostCommitPublisher = (type, payload) => {
     postCommitQueue.push({ type, payload });
   };
 
-  const result = await prisma.$transaction((tx) => fn(tx, publishAfterCommit));
+  const result = await prisma.$transaction((tx) => fn(tx, publishAfterCommit), options);
 
   // Published strictly after the transaction has successfully committed
   for (const event of postCommitQueue) {

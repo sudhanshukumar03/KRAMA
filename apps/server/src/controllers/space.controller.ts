@@ -1,5 +1,7 @@
 import type { Request, Response } from 'express';
-import { prisma } from '../prisma';
+import { prisma, runInTransaction } from '../prisma';
+import { goalService } from '../services/goal.service';
+import { socketService } from '../services/socket.service';
 
 export const listSpaces = async (req: Request, res: Response) => {
   try {
@@ -95,10 +97,15 @@ export const deleteSpace = async (req: Request, res: Response) => {
 
     const now = new Date();
     const userId = (req as any).user?.id || 'system';
+    const removedProjectIds: string[] = [];
+    const affectedGoalIds = new Set<string>();
 
-    await prisma.$transaction(async (tx) => {
-      const projects = await tx.project.findMany({ where: { spaceId: space.id }, select: { id: true } });
+    await runInTransaction(async (tx, publishAfterCommit) => {
+      await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
+      const projects = await tx.project.findMany({ where: { spaceId: space.id, workspaceId, deletedAt: null }, select: { id: true, goalId: true } });
       const projectIds = projects.map(p => p.id);
+      removedProjectIds.push(...projectIds);
+      for (const project of projects) if (project.goalId) affectedGoalIds.add(project.goalId);
 
       const docs = await tx.document.findMany({ where: { spaceId: space.id }, select: { id: true } });
       const docIds = docs.map(d => d.id);
@@ -113,10 +120,12 @@ export const deleteSpace = async (req: Request, res: Response) => {
         data: { deletedAt: now, updatedBy: userId }
       });
 
-      await tx.goal.updateMany({
-        where: { spaceId: space.id, deletedAt: null },
-        data: { deletedAt: now, updatedBy: userId }
-      });
+      const goals = await tx.goal.findMany({ where: { spaceId: space.id, workspaceId, deletedAt: null }, select: { id: true } });
+      for (const goal of goals) {
+        if (await tx.goal.findFirst({ where: { id: goal.id, workspaceId, deletedAt: null }, select: { id: true } })) {
+          await goalService.deleteGoalWithinTransaction(goal.id, workspaceId, userId, tx, publishAfterCommit);
+        }
+      }
 
       await tx.document.updateMany({
         where: { spaceId: space.id, deletedAt: null },
@@ -132,6 +141,7 @@ export const deleteSpace = async (req: Request, res: Response) => {
       }
 
       if (projectIds.length > 0) {
+        const removedTasks = await tx.task.findMany({ where: { workspaceId, projectId: { in: projectIds }, deletedAt: null }, select: { id: true } });
         await tx.task.updateMany({
           where: {
             projectId: { in: projectIds },
@@ -139,8 +149,13 @@ export const deleteSpace = async (req: Request, res: Response) => {
           },
           data: { deletedAt: now, updatedBy: userId }
         });
+        for (const task of removedTasks) publishAfterCommit('TASK_DELETED', { taskId: task.id, workspaceId, userId });
       }
+      for (const goalId of affectedGoalIds) await goalService.recomputeAutoProgressWithinTransaction(goalId, userId, tx, publishAfterCommit);
     });
+
+    await goalService.invalidateGoalCache(workspaceId);
+    for (const projectId of removedProjectIds) socketService.emitToWorkspace(workspaceId, 'project:deleted', { projectId, workspaceId });
 
     return res.status(200).json({ success: true });
   } catch (error) {

@@ -2,6 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { toast } from 'sonner';
 import { formatLocalDate } from '../lib/utils';
+import { useLocalDay } from './useLocalDay';
+import { isHabitLoggableToday } from '../lib/habitFilters';
 
 export function isHabitCompletedToday(habit: any): boolean {
   if (!habit) return false;
@@ -21,6 +23,7 @@ export function isHabitCompletedToday(habit: any): boolean {
 
 export function useHabitCompletion(habit: any) {
   const queryClient = useQueryClient();
+  useLocalDay();
 
   const isCompletedToday = isHabitCompletedToday(habit);
 
@@ -61,12 +64,16 @@ export function useHabitCompletion(habit: any) {
   // e.g. IST resolves to the *previous* calendar day and desyncs the two views.
   const today = new Date();
   const todayStr = formatLocalDate(today) || '';
-  const todayIso = todayStr ? `${todayStr}T12:00:00.000Z` : '';
 
   return { 
     isCompletedToday, 
     todayStr,
-    toggleHabit: () => toggleMutation.mutate({ id: habit.id, localDate: todayStr, localDateIso: todayIso, isCurrentlyCompleted: isCompletedToday }),
+    toggleHabit: () => {
+      const localDate = formatLocalDate(new Date()) || '';
+      const completed = isHabitCompletedToday(habit);
+      if (!completed && !isHabitLoggableToday(habit)) { toast.info('This habit is not scheduled today.'); return; }
+      toggleMutation.mutate({ id: habit.id, localDate, localDateIso: `${localDate}T12:00:00.000Z`, isCurrentlyCompleted: completed });
+    },
     isPending: toggleMutation.isPending
   };
 }

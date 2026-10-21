@@ -3,6 +3,7 @@ import { prisma } from '../prisma';
 import { vectorSearch, keywordSearch, mergeAndRank } from './rag/retriever';
 import { getEmbedding } from '../lib/embedding';
 import { aiService } from './ai.service';
+import { groundSources, type RetrievedSource } from './rag/sources';
 
 const ResponseTypeSchema = z.enum([
   "direct",
@@ -89,20 +90,23 @@ Return ONLY the category word.`;
     return { goals, projects, tasks, blockers };
   }
 
-  private formatKramaContext(context: any) {
+  private formatKramaContext(context: Awaited<ReturnType<KramaAIService['getKramaContext']>>) {
     return `KRAMA WORKSPACE CONTEXT
 
 GOALS
-${context.goals.map((g: any) => `- ${g.title} | Status: ${g.status || 'ACTIVE'}`).join("\n")}
+${context.goals.map(goal => {
+  const metadata = goal.metadata && typeof goal.metadata === 'object' && !Array.isArray(goal.metadata) ? goal.metadata : {};
+  return `- ${goal.title} | Status: ${typeof metadata.status === 'string' ? metadata.status : 'ACTIVE'}`;
+}).join("\n")}
 
 PROJECTS
-${context.projects.map((p: any) => `- ${p.name} | Status: ${p.status}`).join("\n")}
+${context.projects.map(project => `- ${project.name} | Status: ${project.status}`).join("\n")}
 
 OPEN TASKS
-${context.tasks.map((t: any) => `- ${t.title} | Priority: ${t.priority} | Status: ${t.status}`).join("\n")}
+${context.tasks.map(task => `- ${task.title} | Priority: ${task.priority} | Status: ${task.status}`).join("\n")}
 
 BLOCKERS
-${context.blockers.map((b: any) => `- ${b.title}`).join("\n")}
+${context.blockers.map(task => `- ${task.title}`).join("\n")}
 `;
   }
 
@@ -183,7 +187,7 @@ Return ONLY valid JSON matching this schema:
     const kramaContext = this.formatKramaContext(context);
 
     let ragContext = "";
-    let sourcesList: any[] = [];
+    let sourcesList: RetrievedSource[] = [];
     if ((ragEnabled || intent === "knowledge") && process.env.GEMINI_API_KEY) {
       const embedding = await getEmbedding(message);
       // Hybrid retrieval: blend semantic (vector) and lexical (keyword) recall,
@@ -195,17 +199,14 @@ Return ONLY valid JSON matching this schema:
         keywordSearch(workspaceId, message, 20),
       ]);
       const chunks = mergeAndRank(vectorResults, keywordResults).slice(0, 8);
-      ragContext = chunks.map((chunk: any, i: number) => `SOURCE ${i + 1}\nPage ID: ${chunk.pageId || chunk.documentId || ''}\nTitle: ${chunk.title || chunk.pageTitle || ''}\nContent:\n${chunk.content}\n`).join("\n");
-      sourcesList = chunks.map((chunk: any) => ({ pageId: chunk.pageId || chunk.documentId || chunk.id, title: chunk.title || chunk.pageTitle || 'Source', chunkId: chunk.id }));
+      ragContext = chunks.map((chunk, i) => `SOURCE ${i + 1}\nPage ID: ${chunk.documentId}\nTitle: ${chunk.title}\nContent:\n${chunk.content}\n`).join("\n");
+      sourcesList = chunks.map(chunk => ({ pageId: chunk.documentId, title: chunk.title, chunkId: chunk.id }));
     }
 
     const prompt = this.buildPrompt(message, intent, kramaContext, ragContext);
     const response = await this.generateKramaResponse(prompt, workspaceId, userId);
     
-    // Inject retrieved sources directly into the response if it's a RAG intent and the AI didn't properly include them
-    if (sourcesList.length > 0 && (!response.sources || response.sources.length === 0)) {
-      response.sources = sourcesList.slice(0, 3); // top 3
-    }
+    response.sources = groundSources(response.sources, sourcesList);
     
     return { ...response, intent };
   }

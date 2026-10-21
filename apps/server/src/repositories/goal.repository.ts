@@ -2,6 +2,7 @@ import type { BaseRepository } from './base.repository';
 import { prisma } from '../prisma';
 import type { Goal, Prisma } from '@prisma/client';
 import type { TxClient } from './user.repository';
+import { attachGoalDescendants } from '../lib/goalTree';
 
 // Filter the relation counts to non-deleted rows so the goal card's "N projects"
 // / "N habits" match the linked lists the client actually renders (both exclude
@@ -46,14 +47,16 @@ class GoalRepository implements BaseRepository<Goal, Prisma.GoalUncheckedCreateI
   }
 
   async findManyByWorkspace(workspaceId: string, tx?: TxClient): Promise<Goal[]> {
-    return (tx || prisma).goal.findMany({
+    const { childGoals: _children, ...include } = defaultGoalInclude(workspaceId);
+    const goals = await (tx || prisma).goal.findMany({
       where: {
         workspaceId,
         deletedAt: null,
       },
-      include: defaultGoalInclude(workspaceId),
+      include,
       orderBy: { createdAt: 'desc' },
     });
+    return attachGoalDescendants(goals);
   }
 
   /**

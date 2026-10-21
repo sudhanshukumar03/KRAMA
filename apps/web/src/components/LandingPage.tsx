@@ -1,210 +1,200 @@
-import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Brain, FolderKanban, Target, Sparkles, CheckSquare, Clock, FileText, CheckCircle2 } from 'lucide-react';
-import { BaseButton } from './ui/BaseButton';
-import { KramaLogo } from './ui/KramaLogo';
+import { useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowDown, ArrowRight, BookOpen, CalendarDays, ChevronDown, CircleCheck, FolderKanban, Inbox, LayoutDashboard, LayoutGrid, Menu, Moon, Sun, Target, Timer, X } from 'lucide-react';
+import { IntroVideo } from './landing/IntroVideo';
+import { HeroTopic } from './landing/HeroTopic';
+import { useTheme } from '../lib/theme';
+import '../styles/landing.css';
+
+const previews = [
+  { id: 'dashboard', label: 'Today', icon: LayoutDashboard, title: 'Start with what matters today.', description: 'See what needs doing, choose your priorities and start with one task.', alt: 'KRAMA dashboard with today’s priorities, quick capture, and personal projects.' },
+  { id: 'planner', label: 'Planner', icon: CalendarDays, title: 'Give your work a place in the week.', description: 'Set aside time for a task and see how much room is left in your week.', alt: 'KRAMA weekly Planner showing scheduled tasks and available time.' },
+  { id: 'brain', label: 'Brain', icon: BookOpen, title: 'Keep the thinking behind the work.', description: 'Save a thought while it’s fresh. Turn it into a task when you’re ready.', alt: 'KRAMA Brain Workspace with a document tree and a portfolio case study note.' },
+  { id: 'focus', label: 'Focus', icon: Timer, title: 'One task. Your full attention.', description: 'Pick a task and start the timer. Your workspace stays open in another tab.', alt: 'KRAMA dedicated Focus Timer, separate from the main workspace.' },
+] as const;
+
+const workflow = [
+  { kind: 'capture', label: 'Inbox', title: 'Write it down', icon: Inbox, body: 'Save a thought in Inbox. Sort it out when you’re ready.', example: 'Example: Write the case study, captured in Inbox.' },
+  { kind: 'plan', label: 'Planner', title: 'Make time for it', icon: CalendarDays, body: 'Pick a task and set aside time for it in Planner.', example: 'Example: Write the case study, scheduled today from 9:00 to 9:25.' },
+  { kind: 'focus', label: 'Focus', title: 'Give it your focus', icon: Timer, body: 'Open Focus from your task. The timer runs in its own tab.', example: 'Example: a 25-minute Focus timer for Write the case study.' },
+] as const;
+
+const questions = [
+  { question: 'What is KRAMA?', answer: 'KRAMA brings your tasks, notes and plans into one workspace. You can jot something down, choose what to work on today and keep your longer projects and goals in view.' },
+  { question: 'How is Inbox different from Tasks?', answer: 'Inbox holds the things you have just captured. When you review them, keep tasks in Tasks and notes in Brain. Choose Do today when you want to work on a task today.' },
+  { question: 'Does Focus open in a separate tab?', answer: 'Yes. Start Focus from a task and the timer opens in a new tab. Your plan and notes stay open, so you can return to them whenever you need.' },
+  { question: 'Can I use KRAMA on a small screen?', answer: 'Yes. Open KRAMA in your phone’s browser. The workspace adjusts to the smaller screen, and you can switch between light and dark mode.' },
+];
+
+function LandingBrand({ theme }: { theme: 'light' | 'dark' }) {
+  return <img src={`/brand/krama-logo-${theme}.svg`} width="257" height="72" alt="KRAMA" className="landing-brand-image" />;
+}
 
 export function LandingPage() {
- const navigate = useNavigate();
+  const { resolvedTheme, toggleTheme } = useTheme();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [failedImage, setFailedImage] = useState('');
+  const [loadedImage, setLoadedImage] = useState('');
+  const [imageAttempt, setImageAttempt] = useState(0);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const tabs = useRef<(HTMLButtonElement | null)[]>([]);
+  const mainHeading = useRef<HTMLHeadingElement>(null);
+  const preview = previews[previewIndex];
+  const imageKey = `${preview.id}-${resolvedTheme}-${imageAttempt}`;
+  const imageLoading = loadedImage !== imageKey && failedImage !== imageKey;
 
- return (
- <div className="min-h-screen w-full bg-canvas font-sans antialiased text-primary selection:bg-accent/10 selection:text-accent select-none flex flex-col">
- 
- {/* Navigation Bar (#1px bottom border separating from hero) */}
- <header className="border-b border-border bg-canvas sticky top-0 z-40">
- <div className="max-w-7xl mx-auto px-6 lg:px-12 py-4 flex items-center justify-between">
- <KramaLogo size="md" withText textClassName="font-bold tracking-tight text-primary text-body leading-none" />
- 
- <div className="flex items-center gap-4">
- <span className="hidden sm:flex items-center gap-1.5 text-badge text-success-fg bg-success-bg px-2.5 py-1 rounded-md border border-success-border">
- <span className="w-1.5 h-1.5 rounded-full bg-success-fg" /> Local-first workspace
- </span>
- <BaseButton onClick={() => navigate('/app')} size="md" className="shadow-2xs group">
- Open App <ArrowRight className="w-4 h-4 ml-1.5 group-hover:translate-x-0.5 transition-transform duration-150" />
- </BaseButton>
- </div>
- </div>
- </header>
+  function closeMenu() {
+    setMenuOpen(false);
+    menuButton.current?.focus();
+  }
 
- {/* Hero Section (Above Fold - White Canvas, Left-Aligned 2-Column Grid) */}
- <main className="flex-1 bg-canvas">
- <div className="max-w-7xl mx-auto px-6 lg:px-12 py-16 lg:py-24">
- <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
- 
- {/* Left Column: Bold Headline, Muted Subhead, Single Primary CTA */}
- <div className="lg:col-span-6 text-left space-y-6">
- <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface border border-border text-caption text-secondary shadow-2xs">
- <Sparkles className="w-3.5 h-3.5 text-cat-routines" />
- <span>Unified Engineering Workspace & Knowledge Tree</span>
- </div>
+  function navigateSection(id: string) {
+    setMenuOpen(false);
+    document.getElementById(id)?.focus({ preventScroll: true });
+  }
 
- <h1 className="text-title text-primary mb-4 sm: lg: font-[650] leading-[1.08]">
- Where Knowledge Becomes <span className="text-accent underline decoration-accent/20 underline-offset-8">Execution</span>.
- </h1>
+  function movePreview(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next: number;
+    if (event.key === 'ArrowRight') next = (index + 1) % previews.length;
+    else if (event.key === 'ArrowLeft') next = (index - 1 + previews.length) % previews.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = previews.length - 1;
+    else return;
+    event.preventDefault();
+    setPreviewIndex(next);
+    tabs.current[next]?.focus();
+  }
 
- <p className="text-body text-secondary max-w-xl leading-relaxed">
- The high-velocity operating system built for solo engineers and builders. Bridge strategic quarterly OKRs, structured document trees, and daily Kanban execution in one bounded white canvas.
- </p>
+  return (
+    <div className="krama-landing" onKeyDown={event => { if (event.key === 'Escape' && menuOpen) { event.preventDefault(); closeMenu(); } }}>
+      <a className="landing-skip" href="#landing-main" tabIndex={0} onClick={() => mainHeading.current?.focus()}>Skip to content</a>
+      <header className="landing-header">
+        <div className="landing-container landing-nav">
+          <a href="#" tabIndex={0} aria-label="KRAMA home" className="landing-brand" onClick={() => { setMenuOpen(false); window.scrollTo({ top: 0 }); }}><LandingBrand theme={resolvedTheme} /></a>
+          <nav aria-label="Main navigation" className="landing-desktop-nav">
+            <a href="#workspace" tabIndex={0}>Workspace</a><a href="#how-it-works" tabIndex={0}>How it works</a><a href="#questions" tabIndex={0}>Questions</a>
+          </nav>
+          <div className="landing-nav-actions">
+            <button className="landing-icon-button" type="button" onClick={toggleTheme} aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}>
+              {resolvedTheme === 'dark' ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+            </button>
+            <Link to="/app" tabIndex={0} className="landing-button landing-button-small">Open KRAMA <ArrowRight size={16} aria-hidden="true" /></Link>
+            <button ref={menuButton} className="landing-icon-button landing-menu-button" type="button" aria-expanded={menuOpen} aria-controls="landing-mobile-nav" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} onClick={() => setMenuOpen(!menuOpen)}>
+              {menuOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
+            </button>
+          </div>
+          <nav id="landing-mobile-nav" aria-label="Mobile navigation" className="landing-mobile-nav" hidden={!menuOpen}>
+            <a href="#workspace" tabIndex={0} onClick={() => navigateSection('workspace')}>Workspace <ArrowRight size={16} aria-hidden="true" /></a>
+            <a href="#how-it-works" tabIndex={0} onClick={() => navigateSection('how-it-works')}>How it works <ArrowRight size={16} aria-hidden="true" /></a>
+            <a href="#questions" tabIndex={0} onClick={() => navigateSection('questions')}>Questions <ArrowRight size={16} aria-hidden="true" /></a>
+          </nav>
+        </div>
+      </header>
 
- <div className="pt-2">
- <BaseButton onClick={() => navigate('/app')} size="lg" className="w-full sm:w-auto px-8 shadow-sm text-body font-medium group">
- Launch Workspace <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-150" />
- </BaseButton>
- </div>
- </div>
+      <main>
+        <section className="landing-container landing-hero" aria-labelledby="landing-main">
+          <div>
+            <h1 id="landing-main" tabIndex={-1} ref={mainHeading} aria-label="Make room for focus, planning and habits."><span aria-hidden="true">Make room for</span><br /><HeroTopic /></h1>
+          </div>
+          <div className="landing-hero-copy">
+            <p>Plan your day, keep your notes close and focus on what’s next.</p>
+            <a href="#workspace" tabIndex={0} className="landing-hero-link" onClick={() => navigateSection('workspace')}><LayoutGrid size={16} aria-hidden="true" />Explore the workspace <ArrowDown size={16} aria-hidden="true" /></a>
+          </div>
+        </section>
 
- {/* Right Column Visual Anchor: Clean, Flat UI Mockup (Page Card + Kanban Card, Real Tokens, shadow-sm only) */}
- <div className="lg:col-span-6">
- <div className="bg-surface border border-border rounded-xl p-6 shadow-sm space-y-4">
- 
- <div className="flex items-center justify-between pb-3 border-b border-border text-caption font-mono text-muted">
- <span className="flex items-center gap-2">
- <span className="w-2.5 h-2.5 rounded-full bg-primary" />
- krama-os://workspace/active
- </span>
- <span className="text-badge text-accent bg-accent-subtle px-2 py-0.5 rounded border border-accent/20">Live Sync</span>
- </div>
+        <section id="workspace" tabIndex={-1} className="landing-container landing-product" aria-label="Explore KRAMA">
+          <div className="landing-product-bar">
+            <div role="tablist" aria-label="Workspace previews" className="landing-preview-tabs">
+              {previews.map((item, index) => <button key={item.id} ref={node => { tabs.current[index] = node; }} id={`preview-tab-${item.id}`} role="tab" aria-selected={previewIndex === index} aria-controls="landing-preview-panel" tabIndex={previewIndex === index ? 0 : -1} onClick={() => setPreviewIndex(index)} onKeyDown={event => movePreview(event, index)}><item.icon size={16} aria-hidden="true" />{item.label}</button>)}
+            </div>
+          </div>
+          <div role="tabpanel" id="landing-preview-panel" aria-labelledby={`preview-tab-${preview.id}`} aria-busy={imageLoading} tabIndex={0} className="landing-preview-panel" data-preview={preview.id}>
+            {imageLoading && <span className="landing-preview-loading" role="status">Loading preview…</span>}
+            {failedImage === imageKey ? <div className="landing-preview-error" role="alert"><p>The product preview could not load.</p><button className="landing-button" type="button" onClick={() => { setImageAttempt(value => value + 1); document.getElementById('landing-preview-panel')?.focus({ preventScroll: true }); }}>Try again</button></div> : <picture key={imageKey}>
+              <source media="(max-width: 600px)" srcSet={`/landing/${preview.id}-mobile-${resolvedTheme}.png`} />
+              <img src={`/landing/${preview.id}-desktop-${resolvedTheme}.png`} alt={preview.alt} width="1440" height="900" fetchPriority="high" onLoad={() => setLoadedImage(imageKey)} onError={() => setFailedImage(imageKey)} />
+            </picture>}
+          </div>
+          <div className="landing-preview-caption" aria-live="polite" aria-atomic="true"><div><strong>{preview.title}</strong><p>{preview.description}</p></div></div>
+        </section>
 
- {/* Card 1: Brain Page Document Card */}
- <div className="bg-canvas border border-border rounded-lg p-4 shadow-2xs hover:border-cat-routines transition-colors duration-150 space-y-3">
- <div className="flex items-center justify-between">
- <div className="flex items-center gap-2.5">
- <div className="w-8 h-8 rounded-md bg-cat-routines-bg flex items-center justify-center text-cat-routines shrink-0">
- <FileText className="w-4 h-4 stroke-[1.75]" />
- </div>
- <div>
- <div className="text-card-title text-primary">ADR-004: Storage Engine Architecture</div>
- <div className="text-caption text-secondary">Knowledge Base • Architecture Decisions</div>
- </div>
- </div>
- <span className="text-badge text-cat-routines bg-cat-routines-bg px-2 py-0.5 rounded">Brain</span>
- </div>
- <p className="text-caption text-secondary line-clamp-2 pl-10.5">
- We evaluated SQLite vs. PostgreSQL for local persistence. Selected SQLite with write-ahead logging (WAL) for sub-millisecond local queries and zero-latency offline execution.
- </p>
- <div className="flex items-center justify-between pl-10.5 pt-2 border-t border-border/60 text-caption font-mono text-muted">
- <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> 4m reading time</span>
- <span>1,240 words</span>
- </div>
- </div>
+        <section id="how-it-works" tabIndex={-1} className="landing-container landing-workflow landing-section" aria-labelledby="workflow-heading">
+          <div className="landing-section-heading"><h2 id="workflow-heading">From a thought to a finished task</h2></div>
+          <ol className="landing-workflow-list">
+            {workflow.map(step => <li key={step.kind}>
+              <div className={`landing-step-visual landing-step-visual-${step.kind}`} role="img" aria-label={step.example}>
+                <div className="landing-step-app"><step.icon size={17} aria-hidden="true" /><span>{step.label}</span></div>
+                <div className="landing-step-scene">
+                  {step.kind === 'capture' && <div className="landing-capture-example"><span className="landing-capture-mark" /><div><span className="landing-workflow-task">Write the case study</span><span className="landing-workflow-meta">Just captured</span></div></div>}
+                  {step.kind === 'plan' && <div className="landing-plan-example"><div className="landing-plan-hours"><span>9:00</span><span>9:30</span></div><div className="landing-plan-block"><span className="landing-workflow-task">Write the case study</span><span className="landing-workflow-meta">9:00 – 9:25</span></div></div>}
+                  {step.kind === 'focus' && <div className="landing-focus-example"><span className="landing-workflow-clock">25:00</span><span className="landing-workflow-task">Write the case study</span></div>}
+                </div>
+              </div>
+              <h3>{step.title}</h3><p>{step.body}</p>
+            </li>)}
+          </ol>
+        </section>
 
- {/* Card 2: Kanban Execution Issue Card */}
- <div className="bg-canvas border border-border rounded-lg p-4 shadow-2xs hover:border-accent transition-colors duration-150 space-y-3">
- <div className="flex items-center justify-between">
- <div className="flex items-center gap-2.5">
- <div className="w-8 h-8 rounded-md bg-accent-subtle flex items-center justify-center text-accent-fg shrink-0">
- <FolderKanban className="w-4 h-4 stroke-[1.75]" />
- </div>
- <div>
- <div className="text-card-title text-primary">KRM-102: Migrate storage engine to SQLite WAL</div>
- <div className="text-caption text-secondary">This Week • Execution Board</div>
- </div>
- </div>
- <span className="text-badge text-danger-fg bg-danger-bg px-2 py-0.5 rounded border border-danger-border">Urgent</span>
- </div>
- <div className="pl-10.5 space-y-2">
- <div className="flex justify-between text-caption font-mono text-secondary">
- <span className="flex items-center gap-1.5"><CheckSquare className="w-3.5 h-3.5 text-accent-fg" /> Sub-task Progress</span>
- <span className="font-bold text-primary">3 / 4 Done</span>
- </div>
- <div className="h-1.5 w-full bg-surface rounded-full overflow-hidden border border-border">
- <div className="h-full bg-accent w-3/4 progress-fill" />
- </div>
- </div>
- <div className="flex items-center justify-between pl-10.5 pt-2 border-t border-border/60 text-caption font-mono text-muted">
- <span className="flex items-center gap-1 text-success-fg"><CheckCircle2 className="w-3.5 h-3.5" /> Blocked by: KRM-098</span>
- <span className="text-badge text-accent-fg bg-accent-subtle px-1.5 py-0.5 rounded">In Progress</span>
- </div>
- </div>
+        <IntroVideo theme={resolvedTheme} />
 
- </div>
- </div>
+        <section className="landing-bigger-section" aria-labelledby="workspace-heading">
+          <div className="landing-container landing-bigger">
+            <div className="landing-section-heading">
+              <h2 id="workspace-heading">Keep your notes and plans connected</h2>
+            </div>
+            <div className="landing-knowledge">
+              <div className="landing-knowledge-copy">
+                <BookOpen size={26} strokeWidth={1.5} aria-hidden="true" />
+                <h3>Find the thought you need</h3>
+                <p>Use Brain for the notes you want to come back to: a meeting, something you read, or an idea for a project. When a note gives you something to do, create a task from it.</p>
+              </div>
+              <figure className="landing-knowledge-preview">
+                <picture><source media="(max-width: 600px)" srcSet={`/landing/brain-detail-mobile-${resolvedTheme}.png`} /><img src={`/landing/brain-detail-desktop-${resolvedTheme}.png`} alt="Example portfolio note with the problem, design decisions and a next writing session." width="848" height="580" loading="lazy" /></picture>
+                <figcaption>Brain Workspace</figcaption>
+              </figure>
+            </div>
+            <div className="landing-project-story">
+              <div className="landing-project-copy">
+                <h3>Know what to work on next.</h3>
+                <p>Keep your project’s tasks and notes in one place. See what’s done and choose what to work on next.</p>
+              </div>
+              <figure className="landing-project-example" aria-label="Example: a goal connected to a project and its tasks">
+                <div className="landing-project-stage">
+                  <div className="landing-example-goal"><Target size={18} aria-hidden="true" /><div><span>Working towards</span><p>Build a portfolio I’m proud of</p></div></div>
+                  <div className="landing-example-project">
+                    <div className="landing-example-project-heading"><span className="landing-example-project-icon"><FolderKanban size={22} aria-hidden="true" /></span><h4>Portfolio refresh</h4></div>
+                    <ul aria-label="Example project tasks">
+                      <li className="landing-example-next-task"><span className="landing-example-task-dot" aria-hidden="true" /><div><span className="landing-example-task-label">Up next</span><p>Refine the portfolio case study</p><small>45 min</small></div></li>
+                      <li className="landing-example-done-task"><CircleCheck size={18} aria-hidden="true" /><div><p>Review the completed draft</p><small>Done</small></div></li>
+                    </ul>
+                    <div className="landing-example-note"><BookOpen size={17} aria-hidden="true" /><div><span>Linked note</span><p>Case study notes</p></div></div>
+                    <div className="landing-example-project-footer"><span>1 of 2 tasks complete</span><span className="landing-example-progress" aria-hidden="true"><span /></span></div>
+                  </div>
+                </div>
+              </figure>
+            </div>
+          </div>
+        </section>
 
- </div>
- </div>
- </main>
+        <section id="questions" tabIndex={-1} className="landing-container landing-questions landing-section" aria-labelledby="questions-heading">
+          <div className="landing-questions-intro"><h2 id="questions-heading">Get to know KRAMA</h2></div>
+          <div className="landing-faq-list">{questions.map(item => <details key={item.question}><summary>{item.question}<ChevronDown size={18} aria-hidden="true" /></summary><p>{item.answer}</p></details>)}</div>
+        </section>
 
- {/* Feature Section Below the Fold (Set on #FCFCFD with 1px top border, 3-Column Row) */}
- <section className="bg-surface border-t border-border py-20 w-full">
- <div className="max-w-7xl mx-auto px-6 lg:px-12">
- 
- <div className="text-left mb-12">
- <h2 className="text-section text-primary mb-3 ">Three Core Systems. One Bounded Workspace.</h2>
- <p className="text-body text-secondary max-w-2xl">
- Stop context switching between fragmented note apps, issue trackers, and spreadsheets. Krama unites your technical thinking with daily execution.
- </p>
- </div>
+      </main>
 
- <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
- 
- {/* Column 1: Brain */}
- <div className="bg-canvas border border-border p-6 rounded-lg shadow-sm hover:border-cat-routines hover:shadow-md transition-all duration-150 flex flex-col justify-between">
- <div>
- <div className="w-9 h-9 rounded-md bg-cat-routines/10 text-cat-routines flex items-center justify-center mb-5 shadow-2xs">
- <Brain className="w-4 h-4 stroke-[1.75]" />
- </div>
- <h3 className="text-card text-primary mb-2 ">Strategic Brain</h3>
- <p className="text-body text-secondary leading-relaxed">
- Structured document trees with live word counters and reading time metrics. Never lose architectural context in flat note lists.
- </p>
- </div>
- <div className="pt-4 mt-6 border-t border-border/60 text-badge text-cat-routines flex items-center gap-1 cursor-pointer font-medium" onClick={() => navigate('/app/brain')}>
- <span>Explore Knowledge Tree</span> &rarr;
- </div>
- </div>
-
- {/* Column 2: Execution */}
- <div className="bg-canvas border border-border p-6 rounded-lg shadow-sm hover:border-accent hover:shadow-md transition-all duration-150 flex flex-col justify-between">
- <div>
- <div className="w-9 h-9 rounded-md bg-accent/10 text-accent flex items-center justify-center mb-5 shadow-2xs">
- <FolderKanban className="w-4 h-4 stroke-[1.75]" />
- </div>
- <h3 className="text-card text-primary mb-2 ">Execution Board</h3>
- <p className="text-body text-secondary leading-relaxed">
- High-velocity Kanban execution boards built for solo builders. Includes sub-task progress bars, velocity pacing, and urgency tags.
- </p>
- </div>
- <div className="pt-4 mt-6 border-t border-border/60 text-badge text-accent flex items-center gap-1 cursor-pointer font-medium" onClick={() => navigate('/app/board')}>
- <span>View Kanban Board</span> &rarr;
- </div>
- </div>
-
- {/* Column 3: Goals */}
- <div className="bg-canvas border border-border p-6 rounded-lg shadow-sm hover:border-success-fg hover:shadow-md transition-all duration-150 flex flex-col justify-between">
- <div>
- <div className="w-9 h-9 rounded-md bg-success-bg text-success-fg flex items-center justify-center mb-5 shadow-2xs">
- <Target className="w-4 h-4 stroke-[1.75]" />
- </div>
- <h3 className="text-card text-primary mb-2 ">OKR Pacing Engine</h3>
- <p className="text-body text-secondary leading-relaxed">
- Automatic required vs. actual pacing calculations. Know exactly what completion percentage you must hit daily to launch on schedule.
- </p>
- </div>
- <div className="pt-4 mt-6 border-t border-border/60 text-badge text-success-fg flex items-center gap-1 cursor-pointer font-medium" onClick={() => navigate('/app/goals')}>
- <span>Check Quarterly OKRs</span> &rarr;
- </div>
- </div>
-
- </div>
- </div>
- </section>
-
- {/* Footer */}
- <footer className="py-8 border-t border-border bg-canvas mt-auto">
- <div className="max-w-7xl mx-auto px-6 lg:px-12 flex flex-col sm:flex-row items-center justify-between text-caption font-mono text-secondary gap-4">
- <div className="flex items-center gap-2">
- <span className="font-bold text-primary">KRAMA OS</span>
- <span>•</span>
- <span>Built for high-velocity engineering execution.</span>
- </div>
- <div className="flex items-center gap-6">
- <button onClick={() => navigate('/app')} className="hover:text-primary transition-colors duration-150">Dashboard</button>
- <button onClick={() => navigate('/app/brain')} className="hover:text-primary transition-colors duration-150">Docs</button>
- <button onClick={() => navigate('/app/board')} className="hover:text-primary transition-colors duration-150">Kanban</button>
- <button onClick={() => navigate('/app/goals')} className="hover:text-primary transition-colors duration-150">OKRs</button>
- </div>
- </div>
- </footer>
-
- </div>
- );
+      <footer className="landing-footer">
+        <div className="landing-container landing-footer-inner">
+          <div className="landing-footer-identity">
+            <a href="#" className="landing-brand" aria-label="KRAMA home"><LandingBrand theme={resolvedTheme} /></a>
+            <p>A personal workspace for your tasks, notes and plans.</p>
+          </div>
+          <nav aria-label="Footer navigation"><a href="#workspace">Workspace</a><a href="#how-it-works">How it works</a><a href="#questions">Questions</a></nav>
+          <small className="landing-footer-copyright">© {new Date().getFullYear()} KRAMA</small>
+        </div>
+      </footer>
+    </div>
+  );
 }

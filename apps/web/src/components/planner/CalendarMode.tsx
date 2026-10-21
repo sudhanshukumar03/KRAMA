@@ -21,7 +21,7 @@ import {
   Target,
   Flag
 } from "lucide-react";
-import { parseLocalDate, cn } from "../../lib/utils";
+import { parseLocalDate, taskCalendarDates, cn } from "../../lib/utils";
 
 import type { PlannerTask, Milestone } from "../../types/planner";
 
@@ -111,14 +111,7 @@ export function CalendarMode({
   // Filter tasks belonging to current active month
   const monthTasks = useMemo(() => {
     return activeTaskList.filter((t) => {
-      const dStr = t.scheduledDate || t.dueDate;
-      if (!dStr) return false;
-      try {
-        const d = (parseLocalDate(dStr) ?? new Date(NaN));
-        return isSameMonth(d, calendarDate);
-      } catch {
-        return false;
-      }
+      return taskCalendarDates(t).some(date => isSameMonth(date, calendarDate));
     });
   }, [activeTaskList, calendarDate]);
 
@@ -134,31 +127,21 @@ export function CalendarMode({
   const upcomingMonthTasks = useMemo(() => {
     const todayZero = new Date(new Date().setHours(0, 0, 0, 0));
     return monthTasks
-      .filter((t) => {
-        const dStr = t.scheduledDate || t.dueDate;
-        if (!dStr) return false;
-        try {
-          return (parseLocalDate(dStr) ?? new Date(NaN)).getTime() >= todayZero.getTime() && t.status !== 'DONE';
-        } catch {
-          return false;
-        }
-      })
-      .sort((a, b) => {
-        const da = new Date(a.scheduledDate || a.dueDate || "").getTime();
-        const db = new Date(b.scheduledDate || b.dueDate || "").getTime();
-        return da - db;
-      })
+      .filter(t => t.status !== 'DONE')
+      .map(task => ({ task, date: taskCalendarDates(task).filter(date => date >= todayZero && isSameMonth(date, calendarDate)).sort((a, b) => +a - +b)[0] }))
+      .filter((item): item is { task: PlannerTask; date: Date } => !!item.date)
+      .sort((a, b) => +a.date - +b.date)
       .slice(0, 5);
-  }, [monthTasks]);
+  }, [monthTasks, calendarDate]);
 
   return (
-    <div className="flex-1 flex flex-col lg:flex-row gap-5 min-h-0 overflow-hidden">
+    <div className="planner-calendar flex-1 flex flex-col lg:flex-row gap-5 min-h-0 overflow-hidden">
 
       {(milestonesError || holidaysError) && <div role="alert" className="shrink-0 text-sm text-warning-fg">
         Some calendar events could not be loaded. <button type="button" className="underline" onClick={() => { retryMilestones(); retryHolidays(); }}>Retry calendar events</button>
       </div>}
       {/* CALENDAR GRID */}
-      <div className="flex-1 flex flex-col min-h-0 pb-1">
+      <div className="planner-calendar-main flex-1 flex flex-col min-h-0 pb-1">
         {((monthData?.coverage?.missingNationalYears?.length ?? 0) > 0 || (monthData?.coverage?.missingRegionalYears?.length ?? 0) > 0) && (
           <p role="status" className="mb-2 text-sm text-warning-fg">
             {(monthData?.coverage.missingNationalYears.length ?? 0) > 0
@@ -176,7 +159,7 @@ export function CalendarMode({
         </div>
 
         {/* Month matrix cells */}
-        <div className="grid grid-cols-7 auto-rows-fr gap-0 flex-1 overflow-hidden border-l border-t border-border rounded-[14px] [box-shadow:0_1px_2px_0_rgba(0,0,0,0.04),inset_0_1px_0_0_rgba(255,255,255,0.07)]">
+        <div className="planner-month-grid grid grid-cols-7 auto-rows-fr gap-0 flex-1 overflow-hidden border-l border-t border-border rounded-[14px] [box-shadow:0_1px_2px_0_rgba(0,0,0,0.04),inset_0_1px_0_0_rgba(255,255,255,0.07)]">
           {monthDays.map((day) => {
             const dayKey = format(day, 'yyyy-MM-dd');
             const dayHolidays = holidays.filter((h) => {
@@ -184,13 +167,7 @@ export function CalendarMode({
             });
 
             const dayTasks = activeTaskList.filter((t) => {
-              const dStr = t.scheduledDate || t.dueDate;
-              if (!dStr) return false;
-              try {
-                return isSameDay((parseLocalDate(dStr) ?? new Date(NaN)), day);
-              } catch {
-                return false;
-              }
+              return taskCalendarDates(t).some(date => isSameDay(date, day));
             });
 
             const dayMilestones = milestones.filter((m) => {
@@ -377,7 +354,7 @@ export function CalendarMode({
       </div>
 
       {/* SIDEBAR: MONTHLY OVERVIEW & HOLIDAYS */}
-      <div className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-3.5 overflow-y-auto hide-scrollbar pb-2">
+      <div className="planner-calendar-summary w-full lg:w-72 flex-shrink-0 flex flex-col gap-3.5 overflow-y-auto hide-scrollbar pb-2">
         
         {/* MONTHLY EXECUTION OVERVIEW */}
         <div className="flex flex-col krama-card p-4">
@@ -432,8 +409,7 @@ export function CalendarMode({
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {upcomingMonthTasks.map((t) => {
-                const d = (parseLocalDate(t.scheduledDate || t.dueDate) ?? new Date(NaN));
+              {upcomingMonthTasks.map(({ task: t, date: d }) => {
                 return (
                   <button
                     type="button"

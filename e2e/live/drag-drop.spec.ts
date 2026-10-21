@@ -11,10 +11,12 @@ test('Pointer movement and dependency edits survive reload', async ({ page, acco
   expect(cb).toBeTruthy(); expect(tb).toBeTruthy();
   await page.mouse.move(cb!.x + 30, cb!.y + 75); await page.mouse.down();
   await page.mouse.move(cb!.x + 42, cb!.y + 75, { steps: 3 });
-  await page.mouse.move(tb!.x + 60, tb!.y + 110, { steps: 15 }); await page.mouse.up();
+  await page.mouse.move(tb!.x + 60, tb!.y + 110, { steps: 15 });
+  await expect(target).toHaveClass(/ring-primary\/60/);
+  await page.mouse.up();
   await expect.poll(async () => (await account.call('GET', `tasks/${first.id}`)).status).toBe('REVIEW');
   await page.getByText(second.title, { exact: true }).first().click();
-  const dialog = page.getByRole('dialog', { name: 'Directive Details' });
+  const dialog = page.getByRole('dialog', { name: 'Task Details' });
   await dialog.getByLabel('Blocked By (Dependency)').selectOption(first.id);
   await dialog.getByRole('button', { name: 'Save Changes', exact: true }).click(); await expect(dialog).toBeHidden();
   expect((await account.call('GET', `tasks/${second.id}`)).blockedById).toBe(first.id);

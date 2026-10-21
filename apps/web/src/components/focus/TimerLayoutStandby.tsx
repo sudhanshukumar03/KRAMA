@@ -62,6 +62,7 @@ export const TimerLayoutStandby: React.FC<TimerLayoutProps> = ({
   isFullscreen,
   onToggleFullscreen,
   controlsVisible,
+  bottomInset = 0,
   onClose,
 }) => {
   const isClock = mode === 'clock';
@@ -99,25 +100,27 @@ export const TimerLayoutStandby: React.FC<TimerLayoutProps> = ({
   };
 
   // Typography scaling: larger when 2 units, proportional when 3 units
-  const threeUnitsFont = 'text-[5rem] sm:text-[7.5rem] md:text-[10.5rem] lg:text-[13.5rem] xl:text-[15.5rem]';
+  const threeUnitsFont = 'text-[clamp(2rem,12vw,5rem)] sm:text-[7.5rem] md:text-[10.5rem] lg:text-[13.5rem] xl:text-[15.5rem]';
   const threeUnitsGap = 'h-[2px] sm:h-[2.5px] md:h-[3.5px] lg:h-[4.5px] xl:h-[5.5px]';
 
-  const twoUnitsFont = 'text-[8rem] sm:text-[12rem] md:text-[16rem] lg:text-[21rem] xl:text-[24rem]';
+  const twoUnitsFont = 'text-[clamp(3rem,18vw,8rem)] sm:text-[12rem] md:text-[16rem] lg:text-[21rem] xl:text-[24rem]';
   const twoUnitsGap = 'h-[2.5px] sm:h-[3.5px] md:h-[5px] lg:h-[6.5px] xl:h-[8px]';
 
   return (
-    <div className="fixed inset-0 w-full h-full flex flex-col justify-between items-center p-6 md:p-10 select-none overflow-hidden z-10 bg-black">
+    <div style={{ bottom: bottomInset }} className="fixed inset-0 w-full flex flex-col justify-between items-center p-6 md:p-10 select-none overflow-hidden z-10 bg-black">
       {/* Top Header Overlay: Visible in normal tab, hidden by default in fullscreen */}
       <div
-        className={`w-full flex items-center justify-between transition-all duration-300 z-30 ${
+        className={`w-full flex flex-wrap items-center justify-between gap-3 transition-all duration-300 z-30 ${
           controlsVisible ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-3 pointer-events-none'
         }`}
       >
         {/* Left: Mode Tabs & Planned Session Badge */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 p-1 bg-black/50 backdrop-blur-2xl rounded-full border border-white/15 shadow-2xl">
+        <div className="flex min-w-0 max-w-full items-center gap-2 flex-wrap">
+          <div role="tablist" aria-label="Timer mode" className="flex max-w-full flex-wrap items-center gap-1.5 p-1 bg-black/50 backdrop-blur-2xl rounded-full border border-white/15 shadow-2xl">
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === 'pomodoro'}
               onClick={() => onChangeMode('pomodoro')}
               className={`px-3.5 py-1 text-xs font-medium rounded-full transition-all cursor-pointer ${
                 mode === 'pomodoro'
@@ -129,6 +132,8 @@ export const TimerLayoutStandby: React.FC<TimerLayoutProps> = ({
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === 'short_break'}
               onClick={() => onChangeMode('short_break')}
               className={`px-3.5 py-1 text-xs font-medium rounded-full transition-all cursor-pointer ${
                 mode === 'short_break'
@@ -140,6 +145,8 @@ export const TimerLayoutStandby: React.FC<TimerLayoutProps> = ({
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === 'long_break'}
               onClick={() => onChangeMode('long_break')}
               className={`px-3.5 py-1 text-xs font-medium rounded-full transition-all cursor-pointer ${
                 mode === 'long_break'
@@ -151,6 +158,8 @@ export const TimerLayoutStandby: React.FC<TimerLayoutProps> = ({
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === 'custom'}
               onClick={() => onChangeMode('custom')}
               className={`px-3.5 py-1 text-xs font-medium rounded-full transition-all cursor-pointer flex items-center gap-1 ${
                 mode === 'custom'
@@ -163,6 +172,8 @@ export const TimerLayoutStandby: React.FC<TimerLayoutProps> = ({
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === 'clock'}
               onClick={() => onChangeMode('clock')}
               className={`px-3.5 py-1 text-xs font-medium rounded-full transition-all cursor-pointer ${
                 mode === 'clock'
@@ -192,7 +203,7 @@ export const TimerLayoutStandby: React.FC<TimerLayoutProps> = ({
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto shrink-0">
           {/* Full Screen Button */}
           <button
             type="button"
@@ -228,6 +239,8 @@ export const TimerLayoutStandby: React.FC<TimerLayoutProps> = ({
         <button
           type="button"
           onClick={handleToggleTimer}
+          aria-label={isClock ? undefined : isActive ? 'Pause timer' : 'Start timer'}
+          title={isClock ? undefined : isActive ? 'Click or press Enter to pause' : 'Click or press Enter to start'}
           className={`group flex flex-col items-center justify-center focus:outline-none bg-transparent border-0 p-0 select-none ${
             isClock ? 'cursor-default' : 'cursor-pointer active:scale-[0.99] transition-transform duration-150'
           }`}
@@ -312,7 +325,7 @@ export const TimerLayoutStandby: React.FC<TimerLayoutProps> = ({
 
             {/* Custom Mode Presets shown only in custom mode */}
             {mode === 'custom' && controlsVisible && !isActive && (
-              <div className="flex items-center gap-2 mt-4 bg-black/40 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 animate-in fade-in duration-150">
+              <div className="flex max-w-full flex-wrap items-center justify-center gap-2 mt-4 bg-black/40 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 animate-in fade-in duration-150">
                 <span className="text-xs text-white/50 font-mono">Sprint:</span>
                 {CUSTOM_PRESETS.map((p) => (
                   <button

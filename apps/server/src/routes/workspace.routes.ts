@@ -7,7 +7,9 @@ import {
   createWorkspace,
   updateWorkspace,
   deleteWorkspace,
-  exportWorkspace
+  exportWorkspace,
+  restoreWorkspace,
+  getWorkspaceSummary
 } from '../controllers/workspace.controller';
 
 const router: Router = express.Router();
@@ -30,6 +32,8 @@ router.use(requireAuth);
 
 router.get('/', listWorkspaces);
 router.post('/', createWorkspace);
+router.post('/restore', restoreWorkspace);
+router.get('/summary', requireWorkspaceRole('VIEWER'), getWorkspaceSummary);
 router.get('/export', requireWorkspaceRole('OWNER'), exportWorkspace); // Includes all members' workspace histories.
 router.get('/:id', ensureWorkspaceId, requireWorkspaceRole('VIEWER'), getWorkspace);
 router.patch('/:id', ensureWorkspaceId, requireWorkspaceRole('OWNER'), updateWorkspace);

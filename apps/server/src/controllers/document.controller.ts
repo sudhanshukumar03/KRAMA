@@ -14,6 +14,7 @@ import { redisService } from '../services/redis.service';
 
 function documentErrorResponse(error: unknown, defaultStatus = 400): { status: number; payload: { message: string; requestId?: string } } {
   const fields = error && typeof error === 'object' ? error as Record<string, unknown> : {};
+  if (fields.code === 'AI_PROVIDER_UNAVAILABLE') return { status: 503, payload: { message: 'AI generation is temporarily unavailable. Your instruction is retained; try again.' } };
   const message = typeof fields.message === 'string' ? fields.message : undefined;
   const databaseFailure = String(fields.name || '').startsWith('Prisma') ||
     /^(?:P\d{4}|[0-9A-Z]{5}|ECONN\w*|ETIMEDOUT|EHOST\w*)$/.test(String(fields.code || ''));
@@ -87,7 +88,9 @@ export const getWorkspaceDocuments = async (req: Request, res: Response) => {
         ...(isDeleted ? {} : { deletedAt: null }),
         ...(spaceId && spaceId !== 'ALL' ? { id: spaceId } : {}),
       },
-      deletedAt: isDeleted ? { not: null } : null,
+      ...(isDeleted
+        ? { OR: [{ deletedAt: { not: null } }, { space: { deletedAt: { not: null } } }] }
+        : { deletedAt: null }),
       ...(cursor ? { id: { gt: cursor } } : {}),
     };
 
@@ -127,6 +130,7 @@ export const createWorkspaceDocument = async (req: Request, res: Response) => {
     }
 
     const { title, folderId, parentId, projectId, documentType, spaceId, contentJson } = req.body;
+    const statusBadges = req.body.statusBadges === undefined ? [] : UpdateDocumentMetadataSchema.parse({ statusBadges: req.body.statusBadges }).statusBadges;
     const userId = req.user?.id || 'system';
 
     if (!title) {
@@ -185,6 +189,7 @@ export const createWorkspaceDocument = async (req: Request, res: Response) => {
       title,
       createdById: userId,
       documentType,
+      statusBadges,
       contentJson,
     });
 
@@ -268,9 +273,12 @@ export const moveDocument = async (req: Request, res: Response) => {
     const { ok } = await verifyDocWorkspace(id, req);
     if (!ok) return res.status(404).json({ message: 'Document not found' });
 
-    const { targetFolderId, targetParentId } = req.body;
+    const { targetFolderId, targetParentId, expectedUpdatedAt } = req.body;
+    if (expectedUpdatedAt !== undefined && (typeof expectedUpdatedAt !== 'string' || !Number.isFinite(new Date(expectedUpdatedAt).getTime()))) {
+      return res.status(400).json({ message: 'Invalid document revision' });
+    }
 
-    const doc = await DocumentService.moveDocument(id, targetFolderId, targetParentId);
+    const doc = await DocumentService.moveDocument(id, targetFolderId, targetParentId, expectedUpdatedAt);
     res.status(200).json(doc);
   } catch (error) {
     handleDocumentError(res, error);

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Target, X, Zap, Star, FolderKanban, Activity } from 'lucide-react';
+import { X, Zap, Star, FolderKanban, Activity } from 'lucide-react';
+import { GoalIcon } from '../ui/GoalIcon';
 import { useModalA11y } from '../../hooks/useModalA11y';
 import { BaseButton } from '../ui/BaseButton';
 import { IconPicker } from '../ui/IconPicker';
-import { cn } from '../../lib/utils';
+import { cn, formatLocalDate } from '../../lib/utils';
 import { LIFE_PILLARS, type GoalStatus } from './goalConstants';
 import { goalMetadata } from '../../lib/goalUtils';
 import type { GoalWithRelations, ProjectWithRelations, Habit } from '../../types/schema';
@@ -29,6 +30,8 @@ export interface GoalFormModalProps {
   defaultPillar?: string;
   projects?: ProjectWithRelations[];
   allHabits?: Habit[];
+  projectsAvailable?: boolean;
+  habitsAvailable?: boolean;
 }
 
 export function GoalFormModal({
@@ -41,12 +44,14 @@ export function GoalFormModal({
   defaultPillar,
   projects = [],
   allHabits = [],
+  projectsAvailable = true,
+  habitsAvailable = true,
 }: GoalFormModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [whyStatement, setWhyStatement] = useState('');
   const [category, setCategory] = useState<string>('health');
-  const [icon, setIcon] = useState<string | null>('Target');
+  const [icon, setIcon] = useState<string | null>('Goal');
   const [type, setType] = useState('quarterly');
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<GoalStatus>('ACTIVE');
@@ -59,26 +64,29 @@ export function GoalFormModal({
   const [isPinned, setIsPinned] = useState(false);
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [selectedHabitIds, setSelectedHabitIds] = useState<string[]>([]);
+  const [initialConnections, setInitialConnections] = useState({ projects: projectsAvailable, habits: habitsAvailable });
   const [targetDate, setTargetDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 90);
-    return d.toISOString().split('T')[0];
+    return formatLocalDate(d)!;
   });
 
   const isEditMode = Boolean(initialData);
+  const hasChildren = Boolean(initialData?.childGoals?.length);
   const dismiss = () => { if (!isSubmitting) onClose(); };
   const dialogRef = useModalA11y(open, dismiss);
   const initialId = initialData?.id;
   const parentId = parentGoal?.id;
-  const initialization = useRef({ initialData, parentGoal, defaultPillar, projects, allHabits });
-  initialization.current = { initialData, parentGoal, defaultPillar, projects, allHabits };
+  const initialization = useRef({ initialData, parentGoal, defaultPillar, projects, allHabits, projectsAvailable, habitsAvailable });
+  initialization.current = { initialData, parentGoal, defaultPillar, projects, allHabits, projectsAvailable, habitsAvailable };
 
   useEffect(() => {
-    const { initialData, parentGoal, defaultPillar, projects, allHabits } = initialization.current;
+    const { initialData, parentGoal, defaultPillar, projects, allHabits, projectsAvailable, habitsAvailable } = initialization.current;
     if (open) {
+      setInitialConnections({ projects: projectsAvailable, habits: habitsAvailable });
       if (initialData) {
         setTitle(initialData.title);
-        setIcon(initialData.icon || 'Target');
+        setIcon(initialData.icon || 'Goal');
         setType(initialData.type || 'quarterly');
         setProgress(initialData.progress || 0);
         const rawStatus = (
@@ -108,14 +116,14 @@ export function GoalFormModal({
         } else {
           const d = new Date();
           d.setDate(d.getDate() + 90);
-          setTargetDate(d.toISOString().split('T')[0]);
+          setTargetDate(formatLocalDate(d)!);
         }
       } else {
         setTitle('');
         setDescription('');
         setWhyStatement('');
         setCategory(defaultPillar && defaultPillar !== 'all' ? defaultPillar : 'health');
-        setIcon('Target');
+        setIcon('Goal');
         setType('quarterly');
         setProgress(0);
         setStatus('ACTIVE');
@@ -130,7 +138,7 @@ export function GoalFormModal({
         setSelectedHabitIds([]);
         const d = new Date();
         d.setDate(d.getDate() + (parentGoal ? 60 : 90));
-        setTargetDate(d.toISOString().split('T')[0]);
+        setTargetDate(formatLocalDate(d)!);
       }
     }
   }, [open, initialId, parentId]);
@@ -165,7 +173,7 @@ export function GoalFormModal({
     };
 
     const finalProgress =
-      status === 'COMPLETED'
+      hasChildren ? progress : status === 'COMPLETED'
         ? 100
         : progressMode === 'manual' && measurableProgress !== null
         ? measurableProgress
@@ -180,8 +188,10 @@ export function GoalFormModal({
       targetDate,
       metadata,
       parentGoalId: parentGoal?.id || initialData?.parentGoalId || null,
-      selectedProjectIds,
-      selectedHabitIds,
+      // Never turn an unavailable initial list into an instruction to unlink
+      // everything when the feed recovers while this draft is open.
+      selectedProjectIds: projectsAvailable && initialConnections.projects ? selectedProjectIds : undefined,
+      selectedHabitIds: habitsAvailable && initialConnections.habits ? selectedHabitIds : undefined,
     });
   };
 
@@ -191,7 +201,7 @@ export function GoalFormModal({
     if (newType === 'monthly') d.setDate(d.getDate() + 30);
     else if (newType === 'quarterly') d.setDate(d.getDate() + 90);
     else if (newType === 'yearly') d.setFullYear(d.getFullYear() + 1);
-    setTargetDate(d.toISOString().split('T')[0]);
+    setTargetDate(formatLocalDate(d)!);
   };
 
 
@@ -217,11 +227,11 @@ export function GoalFormModal({
         <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex min-w-0 items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent-subtle text-accent-fg">
-              <Target aria-hidden="true" className="h-5 w-5" />
+              <GoalIcon aria-hidden="true" className="h-5 w-5" />
             </div>
             <div className="min-w-0">
               <h2 id="goal-form-heading" className="text-base font-semibold tracking-tight text-primary sm:text-lg">
-                {isEditMode ? 'Edit Goal' : parentGoal ? 'Add Key Result / Milestone' : 'New Life Aspiration'}
+                {isEditMode ? 'Edit Goal' : parentGoal ? 'Add Key Result / Milestone' : 'New Goal'}
               </h2>
               <p id="goal-form-description" className="mt-1 text-sm text-secondary break-words">
                 {parentGoal ? 'Under: ' + parentGoal.title : 'Define your outcome and connect the work that supports it.'}
@@ -245,12 +255,12 @@ export function GoalFormModal({
             <div className="space-y-5">
               <div>
                 <label htmlFor="goal-title-input" className={labelClass}>
-                  {isKeyResult ? 'Key Result Title' : 'Aspiration / Goal Title'} <span className="text-danger-fg">*</span>
+                  {isKeyResult ? 'Key Result Title' : 'Goal Title'} <span className="text-danger-fg">*</span>
                 </label>
                 <div className="flex items-start gap-3">
                   <IconPicker
                     id="goal-form-icon"
-                    value={icon || 'Target'}
+                    value={icon || 'Goal'}
                     onChange={setIcon}
                     triggerClassName="w-11 h-11 px-0 py-0"
                     popoverClassName="left-0 right-auto sm:left-0 sm:right-auto max-w-[calc(100vw-4rem)] max-h-60 motion-reduce:animate-none"
@@ -343,9 +353,11 @@ export function GoalFormModal({
               </div>
             </div>
 
-            <section aria-labelledby="goal-progress-heading" className="mt-6 border-t border-border pt-5">
+            <details open={isEditMode || isKeyResult} className="mt-6 border-t border-border pt-3">
+              <summary className="min-h-11 flex items-center cursor-pointer text-sm font-semibold text-primary">Advanced goal options</summary>
+            <section aria-labelledby="goal-progress-heading" className="mt-3">
               <h3 id="goal-progress-heading" className="text-sm font-semibold text-primary">Progress &amp; focus</h3>
-              <fieldset className="mt-4 min-w-0">
+              <fieldset disabled={hasChildren} className="mt-4 min-w-0">
                 <legend className="mb-2 text-sm text-secondary">How should progress update?</legend>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {(['manual', 'auto'] as const).map((mode) => (
@@ -357,6 +369,7 @@ export function GoalFormModal({
                       )}
                     >
                       <input
+                        id={`progress-mode-${mode}`}
                         type="radio"
                         name="progressMode"
                         value={mode}
@@ -370,14 +383,14 @@ export function GoalFormModal({
                   ))}
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-secondary">
-                  {progressMode === 'auto' ? 'Progress comes from completed tasks in connected projects.' : 'Update progress yourself, or track a numeric target below.'}
+                  {hasChildren ? 'Progress is calculated from the weighted key results. Progress modes apply to goals without key results.' : progressMode === 'auto' ? 'Progress comes from completed tasks in connected projects.' : 'Update progress yourself, or track a numeric target below.'}
                 </p>
               </fieldset>
 
-              <div className="mt-3">
+              {!hasChildren && <div className="mt-3">
                 <div className="flex flex-wrap items-center justify-between gap-x-3">
                   <label className="flex min-h-11 items-center gap-3 text-sm text-primary cursor-pointer">
-                    <input type="checkbox" checked={measurable} onChange={(e) => setMeasurable(e.target.checked)} className={choiceClass} />
+                    <input id="goal-measurable-checkbox" type="checkbox" checked={measurable} onChange={(e) => setMeasurable(e.target.checked)} className={choiceClass} />
                     <span>Track Numeric Metric (Target &amp; Current)</span>
                   </label>
                   {measurableProgress !== null && (
@@ -400,7 +413,7 @@ export function GoalFormModal({
                     </div>
                   </div>
                 )}
-              </div>
+              </div>}
 
               {isKeyResult ? (
                 <div className="mt-4">
@@ -412,7 +425,7 @@ export function GoalFormModal({
                 </div>
               ) : (
                 <label className="mt-2 flex min-h-11 items-center gap-3 text-sm text-primary cursor-pointer">
-                  <input type="checkbox" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} className={choiceClass} />
+                  <input id="goal-pinned-checkbox" type="checkbox" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} className={choiceClass} />
                   <Star aria-hidden="true" className={cn('h-4 w-4 shrink-0', isPinned ? 'text-warning-fg fill-warning-fg' : 'text-secondary')} />
                   <span>Pin to Focus Spotlight</span>
                 </label>
@@ -429,7 +442,7 @@ export function GoalFormModal({
                       <option value="CANCELED">Canceled</option>
                     </select>
                   </div>
-                  {!measurable && progressMode === 'manual' && (
+                  {!hasChildren && !measurable && progressMode === 'manual' && (
                     <div>
                       <div className="mb-2 flex items-center justify-between">
                         <label htmlFor="modal-slider-prog" className="text-sm font-medium text-primary">Progress</label>
@@ -442,13 +455,15 @@ export function GoalFormModal({
               )}
             </section>
 
-            {(projects.length > 0 || allHabits.length > 0) && (
+            {(!projectsAvailable || !habitsAvailable || projects.length > 0 || allHabits.length > 0) && (
               <section aria-labelledby="goal-connections-heading" className="mt-6 border-t border-border pt-5">
                 <h3 id="goal-connections-heading" className="text-sm font-semibold text-primary">Connected work</h3>
                 <p className="mt-1 text-xs text-secondary">Link the projects and daily habits that move this goal forward.</p>
+                {(!projectsAvailable || !initialConnections.projects) && <p className="mt-2 text-xs text-secondary">Project links are unchanged. Reopen this form after projects load to edit their links.</p>}
+                {(!habitsAvailable || !initialConnections.habits) && <p className="mt-2 text-xs text-secondary">Habit links are unchanged. Reopen this form after habits load to edit their links.</p>}
                 <div className="mt-4 grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
                   {projects.length > 0 && (
-                    <fieldset className="min-w-0">
+                    <fieldset disabled={!projectsAvailable || !initialConnections.projects} className="min-w-0">
                       <legend className="mb-2 w-full">
                         <span className="flex flex-wrap items-center justify-between gap-2">
                           <span className="flex items-center gap-2 text-sm font-medium text-primary">
@@ -473,7 +488,7 @@ export function GoalFormModal({
                     </fieldset>
                   )}
                   {allHabits.length > 0 && (
-                    <fieldset className="min-w-0">
+                    <fieldset disabled={!habitsAvailable || !initialConnections.habits} className="min-w-0">
                       <legend className="mb-2 w-full">
                         <span className="flex flex-wrap items-center justify-between gap-2">
                           <span className="flex items-center gap-2 text-sm font-medium text-primary">
@@ -500,6 +515,7 @@ export function GoalFormModal({
                 </div>
               </section>
             )}
+            </details>
           </div>
 
           <footer className="flex shrink-0 items-center justify-end gap-3 border-t border-border bg-surface px-4 py-4 sm:px-6">
@@ -507,7 +523,7 @@ export function GoalFormModal({
               Cancel
             </BaseButton>
             <BaseButton type="submit" disabled={isSubmitting || !title.trim()} isLoading={isSubmitting} className="max-sm:flex-1 max-sm:px-3">
-              {isSubmitting ? 'Saving...' : isEditMode ? 'Save Changes' : parentGoal ? 'Add Key Result' : 'Create Aspiration'}
+              {isSubmitting ? 'Saving...' : isEditMode ? 'Save Changes' : parentGoal ? 'Add Key Result' : 'Create Goal'}
             </BaseButton>
           </footer>
         </form>

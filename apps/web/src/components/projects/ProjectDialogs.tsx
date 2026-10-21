@@ -1,6 +1,7 @@
 import type { ProjectStatus, ProjectWithRelations } from '../../types/schema';
 import { projectStatus, projectMetadata } from '../../lib/utils';
-import { FolderKanban, Target, Trash2, X } from 'lucide-react';
+import { FolderKanban, Trash2, X } from 'lucide-react';
+import { GoalIcon } from '../ui/GoalIcon';
 import React, { useEffect, useRef, useState } from 'react';
 import { BaseButton } from '../ui/BaseButton';
 import { IconPicker } from '../ui/IconPicker';
@@ -24,6 +25,7 @@ interface ProjectCreateModalProps {
   onSubmit: (data: ProjectFormData) => void;
   isSubmitting: boolean;
   goals?: ProjectFormGoal[];
+  goalsUnavailable?: boolean;
 }
 
 interface ProjectEditModalProps extends ProjectCreateModalProps {
@@ -39,7 +41,7 @@ interface ProjectFormProps extends ProjectCreateModalProps {
 
 /** Share the layout while each modal owns its draft and edit-version snapshot. */
 function ProjectForm({
-  open, onClose, onSubmit, isSubmitting, goals = [], values, onChange,
+  open, onClose, onSubmit, isSubmitting, goals = [], goalsUnavailable = false, values, onChange,
   isEditing = false, hasVersionChanged = false,
 }: ProjectFormProps) {
   const dismiss = () => { if (!isSubmitting) onClose(); };
@@ -81,7 +83,7 @@ function ProjectForm({
             </div>
             <div className="min-w-0">
               <h2 id={headingId} className="text-base font-semibold tracking-tight text-primary sm:text-lg">
-                {isEditing ? 'Edit Initiative Settings' : 'New Project'}
+                {isEditing ? 'Edit Project Settings' : 'New Project'}
               </h2>
               <p id="project-form-description" className="mt-1 text-sm text-secondary">
                 {isEditing ? 'Update scope, goal and timeline.' : 'Define the work, goal and timeline.'}
@@ -109,8 +111,8 @@ function ProjectForm({
             )}
             <div className="space-y-5">
               <div>
-                <label htmlFor="initiative-name" className={labelClass}>
-                  Initiative name <span className="text-danger-fg">*</span>
+                <label htmlFor="project-name" className={labelClass}>
+                  Project name <span className="text-danger-fg">*</span>
                 </label>
                 <div className="flex items-start gap-3">
                   <IconPicker
@@ -120,10 +122,10 @@ function ProjectForm({
                     popoverClassName="left-0 right-auto sm:left-0 sm:right-auto max-w-[calc(100vw-4rem)] max-h-60 motion-reduce:animate-none"
                   />
                   <input
-                    id="initiative-name"
+                    id="project-name"
                     name="name"
                     type="text"
-                    aria-label="Initiative Name"
+                    aria-label="Project Name"
                     value={values.name}
                     onChange={event => onChange({ name: event.target.value })}
                     placeholder="e.g. Launch the Krama workspace"
@@ -133,12 +135,12 @@ function ProjectForm({
                 </div>
               </div>
               <div>
-                <label htmlFor="initiative-scope" className={labelClass + ' flex flex-wrap items-center justify-between gap-2'}>
+                <label htmlFor="project-scope" className={labelClass + ' flex flex-wrap items-center justify-between gap-2'}>
                   <span>Problem statement / technical scope</span>
                   <span className="text-xs font-normal text-secondary">Optional</span>
                 </label>
                 <textarea
-                  id="initiative-scope"
+                  id="project-scope"
                   name="problemStatement"
                   aria-label="Problem Statement / Technical Scope"
                   value={values.problemStatement}
@@ -150,37 +152,39 @@ function ProjectForm({
               </div>
             </div>
 
-            <section aria-labelledby="initiative-alignment-heading" className="mt-6 border-t border-border pt-5">
-              <h3 id="initiative-alignment-heading" className="text-sm font-semibold text-primary">Goal &amp; timeline</h3>
+            <section aria-labelledby="project-alignment-heading" className="mt-6 border-t border-border pt-5">
+              <h3 id="project-alignment-heading" className="text-sm font-semibold text-primary">Goal &amp; timeline</h3>
               <div className="mt-4">
-                <label htmlFor="initiative-goal" className={labelClass + ' flex items-center justify-between gap-2'}>
+                <label htmlFor="project-goal" className={labelClass + ' flex items-center justify-between gap-2'}>
                   <span className="flex items-center gap-2">
-                    <Target aria-hidden="true" className="h-4 w-4 text-accent-fg" /> Linked goal
+                    <GoalIcon aria-hidden="true" className="h-4 w-4 text-accent-fg" /> Linked goal
                   </span>
                   <span className="text-xs font-normal text-secondary">Optional</span>
                 </label>
                 <select
-                  id="initiative-goal"
+                  id="project-goal"
                   name="goalId"
                   aria-label={isEditing ? 'Strategic OKR / Linked Goal' : 'Linked Strategic Goal / OKR'}
                   value={values.goalId}
+                  disabled={goalsUnavailable}
                   onChange={event => onChange({ goalId: event.target.value })}
                   className={fieldClass + ' cursor-pointer'}
                 >
-                  <option value="">None (Standalone Initiative)</option>
+                  <option value="">None (Standalone Project)</option>
+                  {goalsUnavailable && values.goalId && !goals.some(goal => goal.id === values.goalId) && <option value={values.goalId}>Current linked goal (unavailable)</option>}
                   {goals.map(goal => (
                     <option key={goal.id} value={goal.id}>
                       {goal.title} ({goal.type}{goal.progress != null ? ' · ' + goal.progress + '%' : ''})
                     </option>
                   ))}
                 </select>
-                <p className="mt-2 text-xs text-secondary">Connect this initiative to the outcome it supports.</p>
+                <p className="mt-2 text-xs text-secondary">Connect this project to the outcome it supports.</p>
               </div>
               <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="min-w-0">
-                  <label htmlFor="initiative-status" className={labelClass}>Status</label>
+                  <label htmlFor="project-status" className={labelClass}>Status</label>
                   <select
-                    id="initiative-status"
+                    id="project-status"
                     name="status"
                     aria-label="Status"
                     value={values.status}
@@ -196,9 +200,9 @@ function ProjectForm({
                   </select>
                 </div>
                 <div className="min-w-0">
-                  <label htmlFor="initiative-target-date" className={labelClass}>Target date</label>
+                  <label htmlFor="project-target-date" className={labelClass}>Target date</label>
                   <input
-                    id="initiative-target-date"
+                    id="project-target-date"
                     name="targetDate"
                     type="date"
                     aria-label="Target Date"
@@ -216,7 +220,7 @@ function ProjectForm({
               Cancel
             </BaseButton>
             <BaseButton type="submit" disabled={isSubmitting || !values.name.trim()} isLoading={isSubmitting} className="max-sm:flex-1 max-sm:px-3">
-              {isSubmitting ? (isEditing ? 'Saving...' : 'Creating...') : (isEditing ? 'Save Initiative' : 'Launch Initiative')}
+              {isSubmitting ? (isEditing ? 'Saving...' : 'Creating...') : (isEditing ? 'Save Project' : 'Create Project')}
             </BaseButton>
           </footer>
         </form>
@@ -308,7 +312,7 @@ export function DeleteInitiativeModal({
             <Trash2 className="w-5 h-5 stroke-[1.75]" />
           </div>
           <div className="space-y-1">
-            <h3 id="delete-project-title" className="text-section font-bold text-primary">Delete Initiative?</h3>
+            <h3 id="delete-project-title" className="text-section font-bold text-primary">Delete Project?</h3>
             <p className="text-caption text-secondary leading-relaxed">
               Are you sure you want to delete <strong className="text-primary font-mono font-bold">"{initiativeName}"</strong>? Its tasks and milestones will be hidden. You can restore them with Undo after deletion.
             </p>
@@ -332,7 +336,7 @@ export function DeleteInitiativeModal({
             onClick={onConfirm}
             isLoading={isDeleting}
           >
-            Delete Initiative
+            Delete Project
           </BaseButton>
         </div>
       </div>

@@ -21,6 +21,12 @@ export function parseLocalDate(dateString: string | null | undefined): Date | nu
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
 }
 
+/** Both a planned day and a deadline place a task on a calendar. */
+export function taskCalendarDates(task: { scheduledDate?: string | null; dueDate?: string | null }): Date[] {
+  return [...new Set([task.scheduledDate?.slice(0, 10), task.dueDate?.slice(0, 10)])]
+    .map(parseLocalDate).filter((date): date is Date => date !== null);
+}
+
 /**
  * Safely formats a local Date object into a YYYY-MM-DD string.
  */

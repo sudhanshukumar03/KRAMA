@@ -101,12 +101,14 @@ describe('Focus schedule resource bounds', () => {
       task: (prisma as any).task,
       focusSession: (prisma as any).focusSession,
       project: (prisma as any).project,
+      dailyLog: (prisma as any).dailyLog,
     };
     (prisma as any).user = { findUnique: async () => ({ weeklyCapacityMinutes: 2400, metadata: null, countryCode: 'IN' }) };
     (prisma as any).timeBlock = { findMany: async () => [] };
     (prisma as any).task = { findMany: async () => [{ id: 'large', title: 'Large estimate', estimateMinutes: 1_000_000_000, projectId: null }] };
     (prisma as any).focusSession = { findMany: async () => [] };
     (prisma as any).project = { findMany: async () => [] };
+    (prisma as any).dailyLog = { findUnique: async () => null };
     try {
       const result = await buildFocusSchedule('user', 'workspace', { focusDuration: 1, shortBreak: 1, longBreak: 1, longBreakAfter: 4 }, 'UTC');
       assert.ok(result.plan.length <= 200);

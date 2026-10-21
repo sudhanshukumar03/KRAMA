@@ -1,7 +1,9 @@
+import { AppError } from '../utils/errors';
 import { goalRepository } from '../repositories/goal.repository';
-import { runInTransaction, type TxClient } from '../prisma';
+import { runInTransaction, type TxClient, type PostCommitPublisher } from '../prisma';
 import type { Prisma } from '@prisma/client';
 import { redisService } from './redis.service';
+import { reportingClock, shiftDay } from './reportingTime';
 
 /** Coerce an unknown JSON value into a plain object (metadata is `Json?`). */
 const toRecord = (v: unknown): Record<string, unknown> =>
@@ -61,25 +63,34 @@ type UpdateGoalDto = Partial<Omit<Prisma.GoalUncheckedUpdateInput, 'updatedBy' |
 };
 
 class GoalService {
+  private async snapshotDay(tx: TxClient, userId: string) {
+    const user = await tx.user.findUnique({ where: { id: userId }, select: { metadata: true, countryCode: true } });
+    const clock = reportingClock(user);
+    const now = new Date();
+    const day = clock.dateKey(now);
+    return { now, range: { gte: clock.dayStart(day), lt: clock.dayStart(shiftDay(day, 1)) } };
+  }
+
   private async validateParent(parentId: string | null | undefined, workspaceId: string, tx: TxClient, goalId?: string) {
     const visited = new Set(goalId ? [goalId] : []);
     let cursor = parentId;
     while (cursor) {
-      if (visited.has(cursor)) throw new Error('Invalid goal hierarchy: cycles are not allowed');
+      if (visited.has(cursor)) throw new AppError('Invalid goal hierarchy: cycles are not allowed', 400, 'INVALID_GOAL_INPUT');
       visited.add(cursor);
       const parent = await tx.goal.findFirst({ where: { id: cursor, workspaceId, deletedAt: null }, select: { parentGoalId: true } });
-      if (!parent) throw new Error('Invalid parent goal');
+      if (!parent) throw new AppError('Invalid parent goal', 400, 'INVALID_GOAL_INPUT');
       cursor = parent.parentGoalId;
     }
   }
 
   private getCacheKey(workspaceId: string, lite = false): string {
-    return lite ? `goals:workspace:lite:${workspaceId}` : `goals:workspace:${workspaceId}`;
+    return lite ? `goals:workspace:lite:${workspaceId}` : `goals:workspace:tree-v2:${workspaceId}`;
   }
 
   async invalidateGoalCache(workspaceId: string): Promise<void> {
     try {
       await Promise.all([
+        redisService.del(this.getCacheKey(workspaceId)),
         redisService.del(`goals:workspace:${workspaceId}`),
         redisService.del(`goals:workspace:lite:${workspaceId}`),
       ]);
@@ -127,7 +138,7 @@ class GoalService {
   async getGoal(id: string, workspaceId: string) {
     const goal = await goalRepository.findById(id);
     if (!goal || goal.deletedAt || goal.workspaceId !== workspaceId) {
-      throw new Error('Goal not found');
+      throw new AppError('Goal not found', 404, 'NOT_FOUND');
     }
     return goal;
   }
@@ -150,17 +161,16 @@ class GoalService {
       }, tx);
 
       // Record initial baseline progress snapshot (upsert for idempotency)
-      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+      const snapshot = await this.snapshotDay(tx, userId);
       const existingSnap = await tx.goalProgressSnapshot.findFirst({
-        where: { goalId: goal.id, date: { gte: todayStart, lte: todayEnd } }
+        where: { goalId: goal.id, date: snapshot.range }
       });
       if (!existingSnap) {
         await tx.goalProgressSnapshot.create({
           data: {
             goalId: goal.id,
             progress: restData.progress !== undefined ? Number(restData.progress) : 0,
-            date: new Date(),
+            date: snapshot.now,
           }
         });
       }
@@ -185,11 +195,11 @@ class GoalService {
       await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
       const existing = await goalRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
-        throw new Error('Goal not found');
+        throw new AppError('Goal not found', 404, 'NOT_FOUND');
       }
 
       if (data.version !== undefined && existing.version !== data.version) {
-        throw new Error('Conflict: version mismatch');
+        throw new AppError('Conflict: version mismatch', 409, 'CONFLICT');
       }
       const parentId = data.parentGoalId === undefined ? existing.parentGoalId : data.parentGoalId as string | null;
       await this.validateParent(parentId, workspaceId, tx, id);
@@ -207,7 +217,8 @@ class GoalService {
         ...(status ? { status } : {}),
       };
       const metadataChanged = status !== undefined || incomingMetadata !== undefined;
-      const isAutomatic = toRecord(mergedMetadata).progressMode === 'auto';
+      const children = await tx.goal.findMany({ where: { parentGoalId: id, workspaceId, deletedAt: null }, select: { progress: true, metadata: true } });
+      const isAutomatic = children.length > 0 || toRecord(mergedMetadata).progressMode === 'auto';
       if (isAutomatic) delete updateData.progress;
 
       const goal = await goalRepository.update(id, {
@@ -237,8 +248,8 @@ class GoalService {
 
     await this.invalidateGoalCache(goal.workspaceId);
 
-    // When a goal is switched to (or reconfigured in) auto mode, derive its progress
-    // from linked tasks immediately rather than waiting for the next task event — the
+    // Derive parent progress from key results, or auto leaf progress from linked
+    // tasks, immediately rather than waiting for the next domain event — the
     // manual `progress` sent alongside the toggle is only a seed. Runs post-commit in its
     // own transaction; a recompute failure must not fail the accepted update. Re-fetch the
     // full goal afterwards so the response carries the derived progress (recomputeAutoProgress
@@ -269,11 +280,10 @@ class GoalService {
     note?: string | null,
     publishAfterCommit?: (event: string, payload: any) => void,
   ) {
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    const snapshot = await this.snapshotDay(tx, userId);
 
     const existingSnap = await tx.goalProgressSnapshot.findFirst({
-      where: { goalId, date: { gte: todayStart, lte: todayEnd } }
+      where: { goalId, date: snapshot.range }
     });
 
     if (existingSnap) {
@@ -283,7 +293,7 @@ class GoalService {
       });
     } else {
       await tx.goalProgressSnapshot.create({
-        data: { goalId, progress, date: new Date(), ...(note ? { notes: note } : {}) }
+        data: { goalId, progress, date: snapshot.now, ...(note ? { notes: note } : {}) }
       });
     }
 
@@ -293,22 +303,31 @@ class GoalService {
   }
 
   /**
-   * Feature #1 — automatic progress. For a goal in `metadata.progressMode === 'auto'`,
-   * derive progress from completion of tasks across its linked (non-deleted) projects
-   * (CANCELED excluded), persist it, snapshot it, and roll up the parent. No-op for
-   * manual goals or when the derived value is unchanged. Invoked post-commit from the
+   * Parents always use weighted key results. Auto leaves use completed tasks across
+   * linked non-deleted projects (CANCELED excluded). Persist changes, snapshot, and
+   * roll up ancestors. No-op for manual leaves or unchanged values. Invoked from the
    * task/project domain-event subscribers, so it runs in its own transaction.
    */
   async recomputeAutoProgress(goalId: string, userId: string) {
-    const result = await runInTransaction(async (tx, publishAfterCommit) => {
+    const result = await runInTransaction((tx, publishAfterCommit) =>
+      this.recomputeAutoProgressWithinTransaction(goalId, userId, tx, publishAfterCommit));
+    if (result) await this.invalidateGoalCache(result.workspaceId);
+    return result;
+  }
+
+  async recomputeAutoProgressWithinTransaction(goalId: string, userId: string, tx: TxClient, publishAfterCommit: PostCommitPublisher) {
+      // Use the same workspace lock as child edits so an older task event cannot
+      // overwrite a newer key-result rollup with a stale child snapshot.
+      await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = (SELECT "workspaceId" FROM "Goal" WHERE id = ${goalId}) FOR UPDATE`;
       const goal = await tx.goal.findUnique({
         where: { id: goalId },
         select: { id: true, parentGoalId: true, progress: true, workspaceId: true, metadata: true, deletedAt: true },
       });
       if (!goal || goal.deletedAt) return null;
-      if (toRecord(goal.metadata).progressMode !== 'auto') return null;
+      const children = await tx.goal.findMany({ where: { parentGoalId: goal.id, workspaceId: goal.workspaceId, deletedAt: null }, select: { progress: true, metadata: true } });
+      if (children.length === 0 && toRecord(goal.metadata).progressMode !== 'auto') return null;
 
-      const tasks = await tx.task.findMany({
+      const tasks = children.length ? [] : await tx.task.findMany({
         where: {
           deletedAt: null,
           status: { not: 'CANCELED' },
@@ -317,7 +336,7 @@ class GoalService {
         },
         select: { status: true },
       });
-      const progress = computeAutoProgress(tasks);
+      const progress = children.length ? computeWeightedRollup(children) : computeAutoProgress(tasks);
 
       if (progress === goal.progress) return goal;
 
@@ -329,12 +348,6 @@ class GoalService {
 
       publishAfterCommit('GOAL_UPDATED', { goalId: goal.id, workspaceId: goal.workspaceId });
       return updated;
-    });
-
-    if (result && 'workspaceId' in result && (result as any).workspaceId) {
-      await this.invalidateGoalCache((result as any).workspaceId);
-    }
-    return result;
   }
 
   private async recalculateParentRollup(
@@ -346,7 +359,7 @@ class GoalService {
   ) {
     if (visited.has(parentGoalId)) return;
     visited.add(parentGoalId);
-    const parent = await tx.goal.findUnique({ where: { id: parentGoalId }, select: { workspaceId: true, deletedAt: true } });
+    const parent = await tx.goal.findUnique({ where: { id: parentGoalId }, select: { workspaceId: true, deletedAt: true, metadata: true } });
     if (!parent || parent.deletedAt) return;
     const siblings = await tx.goal.findMany({
       where: { parentGoalId, workspaceId: parent.workspaceId, deletedAt: null },
@@ -356,7 +369,13 @@ class GoalService {
 
     // Weighted average by KR `metadata.weight` (default 1 → equal weights, matching the
     // previous plain average). Lets an Objective weight its Key Results.
-    const avgProgress = computeWeightedRollup(siblings);
+    // Removing/reparenting the last key result makes this an automatic leaf again.
+    const avgProgress = siblings.length === 0 && toRecord(parent.metadata).progressMode === 'auto'
+      ? computeAutoProgress(await tx.task.findMany({
+        where: { workspaceId: parent.workspaceId, deletedAt: null, status: { not: 'CANCELED' }, project: { goalId: parentGoalId, workspaceId: parent.workspaceId, deletedAt: null } },
+        select: { status: true },
+      }))
+      : computeWeightedRollup(siblings);
 
     const updatedParent = await tx.goal.update({
       where: { id: parentGoalId },
@@ -368,11 +387,10 @@ class GoalService {
       select: { id: true, parentGoalId: true, workspaceId: true },
     });
 
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    const snapshot = await this.snapshotDay(tx, userId);
 
     const parentSnapToday = await tx.goalProgressSnapshot.findFirst({
-      where: { goalId: parentGoalId, date: { gte: todayStart, lte: todayEnd } }
+      where: { goalId: parentGoalId, date: snapshot.range }
     });
     if (parentSnapToday) {
       await tx.goalProgressSnapshot.update({
@@ -381,7 +399,7 @@ class GoalService {
       });
     } else {
       await tx.goalProgressSnapshot.create({
-        data: { goalId: parentGoalId, progress: avgProgress, date: new Date() }
+        data: { goalId: parentGoalId, progress: avgProgress, date: snapshot.now }
       });
     }
 
@@ -399,11 +417,17 @@ class GoalService {
   }
 
   async deleteGoal(id: string, workspaceId: string, userId: string) {
-    const goal = await runInTransaction(async (tx, publishAfterCommit) => {
+    const goal = await runInTransaction((tx, publishAfterCommit) =>
+      this.deleteGoalWithinTransaction(id, workspaceId, userId, tx, publishAfterCommit));
+    await this.invalidateGoalCache(workspaceId);
+    return goal;
+  }
+
+  async deleteGoalWithinTransaction(id: string, workspaceId: string, userId: string, tx: TxClient, publishAfterCommit: PostCommitPublisher) {
       await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
       const existing = await goalRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
-        throw new Error('Goal not found');
+        throw new AppError('Goal not found', 404, 'NOT_FOUND');
       }
 
       const deletionTime = new Date();
@@ -444,10 +468,6 @@ class GoalService {
 
       publishAfterCommit('GOAL_DELETED', { goalId: updated.id, workspaceId: updated.workspaceId });
       return updated;
-    });
-
-    await this.invalidateGoalCache(workspaceId);
-    return goal;
   }
 
   async restoreGoal(id: string, workspaceId: string, userId: string) {
@@ -455,8 +475,8 @@ class GoalService {
     const goal = await runInTransaction(async (tx, publishAfterCommit) => {
       await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
       const existing = await goalRepository.findById(id, tx);
-      if (!existing) throw new Error('Goal not found');
-      if (!existing.deletedAt || existing.workspaceId !== workspaceId) throw new Error('Conflict: nothing to restore');
+      if (!existing) throw new AppError('Goal not found', 404, 'NOT_FOUND');
+      if (!existing.deletedAt || existing.workspaceId !== workspaceId) throw new AppError('Conflict: nothing to restore', 409, 'CONFLICT');
 
       if (existing.parentGoalId) await this.validateParent(existing.parentGoalId, workspaceId, tx, id);
       // Restore only descendants removed by this deletion, leaving earlier deletions alone.

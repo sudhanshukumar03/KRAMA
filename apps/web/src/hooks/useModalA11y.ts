@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const modalStack: HTMLDivElement[] = [];
 
@@ -13,34 +13,39 @@ const modalStack: HTMLDivElement[] = [];
  * role="dialog" aria-modal="true").
  */
 export function useModalA11y(open: boolean, onClose: () => void) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  // Loading/error panels may be replaced while the dialog remains open. Track
+  // the actual node so focus and the modal stack follow the replacement panel.
+  const [panel, setPanel] = useState<HTMLDivElement | null>(null);
+  const containerRef = useCallback((node: HTMLDivElement | null) => setPanel(node), []);
+  const wasOpen = useRef(false);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  // Capture the opener before React commits child autoFocus inputs. Keep that
+  // opener when a loading panel is replaced or the dialog rerenders.
+  if (open && !wasOpen.current && typeof document !== 'undefined') returnFocus.current = document.activeElement as HTMLElement | null;
+  wasOpen.current = open;
   const closeRef = useRef(onClose);
   useEffect(() => { closeRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
-    const panel = containerRef.current;
     if (!panel) return;
     modalStack.push(panel);
     if (!panel.hasAttribute('tabindex')) panel.tabIndex = -1;
 
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-
     const getFocusable = (): HTMLElement[] => {
-      const node = containerRef.current;
-      if (!node) return [];
       return Array.from(
-        node.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        panel.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), summary, textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
         )
-      ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+      ).filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && !el.closest('[inert]') && el.getClientRects().length > 0 && window.getComputedStyle(el).visibility !== 'hidden')
+        .sort((a, b) => (a.tabIndex || Number.MAX_SAFE_INTEGER) - (b.tabIndex || Number.MAX_SAFE_INTEGER));
     };
 
     // Move focus into the dialog on the next tick (after it mounts).
     const focusTimer = window.setTimeout(() => {
       const focusable = getFocusable();
       if (focusable.length > 0) focusable[0].focus();
-      else containerRef.current?.focus();
+      else panel.focus();
     }, 0);
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -54,24 +59,18 @@ export function useModalA11y(open: boolean, onClose: () => void) {
       if (e.key !== 'Tab') return;
 
       const focusable = getFocusable();
+      // WebKit's native tab order can skip controls and leave a dialog before
+      // reaching our last candidate. Handle the whole cycle consistently.
+      e.preventDefault();
       if (focusable.length === 0) {
-        e.preventDefault();
+        panel.focus();
         return;
       }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
       const active = document.activeElement as HTMLElement | null;
-      const inside = containerRef.current?.contains(active) ?? false;
-
-      if (e.shiftKey) {
-        if (active === first || !inside) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else if (active === last || !inside) {
-        e.preventDefault();
-        first.focus();
-      }
+      const index = active ? focusable.indexOf(active) : -1;
+      const next = index < 0 ? (e.shiftKey ? focusable.length - 1 : 0)
+        : (index + (e.shiftKey ? -1 : 1) + focusable.length) % focusable.length;
+      focusable[next].focus();
     };
 
     document.addEventListener('keydown', handleKeyDown, true);
@@ -81,9 +80,9 @@ export function useModalA11y(open: boolean, onClose: () => void) {
       document.removeEventListener('keydown', handleKeyDown, true);
       const index = modalStack.indexOf(panel);
       if (index >= 0) modalStack.splice(index, 1);
-      previouslyFocused?.focus?.();
+      if (returnFocus.current?.isConnected) returnFocus.current.focus();
     };
-  }, [open]);
+  }, [open, panel]);
 
   return containerRef;
 }

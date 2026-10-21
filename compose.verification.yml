@@ -1,0 +1,78 @@
+# Isolated production-image verification. Run with scripts/verification/run-staging.ts.
+services:
+  db:
+    image: pgvector/pgvector:pg15
+    environment:
+      POSTGRES_USER: krama_verify
+      POSTGRES_PASSWORD: ${VERIFY_DB_PASSWORD:?Use test:staging}
+      POSTGRES_DB: krama_staging_test
+    ports: ["127.0.0.1:${VERIFY_DB_PORT:?Use test:staging}:5432"]
+    volumes: [verify_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U krama_verify -d krama_staging_test]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    command: [redis-server, --requirepass, '${VERIFY_REDIS_PASSWORD:?Use test:staging}', --appendonly, 'yes']
+    ports: ["127.0.0.1:${VERIFY_REDIS_PORT:?Use test:staging}:6379"]
+    volumes: [verify_redis:/data]
+    healthcheck:
+      test: [CMD, redis-cli, -a, '${VERIFY_REDIS_PASSWORD}', ping]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  migrate:
+    image: krama-verification-migrate:${VERIFY_TAG:?Use test:staging}
+    build: { context: ., dockerfile: apps/server/Dockerfile, target: builder }
+    working_dir: /app/apps/server
+    command: [node, node_modules/prisma/build/index.js, migrate, deploy]
+    environment:
+      DATABASE_URL: postgresql://krama_verify:${VERIFY_DB_PASSWORD}@db:5432/krama_staging_test?schema=public
+    depends_on: { db: { condition: service_healthy } }
+  server:
+    image: krama-verification-server:${VERIFY_TAG:?Use test:staging}
+    build: { context: ., dockerfile: apps/server/Dockerfile }
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: postgresql://krama_verify:${VERIFY_DB_PASSWORD}@db:5432/krama_staging_test?schema=public
+      REDIS_URL: redis://:${VERIFY_REDIS_PASSWORD}@redis:6379/14
+      JWT_SECRET: ${VERIFY_JWT:?Use test:staging}
+      FRONTEND_URL: https://127.0.0.1:${VERIFY_HTTPS_PORT}
+      CORS_ORIGIN: https://127.0.0.1:${VERIFY_HTTPS_PORT}
+      TRUST_PROXY_CIDRS: ${VERIFY_PROXY_IP}/32
+      KRAMA_TEST_RUN_ID: ${VERIFY_TAG}
+      AUTH_RATE_LIMIT_MAX: '10000'
+      REFRESH_RATE_LIMIT_MAX: '10000'
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+  worker:
+    image: krama-verification-server:${VERIFY_TAG:?Use test:staging}
+    command: [node, dist/worker.js]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://krama_verify:${VERIFY_DB_PASSWORD}@db:5432/krama_staging_test?schema=public
+      REDIS_URL: redis://:${VERIFY_REDIS_PASSWORD}@redis:6379/14
+      KRAMA_TEST_RUN_ID: ${VERIFY_TAG}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+  web:
+    image: krama-verification-web:${VERIFY_TAG:?Use test:staging}
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    ports: ["127.0.0.1:${VERIFY_HTTPS_PORT:?Use test:staging}:443"]
+    volumes:
+      - ${VERIFY_DATA_DIR}/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${VERIFY_DATA_DIR}/tls:/etc/nginx/verification-tls:ro
+    networks: { default: { ipv4_address: '${VERIFY_PROXY_IP}' } }
+    depends_on: [server]
+volumes:
+  verify_db:
+  verify_redis:
+networks:
+  default:
+    ipam:
+      config: [{ subnet: '${VERIFY_SUBNET}' }]

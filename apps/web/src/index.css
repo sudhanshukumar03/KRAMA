@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./styles/theme.css";
+@import "./styles/workspace.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 @plugin "@tailwindcss/typography";
@@ -47,7 +48,7 @@
   --color-accent-active: var(--accent-active);
   --color-accent-subtle: var(--accent-subtle);
   --color-accent-fg: var(--accent-fg);
-  
+
   --color-state-hover: var(--state-hover);
   --color-state-active: var(--state-active);
   --color-state-selected: var(--state-selected);
@@ -58,15 +59,15 @@
   --color-success-fg: var(--success-fg);
   --color-success-bg: var(--success-bg);
   --color-success-border: var(--success-border);
-  
+
   --color-warning-fg: var(--warning-fg);
   --color-warning-bg: var(--warning-bg);
   --color-warning-border: var(--warning-border);
-  
+
   --color-danger-fg: var(--danger-fg);
   --color-danger-bg: var(--danger-bg);
   --color-danger-border: var(--danger-border);
-  
+
   --color-info-fg: var(--info-fg);
   --color-info-bg: var(--info-bg);
   --color-info-border: var(--info-border);
@@ -134,9 +135,9 @@
   --color-card: var(--surface-1);
   --color-sidebar: var(--surface-1);
   --radius-sidebar: 0px;
-  
+
   --color-border: var(--border-default);
-  
+
   --color-primary: var(--text-primary);
   --color-on-accent: var(--text-on-accent);
   --color-secondary: var(--text-secondary);
@@ -158,14 +159,14 @@
   --category-orange: var(--cat-projects);
   --category-red: var(--danger-fg);
   --category-teal: var(--cat-timeblocks);
-  
+
   --icon-blue: var(--cat-tasks);
   --icon-purple: var(--cat-routines);
   --icon-green: var(--success-fg);
   --icon-orange: var(--cat-projects);
   --icon-red: var(--danger-fg);
   --icon-teal: var(--cat-timeblocks);
-  
+
   --shadow-resting: var(--shadow-level-1);
   --shadow-hover: var(--shadow-level-2);
   --shadow-dark: var(--shadow-level-3);
@@ -248,6 +249,20 @@
     box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
   }
 
+  /* Dark mode card refinement - crisp specular edge highlight & deep shadow */
+  .dark .krama-card,
+  .dark .v4-card {
+    background-color: var(--surface-1);
+    border-color: var(--border-default);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .dark .krama-card:hover,
+  .dark .v4-card:hover {
+    border-color: var(--border-strong);
+    box-shadow: 0 6px 20px -3px rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+  }
+
   /* Krama Standard Dialog & Modal with Specular Rim Highlight */
   .krama-dialog,
   .krama-modal {
@@ -255,6 +270,13 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-dialog);
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .dark .krama-dialog,
+  .dark .krama-modal {
+    background-color: var(--surface-2);
+    border-color: var(--border-strong);
+    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
   }
 
   /* Krama Standard Input & Form Controls */
@@ -275,6 +297,19 @@
 
   .krama-input::placeholder {
     color: var(--color-muted);
+  }
+
+  .dark .krama-input {
+    background-color: var(--surface-2);
+    border-color: var(--border-default);
+    color: var(--text-primary);
+    box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  }
+
+  .dark .krama-input:focus {
+    background-color: var(--surface-1);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--ring), inset 0 1px 2px 0 rgba(0, 0, 0, 0.25);
   }
 
   /* BaseButton Component Classes with Hardware Click Compression */
@@ -319,6 +354,19 @@
     border-color: var(--color-border-strong);
   }
 
+  .dark .krama-btn-secondary {
+    background-color: var(--surface-2);
+    border-color: var(--border-default);
+    color: var(--text-primary);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .dark .krama-btn-secondary:hover {
+    background-color: var(--surface-3);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+
   .krama-btn-ghost {
     background-color: transparent;
     color: var(--color-secondary);
@@ -328,6 +376,11 @@
   .krama-btn-ghost:hover {
     background-color: var(--color-state-hover);
     color: var(--color-primary);
+  }
+
+  .dark .krama-btn-ghost:hover {
+    background-color: var(--surface-2);
+    color: var(--text-primary);
   }
 
   /* Categorical Icon Chips (.v4-icon-chip & .krama-icon-chip) */
@@ -366,6 +419,13 @@
     background: var(--color-border-strong);
   }
 
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.14);
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.28);
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 5px;
     height: 5px;
@@ -373,6 +433,9 @@
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background: var(--color-border);
     border-radius: 9999px;
+  }
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.14);
   }
 
   .scrollbar-hide::-webkit-scrollbar {

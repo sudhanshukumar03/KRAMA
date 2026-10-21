@@ -141,6 +141,30 @@ class RedisService {
     this.memoryStore.set(key, { value: val.toString() });
     return val;
   }
+
+  /** Reserve shared quota before provider work; process-local fallback cannot enforce it. */
+  async reserveDailyAllowance(key: string, limit: number, ttlSeconds: number): Promise<boolean> {
+    await this.ensureConnected();
+    const reserved = await this.client.eval(`
+      local count = tonumber(redis.call('GET', KEYS[1]) or '0')
+      if not count or count < 0 then return redis.error_reply('Invalid quota state') end
+      if count >= tonumber(ARGV[1]) then return 0 end
+      local next = redis.call('INCR', KEYS[1])
+      if next == 1 then redis.call('EXPIRE', KEYS[1], ARGV[2]) end
+      return 1
+    `, 1, key, limit, ttlSeconds);
+    return reserved === 1;
+  }
+
+  /** A failed generation returns its reservation without creating a negative counter. */
+  async releaseDailyAllowance(key: string): Promise<void> {
+    await this.ensureConnected();
+    await this.client.eval(`
+      local count = tonumber(redis.call('GET', KEYS[1]) or '0')
+      if count and count > 0 then return redis.call('DECR', KEYS[1]) end
+      return 0
+    `, 1, key);
+  }
 }
 
 export const redisService = new RedisService();

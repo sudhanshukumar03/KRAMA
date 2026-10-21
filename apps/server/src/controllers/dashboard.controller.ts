@@ -69,7 +69,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
         ],
         take: 50,
       }),
-      habitService.listHabits(workspaceId, userId),
+      habitService.listHabits(workspaceId, userId, clock.timeZone, 'tracker'),
   prisma.habit.count({ where: { workspaceId, deletedAt: null } }),
   prisma.document.count({
     where: {

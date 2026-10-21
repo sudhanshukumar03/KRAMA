@@ -5,6 +5,7 @@ import {
     Clock,
     XCircle
 } from 'lucide-react';
+import { GoalIcon } from '../ui/GoalIcon';
 import { useNavigate } from 'react-router-dom';
 import { computeGoalPace } from '../../lib/goalUtils';
 import { cn } from '../../lib/utils';
@@ -26,7 +27,8 @@ export function CompactGoalCard({ goal }: { goal: GoalWithRelations }) {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-5 pl-2">
         <div>
           <div className="flex items-center gap-2.5 mb-1.5">
-            <span className="text-badge font-mono font-bold uppercase tracking-widest text-on-accent bg-success-fg px-2.5 py-0.5 rounded-md shadow-2xs">
+            <span className="text-badge font-mono font-bold uppercase tracking-widest text-on-accent bg-success-fg px-2.5 py-0.5 rounded-md shadow-2xs inline-flex items-center gap-1.5">
+              <GoalIcon className="w-3 h-3 stroke-[2]" />
               {goal.type} • STRATEGIC OKR
             </span>
             <h3 className="text-title text-primary mb-2 font-bold">{goal.title}</h3>

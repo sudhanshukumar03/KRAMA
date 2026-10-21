@@ -7,7 +7,7 @@
     --surface-2: oklch(1 0 0);
     --surface-3: oklch(1 0 0);
     --surface-overlay: oklch(1 0 0 / 0.8);
-    
+
     /* 2. Text (Light - Chromatic Iris Slate) */
     --text-primary: oklch(0.20 0.02 262); /* Deep Midnight Slate */
     --text-secondary: oklch(0.42 0.03 262); /* Rich Iris Slate */
@@ -26,8 +26,8 @@
     --accent-hover: oklch(0.50 0.17 262);
     --accent-active: oklch(0.48 0.17 262);
     --accent-subtle: oklch(0.62 0.17 262 / 0.1);
-    --accent-fg: oklch(0.55 0.17 262);
-    
+    --accent-fg: oklch(0.52 0.17 262);
+
     --state-hover: oklch(0 0 0 / 0.04);
     --state-active: oklch(0 0 0 / 0.08);
     --state-selected: oklch(0 0 0 / 0.06);
@@ -35,33 +35,33 @@
     --disabled-fg: oklch(0.65 0.02 262);
 
     /* 5. Status (Light) */
-    --success-fg: oklch(0.6 0.15 145);
+    --success-fg: oklch(0.46 0.125 145);
     --success-bg: oklch(0.6 0.15 145 / 0.12);
     --success-border: oklch(0.6 0.15 145 / 0.2);
-    
-    --warning-fg: oklch(0.65 0.15 65);
+
+    --warning-fg: oklch(0.49 0.12 65);
     --warning-bg: oklch(0.65 0.15 65 / 0.12);
     --warning-border: oklch(0.65 0.15 65 / 0.2);
-    
-    --danger-fg: oklch(0.6 0.2 25);
+
+    --danger-fg: oklch(0.52 0.18 25);
     --danger-bg: oklch(0.6 0.2 25 / 0.12);
     --danger-border: oklch(0.6 0.2 25 / 0.2);
-    
-    --info-fg: oklch(0.6 0.15 240);
+
+    --info-fg: oklch(0.49 0.13 240);
     --info-bg: oklch(0.6 0.15 240 / 0.12);
     --info-border: oklch(0.6 0.15 240 / 0.2);
 
     /* 6. Domain: Planner Matrix Categories (Light) */
-    --cat-routines: oklch(0.6 0.15 180);
+    --cat-routines: oklch(0.47 0.12 180);
     --cat-routines-bg: oklch(0.6 0.15 180 / 0.12);
-    
-    --cat-tasks: oklch(0.62 0.17 262);
+
+    --cat-tasks: oklch(0.51 0.16 262);
     --cat-tasks-bg: oklch(0.62 0.17 262 / 0.12);
-    
-    --cat-timeblocks: oklch(0.6 0.15 300);
+
+    --cat-timeblocks: oklch(0.51 0.16 300);
     --cat-timeblocks-bg: oklch(0.6 0.15 300 / 0.12);
-    
-    --cat-projects: oklch(0.65 0.15 45);
+
+    --cat-projects: oklch(0.49 0.14 45);
     --cat-projects-bg: oklch(0.65 0.15 45 / 0.12);
 
     /* 7. Domain: Charts (Light) */
@@ -80,6 +80,10 @@
     --heat-2: oklch(0.75 0.15 145);
     --heat-3: oklch(0.65 0.2 145);
     --heat-4: oklch(0.55 0.2 145);
+    --habit-history-inactive: oklch(0.96 0.008 262);
+    --habit-history-inactive-border: oklch(0.64 0.025 262);
+    --habit-history-empty: oklch(0.92 0.015 262);
+    --habit-history-empty-border: oklch(0.58 0.03 262);
 
     /* 9. Domain: Knowledge Graph (Light) */
     --graph-bg: oklch(0.98 0 0);
@@ -94,97 +98,101 @@
   }
 
   .dark {
-    /* 1. Surfaces & Canvas (Dark) 
-       Rules: Elevation is lightness, not shadow. Base is near-black. 
+    /* 1. Surfaces & Canvas (Dark - Obsidian Luxury Hierarchy)
+       Rules: Grounded Obsidian base, smooth tonal elevation, zero muddy gray wash.
     */
-    --bg-base: oklch(0.18 0.01 262); /* #0E0F12 */
-    --bg-subtle: oklch(0.22 0.01 262); /* #131519 */
-    --surface-1: oklch(0.25 0.01 262); /* #17191F */
-    --surface-2: oklch(0.28 0.01 262); /* #1E2128 */
-    --surface-3: oklch(0.32 0.01 262); /* #262A33 */
-    --surface-overlay: oklch(0.25 0.01 262 / 0.8);
+    --bg-base: oklch(0.17 0.015 262);
+    --bg-subtle: oklch(0.19 0.015 262);
+    --surface-1: oklch(0.215 0.018 262);
+    --surface-2: oklch(0.25 0.02 262);
+    --surface-3: oklch(0.285 0.022 262);
+    --surface-overlay: oklch(0.11 0.005 260 / 0.82);
 
-    /* 2. Text (Dark - Luminous Iris Slate) */
-    --text-primary: oklch(0.98 0.01 262); /* Crisp Luminous White */
-    --text-secondary: oklch(0.82 0.02 262); /* Luminous Tinted Silver */
-    --text-muted: oklch(0.66 0.02 262); /* Soft Legible Slate */
-    --text-on-accent: oklch(0.18 0.01 262);
-    --text-inverse: oklch(0.18 0.01 262);
+    /* 2. Text (Dark - Luminous Platinum, Anti-Glare Contrast, Zero Halation) */
+    --text-primary: oklch(0.935 0.006 260);   /* Refined Luminous Platinum (~#ECEEF2) - Crisp & Soft on Eyes */
+    --text-secondary: oklch(0.760 0.012 260); /* Clear Silver-Slate (~#A4A8B3) - Comfortable reading contrast */
+    --text-muted: oklch(0.68 0.012 260);     /* Defined Muted Slate (~#7E8390) - Legible at 11-13px, no fade */
+    --text-on-accent: oklch(0.14 0.006 260);
+    --text-inverse: oklch(0.14 0.006 260);
 
-    /* 3. Borders (Dark - Alpha, not gray!) */
-    --border-subtle: oklch(1 0 0 / 0.05);
-    --border-default: oklch(1 0 0 / 0.1);
-    --border-strong: oklch(1 0 0 / 0.2);
-    --ring: oklch(0.72 0.15 262);
+    /* 3. Borders (Dark - Crisp Specular Alpha) */
+    --border-subtle: oklch(1 0 0 / 0.06);
+    --border-default: oklch(1 0 0 / 0.11);
+    --border-strong: oklch(1 0 0 / 0.20);
+    --ring: oklch(0.68 0.14 262);
 
     /* 4. Interactive & State (Dark)
-       Rules: Desaturate and lighten accent. Washes are alpha overlays.
+       Rules: Refined electric iris, gentle saturation to prevent chromostereopsis
     */
-    --accent: oklch(0.72 0.15 262);
-    --accent-hover: oklch(0.78 0.15 262);
-    --accent-active: oklch(0.85 0.15 262);
-    --accent-subtle: oklch(0.72 0.15 262 / 0.15);
-    --accent-fg: oklch(0.72 0.15 262);
-    
-    --state-hover: oklch(1 0 0 / 0.06);
-    --state-active: oklch(1 0 0 / 0.1);
-    --state-selected: oklch(1 0 0 / 0.08);
-    --disabled-bg: oklch(1 0 0 / 0.05);
-    --disabled-fg: oklch(0.52 0.015 262);
+    --accent: oklch(0.66 0.14 262);
+    --accent-hover: oklch(0.71 0.14 262);
+    --accent-active: oklch(0.62 0.14 262);
+    --accent-subtle: oklch(0.66 0.14 262 / 0.15);
+    --accent-fg: oklch(0.76 0.12 262);
 
-    /* 5. Status (Dark - Alpha tints) */
-    --success-fg: oklch(0.8 0.1 145);
-    --success-bg: oklch(0.8 0.1 145 / 0.15);
-    --success-border: oklch(0.8 0.1 145 / 0.2);
-    
-    --warning-fg: oklch(0.85 0.1 65);
-    --warning-bg: oklch(0.85 0.1 65 / 0.15);
-    --warning-border: oklch(0.85 0.1 65 / 0.2);
-    
-    --danger-fg: oklch(0.8 0.12 25);
-    --danger-bg: oklch(0.8 0.12 25 / 0.15);
-    --danger-border: oklch(0.8 0.12 25 / 0.2);
-    
-    --info-fg: oklch(0.8 0.1 240);
-    --info-bg: oklch(0.8 0.1 240 / 0.15);
-    --info-border: oklch(0.8 0.1 240 / 0.2);
+    --state-hover: oklch(1 0 0 / 0.05);
+    --state-active: oklch(1 0 0 / 0.09);
+    --state-selected: oklch(1 0 0 / 0.07);
+    --disabled-bg: oklch(1 0 0 / 0.04);
+    --disabled-fg: oklch(0.46 0.012 260);
+
+    /* 5. Status (Dark - Soft Jewel Tones, Anti-Acidic/Anti-Glare) */
+    --success-fg: oklch(0.76 0.13 150);
+    --success-bg: oklch(0.76 0.13 150 / 0.14);
+    --success-border: oklch(0.76 0.13 150 / 0.26);
+
+    --warning-fg: oklch(0.80 0.14 72);
+    --warning-bg: oklch(0.80 0.14 72 / 0.14);
+    --warning-border: oklch(0.80 0.14 72 / 0.26);
+
+    --danger-fg: oklch(0.74 0.16 26);
+    --danger-bg: oklch(0.74 0.16 26 / 0.14);
+    --danger-border: oklch(0.74 0.16 26 / 0.26);
+
+    --info-fg: oklch(0.75 0.13 235);
+    --info-bg: oklch(0.75 0.13 235 / 0.14);
+    --info-border: oklch(0.75 0.13 235 / 0.26);
 
     /* 6. Domain: Planner Matrix Categories (Dark) */
-    --cat-routines: oklch(0.8 0.1 180);
-    --cat-routines-bg: oklch(0.8 0.1 180 / 0.15);
-    
-    --cat-tasks: oklch(0.72 0.15 262);
-    --cat-tasks-bg: oklch(0.72 0.15 262 / 0.15);
-    
-    --cat-timeblocks: oklch(0.8 0.1 300);
-    --cat-timeblocks-bg: oklch(0.8 0.1 300 / 0.15);
-    
-    --cat-projects: oklch(0.8 0.1 45);
-    --cat-projects-bg: oklch(0.8 0.1 45 / 0.15);
+    --cat-routines: oklch(0.76 0.13 175);
+    --cat-routines-bg: oklch(0.76 0.13 175 / 0.14);
+
+    --cat-tasks: oklch(0.72 0.13 262);
+    --cat-tasks-bg: oklch(0.72 0.13 262 / 0.14);
+
+    --cat-timeblocks: oklch(0.75 0.13 310);
+    --cat-timeblocks-bg: oklch(0.75 0.13 310 / 0.14);
+
+    --cat-projects: oklch(0.76 0.14 45);
+    --cat-projects-bg: oklch(0.76 0.14 45 / 0.14);
 
     /* 7. Domain: Charts (Dark) */
-    --chart-1: oklch(0.72 0.15 262);
-    --chart-2: oklch(0.8 0.1 180);
-    --chart-3: oklch(0.8 0.1 300);
-    --chart-4: oklch(0.8 0.1 45);
-    --chart-5: oklch(0.8 0.12 25);
-    --chart-6: oklch(0.8 0.1 100);
-    --chart-7: oklch(0.75 0.08 200);
-    --chart-8: oklch(0.75 0.1 340);
+    --chart-1: oklch(0.72 0.13 262);
+    --chart-2: oklch(0.76 0.13 175);
+    --chart-3: oklch(0.75 0.13 310);
+    --chart-4: oklch(0.76 0.14 45);
+    --chart-5: oklch(0.74 0.16 26);
+    --chart-6: oklch(0.78 0.13 100);
+    --chart-7: oklch(0.74 0.10 200);
+    --chart-8: oklch(0.74 0.12 340);
 
     /* 8. Domain: Heatmap (Dark) */
-    --heat-0: oklch(0.22 0.01 262);
-    --heat-1: oklch(0.4 0.08 145);
-    --heat-2: oklch(0.55 0.1 145);
-    --heat-3: oklch(0.7 0.12 145);
-    --heat-4: oklch(0.85 0.1 145);
+    --heat-0: oklch(0.18 0.008 260);
+    --heat-1: oklch(0.36 0.08 150);
+    --heat-2: oklch(0.50 0.11 150);
+    --heat-3: oklch(0.64 0.13 150);
+    --heat-4: oklch(0.78 0.14 150);
+    --habit-history-inactive: oklch(0.26 0.012 262);
+    --habit-history-inactive-border: oklch(0.54 0.025 262);
+    --habit-history-empty: oklch(0.30 0.025 262);
+    --habit-history-empty-border: oklch(0.66 0.035 262);
 
     /* 9. Domain: Knowledge Graph (Dark) */
-    --graph-bg: oklch(0.18 0.01 262);
-    --graph-node: oklch(0.72 0.15 262);
-    --graph-node-active: oklch(0.8 0.12 25);
-    --graph-edge: oklch(1 0 0 / 0.15);
-    --graph-label: oklch(0.95 0.01 262);
+    --graph-bg: oklch(0.125 0.006 260);
+    --graph-node: oklch(0.72 0.13 262);
+    --graph-node-active: oklch(0.74 0.16 26);
+    --graph-edge: oklch(1 0 0 / 0.14);
+    --graph-label: oklch(0.92 0.006 260);
 
     /* 10. Misc */
     --shadow-color: 0 0 0;

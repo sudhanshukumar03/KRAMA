@@ -79,6 +79,8 @@ export function usePlannerWeek(currentDate: Date) {
 
   const toggleRoutineMutation = useMutation({
     mutationFn: (occ: RoutineOccurrence) => {
+      if (!occ.completed && occ.unavailableReason) throw new Error(occ.unavailableReason === 'before_creation' ? 'This habit had not been created on that day.' : 'Future days cannot be completed.');
+      if (!occ.completed && occ.scheduled === false) throw new Error('This routine is not scheduled on that day.');
       // Use the global habit log endpoints (same as daily schedule)
       const dateIso = occ.date;
       const dateStr = dateIso.split('T')[0];
@@ -127,6 +129,7 @@ export function usePlannerWeek(currentDate: Date) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
+      for (const key of ['issues', 'tasks', 'dashboard', 'day-plan']) void queryClient.invalidateQueries({ queryKey: [key] });
     },
     onError: err => {
       toast.error('Failed to create time block: ' + (err?.message || 'Unknown error'));
@@ -157,6 +160,7 @@ export function usePlannerWeek(currentDate: Date) {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
       queryClient.invalidateQueries({ queryKey: ['planner'] });
+      for (const key of ['issues', 'tasks', 'dashboard', 'day-plan']) void queryClient.invalidateQueries({ queryKey: [key] });
     },
   });
 

@@ -1,6 +1,14 @@
 import type { GoalWithRelations } from '../types/schema';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 
+export function goalMatchesSearch(goal: GoalWithRelations, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const metadata = goal.metadata && typeof goal.metadata === 'object' && !Array.isArray(goal.metadata) ? goal.metadata : {};
+  return [goal.title, metadata.whyStatement, metadata.description].some(value => typeof value === 'string' && value.toLowerCase().includes(q))
+    || (goal.childGoals || []).some(child => goalMatchesSearch(child, q));
+}
+
 export type GoalPace = {
   status: 'completed' | 'unknown' | 'on_track' | 'behind' | 'stalled' | 'ahead' | 'past_due';
   requiredPace: number;

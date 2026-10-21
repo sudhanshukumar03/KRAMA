@@ -29,6 +29,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import type { PlannerTask, TimeBlock, TimeBlockDraft, Milestone, RoutineOccurrence } from '../../types/planner';
 import type { IssueWithRelations, TaskUpdateInput } from '../../types/schema';
 import { parseLocalDate, errorMessage } from '../../lib/utils';
+import { openFocusTab } from '../../lib/focusNavigation';
+import { scheduleTaskPatch } from '../../lib/plannerTaskActions';
+import { useTaskDeletion } from '../../hooks/useTaskDeletion';
+import '../../styles/planner.css';
 
 export function PlannerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -127,24 +131,7 @@ export function PlannerPage() {
  }
  });
 
- const deleteTaskMutation = useMutation({
- mutationFn: (id: string) => api.tasks.delete(id),
- onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
-      queryClient.invalidateQueries({ queryKey: ['planner'] });
- queryClient.invalidateQueries({ queryKey: ['issues'] });
- queryClient.invalidateQueries({ queryKey: ['tasks'] });
- queryClient.invalidateQueries({ queryKey: ['projects'] });
- queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['goal'] });
-      queryClient.invalidateQueries({ queryKey: ['goals'] });
-      queryClient.invalidateQueries({ queryKey: ['project'] });
- toast.success('Task deleted');
- },
- onError: (err) => {
- toast.error('Failed to delete task: ' + errorMessage(err, 'Unknown error'));
- }
- });
+ const deleteTaskMutation = useTaskDeletion();
 
   const deleteRoutineMutation = useMutation({
     mutationFn: (id: string) => api.habits.update(id, { pinnedToPlanner: false }),
@@ -183,28 +170,20 @@ export function PlannerPage() {
     const targetIso = new Date(`${dateStr}T12:00:00.000Z`).toISOString();
     updateTaskMutation.mutate({
       id: taskId,
-      data: { scheduledDate: targetIso, version: allIssues.find(task => task.id === taskId)?.version }
+      data: scheduleTaskPatch(allIssues.find(task => task.id === taskId) ?? {}, targetIso)
     }, {
       onSuccess: () => toast.success(`Task scheduled for ${dateStr}`),
       onError: () => toast.error('Failed to schedule task')
     });
   };
 
-  const handleLinkTaskToBlock = (blockId: string, taskId: string, blockDate?: string) => {
+  const handleLinkTaskToBlock = (blockId: string, taskId: string) => {
     updateTimeBlockMutation.mutate({
       id: blockId,
-      data: { taskId }
+      data: { taskId, projectId: allIssues.find(task => task.id === taskId)?.projectId ?? null }
     }, {
       onSuccess: () => {
         toast.success('Task linked to time block');
-        if (blockDate) {
-          const dateOnly = blockDate.includes('T') ? blockDate.split('T')[0] : blockDate;
-          const targetIso = new Date(`${dateOnly}T12:00:00.000Z`).toISOString();
-          updateTaskMutation.mutate({
-            id: taskId,
-            data: { scheduledDate: targetIso, version: allIssues.find(task => task.id === taskId)?.version }
-          });
-        }
       },
       onError: (err) => toast.error(errorMessage(err, 'Failed to link task'))
     });
@@ -248,21 +227,21 @@ export function PlannerPage() {
     });
   };
 
-  const handleFocusTask = (task: PlannerTask) => {
-    const taskDay = (task.scheduledDate || task.dueDate || format(viewDay, 'yyyy-MM-dd')).slice(0, 10);
+  const handleFocusTask = (task: PlannerTask, occurrenceDay?: Date) => {
+    const taskDay = occurrenceDay ? format(occurrenceDay, 'yyyy-MM-dd') : (task.scheduledDate || task.dueDate || format(viewDay, 'yyyy-MM-dd')).slice(0, 10);
     const candidates = (mergedData?.timeBlocks || []).filter(item => item.taskId === task.id && !item.isExternal && !['MEETING', 'PERSONAL'].includes(item.type) && item.date.slice(0, 10) === taskDay).sort((a, b) => a.startTime.localeCompare(b.startTime));
     const now = new Date(), nowMinutes = now.getHours() * 60 + now.getMinutes();
     const block = (taskDay === format(now, 'yyyy-MM-dd') ? candidates.find(item => Number(item.endTime.slice(11, 13)) * 60 + Number(item.endTime.slice(14, 16)) > nowMinutes) : candidates[0]) || candidates[0];
-    const date = (block?.date || task.scheduledDate || task.dueDate || format(viewDay, 'yyyy-MM-dd')).slice(0, 10);
+    const date = (block?.date || taskDay).slice(0, 10);
     const params = new URLSearchParams({ task: task.id, date });
     if (block) params.set('block', block.id);
-    navigate('/focus?' + params);
+    openFocusTab(params);
   };
   const handleFocusBlock = (block: TimeBlock) => {
     if (block.isExternal || block.type === 'MEETING' || block.type === 'PERSONAL') return handleEditTimeBlock(block);
     const params = new URLSearchParams({ block: block.id, date: block.date.slice(0, 10) });
     if (block.taskId) params.set('task', block.taskId);
-    navigate('/focus?' + params);
+    openFocusTab(params);
   };
 
   const handleClickTask = async (task: PlannerTask) => {
@@ -340,8 +319,8 @@ export function PlannerPage() {
  }
 
   return (
-    <div className="flex flex-col h-full w-full min-h-0 overflow-hidden bg-canvas">
-      <div className="flex flex-col h-full w-full max-w-[1700px] mx-auto px-4 md:px-6 py-2.5 min-h-0 gap-2.5">
+    <div className="planner-page flex flex-col h-full w-full min-h-0 overflow-hidden bg-canvas">
+      <div className="planner-shell flex flex-col h-full w-full max-w-[1700px] mx-auto px-4 md:px-6 py-2.5 min-h-0 gap-2.5">
         {mode !== 'calendar' && ((data.holidayCoverage?.missingNationalYears?.length ?? 0) > 0 || (data.holidayCoverage?.missingRegionalYears?.length ?? 0) > 0) && (
           <p role="status" className="shrink-0 text-sm text-warning-fg">
             Holiday coverage is incomplete. Available capacity may exclude missing holidays.
@@ -478,16 +457,16 @@ export function PlannerPage() {
           onLocationClick={() => setLocationModalOpen(true)}
         />
 
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="planner-content flex-1 min-h-0 flex flex-col overflow-hidden">
           {mode === 'plan' ? (
-            <div className="flex-1 min-h-0 flex flex-col gap-2.5">
+            <div className="planner-week flex-1 min-h-0 flex flex-col gap-2.5">
               {issuesError && (
                 <div className="shrink-0 rounded-lg border border-warning-border bg-warning-bg px-3 py-2 text-[11px] font-medium text-warning-fg">
                   Some tasks couldn’t be loaded. <button type="button" onClick={() => refetchIssues()} className="underline font-semibold">Retry tasks</button>
                 </div>
               )}
               <CapacitySummary capacity={data.capacity} onEdit={() => setCapacityModalOpen(true)} />
-              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <div className="planner-week-grid flex-1 min-h-0 flex flex-col overflow-hidden">
                 <PlannerMatrix
                   data={mergedData}
                   days={days}
@@ -515,12 +494,12 @@ export function PlannerPage() {
               </div>
             </div>
           ) : mode === 'day' ? (
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="planner-day flex-1 min-h-0 overflow-y-auto">
               <TodayView
                 day={viewDay}
                 data={mergedData}
                 onToggleTask={handleToggleTask}
-                onClickTask={handleFocusTask}
+                onClickTask={task => handleFocusTask(task, viewDay)}
                 onClickTimeBlock={handleEditTimeBlock}
                 onFocusTimeBlock={handleFocusBlock}
                 onEditTask={handleClickTask}
@@ -535,7 +514,7 @@ export function PlannerPage() {
               />
             </div>
           ) : (
-            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="planner-month flex-1 min-h-0 flex flex-col overflow-hidden">
               <CalendarMode
                 calendarDate={calendarDate}
                 currentCountry={currentCountryCode}

@@ -100,7 +100,7 @@ export function FullTextSearchDialog({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search document titles and content…"
-            className="flex-1 bg-transparent border-none outline-none text-primary placeholder:text-muted text-body"
+            className="min-w-0 flex-1 bg-transparent border-none outline-none text-primary placeholder:text-muted text-body"
           />
           {isSearching && <RefreshCw className="w-4 h-4 text-muted animate-spin shrink-0" />}
           <button
@@ -199,7 +199,7 @@ export function FullTextSearchDialog({
 
           {!query.trim() && (
             <div className="py-8 text-center text-muted font-mono text-caption">
-              Type keywords to search across all workspace specifications.
+              Search for words from your document titles or notes.
             </div>
           )}
 

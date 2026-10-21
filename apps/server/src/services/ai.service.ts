@@ -88,7 +88,9 @@ class ProviderFactory {
   }
 }
 
-export const GEMINI_MODEL = 'gemini-3.8-flash';
+// Keep text selection separate from the embedding model and consistent across
+// global completion, Brain streaming and direct provider qualification.
+export const GEMINI_MODEL = process.env.GEMINI_TEXT_MODEL?.trim() || 'gemini-3.8-flash';
 export const GROQ_MODEL = 'openai/gpt-oss-20b';
 
 export function getTextConfiguration() {
@@ -103,6 +105,8 @@ const COST_MAP: Record<string, { prompt: number, completion: number }> = {
   'llama-3.1-8b-instant': { prompt: 0.05 / 1_000_000, completion: 0.08 / 1_000_000 },
   'llama-3.1-70b-versatile': { prompt: 0.59 / 1_000_000, completion: 0.79 / 1_000_000 },
   'gemini-3.8-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
+  // Standard introductory text rates through 2026-12-31; estimates, not invoices.
+  'gemini-3.6-flash': { prompt: 0.75 / 1_000_000, completion: 3.75 / 1_000_000 },
   'gemini-2.5-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
   'gemini-2.0-flash': { prompt: 0.075 / 1_000_000, completion: 0.30 / 1_000_000 },
 };

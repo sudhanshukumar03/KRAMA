@@ -116,21 +116,21 @@ export function CreateDocumentModal({
       }}
       className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
     >
-      <div 
+      <div
         ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-doc-title"
-        className="krama-dialog w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
+        className="workspace-document-create krama-dialog w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
       >
         {/* Header */}
-        <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
+        <div className="p-4 border-b border-border flex items-center justify-between gap-2 bg-surface shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-accent-subtle border border-accent/20 text-accent-fg flex items-center justify-center shrink-0">
               <BookOpen className="w-4 h-4 stroke-[1.75]" />
             </div>
             <div>
-              <h3 id="create-doc-title" className="font-bold text-primary text-body leading-tight">
+              <h3 id="create-doc-title" className="font-semibold text-primary text-body leading-tight">
                 {target?.parentTitle ? 'New Sub-document' : 'Create New Document'}
               </h3>
               {target?.parentTitle && (
@@ -140,10 +140,10 @@ export function CreateDocumentModal({
               )}
             </div>
           </div>
-          <button 
+          <button
             type="button"
             aria-label="Close new document"
-            onClick={onClose} 
+            onClick={onClose}
             className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-surface-hover transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -151,7 +151,8 @@ export function CreateDocumentModal({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleCreate} className="p-5 space-y-4">
+        <form onSubmit={handleCreate} className="min-h-0 flex flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 space-y-4">
           <div>
             <label htmlFor="new-document-name" className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
               Document Name <span className="text-accent-fg">*</span>
@@ -162,7 +163,7 @@ export function CreateDocumentModal({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. System Architecture Spec, API Contract..."
+              placeholder="e.g. Reading notes or a project outline"
               className="w-full p-2.5 rounded-xl border border-border bg-surface text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 font-sans text-body transition-all"
               autoFocus
             />
@@ -173,10 +174,11 @@ export function CreateDocumentModal({
             <label className="block font-bold text-secondary font-mono uppercase text-caption mb-1.5 tracking-wider">
               Template
             </label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               <button
                 type="button"
                 onClick={() => setSelectedTemplateId('blank')}
+                aria-pressed={selectedTemplateId === 'blank'}
                 className={cn(
                   "py-1.5 px-2 rounded-lg text-caption font-mono font-bold transition-all cursor-pointer text-center border truncate",
                   selectedTemplateId === 'blank'
@@ -191,6 +193,7 @@ export function CreateDocumentModal({
                 <button
                   key={tmpl.id}
                   type="button"
+                  aria-pressed={selectedTemplateId === tmpl.id}
                   onClick={() => {
                     setSelectedTemplateId(tmpl.id);
                     const docType = tmpl.documentType || tmpl.defaultDocType;
@@ -229,6 +232,7 @@ export function CreateDocumentModal({
                 <button
                   key={t.id}
                   type="button"
+                  aria-pressed={documentType === t.id}
                   onClick={() => setDocumentType(t.id)}
                   className={cn(
                     "py-1.5 px-2 rounded-lg text-caption font-mono font-bold transition-all cursor-pointer text-center border",
@@ -281,8 +285,9 @@ export function CreateDocumentModal({
             </div>
           )}
 
-          {/* Footer Actions */}
-          <div className="pt-3 border-t border-border flex items-center justify-between">
+          </div>
+          {/* Actions remain visible while the fields scroll. */}
+          <div className="workspace-document-create-footer shrink-0 p-5 border-t border-border flex items-center justify-between gap-3">
             <span className="text-caption font-mono text-muted flex items-center gap-1">
               <kbd className="bg-surface-hover px-1.5 py-0.5 rounded border border-border text-badge">Enter ↵</kbd> to create
             </span>

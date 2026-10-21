@@ -80,7 +80,7 @@ export function IssueCreateModal({
             <div className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
               <ListChecks className="w-4 h-4 stroke-[2]" />
             </div>
-            <h3 id={`${dialogId}-title`} className="text-card text-primary font-bold">Create New Directive</h3>
+            <h3 id={`${dialogId}-title`} className="text-card text-primary font-bold">Create New Task</h3>
           </div>
           <button
             onClick={dismiss}
@@ -112,7 +112,7 @@ export function IssueCreateModal({
 
           <div>
             <label htmlFor={`${dialogId}-field-2`} className="block text-caption font-mono uppercase tracking-wider text-muted mb-1.5 font-medium">
-              Directive Title *
+              Task Title *
             </label>
             <input id={`${dialogId}-field-2`}
               type="text"
@@ -211,7 +211,7 @@ export function IssueCreateModal({
               Cancel
             </BaseButton>
             <BaseButton type="submit" disabled={isSubmitting || !title.trim()}>
-              {isSubmitting ? 'Creating...' : 'Create Directive'}
+              {isSubmitting ? 'Creating...' : 'Create Task'}
             </BaseButton>
           </div>
         </form>

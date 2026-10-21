@@ -1,14 +1,19 @@
-import type { 
-  Workspace, Space, WorkspaceCreateInput, WorkspaceUpdateInput, SpaceCreateInput, SpaceUpdateInput,
-  ProjectCreateInput, ProjectUpdateInput, GoalCreateInput, GoalUpdateInput, HabitCreateInput, HabitUpdateInput, TaskUpdateInput, TelemetryInput, ProjectWithRelations, IssueWithRelations, GoalWithRelations, Habit, SearchResult,
-  AuthUser, AuthResponse, PreferencesInput, TaskComment, Notification, TaskCreateInput, FocusCompletionInput,
-  DocumentWithRelations, DocumentDetail, DocumentVersion, DocumentVersionSummary, DocumentMetadataInput,
-  DocumentCreateInput, DocumentContentResult, DocumentSearchResult, DocumentGraph, Tag, EntityLink,
-  FocusSession, WallpaperResponse, DashboardData, AiConfiguration, AiResponse, WorkspaceExport
-} from '../types/schema';
-import type { FocusScheduleData } from '../components/focus/types';
+import { createWorkspacesApi } from './workspacesApi';
+import { createSpacesApi } from './spacesApi';
+import { createDocumentsApi } from './documentsApi';
+import { createProjectsApi } from './projectsApi';
+import { createHabitsApi } from './habitsApi';
+import { createSearchApi } from './searchApi';
+import { createAiApi } from './aiApi';
+import { createNotificationsApi } from './notificationsApi';
+import { createDashboardApi } from './dashboardApi';
+import { createFocusSessionsApi } from './focusSessionsApi';
+import { createPlannerApi } from './plannerDomainApi';
+import { createTasksApi } from './tasksApi';
+import { affectsWorkspaceSummary, publishWorkspaceChange } from '../lib/workspaceChanges';
+import { createGoalsApi } from './goalsApi';
+import type { AuthUser, AuthResponse, PreferencesInput } from '../types/schema';
 import { toast } from 'sonner';
-import type { PlannerData, TimeBlock, TimeBlockInput, TimeBlockUpdate, TimeBlockExtensionInput, TimeBlockExtensionResult, Milestone, MilestoneInput, MilestoneUpdate, MilestoneRange, HolidayCalendar } from '../types/planner';
 
 const API_BASE = '/api/v1';
 
@@ -169,6 +174,7 @@ async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {
 }
 
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const requestedWorkspace = currentWorkspaceId;
   const executeRequest = async () => {
     const headers = new Headers(options.headers || {});
     if (!(options.body instanceof FormData)) {
@@ -214,6 +220,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
       throw err;
     }
 
+    if (requestedWorkspace === currentWorkspaceId && affectsWorkspaceSummary(endpoint, options.method)) publishWorkspaceChange(requestedWorkspace);
     // Handle 204 No Content
     if (res.status === 204) return {} as T;
 
@@ -317,21 +324,6 @@ async function downloadDocumentExport(id: string, format: 'md' | 'spec', filenam
   document.body.removeChild(a);
 }
 
-async function fetchDocumentPages(spaceId?: string, deleted = false) {
-  const all: DocumentWithRelations[] = [];
-  let cursor: string | null = null;
-  do {
-    const params = new URLSearchParams({ limit: '200' });
-    if (spaceId && spaceId !== 'ALL') params.set('spaceId', spaceId);
-    if (deleted) params.set('deleted', 'true');
-    if (cursor) params.set('cursor', cursor);
-    const page = await fetchApi<{ items: DocumentWithRelations[]; nextCursor: string | null }>(`/documents?${params.toString()}`);
-    all.push(...page.items);
-    cursor = page.nextCursor;
-  } while (cursor);
-  return all;
-}
-
 export const api = {
   setAccessToken,
   subscribeAccessToken: (listener: (token: string | null) => void) => {
@@ -371,158 +363,23 @@ export const api = {
     me: () => fetchApi<{ user: AuthUser }>('/auth/me', { method: 'GET' }),
     updatePreferences: (body: PreferencesInput) => fetchApi<{ user: AuthUser }>('/auth/me/preferences', { method: 'PATCH', body: JSON.stringify(body) }),
   },
-  workspaces: {
-    list: () => fetchApi<Workspace[]>('/workspaces'),
-    create: (data: WorkspaceCreateInput) => fetchApi<Workspace>('/workspaces', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: WorkspaceUpdateInput) => fetchApi<Workspace>(`/workspaces/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<void>(`/workspaces/${id}`, { method: 'DELETE' }),
-    export: () => fetchApi<WorkspaceExport>('/workspaces/export'),
-  },
-  spaces: {
-    list: () => fetchApi<Space[]>('/spaces'),
-    create: (data: SpaceCreateInput) => fetchApi<Space>('/spaces', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: SpaceUpdateInput) => fetchApi<Space>(`/spaces/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<{ success: boolean }>(`/spaces/${id}`, { method: 'DELETE' }),
-  },
+  workspaces: createWorkspacesApi(fetchApi),
+  spaces: createSpacesApi(fetchApi),
 
-  documents: {
-    list: (spaceId?: string) => fetchDocumentPages(spaceId, false),
-    listDeleted: (spaceId?: string) => fetchDocumentPages(spaceId, true),
-    get: (id: string) => fetchApi<DocumentDetail>(`/documents/${id}`),
-    create: (data: DocumentCreateInput) => fetchApi<DocumentDetail>('/documents', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: DocumentMetadataInput) => fetchApi<DocumentDetail>(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    updateContent: (id: string, contentJson: unknown, expectedUpdatedAt?: string) => fetchApi<DocumentContentResult>(`/documents/${id}/content`, { method: 'PATCH', body: JSON.stringify({ contentJson, expectedUpdatedAt }) }),
-    delete: (id: string) => fetchApi<{ message: string }>(`/documents/${id}`, { method: 'DELETE' }),
-    restore: (id: string) => fetchApi<DocumentDetail>(`/documents/${id}/restore`, { method: 'POST' }),
-    purge: (id: string) => fetchApi<{ message: string }>(`/documents/${id}/permanent`, { method: 'DELETE' }),
-    move: (id: string, data: { targetFolderId?: string | null; targetParentId?: string | null }) => 
-      fetchApi<DocumentDetail>(`/documents/${id}/move`, { method: 'POST', body: JSON.stringify(data) }),
-    duplicate: (id: string) => fetchApi<DocumentDetail>(`/documents/${id}/duplicate`, { method: 'POST' }),
-    favorite: (id: string) => fetchApi<DocumentDetail>(`/documents/${id}/favorite`, { method: 'POST' }),
-    importSpec: (data: { content: string; spaceId?: string; parentId?: string }) => 
-      fetchApi<{ document: DocumentDetail; totalImported: number; message: string }>('/documents/import', { method: 'POST', body: JSON.stringify(data) }),
-    getVersions: (id: string) => fetchApi<DocumentVersionSummary[]>(`/documents/${id}/versions`),
-    createVersion: (id: string) => fetchApi<DocumentVersion>(`/documents/${id}/versions`, { method: 'POST' }),
-    restoreVersion: (id: string, versionId: string) => fetchApi<DocumentDetail>(`/documents/${id}/versions/${versionId}/restore`, { method: 'POST' }),
-    getTags: (workspaceId: string) => fetchApi<Tag[]>(`/workspaces/${workspaceId}/tags`),
-    addTag: (id: string, tagName: string, color?: string) => fetchApi<Tag>(`/documents/${id}/tags`, { method: 'POST', body: JSON.stringify({ tagName, color }) }),
-    removeTag: (id: string, tagId: string) => fetchApi<{ message: string }>(`/documents/${id}/tags/${tagId}`, { method: 'DELETE' }),
-    getLinks: (id: string) => fetchApi<{ outgoing: EntityLink[]; incoming: EntityLink[] }>(`/documents/${id}/links`),
-    addLink: (id: string, data: { targetType: string; targetId: string; linkType?: string }) => fetchApi<EntityLink>(`/documents/${id}/links`, { method: 'POST', body: JSON.stringify(data) }),
-    removeLink: (linkId: string) => fetchApi<{ message: string }>(`/links/${linkId}`, { method: 'DELETE' }),
-    createTask: (id: string, data: { title: string; priority?: string; status?: string; description?: string }) =>
-      fetchApi<{ task: IssueWithRelations; link: EntityLink }>(`/documents/${id}/tasks`, { method: 'POST', body: JSON.stringify(data) }),
-    search: (workspaceId: string, q: string, filters?: { type?: string; projectId?: string; status?: string; tag?: string }, signal?: AbortSignal) => {
-      const params = new URLSearchParams({ q });
-      if (filters?.type && filters.type !== 'ALL') params.append('type', filters.type);
-      if (filters?.projectId && filters.projectId !== 'ALL') params.append('projectId', filters.projectId);
-      if (filters?.status && filters.status !== 'ALL') params.append('status', filters.status);
-      if (filters?.tag && filters.tag !== 'ALL') params.append('tag', filters.tag);
-      return fetchApi<DocumentSearchResult[]>(`/workspaces/${workspaceId}/search?${params.toString()}`, { signal });
-    },
+  documents: createDocumentsApi(fetchApi, downloadDocumentExport, streamDocumentAi),
+  goals: createGoalsApi(fetchApi),
+  projects: createProjectsApi(fetchApi),
+  tasks: createTasksApi(fetchApi),
 
+  habits: createHabitsApi(fetchApi),
+  search: createSearchApi(fetchApi),
 
-    export: (id: string, format: 'md' | 'spec', filename?: string) => downloadDocumentExport(id, format, filename),
-    getGraph: (workspaceId: string) => fetchApi<DocumentGraph>(`/workspaces/${workspaceId}/graph`),
-    aiAsk: (id: string, question: string, onChunk: (text: string) => void, onDone: () => void, onError: (err: Error) => void, signal?: AbortSignal) =>
-      streamDocumentAi(`/documents/${id}/ai/ask`, { question }, onChunk, onDone, onError, signal),
-    aiCompose: (id: string, payload: { instruction: string; mode: 'write' | 'improve' | 'explain'; selection?: string }, onChunk: (text: string) => void, onDone: () => void, onError: (err: Error) => void, signal?: AbortSignal) =>
-      streamDocumentAi(`/documents/${id}/ai/compose`, payload, onChunk, onDone, onError, signal),
-  },
-  goals: {
-    list: () => fetchApi<GoalWithRelations[]>('/goals'),
-    // Scalar-only list (no snapshots / nested childGoals) for link dropdowns,
-    // sidebar counts, and the command palette.
-    listLite: () => fetchApi<GoalWithRelations[]>('/goals/lite'),
-    get: (id: string) => fetchApi<GoalWithRelations>(`/goals/${id}`),
-    create: (data: GoalCreateInput) => fetchApi<GoalWithRelations>('/goals', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: GoalUpdateInput) => fetchApi<GoalWithRelations>(`/goals/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<{ message: string }>(`/goals/${id}`, { method: 'DELETE' }),
-    restore: (id: string) => fetchApi<GoalWithRelations>(`/goals/${id}/restore`, { method: 'POST' }),
-  },
-    projects: {
-    list: () => fetchApi<ProjectWithRelations[]>('/projects'),
-    get: (id: string) => fetchApi<ProjectWithRelations>(`/projects/${id}`),
-    create: (data: ProjectCreateInput) => fetchApi<ProjectWithRelations>('/projects', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: ProjectUpdateInput) => fetchApi<ProjectWithRelations>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<{ message: string }>(`/projects/${id}`, { method: 'DELETE' }),
-    reorder: (id: string, data: { position: number; version: number; workspaceId?: string }) =>
-      fetchApi<ProjectWithRelations>(`/projects/${id}/reorder`, { method: 'PATCH', body: JSON.stringify(data) }),
-    restore: (id: string) => fetchApi<ProjectWithRelations>(`/projects/${id}/restore`, { method: 'POST' }),
-  },
-  tasks: {
-    list: (params?: Record<string, string> | { queryKey: readonly unknown[] }) => {
-      const safeParams = params && 'queryKey' in params ? undefined : params;
-      const q = new URLSearchParams(safeParams || {}).toString();
-      return fetchApi<IssueWithRelations[]>(`/tasks${q ? `?${q}` : ''}`); // Mapped to /tasks
-    },
-    get: (id: string) => fetchApi<IssueWithRelations>(`/tasks/${id}`),
-    create: (data: TaskCreateInput) => fetchApi<IssueWithRelations>('/tasks', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: TaskUpdateInput) => fetchApi<IssueWithRelations>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<{ message: string }>(`/tasks/${id}`, { method: 'DELETE' }),
-    restore: (id: string) => fetchApi<IssueWithRelations>(`/tasks/${id}/restore`, { method: 'POST' }),
-    complete: (id: string) => fetchApi<IssueWithRelations>(`/tasks/${id}/complete`, { method: 'PATCH' }),
-    addComment: (id: string, content: string) => fetchApi<TaskComment>(`/tasks/${id}/comments`, { method: 'POST', body: JSON.stringify({ content }) }),
-  },
+  ai: createAiApi(fetchApi),
 
-  habits: {
-    list: () => fetchApi<Habit[]>('/habits'),
-    create: (data: HabitCreateInput) => fetchApi<Habit>('/habits', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: HabitUpdateInput) => fetchApi<Habit>(`/habits/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => fetchApi<{ message: string }>(`/habits/${id}`, { method: 'DELETE' }),
-    restore: (id: string) => fetchApi<Habit>(`/habits/${id}/restore`, { method: 'POST' }),
-    complete: (id: string, date?: string, dateIso?: string) => fetchApi<Habit>(`/habits/${id}/log`, { method: 'POST', ...(date ? { body: JSON.stringify({ date, dateIso }) } : {}) }),
-    uncomplete: (id: string, date?: string, dateIso?: string) => fetchApi<Habit>(`/habits/${id}/log?date=${date || ''}&dateIso=${dateIso || ''}`, { method: 'DELETE' }),
-  },
-  search: {
-    query: (q: string) => fetchApi<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}`),
-  },
+  notifications: createNotificationsApi(fetchApi),
 
-  ai: {
-    complete: (data: { message: string; ragEnabled?: boolean }) => fetchApi<AiResponse>('/ai/complete', { method: 'POST', body: JSON.stringify(data) }),
-    ragQuery: (data: { message: string; ragEnabled?: boolean }) => fetchApi<AiResponse>('/ai/rag-query', { method: 'POST', body: JSON.stringify(data) }),
-    config: () => fetchApi<AiConfiguration>('/ai/config'),
-    analyzeTelemetry: (data: TelemetryInput) => fetchApi<{ insight: string }>('/ai/analyze-telemetry', { method: 'POST', body: JSON.stringify(data) }),
-    getDashboardInsight: (force?: boolean) => fetchApi<{ insight: string }>(`/ai/dashboard-insight${force ? '?force=true' : ''}`)
-  },
-
-  notifications: {
-    list: () => fetchApi<Notification[]>('/notifications', { method: 'GET' }),
-    markAsRead: (id: string) => fetchApi<Notification>(`/notifications/${id}/read`, { method: 'PATCH' }),
-    markAllAsRead: () => fetchApi<{ success: boolean }>('/notifications/read-all', { method: 'PATCH' })
-  },
-
-  dashboard: {
-    get: () => fetchApi<DashboardData>('/dashboard', { method: 'GET' })
-  },
-  focusSessions: {
-    complete: (data: FocusCompletionInput) => fetchApi<{ session: FocusSession }>('/focus-sessions', { method: 'POST', body: JSON.stringify(data) }),
-    getSchedule: () => fetchApi<FocusScheduleData>('/focus-sessions/schedule'),
-    getWallpaper: (category: string) => fetchApi<WallpaperResponse>(`/focus-sessions/wallpaper?category=${encodeURIComponent(category)}`),
-  },
-  planner: {
-    getWeek: (start: string, end: string, workspaceId?: string | null) => {
-      let url = `/planner/week?start=${start}&end=${end}`;
-      if (workspaceId) url += `&workspaceId=${workspaceId}`;
-      return fetchApi<PlannerData>(url);
-    },
-    getHolidays: (country: string, region: string | null, start: string, end: string) => {
-      let url = `/planner/holidays?country=${country}&start=${start}&end=${end}`;
-      if (region) url += `&region=${region}`;
-      return fetchApi<HolidayCalendar>(url);
-    },
-    createTimeBlock: (data: TimeBlockInput) => fetchApi<TimeBlock>('/planner/time-blocks', { method: 'POST', body: JSON.stringify(data) }),
-    updateTimeBlock: (id: string, data: TimeBlockUpdate) => fetchApi<TimeBlock>(`/planner/time-blocks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    extendTimeBlock: (id: string, data: TimeBlockExtensionInput) => fetchApi<TimeBlockExtensionResult>(`/planner/time-blocks/${id}/extend`, { method: 'POST', body: JSON.stringify(data) }),
-    deleteTimeBlock: (id: string) => fetchApi<void>(`/planner/time-blocks/${id}`, { method: 'DELETE' }),
-    getMilestones: (start: string, end: string, workspaceId?: string | null) => {
-      let url = `/planner/milestones?start=${start}&end=${end}`;
-      if (workspaceId) url += `&workspaceId=${workspaceId}`;
-      return fetchApi<MilestoneRange>(url);
-    },
-    createMilestone: (data: MilestoneInput) => fetchApi<Milestone>('/planner/milestones', { method: 'POST', body: JSON.stringify(data) }),
-    updateMilestone: (id: string, data: MilestoneUpdate) => fetchApi<Milestone>(`/planner/milestones/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    deleteMilestone: (id: string) => fetchApi<{ success: boolean }>(`/planner/milestones/${id}`, { method: 'DELETE' })
-  }
+  dashboard: createDashboardApi(fetchApi),
+  focusSessions: createFocusSessionsApi(fetchApi),
+  planner: createPlannerApi(fetchApi),
 };
 

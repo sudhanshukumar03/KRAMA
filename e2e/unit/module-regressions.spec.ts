@@ -4,9 +4,9 @@ import { DocumentSaveQueue, acquireDocumentSaveQueue, retainDocumentSaveQueue } 
 import { WeekQuerySchema, TimeBlockSchema } from '../../packages/validation/src/planner';
 import { parseLocalDate } from '../../apps/web/src/lib/utils';
 import { applyLocalRepulsion } from '../../apps/web/src/lib/graphLayout';
+import { api } from '../../apps/web/src/api/client';
 test.describe('API session regression checks', () => {
   test('expired account settings refresh once and retry', async () => {
-    const { api } = await import('../../apps/web/src/api/client');
     const originalFetch = globalThis.fetch;
     const requests: string[] = [];
     api.setAccessToken('expired');
@@ -24,7 +24,6 @@ test.describe('API session regression checks', () => {
   });
 
   test('a delayed refresh cannot restore a signed-out session', async () => {
-    const { api } = await import('../../apps/web/src/api/client');
     const originalFetch = globalThis.fetch;
     let complete!: (response: Response) => void;
     const tokens: (string | null)[] = [];
@@ -41,7 +40,6 @@ test.describe('API session regression checks', () => {
   });
 
   test('a stale unauthorized request does not replay under another account', async () => {
-    const { api } = await import('../../apps/web/src/api/client');
     const originalFetch = globalThis.fetch;
     let complete!: (response: Response) => void;
     let requests = 0;
@@ -60,7 +58,6 @@ test.describe('API session regression checks', () => {
   });
 
   test('a rejected refreshed token clears the session once for concurrent requests', async () => {
-    const { api } = await import('../../apps/web/src/api/client');
     const originalFetch = globalThis.fetch;
     let refreshes = 0;
     let logouts = 0;
@@ -88,7 +85,6 @@ test.describe('API session regression checks', () => {
   });
 
   test('a delayed retry rejection cannot clear a new login', async () => {
-    const { api } = await import('../../apps/web/src/api/client');
     const originalFetch = globalThis.fetch;
     let release!: (response: Response) => void;
     let retried!: () => void;

@@ -6,6 +6,9 @@ export type TimeBlockType = StoredTimeBlockType;
 interface Routine {
   id: string;
   name: string;
+  cadence?: string | null;
+  scheduledDays?: number[];
+  weeklyTarget?: number;
 }
 
 export interface RoutineOccurrence {
@@ -14,6 +17,9 @@ export interface RoutineOccurrence {
   date: string;
   completed: boolean;
   completedAt?: string | null;
+  scheduled?: boolean;
+  offSchedule?: boolean;
+  unavailableReason?: 'before_creation' | 'future';
 }
 
 export interface PlannerTask {

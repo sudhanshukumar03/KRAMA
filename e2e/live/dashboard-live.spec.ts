@@ -79,8 +79,8 @@ test('quick capture retains failed drafts, schedules today and validates links',
   await dialog.getByLabel('Title', { exact: true }).fill('Captured today');
   await json('POST', 'tasks', { title: 'Background refresh', scheduledDate: `${today}T12:00:00Z` }, 201); await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue('Captured today');
   await page.route('**/api/v1/tasks', route => route.request().method() === 'POST' ? route.fulfill({ status: 503, json: { message: 'Simulated failure' } }) : route.continue());
-  await dialog.getByRole('button', { name: 'Schedule Task' }).click(); await expect(dialog.getByRole('alert')).toContainText('Your draft is retained'); await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue('Captured today');
-  await page.unroute('**/api/v1/tasks'); await dialog.getByRole('button', { name: 'Schedule Task' }).click(); await expect(dialog).toBeHidden(); await expect(page.getByRole('button', { name: 'Complete task Captured today', exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Save to Inbox' }).click(); await expect(dialog.getByRole('alert')).toContainText('Your draft is retained'); await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue('Captured today');
+  await page.unroute('**/api/v1/tasks'); await dialog.getByRole('button', { name: 'Save to Inbox' }).click(); await expect(dialog).toBeHidden(); await page.goto('/app/inbox'); await page.getByRole('button', { name: 'Schedule today: Captured today', exact: true }).click(); await expect(page.getByRole('button', { name: 'Schedule today: Captured today', exact: true })).toHaveCount(0); await page.goto('/app/'); await expect(page.getByRole('button', { name: 'Complete task Captured today', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Link', exact: true }).click(); await dialog.getByRole('button', { name: 'Save to Inbox' }).click(); await expect(dialog.getByRole('alert')).toContainText('valid http or https'); await dialog.getByLabel('Link URL').fill('https://example.com'); await dialog.getByRole('button', { name: 'Save to Inbox' }).click(); await expect(dialog).toBeHidden();
   await page.getByRole('button', { name: 'Note', exact: true }).click(); await page.keyboard.press('Escape'); await expect(dialog).toBeHidden(); await expect(page.getByRole('button', { name: 'Note', exact: true })).toBeFocused();
 });
@@ -91,7 +91,7 @@ test('date queries reject invalid timezone inputs and preserve canonical task da
 });
 test('empty workspaces and dark layouts render without inventing progress', async ({ page }) => {
   await login(page); await page.evaluate((id: string) => { localStorage.setItem('krama_active_workspace', id); localStorage.setItem('krama-theme', 'dark'); }, secondaryId); await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/app/');
-  await expect(page.getByText('No tasks scheduled or due today.', { exact: true })).toBeVisible(); await page.screenshot({ path: test.info().outputPath('dashboard-dark-empty.png') });
+  await expect(page.getByText('No unreviewed tasks scheduled or due today.', { exact: true })).toBeVisible(); await page.screenshot({ path: test.info().outputPath('dashboard-dark-empty.png') });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
@@ -104,14 +104,24 @@ test('dashboard filters, detail links, loading layout work', async ({ page }) =>
   await expect(page.getByRole('group', { name: "Today's work filter" })).toBeVisible(); await page.unroute('**/api/v1/dashboard*');
   const filters = page.getByRole('group', { name: "Today's work filter" });
   expect(await page.getByRole('button', { name: 'Complete focus task', exact: true }).evaluate(button => {
-    const reference = document.createElement('span'); reference.style.color = 'var(--text-on-accent)'; button.append(reference);
-    const matches = getComputedStyle(button).color === getComputedStyle(reference).color; reference.remove(); return matches;
-  })).toBe(true);
+    const style = getComputedStyle(button);
+    const canvas = document.createElement('canvas'); canvas.width = 1; canvas.height = 1;
+    const context = canvas.getContext('2d')!;
+    const luminance = (color: string) => {
+      context.fillStyle = color; context.fillRect(0, 0, 1, 1);
+      const channels = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map(value => {
+        const channel = value / 255; return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      });
+      return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+    };
+    const foreground = luminance(style.color), background = luminance(style.backgroundColor);
+    return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+  })).toBeGreaterThanOrEqual(4.5);
   await filters.getByRole('button', { name: /^Done / }).click(); await expect(page.getByText('No completed tasks yet.', { exact: true })).toBeVisible();
   await filters.getByRole('button', { name: /^Open / }).click();
   await page.getByRole('button', { name: 'Complete task Captured today', exact: true }).click(); await expect(page.getByRole('button', { name: 'Open task Captured today', exact: true })).toBeHidden();
   await filters.getByRole('button', { name: /^Done / }).click(); await page.getByRole('button', { name: 'Open task Captured today', exact: true }).click();
-  await expect(page).toHaveURL(/\/app\/board\?task=/); await expect(page.getByRole('dialog')).toBeVisible(); await expect(page.getByRole('dialog').getByLabel('Directive Title *', { exact: true })).toHaveValue('Captured today');
+  await expect(page).toHaveURL(/\/app\/board\?task=/); await expect(page.getByRole('dialog')).toBeVisible(); await expect(page.getByRole('dialog').getByLabel('Task Title *', { exact: true })).toHaveValue('Captured today');
   await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).toBeHidden();
   await page.goto('/app/'); await page.setViewportSize({ width: 1440, height: 1000 }); await expect(page.getByRole('progressbar', { name: "Today's task completion" })).toBeVisible(); await page.screenshot({ path: test.info().outputPath('dashboard-crafted-desktop.png') });
 });

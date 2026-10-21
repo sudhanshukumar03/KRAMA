@@ -1,5 +1,6 @@
 import { useAuth } from '../../contexts/AuthContext';
 import { focusStorageKey } from '../../lib/focusStorage';
+import { useModalA11y } from '../../hooks/useModalA11y';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { X, Upload, Check, ExternalLink, Sparkles, Palette, Loader2, Trash2 } from 'lucide-react';
@@ -26,6 +27,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
   onSelectLayout,
   onClose,
 }) => {
+  const dialogRef = useModalA11y(true, onClose);
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'curated' | 'gradients' | 'unsplash' | 'upload'>(() => {
     return currentWallpaper.type === 'upload' ? 'upload' : 'curated';
@@ -149,7 +151,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl krama-dialog rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] text-primary">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Wallpaper and Layout" className="w-full max-w-2xl krama-dialog rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85dvh] text-primary">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border/80">
           <div className="flex items-center gap-2">
@@ -158,6 +160,8 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close dialog"
+            title="Close dialog"
             className="p-1.5 rounded-full hover:bg-surface-hover text-muted hover:text-primary transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -358,7 +362,9 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                       return (
                         <div
                           key={photo.id}
-                          onClick={() =>
+                          className="group relative h-36 rounded-2xl overflow-hidden border border-white/15 cursor-pointer hover:scale-[1.02] transition-all bg-black/40"
+                        >
+                          <button type="button" aria-label={`Apply wallpaper by ${photo.credit}`} className="absolute inset-0 z-10 rounded-2xl focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent" onClick={() =>
                             onSelectWallpaper({
                               type: 'unsplash',
                               value: photo.url,
@@ -366,9 +372,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                               credit: photo.credit,
                               creditUrl: photo.creditUrl,
                             })
-                          }
-                          className="group relative h-36 rounded-2xl overflow-hidden border border-white/15 cursor-pointer hover:scale-[1.02] transition-all bg-black/40"
-                        >
+                          } />
                           <img
                             src={photo.thumb}
                             alt={photo.credit}
@@ -387,7 +391,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                               target="_blank"
                               rel="noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="p-1 hover:text-white"
+                              className="relative z-20 p-1 hover:text-white"
                               title="View on Unsplash"
                             >
                               <ExternalLink className="w-3 h-3" />
@@ -422,13 +426,13 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                         return (
                           <div
                             key={wp.value + idx}
-                            onClick={() => onSelectWallpaper(wp)}
                             className={`group relative h-36 rounded-2xl overflow-hidden border transition-all cursor-pointer bg-surface-2/40 ${
                               isSelected
                                 ? 'border-accent ring-2 ring-accent/30 shadow-lg'
                                 : 'border-border hover:border-border-strong hover:scale-[1.01]'
                             }`}
                           >
+                            <button type="button" aria-label={`Apply uploaded wallpaper ${wp.credit || idx + 1}`} onClick={() => onSelectWallpaper(wp)} className="absolute inset-0 z-10 rounded-2xl focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent" />
                             <img
                               src={wp.value}
                               alt={wp.credit || 'Uploaded Wallpaper'}
@@ -437,7 +441,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/30 p-3 flex flex-col justify-between" />
 
                             {/* Top row: Active indicator & Delete button */}
-                            <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10">
+                            <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-20">
                               {isSelected ? (
                                 <span className="flex items-center gap-1 text-[11px] font-semibold bg-accent text-white px-2.5 py-0.5 rounded-full shadow-md">
                                   <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -483,7 +487,7 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                     {uploadCapabilities.isError ? 'Upload availability could not be checked.' : uploadCapabilities.isLoading ? 'Checking upload availability…' : uploadsComingSoon ? 'Custom wallpaper uploads are coming soon. Use built-in wallpapers or gradients for now.' : 'Upload a JPG, PNG, GIF or WebP photo (up to 10 MB) as your focus background.'}
                   </p>
                   {uploadCapabilities.isError && <button className="text-accent text-xs mb-3" onClick={() => uploadCapabilities.refetch()}>Try again</button>}
-                  <label className={`px-4 py-2 bg-accent text-white font-semibold text-xs rounded-xl flex items-center gap-2 shadow-sm ${canUpload && !isUploading ? 'cursor-pointer hover:bg-accent-hover' : 'opacity-50 cursor-not-allowed'}`}>
+                  <label className={`px-4 py-2 bg-accent text-white font-semibold text-xs rounded-xl flex items-center gap-2 shadow-sm focus-within:ring-2 focus-within:ring-accent ${canUpload && !isUploading ? 'cursor-pointer hover:bg-accent-hover' : 'opacity-50 cursor-not-allowed'}`}>
                     {isUploading ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -493,11 +497,14 @@ export const WallpaperPicker: React.FC<WallpaperPickerProps> = ({
                       <span>{uploadsComingSoon ? 'Coming soon' : 'Choose File'}</span>
                     )}
                     <input
+                      id="wallpaper-file-input"
+                      name="wallpaperFileInput"
+                      aria-label="Upload custom wallpaper image"
                       type="file"
                       accept="image/jpeg,image/png,image/gif,image/webp"
                       onChange={handleFileUpload}
                       disabled={isUploading || !canUpload}
-                      className="hidden"
+                      className="sr-only"
                     />
                   </label>
                 </div>

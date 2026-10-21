@@ -24,6 +24,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { cn, parseLocalDate } from '../../lib/utils';
 import type { IssueWithRelations, TaskStatus } from '../../types/schema';
 import { taskDay } from './boardConfig';
+import { PaginatedItems } from '../ui/PaginatedItems';
 
 
 // Distinct color per priority so URGENT (red) / HIGH (amber) / MEDIUM (blue) /
@@ -39,7 +40,7 @@ export function PriorityBadge({ priority }: { priority: string }) {
   const style = PRIORITY_STYLES[priority] || PRIORITY_STYLES.LOW;
   return (
     <span className={cn(
-      "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider uppercase",
+      "inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono font-bold tracking-wider uppercase",
       style
     )}>
       {priority || 'LOW'}
@@ -149,7 +150,7 @@ export const IssueCard = React.memo(function IssueCard({
             </button>
 
             {menuOpen && (
-              <div 
+              <div
                 onClick={(e) => e.stopPropagation()}
                 className="absolute right-0 top-full mt-1 w-36 bg-surface border border-border rounded-xl shadow-lg z-50 py-1 text-xs animate-in fade-in zoom-in-95 duration-100"
               >
@@ -181,7 +182,7 @@ export const IssueCard = React.memo(function IssueCard({
       </div>
 
       {/* Task Title */}
-      <div 
+      <div
         className="font-bold text-sm text-primary group-hover:text-accent transition-colors leading-snug tracking-tight min-w-0"
         style={{ overflowWrap: 'anywhere' }}
       >
@@ -190,7 +191,7 @@ export const IssueCard = React.memo(function IssueCard({
 
       {/* Description Preview */}
       {issue.description && (
-        <p 
+        <p
           className="text-xs text-secondary line-clamp-2 leading-relaxed -mt-1 min-w-0"
           style={{ overflowWrap: 'anywhere' }}
         >
@@ -201,7 +202,7 @@ export const IssueCard = React.memo(function IssueCard({
       {/* Subtask Telemetry Bar (Visible when subtasks exist) */}
       {totalSubtasks > 0 && (
         <div className="space-y-1 pt-1 border-t border-border/40">
-          <div className="flex items-center justify-between text-[10px] text-secondary font-mono">
+          <div className="flex items-center justify-between text-xs text-secondary font-mono">
             <span className="flex items-center gap-1 font-medium">
               <CheckSquare className="w-3 h-3 text-accent stroke-[1.5]" />
               Subtasks
@@ -220,7 +221,7 @@ export const IssueCard = React.memo(function IssueCard({
           {isBlocked && issue.blockedBy && (
             <span
               title={`Blocked by: ${issue.blockedBy.title}`}
-              className="px-2 py-0.5 rounded bg-danger-bg text-danger-fg border border-danger-border font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+              className="px-2 py-0.5 rounded bg-danger-bg text-danger-fg border border-danger-border font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
             >
               <AlertCircle className="w-3 h-3 shrink-0 stroke-[1.5]" />
               Blocked: {issue.blockedBy.title}
@@ -229,7 +230,7 @@ export const IssueCard = React.memo(function IssueCard({
           {issue.blocking && issue.blocking.length > 0 && (
             <span
               title={`Blocking: ${issue.blocking.map((b: any) => b.title).join(', ')}`}
-              className="px-2 py-0.5 rounded bg-info-bg text-info-fg border border-info-border font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
+              className="px-2 py-0.5 rounded bg-info-bg text-info-fg border border-info-border font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1 truncate max-w-full"
             >
               <AlertCircle className="w-3 h-3 shrink-0 stroke-[1.5]" />
               Blocking: {issue.blocking.length} {issue.blocking.length === 1 ? 'task' : 'tasks'}
@@ -245,13 +246,13 @@ export const IssueCard = React.memo(function IssueCard({
           {issue.project?.name ? (
             <span
               title={`Project: ${issue.project.name}`}
-              className="inline-flex items-center gap-1 text-[11px] font-mono text-secondary max-w-[110px] truncate"
+              className="inline-flex items-center gap-1 text-xs font-mono text-secondary max-w-[110px] truncate"
             >
               <Folder className="w-3 h-3 shrink-0 text-muted" />
               <span className="truncate">{issue.project.name}</span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-warning-fg bg-warning-bg px-1.5 py-0.5 rounded border border-warning-border">
+            <span className="inline-flex items-center gap-1 text-xs font-mono text-warning-fg bg-warning-bg px-1.5 py-0.5 rounded border border-warning-border">
               <Zap className="w-2.5 h-2.5 shrink-0" />
               <span>Operations</span>
             </span>
@@ -261,12 +262,12 @@ export const IssueCard = React.memo(function IssueCard({
         {/* Right side: Due Date or Estimate */}
         <div className="flex items-center gap-2.5 shrink-0">
           {formattedDate ? (
-            <span className="inline-flex items-center gap-1 text-[11px] text-muted font-medium">
+            <span className="inline-flex items-center gap-1 text-xs text-muted font-medium">
               <Clock className="w-3 h-3 text-muted" />
               {formattedDate}
             </span>
           ) : issue.estimateMinutes ? (
-            <span className="inline-flex items-center gap-1 text-[10px] bg-surface-hover px-1.5 py-0.5 rounded-md border border-border/80 text-primary font-bold">
+            <span className="inline-flex items-center gap-1 text-xs bg-surface-hover px-1.5 py-0.5 rounded-md border border-border/80 text-primary font-bold">
               <Clock className="w-2.5 h-2.5 text-muted" />
               {issue.estimateMinutes}m
             </span>
@@ -349,7 +350,7 @@ export const Column = React.memo(function Column({
             </button>
           </div>
         </div>
-        <p className="text-[11px] text-secondary font-normal">
+        <p className="text-xs text-secondary font-normal">
           {col.subtitle}
         </p>
       </div>
@@ -360,14 +361,16 @@ export const Column = React.memo(function Column({
           {issues.length === 0 ? (
             <div className="py-6 text-center flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/50 bg-surface/30 m-1">
               <ListChecks className="w-5 h-5 text-muted mb-1.5 stroke-[1.5]" />
-              <span className="text-xs text-secondary font-medium">No directives yet</span>
+              <span className="text-xs text-secondary font-medium">No tasks yet</span>
             </div>
           ) : (
-            <SortableContext items={issues.map(i => i.id)} strategy={verticalListSortingStrategy}>
-              {issues.map((issue, idx) => (
+            <PaginatedItems items={issues} label={`${col.title} tasks`} className="space-y-2.5">
+            {visible => <SortableContext items={visible.map(i => i.id)} strategy={verticalListSortingStrategy}>
+              {visible.map((issue, idx) => (
                 <IssueCard key={issue.id} issue={issue} index={idx} onDelete={onDelete} onMove={onMove} onClick={onClick} />
               ))}
-            </SortableContext>
+            </SortableContext>}
+            </PaginatedItems>
           )}
         </div>
       </div>

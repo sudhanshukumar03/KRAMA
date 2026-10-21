@@ -1,8 +1,13 @@
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { AlertTriangle, Calendar, CalendarCheck, Check, CheckCircle2, Circle, Clock, Edit3, Layers, Search, Trash2, XCircle } from "lucide-react";
 import type { useTodayPlanner } from '../../hooks/useTodayPlanner';
 import type { PlannerTask } from '../../types/planner';
-import { cn } from '../../lib/utils';
+import { cn, parseLocalDate } from '../../lib/utils';
+import { PaginatedItems } from '../ui/PaginatedItems';
+
+const TASK_PAGE_SIZE = 50;
+const taskListClass = (count: number) => cn('min-h-0', count > TASK_PAGE_SIZE
+  ? 'h-[550px] max-h-[60dvh]' : 'max-h-[550px] overflow-y-auto');
 interface Props {
   day: Date;
   planner: ReturnType<typeof useTodayPlanner>;
@@ -14,6 +19,7 @@ interface Props {
 /** Render task execution and backlog; the parent hook owns requests and writes. */
 export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask, canAddTimeBlock }: Props) {
   const { isViewingToday, updateTaskMutation, createTaskMutation, deleteTaskMutation, filteredBacklogTasks, handleScheduleForToday, handleUnschedule, handleRescheduleAllOverdue, handleCreateInlineTask, handleTimeBlockFromTask, todayTasks, carriedOverTasks, backlogTasks, activeTaskTab, setActiveTaskTab, backlogSearch, setBacklogSearch, inlineTaskTitle, setInlineTaskTitle } = planner;
+  const dayLabel = isViewingToday ? 'today' : format(day, 'MMM d');
   return (<>
         {/* RIGHT COLUMN (5 cols): TASKS & SCHEDULING PANEL */}
         <div className="lg:col-span-5 flex flex-col gap-4">
@@ -26,16 +32,16 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                   type="button"
                   onClick={() => setActiveTaskTab('today')}
                   className={cn(
-                    "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
+                    "flex-1 min-h-11 py-1.5 px-3 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer",
                     activeTaskTab === 'today'
                       ? "bg-surface text-primary shadow-xs border border-border/80"
                       : "text-secondary hover:text-primary"
                   )}
                 >
                   <CalendarCheck className="w-3.5 h-3.5 text-accent" />
-                  <span>Today's Tasks</span>
+                  <span>{isViewingToday ? "Today's Tasks" : `Tasks for ${dayLabel}`}</span>
                   <span className={cn(
-                    "px-1.5 py-0.2 rounded-full text-badge font-mono",
+                    "px-1.5 py-0.2 rounded-full text-xs font-mono",
                     activeTaskTab === 'today' ? "bg-accent/10 text-accent font-bold" : "bg-surface text-muted"
                   )}>
                     {todayTasks.length}
@@ -46,7 +52,7 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                   type="button"
                   onClick={() => setActiveTaskTab('backlog')}
                   className={cn(
-                    "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
+                    "flex-1 min-h-11 py-1.5 px-3 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer",
                     activeTaskTab === 'backlog'
                       ? "bg-surface text-primary shadow-xs border border-border/80"
                       : "text-secondary hover:text-primary"
@@ -55,7 +61,7 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                   <Layers className="w-3.5 h-3.5 text-cat-tasks" />
                   <span>Backlog</span>
                   <span className={cn(
-                    "px-1.5 py-0.2 rounded-full text-badge font-mono",
+                    "px-1.5 py-0.2 rounded-full text-xs font-mono",
                     activeTaskTab === 'backlog' ? "bg-cat-tasks-bg text-cat-tasks font-bold" : "bg-surface text-muted"
                   )}>
                     {backlogTasks.length}
@@ -76,12 +82,12 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                     value={inlineTaskTitle}
                     onChange={(e) => setInlineTaskTitle(e.target.value)}
                     placeholder={`+ Add a task for ${isViewingToday ? "today" : format(day, "MMM d")}... (Press Enter)`}
-                    className="w-full pl-3.5 pr-20 py-2 bg-surface-hover/50 border border-border rounded-xl text-xs text-primary placeholder:text-muted focus:outline-hidden focus:border-accent focus:bg-surface transition-colors"
+                    className="w-full min-h-12 pl-3.5 pr-20 py-2 bg-surface-hover/50 border border-border rounded-xl text-base md:text-sm text-primary placeholder:text-muted focus:outline-hidden focus:border-accent focus:bg-surface transition-colors"
                   />
                   <button
                     type="submit"
                     disabled={!inlineTaskTitle.trim() || createTaskMutation.isPending}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-accent text-white text-caption font-semibold disabled:opacity-40 hover:bg-accent-hover transition-colors cursor-pointer"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-11 min-w-11 px-2.5 py-1 rounded-lg bg-accent text-[var(--text-on-accent)] text-caption font-semibold disabled:opacity-40 hover:bg-accent-hover transition-colors cursor-pointer"
                   >
                     Add
                   </button>
@@ -96,24 +102,25 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                         <span className="text-xs font-bold text-primary">
                           Carried Over ({carriedOverTasks.length})
                         </span>
-                        <span className="text-badge text-muted hidden sm:inline">
+                        <span className="text-xs text-muted hidden sm:inline">
                           Overdue from past days
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={handleRescheduleAllOverdue}
-                        className="text-caption font-semibold text-warning-fg hover:underline cursor-pointer"
+                        className="min-h-11 px-2 text-caption font-semibold text-warning-fg hover:underline cursor-pointer"
                       >
                         Reschedule all →
                       </button>
                     </div>
 
-                    <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-0.5">
-                      {carriedOverTasks.map((task: PlannerTask) => (
+                    <div className={carriedOverTasks.length > TASK_PAGE_SIZE ? 'min-h-0 h-[320px] max-h-[40dvh]' : 'max-h-[240px] overflow-y-auto'}>
+                      <PaginatedItems items={carriedOverTasks} label="carried-over tasks" pageSize={TASK_PAGE_SIZE} scrollable={carriedOverTasks.length > TASK_PAGE_SIZE} className="space-y-1.5 pr-0.5">
+                      {visible => visible.map((task: PlannerTask) => (
                         <div
                           key={task.id}
-                          className="flex items-center justify-between p-2 rounded-lg bg-surface border border-border shadow-2xs group text-xs"
+                          className="flex flex-col gap-2 p-2 rounded-lg bg-surface border border-border shadow-2xs group text-xs"
                         >
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <button
@@ -129,38 +136,38 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                                 }
                               }}
                               aria-label={task.status === "DONE" ? "Mark task incomplete" : "Mark task complete"}
-                              className="text-muted hover:text-success-fg transition-colors shrink-0 cursor-pointer"
+                              className="min-h-11 min-w-11 flex items-center justify-center rounded-lg text-muted hover:text-success-fg transition-colors shrink-0 cursor-pointer"
                               title="Mark done"
                             >
                               <Circle className="w-3.5 h-3.5" />
                             </button>
                             <button type="button" aria-label={task.title}
-                              className="font-medium text-primary truncate cursor-pointer hover:text-accent"
+                              className="min-h-11 min-w-0 flex-1 text-left text-sm leading-5 font-medium text-primary whitespace-normal break-words cursor-pointer hover:text-accent-fg"
                               onClick={() => onClickTask && onClickTask(task)}
                             >
                               {task.title}
                             </button>
                             {onEditTask && <button type="button" aria-label={`Edit task ${task.title}`} onClick={() => onEditTask(task)} className="min-h-11 min-w-11 shrink-0 flex items-center justify-center rounded-lg hover:bg-surface-hover"><Edit3 size={14} /></button>}
                             {task.project?.name && (
-                              <span className="text-badge font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border shrink-0">
+                              <span className="text-xs font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border shrink-0">
                                 {task.project.name}
                               </span>
                             )}
                           </div>
 
-                          <div className="flex items-center gap-1 shrink-0 ml-2">
+                          <div className="flex flex-wrap items-center justify-end gap-1 self-end">
                             <button
                               type="button"
                               onClick={() => handleScheduleForToday(task)}
-                              className="px-2 py-0.5 rounded bg-accent/10 hover:bg-accent hover:text-white text-accent text-badge font-semibold transition-colors cursor-pointer"
+                              className="min-h-11 min-w-11 px-3 rounded-lg bg-accent/10 hover:bg-accent/15 text-accent-fg text-xs font-semibold transition-colors cursor-pointer"
                               title={`Schedule for ${isViewingToday ? 'today' : format(day, 'MMM d')}`}
                             >
-                              Today
+                              {isViewingToday ? 'Today' : dayLabel}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleUnschedule(task)}
-                              className="p-1 rounded text-muted hover:text-primary transition-colors cursor-pointer"
+                              className="min-h-11 min-w-11 flex items-center justify-center rounded-lg text-muted hover:text-primary transition-colors cursor-pointer"
                               title="Move to backlog"
                             >
                               <XCircle className="w-3.5 h-3.5" />
@@ -168,6 +175,7 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                           </div>
                         </div>
                       ))}
+                      </PaginatedItems>
                     </div>
                   </div>
                 )}
@@ -177,7 +185,7 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                   <div className="flex-1 flex flex-col items-center justify-center py-10 text-center border border-dashed border-border rounded-xl bg-surface-hover/20 p-4">
                     <Calendar className="w-8 h-8 text-muted mb-2 stroke-[1.5]" />
                     <h5 className="text-xs font-bold text-primary mb-1">
-                      {carriedOverTasks.length > 0 ? "No new tasks scheduled for today" : "No tasks scheduled for today"}
+                      {carriedOverTasks.length > 0 ? `No new tasks scheduled for ${dayLabel}` : `No tasks scheduled for ${dayLabel}`}
                     </h5>
                     <p className="text-caption text-muted max-w-[240px] mb-3">
                       Add a task above, or browse your workspace backlog to pull in pending tasks.
@@ -185,25 +193,29 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                     <button
                       type="button"
                       onClick={() => setActiveTaskTab('backlog')}
-                      className="px-3 py-1.5 bg-accent/10 hover:bg-accent hover:text-white text-accent rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                      className="min-h-11 px-3 py-1.5 bg-accent/10 hover:bg-accent/15 text-accent-fg rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                     >
                       Browse Backlog ({backlogTasks.length})
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-2 overflow-y-auto max-h-[550px] pr-1">
-                    {todayTasks.map((task: PlannerTask) => {
+                  <div className={taskListClass(todayTasks.length)}>
+                    <PaginatedItems items={todayTasks} label="day tasks" pageSize={TASK_PAGE_SIZE} scrollable={todayTasks.length > TASK_PAGE_SIZE} className="space-y-2 pr-1">
+                    {visible => visible.map((task: PlannerTask) => {
                       const isDone = task.status === 'DONE';
+                      const scheduledDay = parseLocalDate(task.scheduledDate);
+                      const dueDay = parseLocalDate(task.dueDate);
+                      const afterDeadline = scheduledDay && dueDay && scheduledDay > dueDay;
 
                       return (
                         <div
                           key={task.id}
                           className={cn(
-                            "flex items-center justify-between p-2.5 rounded-xl border transition-all group bg-surface shadow-2xs",
-                            isDone ? "border-border/60 opacity-65 bg-surface-hover/30" : "border-border hover:border-accent/40 hover:shadow-xs"
+                            "flex flex-col gap-2 p-2.5 rounded-xl border transition-colors group bg-surface shadow-2xs",
+                            isDone ? "border-border/60 bg-surface-hover/30" : "border-border hover:border-accent/40 hover:shadow-xs"
                           )}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="flex items-start gap-2.5 min-w-0 w-full">
                             <button
                               type="button"
                               onClick={(e) => {
@@ -217,7 +229,7 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                                 }
                               }}
                               aria-label={task.status === "DONE" ? "Mark task incomplete" : "Mark task complete"}
-                              className="text-muted hover:text-success-fg transition-colors shrink-0 cursor-pointer"
+                              className="min-h-11 min-w-11 flex items-center justify-center rounded-lg text-muted hover:text-success-fg transition-colors shrink-0 cursor-pointer"
                             >
                               {isDone ? (
                                 <CheckCircle2 className="w-4 h-4 text-success-fg" />
@@ -227,31 +239,34 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                             </button>
 
                             <button type="button" aria-label={task.title}
-                              className="text-left min-w-0 flex-1 cursor-pointer"
+                              className="text-left min-h-11 min-w-0 flex-1 cursor-pointer"
                               onClick={() => onClickTask && onClickTask(task)}
                             >
                               <span className={cn(
-                                "text-xs font-medium block truncate",
+                                "text-sm leading-5 font-medium block whitespace-normal break-words",
                                 isDone ? "text-muted line-through" : "text-primary"
                               )}>
                                 {task.title}
                               </span>
                               <span className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                {scheduledDay && isSameDay(scheduledDay, day) && <span className="text-xs text-secondary">Scheduled {dayLabel}</span>}
+                                {dueDay && isSameDay(dueDay, day) && <span className="text-xs text-secondary">Due {dayLabel}</span>}
+                                {afterDeadline && <span className="text-xs text-warning-fg">Scheduled after deadline ({format(scheduledDay, 'MMM d')})</span>}
                                 {task.project?.name && (
-                                  <span className="text-badge font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border">
+                                  <span className="text-xs font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border">
                                     {task.project.name}
                                   </span>
                                 )}
                                 {task.priority && task.priority !== 'MEDIUM' && (
                                   <span className={cn(
-                                    "text-badge font-bold font-mono uppercase px-1.5 py-0.2 rounded",
+                                    "text-xs font-bold font-mono uppercase px-1.5 py-0.2 rounded",
                                     task.priority === 'URGENT' ? "bg-danger-bg text-danger-fg" : "bg-warning-bg text-warning-fg"
                                   )}>
                                     {task.priority}
                                   </span>
                                 )}
                                 {task.estimateMinutes && (
-                                  <span className="text-badge font-mono text-muted">
+                                  <span className="text-xs font-mono text-muted">
                                     {task.estimateMinutes}m
                                   </span>
                                 )}
@@ -261,12 +276,12 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                           </div>
 
                           {/* Quick Task Actions: Time Block, Unschedule, Delete */}
-                          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2">
                             {canAddTimeBlock && (
                               <button
                                 type="button"
                                 onClick={() => handleTimeBlockFromTask(task)}
-                                className="px-2 py-1 rounded-lg bg-accent/10 hover:bg-accent hover:text-white text-accent text-badge font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                                className="min-h-11 min-w-11 px-3 rounded-lg bg-accent/10 hover:bg-accent/15 text-accent-fg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                                 title="Schedule into a time block on your day timeline"
                               >
                                 <Clock className="w-3 h-3" />
@@ -277,7 +292,7 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                             <button
                               type="button"
                               onClick={() => handleUnschedule(task)}
-                              className="p-1 rounded-lg text-muted hover:text-primary hover:bg-surface-hover transition-colors"
+                              className="min-h-11 min-w-11 flex items-center justify-center rounded-lg text-muted hover:text-primary hover:bg-surface-hover transition-colors"
                               title="Move to backlog"
                             >
                               <XCircle className="w-3.5 h-3.5" />
@@ -286,7 +301,7 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                             <button
                               type="button"
                               onClick={() => deleteTaskMutation.mutate(task.id)}
-                              className="p-1 rounded-lg text-muted hover:text-danger-fg hover:bg-danger-bg transition-colors"
+                              className="min-h-11 min-w-11 flex items-center justify-center rounded-lg text-muted hover:text-danger-fg hover:bg-danger-bg transition-colors"
                               title="Delete task"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -295,6 +310,7 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                         </div>
                       );
                     })}
+                    </PaginatedItems>
                   </div>
                 )}
               </div>
@@ -312,7 +328,7 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                     value={backlogSearch}
                     onChange={(e) => setBacklogSearch(e.target.value)}
                     placeholder="Search backlog tasks..."
-                    className="w-full pl-8 pr-3 py-1.5 bg-surface-hover/50 border border-border rounded-xl text-xs text-primary placeholder:text-muted focus:outline-hidden focus:border-accent transition-colors"
+                    className="w-full min-h-11 pl-8 pr-3 py-1.5 bg-surface-hover/50 border border-border rounded-xl text-base md:text-sm text-primary placeholder:text-muted focus:outline-hidden focus:border-accent transition-colors"
                   />
                 </div>
 
@@ -328,28 +344,29 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-2 overflow-y-auto max-h-[550px] pr-1">
-                    {filteredBacklogTasks.map((task: PlannerTask) => (
+                  <div className={taskListClass(filteredBacklogTasks.length)}>
+                    <PaginatedItems items={filteredBacklogTasks} label="backlog tasks" pageSize={TASK_PAGE_SIZE} scrollable={filteredBacklogTasks.length > TASK_PAGE_SIZE} className="space-y-2 pr-1">
+                    {visible => visible.map((task: PlannerTask) => (
                       <div
                         key={task.id}
-                        className="flex items-center justify-between p-2.5 rounded-xl border border-border hover:border-accent/40 bg-surface shadow-2xs hover:shadow-xs transition-all group"
+                        className={cn("grid gap-2 p-2.5 rounded-xl border border-border hover:border-accent/40 bg-surface shadow-2xs hover:shadow-xs transition-colors group", onEditTask ? "grid-cols-[minmax(0,1fr)_44px]" : "grid-cols-1")}
                       >
                         <button type="button" aria-label={task.title}
-                          className="text-left min-w-0 flex-1 cursor-pointer pr-2"
+                          className="text-left min-h-11 min-w-0 cursor-pointer"
                           onClick={() => onClickTask && onClickTask(task)}
                         >
-                          <span className="text-xs font-semibold text-primary block truncate">
+                          <span className="text-sm leading-5 font-semibold text-primary block whitespace-normal break-words">
                             {task.title}
                           </span>
                           <span className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                             {task.project?.name && (
-                              <span className="text-badge font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border">
+                              <span className="text-xs font-medium px-1.5 py-0.2 rounded bg-surface-hover text-secondary border border-border">
                                 {task.project.name}
                               </span>
                             )}
                             {task.priority && task.priority !== 'MEDIUM' && (
                               <span className={cn(
-                                "text-badge font-bold font-mono uppercase px-1.5 py-0.2 rounded",
+                                "text-xs font-bold font-mono uppercase px-1.5 py-0.2 rounded",
                                 task.priority === 'URGENT' ? "bg-danger-bg text-danger-fg" : "bg-warning-bg text-warning-fg"
                               )}>
                                 {task.priority}
@@ -360,21 +377,21 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
 
                         {onEditTask && <button type="button" aria-label={`Edit task ${task.title}`} onClick={() => onEditTask(task)} className="min-h-11 min-w-11 shrink-0 flex items-center justify-center rounded-lg hover:bg-surface-hover"><Edit3 size={14} /></button>}
                         {/* Actions to schedule into day */}
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="col-span-full flex flex-wrap items-center justify-end gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleScheduleForToday(task)}
-                            className="px-2.5 py-1 rounded-lg bg-surface-hover hover:bg-accent hover:text-white text-secondary text-caption font-semibold transition-colors border border-border cursor-pointer"
-                            title="Schedule for today"
+                            className="min-h-11 min-w-11 px-3 rounded-lg bg-surface-hover hover:bg-surface text-primary text-xs font-semibold transition-colors border border-border cursor-pointer"
+                            title={`Schedule for ${dayLabel}`}
                           >
-                            + Today
+                            + {isViewingToday ? 'Today' : dayLabel}
                           </button>
 
                           {canAddTimeBlock && (
                             <button
                               type="button"
                               onClick={() => handleTimeBlockFromTask(task)}
-                              className="px-2 py-1 rounded-lg bg-accent/10 hover:bg-accent hover:text-white text-accent text-caption font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                                className="min-h-11 min-w-11 px-3 rounded-lg bg-accent/10 hover:bg-accent/15 text-accent-fg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                               title="Time block this task on your day timeline"
                             >
                               <Clock className="w-3 h-3" />
@@ -384,6 +401,7 @@ export function TodayTasks({ day, planner, onToggleTask, onClickTask, onEditTask
                         </div>
                       </div>
                     ))}
+                    </PaginatedItems>
                   </div>
                 )}
               </div>

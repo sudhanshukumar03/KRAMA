@@ -1,6 +1,10 @@
+import { AppError } from '../utils/errors';
 import { habitRepository } from '../repositories/habit.repository';
 import { prisma, runInTransaction, type TxClient } from '../prisma';
 import { calculateHabitStats, resolveUserTimeZone, getUserLocalDateStr } from './habitStreak.service';
+import { habitCompletionUnavailableReason } from './habitCompletionDate';
+import { rememberUserTimeZone } from './userTimeZone.service';
+import { readPersonalHabits } from './habitRead.service';
 
 // Recompute a habit's current + best streak from its full completion history so
 // the stored values stay consistent with the authoritative calculation (which
@@ -41,26 +45,27 @@ function formatHabit(h: any) {
 
 class HabitService {
   private async validateGoal(goalId: string | null | undefined, workspaceId: string, tx: TxClient) {
-    if (goalId && !await tx.goal.findFirst({ where: { id: goalId, workspaceId, deletedAt: null }, select: { id: true } })) throw new Error('Invalid linked goal');
+    if (goalId && !await tx.goal.findFirst({ where: { id: goalId, workspaceId, deletedAt: null }, select: { id: true } })) throw new AppError('Invalid linked goal', 400, 'INVALID_HABIT_INPUT');
   }
 
-  async listHabits(workspaceId: string, userId?: string) {
+  async listHabits(workspaceId: string, userId?: string, requestedZone?: string, view: 'full' | 'tracker' = 'full') {
+    if (userId) return (await readPersonalHabits(workspaceId, userId, requestedZone, view)).map(formatHabit);
     const habits = await habitRepository.findManyByWorkspace(workspaceId, undefined, userId);
     const user = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { metadata: true, countryCode: true } }) : null;
     return habits.map(h => {
       const completions = (h as any).completions || [];
-      const stats = calculateHabitStats({ ...h, completions }, new Date(), resolveUserTimeZone(user));
+      const stats = calculateHabitStats({ ...h, completions }, new Date(), resolveUserTimeZone(user, requestedZone));
       return formatHabit({ ...h, streak: stats.current, bestStreak: stats.best, completions: completions.slice(0, 120) });
     });
   }
 
-  async getHabit(id: string, workspaceId: string, userId?: string) {
+  async getHabit(id: string, workspaceId: string, userId?: string, requestedZone?: string) {
     const habit = await habitRepository.findById(id, undefined, userId);
     if (!habit || habit.deletedAt || habit.workspaceId !== workspaceId) {
-      throw new Error('Habit not found');
+      throw new AppError('Habit not found', 404, 'NOT_FOUND');
     }
     const user = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { metadata: true, countryCode: true } }) : null;
-    const stats = calculateHabitStats({ ...habit, completions: (habit as any).completions || [] }, new Date(), resolveUserTimeZone(user));
+    const stats = calculateHabitStats({ ...habit, completions: (habit as any).completions || [] }, new Date(), resolveUserTimeZone(user, requestedZone));
     return formatHabit({ ...habit, streak: stats.current, bestStreak: stats.best, completions: (habit as any).completions?.slice(0, 120) });
   }
 
@@ -89,11 +94,11 @@ class HabitService {
     return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await habitRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
-        throw new Error('Habit not found');
+        throw new AppError('Habit not found', 404, 'NOT_FOUND');
       }
 
       if (data.version !== undefined && existing.version !== data.version) {
-        throw new Error('Conflict: version mismatch');
+        throw new AppError('Conflict: version mismatch', 409, 'CONFLICT');
       }
 
       await this.validateGoal(data.linkedGoalId === undefined ? existing.linkedGoalId : data.linkedGoalId, workspaceId, tx);
@@ -127,7 +132,7 @@ class HabitService {
     return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await habitRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
-        throw new Error('Habit not found');
+        throw new AppError('Habit not found', 404, 'NOT_FOUND');
       }
 
       const habit = await habitRepository.update(id, {
@@ -142,11 +147,12 @@ class HabitService {
   }
 
   async logHabitCompletion(
-    idOrOptions: string | { id: string; workspaceId: string; userId: string; dateStr?: string; dateIso?: string },
+    idOrOptions: string | { id: string; workspaceId: string; userId: string; dateStr?: string; dateIso?: string; timeZone?: string },
     workspaceIdArg?: string,
     userIdArg?: string,
     dateStrArg?: string,
-    dateIsoArg?: string
+    dateIsoArg?: string,
+    timeZoneArg?: string,
   ) {
     let id: string;
     let workspaceId: string;
@@ -168,19 +174,24 @@ class HabitService {
       dateIso = dateIsoArg;
     }
 
+    const requestedZone = typeof idOrOptions === 'object' ? idOrOptions.timeZone : timeZoneArg;
     return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await habitRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
-        throw new Error('Habit not found');
+        throw Object.assign(new AppError('Habit not found', 404, 'NOT_FOUND'), { statusCode: 404 });
       }
 
       // Lock the habit row before checking completion history. Concurrent Log/Undo
       // requests must recompute streaks in order, even though this lock leaves version unchanged.
       await tx.habit.update({ where: { id, workspaceId, deletedAt: null }, data: { version: { increment: 0 } } });
       const dateUser = await tx.user.findUnique({ where: { id: userId }, select: { metadata: true, countryCode: true } });
-      const dateKeyStr = dateStr || (dateIso ? new Date(dateIso).toISOString().slice(0, 10) : getUserLocalDateStr(new Date(), resolveUserTimeZone(dateUser)));
+      const dateKeyStr = dateStr || (dateIso ? new Date(dateIso).toISOString().slice(0, 10) : getUserLocalDateStr(new Date(), resolveUserTimeZone(dateUser, requestedZone)));
       const targetDate = new Date(`${dateKeyStr}T12:00:00.000Z`);
-      if (Number.isNaN(targetDate.getTime()) || targetDate.toISOString().slice(0, 10) !== dateKeyStr || (dateStr && dateIso && new Date(dateIso).toISOString().slice(0, 10) !== dateStr)) throw new Error('Invalid completion date');
+      if (Number.isNaN(targetDate.getTime()) || targetDate.toISOString().slice(0, 10) !== dateKeyStr || (dateStr && dateIso && new Date(dateIso).toISOString().slice(0, 10) !== dateStr)) throw Object.assign(new Error('Invalid completion date'), { statusCode: 400 });
+
+      const unavailableReason = habitCompletionUnavailableReason(existing.createdAt, dateKeyStr, new Date(), resolveUserTimeZone(dateUser, requestedZone));
+      if (unavailableReason === 'before_creation') throw Object.assign(new Error('Invalid completion date: this habit had not been created yet.'), { statusCode: 400 });
+      if (unavailableReason === 'future') throw Object.assign(new Error('Invalid completion date: future days cannot be completed.'), { statusCode: 400 });
 
       const scheduled = existing.scheduledDays && existing.scheduledDays.length > 0
         ? existing.scheduledDays
@@ -198,7 +209,7 @@ class HabitService {
 
       const completionsToday = await habitRepository.getCompletionCountToday(id, userId, targetDate, tx);
       if (completionsToday > 0) {
-        throw new Error('Habit already logged for today');
+        throw Object.assign(new Error('Habit already logged for today'), { statusCode: 400 });
       }
 
       await habitRepository.addCompletion({
@@ -216,7 +227,8 @@ class HabitService {
         where: { id: userId },
         select: { metadata: true, countryCode: true },
       });
-      const timeZone = resolveUserTimeZone(user);
+      const timeZone = resolveUserTimeZone(user, requestedZone);
+      await rememberUserTimeZone(userId, requestedZone, tx);
       const { current, best } = await computeStreak(existing, id, timeZone, tx, userId);
       const updatedHabit = await habitRepository.update(id, {
         streak: current,
@@ -231,11 +243,12 @@ class HabitService {
   }
 
   async unlogHabitCompletion(
-    idOrOptions: string | { id: string; workspaceId: string; userId: string; dateStr?: string; dateIso?: string },
+    idOrOptions: string | { id: string; workspaceId: string; userId: string; dateStr?: string; dateIso?: string; timeZone?: string },
     workspaceIdArg?: string,
     userIdArg?: string,
     dateStrArg?: string,
-    dateIsoArg?: string
+    dateIsoArg?: string,
+    timeZoneArg?: string,
   ) {
     let id: string;
     let workspaceId: string;
@@ -257,23 +270,24 @@ class HabitService {
       dateIso = dateIsoArg;
     }
 
+    const requestedZone = typeof idOrOptions === 'object' ? idOrOptions.timeZone : timeZoneArg;
     return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await habitRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
-        throw new Error('Habit not found');
+        throw Object.assign(new AppError('Habit not found', 404, 'NOT_FOUND'), { statusCode: 404 });
       }
 
       // Lock the habit row before checking completion history. Concurrent Log/Undo
       // requests must recompute streaks in order, even though this lock leaves version unchanged.
       await tx.habit.update({ where: { id, workspaceId, deletedAt: null }, data: { version: { increment: 0 } } });
       const dateUser = await tx.user.findUnique({ where: { id: userId }, select: { metadata: true, countryCode: true } });
-      const dateKeyStr = dateStr || (dateIso ? new Date(dateIso).toISOString().slice(0, 10) : getUserLocalDateStr(new Date(), resolveUserTimeZone(dateUser)));
+      const dateKeyStr = dateStr || (dateIso ? new Date(dateIso).toISOString().slice(0, 10) : getUserLocalDateStr(new Date(), resolveUserTimeZone(dateUser, requestedZone)));
       const targetDate = new Date(`${dateKeyStr}T12:00:00.000Z`);
-      if (Number.isNaN(targetDate.getTime()) || targetDate.toISOString().slice(0, 10) !== dateKeyStr || (dateStr && dateIso && new Date(dateIso).toISOString().slice(0, 10) !== dateStr)) throw new Error('Invalid completion date');
+      if (Number.isNaN(targetDate.getTime()) || targetDate.toISOString().slice(0, 10) !== dateKeyStr || (dateStr && dateIso && new Date(dateIso).toISOString().slice(0, 10) !== dateStr)) throw Object.assign(new Error('Invalid completion date'), { statusCode: 400 });
 
       const completionsToday = await habitRepository.getCompletionCountToday(id, userId, targetDate, tx);
       if (completionsToday === 0) {
-        throw new Error('Habit not logged for today');
+        throw Object.assign(new Error('Habit not logged for today'), { statusCode: 400 });
       }
 
       await habitRepository.removeCompletionToday(id, userId, targetDate, tx);
@@ -284,7 +298,8 @@ class HabitService {
         where: { id: userId },
         select: { metadata: true, countryCode: true },
       });
-      const timeZone = resolveUserTimeZone(user);
+      const timeZone = resolveUserTimeZone(user, requestedZone);
+      await rememberUserTimeZone(userId, requestedZone, tx);
       const { current, best } = await computeStreak(existing, id, timeZone, tx, userId);
 
       const updatedHabit = await habitRepository.update(id, {
@@ -299,16 +314,16 @@ class HabitService {
     });
   }
 
-  async getStreak(id: string, workspaceId: string, userId?: string) {
-    const habit = await this.getHabit(id, workspaceId, userId);
+  async getStreak(id: string, workspaceId: string, userId?: string, requestedZone?: string) {
+    const habit = await this.getHabit(id, workspaceId, userId, requestedZone);
     return { streak: habit.streak };
   }
 
   async restoreHabit(id: string, workspaceId: string, userId: string) {
     return runInTransaction(async (tx, publishAfterCommit) => {
       const existing = await habitRepository.findById(id, tx);
-      if (!existing) throw new Error('Habit not found');
-      if (!existing.deletedAt || existing.workspaceId !== workspaceId) throw new Error('Conflict: nothing to restore');
+      if (!existing) throw new AppError('Habit not found', 404, 'NOT_FOUND');
+      if (!existing.deletedAt || existing.workspaceId !== workspaceId) throw new AppError('Conflict: nothing to restore', 409, 'CONFLICT');
 
       const habit = await habitRepository.update(id, {
         deletedAt: null,

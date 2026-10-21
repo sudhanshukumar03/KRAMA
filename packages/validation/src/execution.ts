@@ -41,6 +41,13 @@ export const UpdateTaskSchema = CreateTaskSchema.partial().extend({
   position: z.number().optional(),
 });
 
+export const TaskListQuerySchema = z.object({
+  projectId: z.string().uuid().optional(),
+  status: z.enum(['BACKLOG', 'TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'CANCELED']).optional(),
+  limit: z.preprocess(value => typeof value === 'string' ? Number(value) : value, z.number().int().min(1).max(500).optional()),
+  cursor: z.string().uuid().optional(),
+}).refine(value => !value.cursor || value.limit !== undefined, { message: 'A task cursor requires a page limit', path: ['limit'] });
+
 export const CreateGoalSchema = WorkspaceScoped.extend({
   title: z.string().min(1).max(255),
   type: z.string(), // Allowing "SKILL" type

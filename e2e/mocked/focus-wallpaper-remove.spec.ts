@@ -54,7 +54,7 @@ test.describe('Focus Wallpaper Upload & Remove Verification', () => {
     });
   });
 
-  test('Shows uploaded wallpaper with Remove button, and clicking Remove restores default', async ({ page }) => {
+  test('Shows uploaded wallpaper with Remove button, and clicking Remove restores default', async ({ page }, testInfo) => {
     await page.goto('/focus');
     await page.evaluate(() => {
       const customWp = {
@@ -93,7 +93,7 @@ test.describe('Focus Wallpaper Upload & Remove Verification', () => {
     await expect(removeBtn).toBeVisible();
 
     // Take screenshot of Wallpaper Modal with the uploaded wallpaper & Remove button
-    await page.screenshot({ path: 'e2e/wallpaper-upload-remove-ui.png' });
+    await page.screenshot({ path: testInfo.outputPath('wallpaper-upload-remove-ui.png'), animations: 'disabled', timeout: 15000 });
 
     // Click Remove
     await removeBtn.click();
@@ -106,6 +106,6 @@ test.describe('Focus Wallpaper Upload & Remove Verification', () => {
     await expect(page.locator('text=Your Custom Wallpapers')).not.toBeVisible();
 
     // Take screenshot after removal
-    await page.screenshot({ path: 'e2e/wallpaper-after-remove.png' });
+    await page.screenshot({ path: testInfo.outputPath('wallpaper-after-remove.png'), animations: 'disabled', timeout: 15000 });
   });
 });

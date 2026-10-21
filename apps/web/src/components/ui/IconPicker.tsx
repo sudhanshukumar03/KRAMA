@@ -73,6 +73,9 @@ export function IconPicker({
           <div className="relative mb-3">
             <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-secondary stroke-[1.75]" />
             <input
+              id="icon-picker-search"
+              name="iconSearch"
+              aria-label="Search icons"
               type="text"
               placeholder="Search icons..."
               value={search}

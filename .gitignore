@@ -168,6 +168,7 @@ apps/web/current_view.png
 # Local package and development caches
 .pnpm-store/
 .vite/
+.local/
 
 # Browser authentication state (may contain session credentials)
 playwright/.auth/

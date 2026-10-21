@@ -6,6 +6,7 @@ import type { DocumentWithRelations } from '../../types/schema';
 import { resolveIcon } from '../../lib/iconResolver';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
+import { PaginatedItems } from '../ui/PaginatedItems';
 
 export interface PageTreeNodeProps {
   page: DocumentWithRelations;
@@ -30,16 +31,17 @@ export function PageTreeNode({
   const queryClient = useQueryClient();
   const children = pages.filter(p => p.parentId === page.id);
   const hasChildren = children.length > 0;
-  const selectedAncestor = (() => {
+  const selectedChildId = (() => {
     let current = pages.find(p => p.id === selectedId);
     const visited = new Set<string>();
     while (current?.parentId && !visited.has(current.id)) {
       visited.add(current.id);
-      if (current.parentId === page.id) return true;
+      if (current.parentId === page.id) return current.id;
       current = pages.find(p => p.id === current?.parentId);
     }
-    return false;
+    return null;
   })();
+  const selectedAncestor = selectedChildId !== null;
   useEffect(() => { if (selectedAncestor) setExpanded(true); }, [selectedAncestor, selectedId]);
   const isSelected = selectedId === page.id;
 
@@ -76,7 +78,9 @@ export function PageTreeNode({
         action: {
           label: 'Undo',
           onClick: async () => {
-            await api.documents.restore(page.id);
+            const restored = await api.documents.restore(page.id);
+            queryClient.removeQueries({ queryKey: ['document'], type: 'inactive' });
+            queryClient.setQueryData(['document', page.id], restored);
             queryClient.invalidateQueries({ queryKey: ['documents'] });
             toast.success(`Restored "${page.title}"`);
           }
@@ -210,7 +214,8 @@ export function PageTreeNode({
       {/* Children Container */}
       {hasChildren && expanded && (
         <div className="space-y-0.5">
-          {children.map(child => (
+          <PaginatedItems items={children} label={`${page.title || 'Untitled Document'} children`} activeId={selectedChildId} className="space-y-0.5">
+          {visible => visible.map(child => (
             <PageTreeNode 
               key={child.id} 
               page={child} 
@@ -222,6 +227,7 @@ export function PageTreeNode({
               onCreateDoc={onCreateDoc}
             />
           ))}
+          </PaginatedItems>
         </div>
       )}
     </div>

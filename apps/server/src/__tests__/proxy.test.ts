@@ -27,6 +27,23 @@ test('only configured proxy addresses may supply the client IP', () => {
   assert.equal(trustedProxyAddresses(' , '), false);
 });
 
+test('IPv6 proxy subnets cannot accidentally trust unrelated IPv4 clients', () => {
+  const app = express();
+  for (const subnet of ['::ffff:10.0.0.0/8', '::/1']) {
+    app.set('trust proxy', trustedProxyAddresses(subnet));
+    const trust = app.get('trust proxy fn');
+    assert.equal(trust('198.51.100.23', 0), false, `${subnet} must not accept an unrelated IPv4 client`);
+  }
+});
+
+test('a correctly mapped IPv4 proxy subnet retains its intended boundary', () => {
+  const app = express();
+  app.set('trust proxy', trustedProxyAddresses('::ffff:10.0.0.0/104'));
+  const trust = app.get('trust proxy fn');
+  assert.equal(trust('10.1.2.3', 0), true);
+  assert.equal(trust('198.51.100.23', 0), false);
+});
+
 test('a trusted proxy uses the nearest untrusted hop, ignoring a forged prefix', async () => {
   const app = express();
   app.set('trust proxy', trustedProxyAddresses('127.0.0.1/32'));

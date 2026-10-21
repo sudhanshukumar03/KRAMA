@@ -117,6 +117,17 @@ export class DocumentSaveQueue {
     try { this.storage?.removeItem(this.key); } catch { /* Best effort. */ }
     this.emit('saved');
   }
+  async updateStructure<T extends { updatedAt?: string }>(operation: (revision?: string) => Promise<T>): Promise<T> {
+    await this.flush();
+    return this.enqueue(async () => {
+      const result = await operation(this.revision);
+      if (result.updatedAt) this.revision = result.updatedAt;
+      if (this.bodyDirty || this.titleDirty) { this.persist(); this.emit('unsaved'); }
+      else this.emit('saved');
+      this.onSaved?.();
+      return result;
+    });
+  }
   dispose() {
     clearTimeout(this.timer); this.timer = undefined;
     // Reopening a stored draft is for review; cleanup must not silently save it.
@@ -127,6 +138,13 @@ export class DocumentSaveQueue {
 // Keep a departing editor's queue available while its final save is pending.
 // Returning to that document must not start a second writer with a stale token.
 const departing = new Map<string, { queue: DocumentSaveQueue; active: boolean }>();
+export async function flushDocumentQueues(keys: string[]) {
+  await Promise.all(keys.map(key => departing.get(key)?.queue.flush()));
+}
+export function updateDocumentStructure<T extends { updatedAt?: string }>(key: string, operation: (revision?: string) => Promise<T>) {
+  const queue = departing.get(key)?.queue;
+  return queue ? queue.updateStructure(operation) : operation();
+}
 export function acquireDocumentSaveQueue(key: string, create: () => DocumentSaveQueue) {
   return departing.get(key)?.queue || create();
 }

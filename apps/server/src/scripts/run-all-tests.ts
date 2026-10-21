@@ -5,7 +5,7 @@ import 'dotenv/config';
 import crypto from 'node:crypto';
 import { validateIntegrationTargets } from '../testing/testEnvironment';
 
-const integrationFiles = new Set(['concurrency.test.ts', 'document.test.ts', 'document_roles.test.ts', 'events.test.ts', 'live_execution.test.ts', 'completion_award.integration.test.ts', 'followup_repairs.integration.test.ts']);
+const integrationFiles = new Set(['concurrency.test.ts', 'document.test.ts', 'document_roles.test.ts', 'events.test.ts', 'live_execution.test.ts', 'completion_award.integration.test.ts', 'followup_repairs.integration.test.ts', 'planner_atomicity.integration.test.ts', 'task_recovery.integration.test.ts']);
 const integration = process.argv.includes('--integration');
 if (integration) validateIntegrationTargets(process.env);
 const testEnv = integration ? {

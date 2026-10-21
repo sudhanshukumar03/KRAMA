@@ -51,8 +51,8 @@ test('document selection follows URLs and browser history with keyboard access',
 test('search renders safe highlights and keyboard-activatable results', async ({ page }) => {
   await mockApi(page);
   await page.route('**/api/v1/**/search**', r => r.fulfill({ json: [{ id: 'doc-2', title: 'Safe result', snippet: '<b>architecture</b><img src="/missing" onerror="window.__unsafe=true"><svg onload="window.__unsafe=true"></svg>' }] }));
-  await page.goto('/app/brain'); await page.getByRole('button', { name: 'Search Specs...' }).click();
-  await page.getByLabel('Search documents', { exact: true }).fill('architecture');
+  await page.goto('/app/brain'); await page.getByRole('button', { name: 'Search documents' }).click();
+  await page.getByRole('textbox', { name: 'Search documents', exact: true }).fill('architecture');
   const result = page.getByRole('button', { name: /Safe result/ });
   await expect(result.locator('mark')).toHaveText('architecture');
   await expect(result.locator('img, svg[onload]')).toHaveCount(0);
@@ -70,8 +70,8 @@ test('search ignores stale responses, cancels clearing, and presents recoverable
     if (q === 'old') { started = true; await gate; }
     await r.fulfill({ status: fail ? 500 : 200, json: fail ? { message: 'Search unavailable' } : [{ id: 'doc-1', title: `${q} result` }] }).catch(() => {});
   });
-  await page.goto('/app/brain'); await page.getByRole('button', { name: 'Search Specs...' }).click();
-  const input = page.getByLabel('Search documents', { exact: true });
+  await page.goto('/app/brain'); await page.getByRole('button', { name: 'Search documents' }).click();
+  const input = page.getByRole('textbox', { name: 'Search documents', exact: true });
   await input.fill('old'); await expect.poll(() => started).toBe(true);
   await input.fill('new'); await expect(page.getByRole('button', { name: /new result/ })).toBeVisible();
   release(); await page.waitForTimeout(100);
@@ -164,7 +164,7 @@ test('snapshot restore flushes edits first and does not autosave restored conten
   await page.route('**/api/v1/documents/doc-1/versions', r => r.fulfill({ json: [{ id: 'version-1', versionNumber: 1, createdAt: initial.revision }] }));
   await page.route('**/api/v1/documents/doc-1/versions/version-1/restore', async r => { actions.push('restore'); await r.fulfill({ json: { ...original, contentJson: content('Restored body'), updatedAt: '2026-10-06T00:00:02.000Z' } }); });
   await page.goto('/app/brain'); await page.locator('.tiptap').fill('Unsaved body');
-  await page.getByRole('button', { name: 'More actions (Move, Duplicate, History, Export)' }).click();
+  await page.getByRole('button', { name: 'More document actions' }).click();
   await page.getByRole('button', { name: 'Version History', exact: true }).click();
   await page.getByRole('button', { name: 'Restore', exact: true }).click();
   await expect(page.locator('.tiptap')).toHaveText('Restored body');
@@ -185,5 +185,5 @@ test('Brain task references support keyboard navigation to the selected Board ta
   const reference = page.getByRole('button', { name: 'Open task Task from architecture notes', exact: true });
   await reference.focus(); await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/app\/board\?task=linked-task/);
-  await expect(page.getByRole('dialog').getByLabel('Directive Title *', { exact: true })).toHaveValue(linkedTask.title);
+  await expect(page.getByRole('dialog').getByLabel('Task Title *', { exact: true })).toHaveValue(linkedTask.title);
 });

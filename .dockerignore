@@ -16,3 +16,6 @@ apps/web/dist
 # Exclude credentials in every workspace package and environment variant.
 **/.env*
 **/node_modules
+.local
+test-results
+playwright-report

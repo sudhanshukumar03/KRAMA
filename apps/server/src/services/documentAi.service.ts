@@ -43,7 +43,11 @@ export async function sendBrainAiStream(res: Response, systemPrompt: string, pro
       headers(); res.write(`data: ${JSON.stringify({ text })}\n\n`);
     }
     if (!res.destroyed && !res.writableEnded) { headers(); res.write('data: [DONE]\n\n'); res.end(); }
-  } catch (error) {
-    if (!controller.signal.aborted) throw error;
+  } catch {
+    // Provider authentication failures describe its API key, not the user's
+    // Krama login. They must not trigger session refresh or sign the user out.
+    if (!controller.signal.aborted) throw Object.assign(new Error('AI generation is temporarily unavailable. Your instruction is retained; try again.'), {
+      statusCode: 503, code: 'AI_PROVIDER_UNAVAILABLE',
+    });
   } finally { res.off('close', onDisconnect); }
 }

@@ -6,10 +6,11 @@ import { DroppableTaskCell, TimeBlockCell, MilestoneCell, BacklogTaskCard } from
 // The core 7-day grid with: Routines, Tasks, Schedule, Projects
 
 import { format, isSameDay } from "date-fns";
-import { CheckCircle2, Circle, ChevronDown, ChevronUp, CircleDot, Target, Clock, PinOff } from "lucide-react";
+import { CheckCircle2, Circle, ChevronDown, ChevronUp, CircleDot, Clock, PinOff } from "lucide-react";
+import { GoalSummitIcon } from "../ui/GoalIcon";
 import { useState, useMemo } from "react";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragStartEvent, type DragEndEvent } from "@dnd-kit/core";
-import { parseLocalDate, cn } from "../../lib/utils";
+import { parseLocalDate, taskCalendarDates, cn } from "../../lib/utils";
 import { blockTypeStyle } from "../../lib/blockTypeStyles";
 import type { PlannerData, PlannerTask, RoutineOccurrence, TimeBlock, Milestone, GoalDeadline } from "../../types/planner";
 
@@ -41,7 +42,7 @@ interface Props {
   onAddRoutine?: (day?: Date) => void;
   onToggleTask?: (task: PlannerTask, e: React.MouseEvent) => void;
   onEditTask?: (task: PlannerTask) => void;
-  onClickTask?: (task: PlannerTask) => void;
+  onClickTask?: (task: PlannerTask, day?: Date) => void;
   onClickTimeBlock?: (block: TimeBlock) => void;
   onDeleteTask?: (task: PlannerTask) => void;
   onDeleteTimeBlock?: (block: TimeBlock) => void;
@@ -190,7 +191,7 @@ export function PlannerMatrix({
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <section className="krama-card flex flex-col w-full flex-1 min-h-0 overflow-hidden">
-        <div className="w-full flex flex-col flex-1 min-h-0 overflow-x-auto overflow-y-auto custom-scrollbar">
+        <div className="planner-matrix-scroll w-full flex flex-col flex-1 min-h-0 overflow-x-auto overflow-y-auto custom-scrollbar">
           <div className="min-w-[1020px] w-full flex flex-col flex-1">
 
           {/* DAY HEADERS */}
@@ -239,7 +240,7 @@ export function PlannerMatrix({
             })}
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar flex flex-col">
+          <div className="flex-1 flex flex-col">
             
             {/* ROUTINES (Sub-rows) */}
             <MatrixRow
@@ -262,6 +263,7 @@ export function PlannerMatrix({
                     <div className="border-r border-border p-2 flex items-center gap-2 relative sticky left-0 z-20 bg-surface">
                       <CircleDot size={12} className={ROUTINE_COLORS[idx % ROUTINE_COLORS.length]} />
                       <span className="text-badge font-bold text-primary truncate pr-4">{routine.name}</span>
+                      {routine.cadence === 'weekly' && <span className="text-badge text-secondary">{routine.weeklyTarget ?? 3} per week</span>}
                       {onDeleteRoutine && (
                         <button
                           type="button"
@@ -286,8 +288,10 @@ export function PlannerMatrix({
                         <div key={dateKey(day)} className="border-r border-border last:border-r-0 flex items-center justify-center p-1">
                           <button
                             onClick={() => onToggleRoutine(occ)}
+                            disabled={!occ.completed && (occ.scheduled === false || Boolean(occ.unavailableReason))}
+                            title={occ.completed && occ.unavailableReason ? 'Invalid historical log — click to undo' : occ.completed && occ.offSchedule ? 'Extra log — excluded from streaks; click to undo' : occ.unavailableReason === 'before_creation' ? 'This habit had not been created yet' : occ.unavailableReason === 'future' ? 'Future days cannot be completed' : occ.scheduled === false ? 'Not scheduled this day' : undefined}
                             aria-label={occ.completed ? `Mark ${routine.name} incomplete on ${format(day, "MMM d")}` : `Mark ${routine.name} complete on ${format(day, "MMM d")}`}
-                            className={"flex h-4 w-4 items-center justify-center rounded-[4px] border transition-colors " +
+                            className={"flex h-4 w-4 items-center justify-center rounded-[4px] border transition-colors disabled:opacity-40 disabled:cursor-not-allowed " +
                               (occ.completed ? "bg-accent border-accent text-on-accent" : "bg-surface border-border hover:border-accent")}
                           >
                             {occ.completed && (
@@ -338,12 +342,9 @@ export function PlannerMatrix({
                     </div>
                   </div>
                   {days.map((day) => {
-                    const dayTasks = data.tasks.filter(
-                      (t) => (t.scheduledDate && isSameDay((parseLocalDate(t.scheduledDate) ?? new Date(NaN)), day)) ||
-                             (!t.scheduledDate && t.dueDate && isSameDay((parseLocalDate(t.dueDate) ?? new Date(NaN)), day))
-                    );
+                    const dayTasks = data.tasks.filter(t => taskCalendarDates(t).some(date => isSameDay(date, day)));
                     return (
-                      <DroppableTaskCell key={dateKey(day)} day={day} tasks={dayTasks} dateKeyFn={dateKey} onClickTask={onClickTask} onEditTask={onEditTask} onToggleTask={onToggleTask} onAddTask={onAddTask} onDeleteTask={onDeleteTask} />
+                      <DroppableTaskCell key={dateKey(day)} day={day} tasks={dayTasks} dateKeyFn={dateKey} onClickTask={task => onClickTask?.(task, day)} onEditTask={onEditTask} onToggleTask={onToggleTask} onAddTask={onAddTask} onDeleteTask={onDeleteTask} />
                     );
                   })}
                 </div>
@@ -411,14 +412,14 @@ export function PlannerMatrix({
             <MatrixRow
               label="Milestones"
               subtitle="Project checkpoints"
-              icon={<Target size={13} className="text-cat-projects" />}
+              icon={<GoalSummitIcon size={13} className="text-cat-projects" />}
               isExpanded={expandedState.milestones}
               onToggle={() => handleToggle("milestones")}
               flexClass="h-auto"
             >
               <div className="grid grid-cols-[140px_repeat(7,minmax(125px,1fr))] w-full h-full">
                 <div className="border-r border-border flex flex-col h-full sticky left-0 z-20 bg-surface">
-                  <CategoryHeader icon={<Target size={13} className="text-cat-projects" />} label="Milestones" subtitle={`${(data.milestones || []).length} milestones${(data.goalDeadlines || []).length > 0 ? ` • ${(data.goalDeadlines || []).length} goals` : ''}`} onToggle={() => handleToggle("milestones")} onAdd={onAddMilestone ? () => onAddMilestone() : undefined} />
+                  <CategoryHeader icon={<GoalSummitIcon size={13} className="text-cat-projects" />} label="Milestones" subtitle={`${(data.milestones || []).length} milestones${(data.goalDeadlines || []).length > 0 ? ` • ${(data.goalDeadlines || []).length} goals` : ''}`} onToggle={() => handleToggle("milestones")} onAdd={onAddMilestone ? () => onAddMilestone() : undefined} />
                 </div>
                 {days.map((day) => {
                   const dayMilestones = (data.milestones || []).filter(m => m.date && isSameDay((parseLocalDate(m.date) ?? new Date(NaN)), day));
@@ -484,12 +485,13 @@ function CategoryHeader({ label, subtitle, icon, onToggle, onAdd }: { label: str
       </button>
         {onAdd && (
           <button 
+            aria-label={`Add ${label.toLowerCase()}`}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onAdd();
             }} 
-            className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-surface-hover text-secondary"
+            className="p-1 rounded opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity hover:bg-surface-hover text-secondary"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
           </button>

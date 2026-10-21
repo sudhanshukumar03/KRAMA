@@ -59,6 +59,11 @@ export function LocationSettingsModal({ open, onClose, currentCountry, currentRe
  </div>
 
  <div className="p-5 space-y-4">
+ <div className="text-sm text-secondary">
+ <span className="block font-medium text-primary">Time zone</span>
+ <span>{Intl.DateTimeFormat().resolvedOptions().timeZone.replaceAll('_', ' ')}</span>
+ <p className="mt-1 text-xs">Follows this device. Your habit days and streaks use this time zone.</p>
+ </div>
  <div>
  <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1"><Globe2 size={12}/> Country</label>
  <select aria-label="Country"

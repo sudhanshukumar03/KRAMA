@@ -15,16 +15,41 @@
       "bcrypt",
       "esbuild",
       "prisma"
-    ]
+    ],
+    "overrides": {
+      "nanoid@^3.0.0": "3.3.20",
+      "qs@^6.0.0": "6.16.1",
+      "ip-address@^10.0.0": "10.7.4",
+      "fast-uri@^3.0.0": "3.1.8",
+      "engine.io@^6.0.0": "6.6.11",
+      "source-map-js@^1.0.0": "1.2.2",
+      "proxy-addr@^2.0.0": "2.0.8",
+      "shell-quote@^1.0.0": "1.12.0",
+      "@tailwindcss/typography@0.5.20>postcss-selector-parser": "7.1.6"
+    }
   },
   "scripts": {
-    "dev": "pnpm --parallel -r run dev",
-    "build": "pnpm -r run build",
-    "lint": "pnpm -r run lint",
-    "test": "pnpm --filter server test",
+    "dev": "corepack pnpm --parallel -r run dev",
+    "build": "corepack pnpm -r run build",
+    "lint": "corepack pnpm -r run lint",
+    "test": "corepack pnpm --filter server test",
     "test:ui": "playwright test",
+    "test:landing": "corepack pnpm --filter client run build && playwright test --config playwright.landing.config.ts",
     "test:e2e": "playwright test --config playwright.integration.config.ts",
-    "holidays:sync": "pnpm --filter server holidays:sync"
+    "holidays:sync": "corepack pnpm --filter server holidays:sync",
+    "test:live": "corepack pnpm --filter server exec tsx ../../scripts/verification/run-live.ts core",
+    "test:ai": "corepack pnpm --filter server exec tsx ../../scripts/verification/run-live.ts ai",
+    "test:mobile": "corepack pnpm --filter server exec tsx ../../scripts/verification/run-live.ts mobile",
+    "test:staging": "corepack pnpm --filter server exec tsx ../../scripts/verification/run-staging.ts",
+    "test:ai:gemini": "corepack pnpm --filter server exec tsx ../../scripts/verification/run-live.ts ai gemini",
+    "test:providers": "corepack pnpm --filter server exec tsx ../../scripts/verification/verify-providers.ts",
+    "test:release-policy": "node --test scripts/verification/github-release.test.cjs",
+    "release:github": "node scripts/verification/github-release.cjs",
+    "quality:check": "node scripts/quality/check.cjs",
+    "quality:baseline": "corepack pnpm --filter client build && corepack pnpm --filter server exec tsx ../../scripts/verification/run-live.ts baseline",
+    "quality:scale": "corepack pnpm --filter client build && corepack pnpm --filter server exec tsx ../../scripts/verification/run-live.ts scale",
+    "test:contracts": "corepack pnpm --filter server exec tsx ../../scripts/verification/run-live.ts contracts",
+    "audit:dependencies": "corepack pnpm audit --audit-level=high"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

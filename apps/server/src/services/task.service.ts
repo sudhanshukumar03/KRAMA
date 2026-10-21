@@ -2,6 +2,7 @@ import { prisma } from '../prisma';
 import { taskRepository } from '../repositories/task.repository';
 import { TaskStatus } from '@prisma/client';
 import { runInTransaction, type TxClient, type PostCommitPublisher } from '../prisma';
+import { clearTodayTaskReview } from './personalDay.service';
 
 /**
  * Keep the original completion timestamp while an already-Done task is edited.
@@ -70,7 +71,8 @@ class TaskService {
     }
   }
 
-  async listTasks(workspaceId: string, filters: { projectId?: string; status?: string }) {
+  async listTasks(workspaceId: string, filters: { projectId?: string; status?: string; limit?: number; cursor?: string }) {
+    if (filters.limit !== undefined) return taskRepository.findPageByWorkspace(workspaceId, { ...filters, status: filters.status as TaskStatus | undefined, limit: filters.limit });
     return taskRepository.findManyByWorkspace(workspaceId, {
       ...filters,
       status: filters.status as TaskStatus,
@@ -115,19 +117,30 @@ class TaskService {
    * Publish task events after commit so related project/goal totals can refresh.
    */
   async updateTask(id: string, workspaceId: string, data: any, userId: string) {
-    return runInTransaction(async (tx, publishAfterCommit) => {
+    return runInTransaction((tx, publishAfterCommit) => this.updateTaskWithinTransaction(tx, publishAfterCommit, id, workspaceId, data, userId));
+  }
+
+  async updateTaskWithinTransaction(tx: TxClient, publishAfterCommit: PostCommitPublisher, id: string, workspaceId: string, data: any, userId: string) {
+      // Review and explicit replanning must serialize before either updates a task.
+      if (data.scheduledDate !== undefined || data.status !== undefined) {
+        await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
+      }
       const existing = await taskRepository.findById(id, tx);
       if (!existing || existing.deletedAt || existing.workspaceId !== workspaceId) {
-        throw new Error('Task not found');
+        throw Object.assign(new Error('Task not found'), { statusCode: 404 });
       }
 
       if (data.version !== undefined && existing.version !== data.version) {
-        throw new Error('Conflict: version mismatch');
+        throw Object.assign(new Error('Conflict: version mismatch'), { statusCode: 409 });
       }
 
       const { version: _version, workspaceId: _, ...updateData } = data;
-
-
+      // A dated task is an intentional plan. Older clients may send only the
+      // date, so enforce activation and Inbox removal at the service boundary.
+      if (updateData.scheduledDate && !['BACKLOG', 'CANCELED', 'DONE'].includes(updateData.status ?? '')) {
+        if (existing.status === 'BACKLOG' && updateData.status === undefined) updateData.status = TaskStatus.TODO;
+        updateData.metadata = { ...(typeof updateData.metadata === 'object' && updateData.metadata ? updateData.metadata : {}), inbox: false };
+      }
       await validateTaskLinks(tx, workspaceId, updateData, id);
 
       const task = await taskRepository.update(id, {
@@ -135,7 +148,13 @@ class TaskService {
         metadata: completionMetadata(updateData, existing),
         version: { increment: 1 },
         updatedBy: userId,
-      }, tx, { id, workspaceId, deletedAt: null, version: existing.version }).catch(error => { if (error.code === 'P2025') throw new Error('Conflict: version mismatch'); throw error; });
+      }, tx, { id, workspaceId, deletedAt: null, version: existing.version }).catch(error => { if (error.code === 'P2025') throw Object.assign(new Error('Conflict: version mismatch'), { statusCode: 409 }); throw error; });
+
+      const dateChanged = data.scheduledDate !== undefined &&
+        (task.scheduledDate?.getTime() ?? null) !== (existing.scheduledDate?.getTime() ?? null);
+      const madeReady = updateData.status !== undefined && task.status !== existing.status &&
+        !['BACKLOG', 'CANCELED', 'DONE'].includes(task.status);
+      if (dateChanged || madeReady) await clearTodayTaskReview(tx, workspaceId, userId, id);
 
       await tx.activityLog.create({ data: { workspaceId, userId, action: existing.status !== 'DONE' && task.status === 'DONE' ? 'TASK_COMPLETED' : 'TASK_UPDATED', entityType: 'Task', entityId: task.id, metadata: { title: task.title } } });
       publishAfterCommit('TASK_UPDATED', { previousProjectId: existing.projectId, taskId: task.id, workspaceId: task.workspaceId, userId, task });
@@ -144,7 +163,19 @@ class TaskService {
         publishAfterCommit('TASK_COMPLETED', { taskId: task.id, workspaceId: task.workspaceId, userId, completionVersion: task.version });
       }
       return task;
-    });
+  }
+
+  async scheduleTaskWithinTransaction(tx: TxClient, publishAfterCommit: PostCommitPublisher, id: string, workspaceId: string, date: Date, userId: string) {
+    // Reserving a block is an explicit plan, but must never reopen finished work.
+    await tx.$queryRaw`SELECT id FROM "Workspace" WHERE id = ${workspaceId} FOR UPDATE`;
+    const task = await tx.task.findFirst({ where: { id, workspaceId, deletedAt: null }, select: { status: true, scheduledDate: true, metadata: true } });
+    if (!task) throw Object.assign(new Error('Task not found'), { statusCode: 404 });
+    if (task.status === 'DONE' || task.status === 'CANCELED') return;
+    const metadata = task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata) ? task.metadata : {};
+    // Adding a reservation to work already planned for this day must not create
+    // an artificial version conflict in an open task editor.
+    if (task.status !== 'BACKLOG' && task.scheduledDate?.getTime() === date.getTime() && metadata.inbox !== true) return;
+    await this.updateTaskWithinTransaction(tx, publishAfterCommit, id, workspaceId, { scheduledDate: date }, userId);
   }
 
   async deleteTask(id: string, workspaceId: string, userId: string) {
@@ -214,12 +245,27 @@ class TaskService {
 
   async restoreTask(id: string, workspaceId: string, userId: string) {
     return runInTransaction(async (tx, publishAfterCommit) => {
-      const existing = await taskRepository.findById(id, tx);
-      if (!existing) throw new Error('Task not found');
-      if (!existing.deletedAt || existing.workspaceId !== workspaceId) throw new Error('Conflict: nothing to restore');
+      let existing = await taskRepository.findById(id, tx);
+      if (!existing || existing.workspaceId !== workspaceId) throw new Error('Task not found');
+      if (!existing.deletedAt) throw new Error('Conflict: nothing to restore');
+
+      if (existing.projectId) {
+        // Project deletion/restoration writes this row before its task cascade.
+        // Take the same lock order and re-read after waiting, so restoring a
+        // task cannot commit a link based on an uncommitted project lifecycle.
+        await tx.$queryRaw`SELECT id FROM "Project" WHERE id = ${existing.projectId} AND "workspaceId" = ${workspaceId} FOR UPDATE`;
+        existing = await taskRepository.findById(id, tx);
+        if (!existing || existing.workspaceId !== workspaceId) throw new Error('Task not found');
+        if (!existing.deletedAt) throw new Error('Conflict: nothing to restore');
+      }
+      const project = existing.projectId ? await tx.project.findFirst({
+        where: { id: existing.projectId, workspaceId, deletedAt: null }, select: { id: true },
+      }) : null;
 
       const task = await taskRepository.update(id, {
         deletedAt: null,
+        // Individual recovery must remain usable without reviving its project.
+        projectId: project?.id ?? null,
         version: { increment: 1 },
         updatedBy: userId
       }, tx, { id, workspaceId, deletedAt: existing.deletedAt, version: existing.version }).catch(error => { if (error.code === 'P2025') throw new Error('Conflict: version mismatch'); throw error; });

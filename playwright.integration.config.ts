@@ -30,9 +30,11 @@ export default defineConfig({
   testMatch: '**/live/*.spec.ts',
   projects: [{ name: 'chromium', use: base.projects![1].use, testMatch: '**/live/*.spec.ts' }],
   timeout: 180000,
+  expect: { ...base.expect, timeout: 15000 },
   retries: 0,
   use: {
     ...base.use,
+    actionTimeout: 15000,
     timezoneId: 'Asia/Kolkata',
     contextOptions: { reducedMotion: 'reduce' },
   },

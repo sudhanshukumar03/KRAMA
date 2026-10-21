@@ -17,10 +17,17 @@ export function getUserLocalDateStr(date: Date, timeZone = 'Asia/Kolkata'): stri
 // logged matches the value the next recompute produces. Prefers the user's
 // explicit timezone, then a regional default (IN -> Asia/Kolkata), else UTC.
 export function resolveUserTimeZone(
-  user: { metadata?: any; countryCode?: string | null } | null | undefined
+  user: { metadata?: any; countryCode?: string | null } | null | undefined,
+  requestedZone?: string,
 ): string {
+  if (requestedZone) {
+    try { new Intl.DateTimeFormat('en', { timeZone: requestedZone }); return requestedZone; }
+    catch { throw Object.assign(new Error('Invalid timezone'), { statusCode: 400 }); }
+  }
   const tz = (user?.metadata as any)?.timezone;
-  if (typeof tz === 'string' && tz) return tz;
+  if (typeof tz === 'string' && tz) {
+    try { new Intl.DateTimeFormat('en', { timeZone: tz }); return tz; } catch { /* Fall back for invalid legacy preferences. */ }
+  }
   if (user?.countryCode === 'IN') return 'Asia/Kolkata';
   return 'UTC';
 }
@@ -206,8 +213,13 @@ export function calculateHabitStats(
   now: Date,
   timeZone: string
 ): { current: number; best: number } {
-  return {
-    current: calculateHabitStreak(habit, now, timeZone),
-    best: calculateBestStreak(habit, now, timeZone),
-  };
+  const dayKeys = completedDayKeys(habit);
+  if (!dayKeys.size) return { current: 0, best: 0 };
+  const today = getUserLocalDateStr(now, timeZone);
+  if (habit.cadence === 'weekly') {
+    const counts = weekCompletionCounts(dayKeys), target = weeklyTargetOf(habit);
+    return { current: weeklyCurrentStreak(counts, target, today), best: weeklyBestStreak(counts, target, today) };
+  }
+  const scheduled = scheduledDaysOf(habit);
+  return { current: dailyCurrentStreak(dayKeys, scheduled, today), best: dailyBestStreak(dayKeys, scheduled, today) };
 }

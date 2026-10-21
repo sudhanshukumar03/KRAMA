@@ -10,7 +10,7 @@ interface TimeBlockModalProps {
  onSubmit: (data: TimeBlockInput) => void;
  defaultDate: Date;
  isSubmitting: boolean;
- tasks?: Pick<PlannerTask, 'id' | 'title'>[];
+ tasks?: Pick<PlannerTask, 'id' | 'title' | 'projectId'>[];
  projects?: PlannerProject[];
  editingBlock?: TimeBlockDraft | null;
  onDelete?: () => void;
@@ -80,6 +80,7 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  const dialogRef = useModalA11y(open, onClose);
 
  if (!open) return null;
+ const resolvedProjectId = taskId ? tasks.find(task => task.id === taskId)?.projectId || '' : projectId;
 
  const handleSubmit = (e: React.FormEvent) => {
  e.preventDefault();
@@ -100,11 +101,11 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  };
     if (editingBlock?.id) {
       data.taskId = taskId || null;
-      data.projectId = projectId || null;
+      data.projectId = resolvedProjectId || null;
       data.notes = notes.trim() || null;
     } else {
       if (taskId) data.taskId = taskId;
-      if (projectId) data.projectId = projectId;
+      if (resolvedProjectId) data.projectId = resolvedProjectId;
       if (notes.trim()) data.notes = notes.trim();
     }
 
@@ -212,7 +213,7 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  <select
  aria-label="Task"
  value={taskId}
- onChange={e => setTaskId(e.target.value)}
+ onChange={e => { setTaskId(e.target.value); setProjectId(tasks.find(task => task.id === e.target.value)?.projectId || ''); }}
  className="w-full min-w-0 px-3 py-2 rounded-lg border border-border bg-surface-hover text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm"
  >
  <option value="">None</option>
@@ -225,7 +226,8 @@ export function TimeBlockModal({ open, onClose, onSubmit, defaultDate, isSubmitt
  <label className="block text-label font-bold text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1">Project</label>
  <select
  aria-label="Project"
- value={projectId}
+ value={resolvedProjectId}
+ disabled={Boolean(taskId)}
  onChange={e => setProjectId(e.target.value)}
  className="w-full min-w-0 px-3 py-2 rounded-lg border border-border bg-surface-hover text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm"
  >

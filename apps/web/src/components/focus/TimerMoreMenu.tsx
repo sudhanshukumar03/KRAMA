@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Palette, Settings, Calendar, 
+import {
+  Palette, Settings, Calendar,
   X, LayoutGrid, Volume2, VolumeX, SkipForward, Clock, Sliders
 } from 'lucide-react';
 import type { OperatingMode, LayoutName, TimerMode } from './types';
@@ -34,6 +34,7 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Close when clicking outside
   useEffect(() => {
@@ -51,12 +52,17 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
   }, [isOpen]);
 
   return (
-    <div className="relative inline-block text-left" ref={menuRef}>
+    <div className="relative inline-block text-left" ref={menuRef} onKeyDown={event => {
+      if (event.key === 'Escape' && isOpen) {
+        event.preventDefault(); event.stopPropagation(); setIsOpen(false); triggerRef.current?.focus();
+      }
+    }}>
       {/* Settings Trigger Button */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="p-2 rounded-full bg-black/40 hover:bg-black/60 text-white/80 hover:text-white transition-all backdrop-blur-md border border-white/15 focus:outline-none cursor-pointer"
+        className="min-h-11 min-w-11 p-2 rounded-full bg-black/40 hover:bg-black/60 text-white/80 hover:text-white transition-all backdrop-blur-md border border-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white cursor-pointer"
         title="Settings & Options"
         aria-label="Settings and options"
         aria-haspopup="true"
@@ -67,7 +73,7 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 origin-top-right rounded-2xl krama-dialog shadow-2xl p-2 z-50 text-primary animate-in fade-in zoom-in-95 duration-150">
+        <div onClickCapture={() => triggerRef.current?.focus()} className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-6rem)] overflow-y-auto origin-top-right rounded-2xl krama-dialog shadow-2xl p-2 z-50 text-primary animate-in fade-in zoom-in-95 duration-150">
           {/* Header */}
           <div className="px-3 py-2 border-b border-border/70 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -98,6 +104,7 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
               type="button"
               onClick={() => {
                 setIsOpen(false);
+                triggerRef.current?.focus();
                 if (onOpenLayoutPicker) onOpenLayoutPicker();
               }}
               className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-surface-hover text-secondary hover:text-primary transition-colors text-left cursor-pointer"
@@ -111,6 +118,7 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
               type="button"
               onClick={() => {
                 setIsOpen(false);
+                triggerRef.current?.focus();
                 onOpenWallpaper();
               }}
               className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-surface-hover text-secondary hover:text-primary transition-colors text-left cursor-pointer"
@@ -126,6 +134,7 @@ export const TimerMoreMenu: React.FC<TimerMoreMenuProps> = ({
               type="button"
               onClick={() => {
                 setIsOpen(false);
+                triggerRef.current?.focus();
                 onOpenSettings();
               }}
               className="w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl hover:bg-surface-hover text-secondary hover:text-primary transition-colors text-left"

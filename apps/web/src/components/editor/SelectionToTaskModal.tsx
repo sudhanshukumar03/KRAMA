@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useLayoutEffect, useRef } from 'react';
 import { CheckSquare, X, ArrowUpRight } from 'lucide-react';
 import { api } from '../../api/client';
 import { useModalA11y } from '../../hooks/useModalA11y';
@@ -12,6 +12,7 @@ interface SelectionToTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (task: any) => void;
+  beforeAction?: () => Promise<void>;
 }
 
 export function SelectionToTaskModal({
@@ -20,6 +21,7 @@ export function SelectionToTaskModal({
   isOpen,
   onClose,
   onSuccess,
+  beforeAction,
 }: SelectionToTaskModalProps) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
@@ -30,7 +32,7 @@ export function SelectionToTaskModal({
 
   const modalRef = useModalA11y(isOpen, onClose);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isOpen) {
       setTitle(initialTitle.trim());
       setPriority('MEDIUM');
@@ -44,6 +46,7 @@ export function SelectionToTaskModal({
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isSubmitting) return;
     const cleanTitle = title.trim();
     if (!cleanTitle) {
       toast.error('Task title cannot be empty');
@@ -53,6 +56,7 @@ export function SelectionToTaskModal({
 
     setIsSubmitting(true);
     try {
+      await beforeAction?.();
       const result = await api.documents.createTask(documentId, {
         title: cleanTitle,
         priority,
@@ -106,6 +110,8 @@ export function SelectionToTaskModal({
           <button 
             type="button"
             onClick={onClose} 
+            aria-label="Close dialog"
+            title="Close dialog"
             className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-surface-hover transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -115,10 +121,13 @@ export function SelectionToTaskModal({
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
+            <label htmlFor="selection-task-title" className="block font-bold text-secondary font-mono uppercase text-[11px] mb-1.5 tracking-wider">
               Task Title <span className="text-danger-fg">*</span>
             </label>
             <input
+              id="selection-task-title"
+              name="taskTitle"
+              aria-label="Task title"
               ref={inputRef}
               type="text"
               value={title}

@@ -11,10 +11,9 @@ import {
     Edit3,
     Flag,
     Plus,
-    Sparkles,
-    Target,
     Trash2,
 } from "lucide-react";
+import { GoalSummitIcon } from '../ui/GoalIcon';
 import { useTodayPlanner } from '../../hooks/useTodayPlanner';
 import { blockTypeStyle } from "../../lib/blockTypeStyles";
 import { blockMinutesOfDay, cn } from "../../lib/utils";
@@ -57,7 +56,7 @@ export function TodayView({
   backLabel = 'Plan',
 }: Props) {
   const planner = useTodayPlanner({ day, data, onAddTimeBlock });
-  const { currentTime, navigate, isViewingToday, targetDateStr, taskList, timeBlocks, focusTimeString, timeString, formatTime, getHHMM, getDurationString, getNextAvailableSlot, handleRescheduleAllOverdue, dayMilestones, dayGoalDeadlines, carriedOverTasks, setActiveTaskTab } = planner;
+  const { currentTime, navigate, isViewingToday, targetDateStr, taskList, timeBlocks, focusTimeString, formatTime, getHHMM, getDurationString, getNextAvailableSlot, handleRescheduleAllOverdue, dayMilestones, dayGoalDeadlines, carriedOverTasks, setActiveTaskTab } = planner;
 
   return (
     <div className="flex flex-col gap-5 animate-in fade-in duration-150 pb-12">
@@ -75,7 +74,7 @@ export function TodayView({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-bold text-primary tracking-tight">
-                {format(day, 'EEEE, MMMM d, yyyy')}
+                Daily plan
               </h2>
               {isViewingToday && (
                 <span className="px-2 py-0.5 rounded-full bg-accent-subtle text-accent-fg text-badge font-bold font-mono uppercase tracking-wider border border-accent/20">
@@ -83,35 +82,21 @@ export function TodayView({
                 </span>
               )}
             </div>
-            <p className="text-xs text-secondary mt-0.5">
-              Day schedule, chronological time blocks, and task execution.
-            </p>
           </div>
         </div>
 
         {/* Live Horizon Clock & Primary Action */}
         <div className="flex items-center flex-wrap gap-2.5">
-          <div className="px-3 py-1.5 bg-surface border border-border/80 rounded-xl flex items-center gap-2.5 shadow-2xs">
-            <div className="text-caption font-semibold text-accent flex items-center gap-1.5">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
-              </span>
-              <Sparkles className="w-3.5 h-3.5 fill-accent text-accent" /> Live Horizon
-            </div>
-            <div className="text-xs font-mono font-bold text-primary tracking-tight">
-              {timeString}
-            </div>
-          </div>
-
           {onAddTimeBlock && (
             <button
-              onClick={() => onAddTimeBlock(day, getNextAvailableSlot(timeBlocks, day))}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-semibold transition-all shadow-xs cursor-pointer"
+              aria-label="Add Time Block"
+              onClick={event => { event.currentTarget.focus(); onAddTimeBlock(day, getNextAvailableSlot(timeBlocks, day)); }}
+              aria-haspopup="dialog"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-accent text-on-accent hover:bg-accent-hover text-xs font-semibold transition-all shadow-xs cursor-pointer"
               title="Add Time Block"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>+ Time Block</span>
+              <span>Time Block</span>
             </button>
           )}
 
@@ -168,9 +153,6 @@ export function TodayView({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-primary">Day Schedule</h3>
-                  <p className="text-caption text-secondary">
-                    Sequential chronological schedule for {format(day, 'MMM d, yyyy')}
-                  </p>
                 </div>
               </div>
 
@@ -195,7 +177,7 @@ export function TodayView({
                   {onAddTimeBlock && (
                     <button
                       onClick={() => onAddTimeBlock(day, getNextAvailableSlot(timeBlocks, day))}
-                      className="px-4 py-2 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-accent text-on-accent hover:bg-accent-hover text-xs font-semibold transition-all shadow-xs cursor-pointer"
                     >
                       + Add Time Block
                     </button>
@@ -417,7 +399,7 @@ export function TodayView({
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-border">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-cat-projects-bg text-cat-projects flex items-center justify-center">
-                  <Target className="w-4 h-4 stroke-[2]" />
+                  <GoalSummitIcon className="w-4 h-4 stroke-[2]" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-primary">Milestones</h3>
@@ -474,7 +456,7 @@ export function TodayView({
                       onClick={() => onClickMilestone && onClickMilestone(m)}
                       className="flex-1 min-w-0 flex items-center gap-2 text-left cursor-pointer"
                     >
-                      <Target className="w-3.5 h-3.5 shrink-0 text-cat-projects" />
+                      <GoalSummitIcon className="w-3.5 h-3.5 shrink-0 text-cat-projects" />
                       <span className={cn(
                         "text-xs font-semibold truncate",
                         m.completed ? "text-muted line-through" : "text-primary"

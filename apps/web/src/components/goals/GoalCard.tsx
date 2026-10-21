@@ -17,6 +17,7 @@ import { getPillar, type GoalStatus } from './goalConstants';
 interface GoalCardProps {
   goal: GoalWithRelations;
   depth?: number;
+  searchQuery?: string;
   isLastChild?: boolean;
   onAddChild?: (parentGoal: GoalWithRelations) => void;
   onEdit?: (goal: GoalWithRelations) => void;
@@ -28,6 +29,7 @@ interface GoalCardProps {
 export const GoalCard = React.memo(function GoalCard({
   goal,
   depth = 0,
+  searchQuery = '',
   isLastChild = false,
   onAddChild,
   onEdit,
@@ -39,12 +41,13 @@ export const GoalCard = React.memo(function GoalCard({
   const queryClient = useQueryClient();
   const pace = useMemo(() => computeGoalPace(goal), [goal]);
   const [isExpanded, setIsExpanded] = useState(true);
+  useEffect(() => { if (searchQuery.trim()) setIsExpanded(true); }, [searchQuery]);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Metadata-backed config
   const metadata = ((goal as any).metadata || {}) as Record<string, any>;
-  const isAuto = metadata.progressMode === 'auto';
+  const isAuto = metadata.progressMode === 'auto' && !goal.childGoals?.length;
   const isMeasurable = Boolean(metadata.measurable) && metadata.targetValue != null;
   const isPinned = Boolean(metadata.isPinned);
   const pillar = getPillar(metadata.category);
@@ -185,12 +188,12 @@ export const GoalCard = React.memo(function GoalCard({
     return sorted.length > 0 ? sorted.slice(-7).map((s) => s.progress) : [0, goal.progress];
   }, [goal.snapshots, goal.progress]);
 
-  const GoalIcon = resolveIcon(goal.icon || 'Target');
+  const GoalIcon = resolveIcon(goal.icon || 'Goal');
   const rawStatus = (metadata.status || (goal as any).status || 'ACTIVE') as GoalStatus;
   const isCompleted = rawStatus === 'COMPLETED' || goal.progress >= 100;
 
   return (
-    <div className={cn('relative group/goal', depth > 0 && 'ml-4 sm:ml-8 mt-2.5')}>
+    <div className={cn('relative group/goal', depth > 0 && 'mt-2.5', depth > 0 && depth < 3 && 'ml-4 sm:ml-8', menuOpen && 'z-30')}>
       {/* Curved Tree Connector Lines for Child Milestones */}
       {depth > 0 && (
         <div
@@ -208,7 +211,8 @@ export const GoalCard = React.memo(function GoalCard({
 
       <div
         className={cn(
-          'transition-all duration-300 relative overflow-hidden bg-card border group/card',
+          'workspace-goal-card transition-colors duration-150 relative bg-card border group/card',
+          menuOpen && 'z-30',
           depth === 0
             ? 'p-4 sm:p-5 rounded-2xl border-border/80 hover:border-accent/40 shadow-xs hover:shadow-md hover:-translate-y-[1px]'
             : 'p-3.5 sm:p-4 rounded-xl border-border/70 bg-surface/50 hover:bg-surface/80 hover:border-accent/30 shadow-2xs hover:shadow-xs',
@@ -218,11 +222,11 @@ export const GoalCard = React.memo(function GoalCard({
       >
         {/* Completed Ribbon for top objectives */}
         {isCompleted && depth === 0 && (
-          <div className="mb-2 px-2.5 py-0.5 rounded-md bg-success-bg border border-success-border text-success-fg text-[11px] flex items-center justify-between font-mono">
+          <div className="mb-2 px-2.5 py-0.5 rounded-md bg-success-bg border border-success-border text-success-fg text-xs flex items-center justify-between font-mono">
             <span className="flex items-center gap-1.5 font-bold">
               <Trophy className="w-3.5 h-3.5" /> Objective Accomplished
             </span>
-            <span className="text-[10px] font-semibold">100% Complete</span>
+            <span className="text-xs font-semibold">100% Complete</span>
           </div>
         )}
 
@@ -232,7 +236,7 @@ export const GoalCard = React.memo(function GoalCard({
           <div className="flex items-start gap-3 min-w-0 flex-1">
             <button
               type="button"
-              onClick={() => onOpenDetail?.(goal)}
+              onClick={event => { event.currentTarget.focus(); onOpenDetail?.(goal); }}
               className={cn(
                 'rounded-xl border flex items-center justify-center shrink-0 mt-0.5 transition-all cursor-pointer group-hover/goal:scale-105',
                 depth === 0 ? 'w-9 h-9' : 'w-7 h-7',
@@ -241,6 +245,7 @@ export const GoalCard = React.memo(function GoalCard({
                   : 'bg-surface-hover text-secondary border-border group-hover/goal:text-accent-fg group-hover/goal:border-accent/40'
               )}
               title="Open Cockpit"
+              aria-label={`Open Cockpit for ${goal.title}`}
             >
               <GoalIcon className={cn(depth === 0 ? 'w-4 h-4' : 'w-3.5 h-3.5', 'stroke-[1.75]')} />
             </button>
@@ -250,7 +255,7 @@ export const GoalCard = React.memo(function GoalCard({
               <div className="flex flex-wrap items-center gap-1.5 mb-1">
                 <button
                   type="button"
-                  onClick={() => onOpenDetail?.(goal)}
+                  onClick={event => { event.currentTarget.focus(); onOpenDetail?.(goal); }}
                   className={cn(
                     'font-semibold text-primary group-hover/goal:text-accent-fg transition-colors cursor-pointer truncate',
                     depth === 0 ? 'text-sm' : 'text-xs'
@@ -264,7 +269,7 @@ export const GoalCard = React.memo(function GoalCard({
                 {metadata.category && metadata.category !== 'all' && (
                   <span
                     className={cn(
-                      'text-[9px] font-mono font-semibold uppercase px-2 py-0.2 rounded-full border inline-flex items-center gap-1 shadow-2xs',
+                      'text-xs font-mono font-semibold uppercase px-2 py-0.2 rounded-full border inline-flex items-center gap-1 shadow-2xs',
                       pillar.color
                     )}
                   >
@@ -275,7 +280,7 @@ export const GoalCard = React.memo(function GoalCard({
 
                 {/* Pinned star badge */}
                 {isPinned && depth === 0 && (
-                  <span className="text-[10px] text-warning-fg inline-flex items-center gap-0.5" title="Pinned to Spotlight">
+                  <span className="text-xs text-warning-fg inline-flex items-center gap-0.5" title="Pinned to Spotlight">
                     <Star className="w-3 h-3 fill-warning-fg stroke-[1.5]" />
                   </span>
                 )}
@@ -283,7 +288,7 @@ export const GoalCard = React.memo(function GoalCard({
                 {/* Auto-progress badge */}
                 {isAuto && (
                   <span
-                    className="text-[9px] font-mono font-semibold uppercase text-accent-fg bg-accent-subtle border border-accent/20 px-2 py-0.2 rounded-full inline-flex items-center gap-1 shadow-2xs"
+                    className="text-xs font-mono font-semibold uppercase text-accent-fg bg-accent-subtle border border-accent/20 px-2 py-0.2 rounded-full inline-flex items-center gap-1 shadow-2xs"
                     title="Progress calculated automatically from connected project tasks"
                   >
                     <Zap className="w-2.5 h-2.5 stroke-[2]" />
@@ -293,13 +298,13 @@ export const GoalCard = React.memo(function GoalCard({
 
                 {/* Status Badges with glowing dot */}
                 {rawStatus === 'PAUSED' && (
-                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-warning-bg text-warning-fg border border-warning-border inline-flex items-center gap-1 shadow-2xs">
+                  <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-warning-bg text-warning-fg border border-warning-border inline-flex items-center gap-1 shadow-2xs">
                     <span className="w-1.5 h-1.5 rounded-full bg-warning-fg" />
                     <span>Paused</span>
                   </span>
                 )}
                 {rawStatus === 'CANCELED' && (
-                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-danger-bg text-danger-fg border border-danger-border inline-flex items-center gap-1 shadow-2xs">
+                  <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-danger-bg text-danger-fg border border-danger-border inline-flex items-center gap-1 shadow-2xs">
                     <span className="w-1.5 h-1.5 rounded-full bg-danger-fg" />
                     <span>Canceled</span>
                   </span>
@@ -307,22 +312,22 @@ export const GoalCard = React.memo(function GoalCard({
                 {!isCompleted && rawStatus === 'ACTIVE' && goal.targetDate && (
                   <>
                     {pace.status === 'past_due' ? (
-                      <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-danger-bg text-danger-fg border border-danger-border inline-flex items-center gap-1 shadow-2xs">
+                      <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-danger-bg text-danger-fg border border-danger-border inline-flex items-center gap-1 shadow-2xs">
                         <span className="w-1.5 h-1.5 rounded-full bg-danger-fg animate-pulse" />
                         <span>Past Due</span>
                       </span>
                     ) : pace.isDueToday ? (
-                      <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-warning-bg text-warning-fg border border-warning-border inline-flex items-center gap-1 shadow-2xs">
+                      <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-warning-bg text-warning-fg border border-warning-border inline-flex items-center gap-1 shadow-2xs">
                         <span className="w-1.5 h-1.5 rounded-full bg-warning-fg animate-ping" />
                         <span>Due Today</span>
                       </span>
                     ) : pace.status === 'behind' ? (
-                      <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-warning-bg text-warning-fg border border-warning-border inline-flex items-center gap-1 shadow-2xs">
+                      <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-warning-bg text-warning-fg border border-warning-border inline-flex items-center gap-1 shadow-2xs">
                         <span className="w-1.5 h-1.5 rounded-full bg-warning-fg" />
                         <span>Behind</span>
                       </span>
                     ) : pace.status === 'ahead' ? (
-                      <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-success-bg text-success-fg border border-success-border inline-flex items-center gap-1 shadow-2xs">
+                      <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-success-bg text-success-fg border border-success-border inline-flex items-center gap-1 shadow-2xs">
                         <span className="w-1.5 h-1.5 rounded-full bg-success-fg" />
                         <span>Ahead</span>
                       </span>
@@ -339,7 +344,7 @@ export const GoalCard = React.memo(function GoalCard({
               )}
 
               {/* Metadata row: Dates, Milestones toggle, Measurable metric */}
-              <div className="flex flex-wrap items-center gap-2.5 text-[11px] text-secondary font-mono">
+              <div className="flex flex-wrap items-center gap-2.5 text-xs text-secondary font-mono">
                 {goal.targetDate && (
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3 h-3 stroke-[1.5] text-secondary" />
@@ -351,7 +356,7 @@ export const GoalCard = React.memo(function GoalCard({
                     </span>
                     <span
                       className={cn(
-                        'text-[10px]',
+                        'text-xs',
                         pace.isDueToday
                           ? 'text-warning-fg font-bold'
                           : pace.daysRemaining > 0
@@ -368,6 +373,8 @@ export const GoalCard = React.memo(function GoalCard({
                 {hasChildren && (
                   <button
                     type="button"
+                    aria-expanded={isExpanded}
+                    aria-label={`${isExpanded ? 'Collapse' : 'Expand'} key results for ${goal.title}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       setIsExpanded(!isExpanded);
@@ -392,7 +399,7 @@ export const GoalCard = React.memo(function GoalCard({
                     <span className="text-xs font-mono font-bold text-primary tabular-nums">
                       {metadata.currentValue ?? 0}
                       <span className="text-secondary font-normal font-mono"> / {metadata.targetValue}</span>
-                      {metadata.unit ? <span className="text-secondary font-sans text-[10px] ml-0.5">{metadata.unit}</span> : ''}
+                      {metadata.unit ? <span className="text-secondary font-sans text-xs ml-0.5">{metadata.unit}</span> : ''}
                     </span>
                     <button
                       type="button"
@@ -401,7 +408,7 @@ export const GoalCard = React.memo(function GoalCard({
                         quickIncrementMutation.mutate();
                       }}
                       disabled={quickIncrementMutation.isPending}
-                      className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-accent-subtle hover:bg-accent hover:text-white text-accent-fg border border-accent/30 shadow-2xs hover:scale-105 active:scale-[0.98] transition-all cursor-pointer flex items-center gap-0.5"
+                      className="px-1.5 py-0.5 rounded-md text-xs font-mono font-bold bg-accent-subtle hover:bg-accent hover:text-white text-accent-fg border border-accent/30 shadow-2xs hover:scale-105 active:scale-[0.98] transition-all cursor-pointer flex items-center gap-0.5"
                       title={`Quick increment by 1 ${metadata.unit || ''}`}
                     >
                       <span>+1</span>
@@ -417,7 +424,8 @@ export const GoalCard = React.memo(function GoalCard({
             {/* Quick Progress Trigger */}
             <button
               type="button"
-              onClick={() => onOpenDetail?.(goal)}
+              aria-label={`Current progress ${goal.progress}%. Open cockpit for ${goal.title}`}
+              onClick={event => { event.currentTarget.focus(); onOpenDetail?.(goal); }}
               className={cn(
                 'px-2.5 py-1 rounded-lg font-mono font-bold text-xs transition-all cursor-pointer flex items-center gap-1 border',
                 isCompleted
@@ -443,7 +451,7 @@ export const GoalCard = React.memo(function GoalCard({
               </button>
 
               {menuOpen && (
-                <div className="absolute right-0 top-8 z-30 w-44 rounded-xl bg-card border border-border shadow-xl p-1 animate-in fade-in zoom-in-95 duration-100 text-left">
+                <div className="absolute right-0 top-8 z-50 w-44 rounded-xl bg-surface border border-border shadow-xl p-1 animate-in fade-in zoom-in-95 duration-100 text-left">
                   <button
                     type="button"
                     onClick={() => {
@@ -456,7 +464,7 @@ export const GoalCard = React.memo(function GoalCard({
                     <span>Open Cockpit</span>
                   </button>
 
-                  {depth < 2 && (
+                  {onAddChild && (
                     <button
                       type="button"
                       onClick={() => {
@@ -523,7 +531,7 @@ export const GoalCard = React.memo(function GoalCard({
         </div>
 
         {/* Condensed Strategic Pace & Trend Footer */}
-        <div className="flex items-center justify-between text-[11px] font-mono text-secondary">
+        <div className="flex items-center justify-between text-xs font-mono text-secondary">
           <div className="flex items-center gap-1.5">
             {['stalled', 'past_due'].includes(pace.status) ? (
               <XCircle className="w-3.5 h-3.5 text-danger-fg shrink-0" />
@@ -562,7 +570,7 @@ export const GoalCard = React.memo(function GoalCard({
             </div>
 
             {pace.projectedDate && (
-              <span className="text-[10px] hidden sm:inline text-secondary">
+              <span className="text-xs hidden sm:inline text-secondary">
                 Est: <b className="text-primary">{pace.projectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</b>
               </span>
             )}
@@ -580,7 +588,7 @@ export const GoalCard = React.memo(function GoalCard({
                   e.stopPropagation();
                   navigate(`/app/projects/${proj.id}`);
                 }}
-                className="px-2 py-0.5 rounded-md bg-cat-projects-bg hover:bg-cat-projects-bg/80 border border-cat-projects/20 text-[10px] font-medium text-cat-projects transition-all flex items-center gap-1 cursor-pointer"
+                className="px-2 py-0.5 rounded-md bg-cat-projects-bg hover:bg-cat-projects-bg/80 border border-cat-projects/20 text-xs font-medium text-cat-projects transition-all flex items-center gap-1 cursor-pointer"
               >
                 <FolderKanban className="w-2.5 h-2.5" />
                 <span>{proj.name}</span>
@@ -590,7 +598,7 @@ export const GoalCard = React.memo(function GoalCard({
             {linkedHabits.map((h: any) => (
               <div
                 key={h.id}
-                className="px-2 py-0.5 rounded-md bg-warning-bg/40 hover:bg-warning-bg border border-warning-border text-[10px] font-medium text-warning-fg transition-all flex items-center gap-1.5"
+                className="px-2 py-0.5 rounded-md bg-warning-bg/40 hover:bg-warning-bg border border-warning-border text-xs font-medium text-warning-fg transition-all flex items-center gap-1.5"
                 title={`${h.name} · ${h.streak || 0}d streak`}
               >
                 <button
@@ -603,7 +611,7 @@ export const GoalCard = React.memo(function GoalCard({
                 >
                   <Flame className="w-2.5 h-2.5" />
                   <span>{h.name}</span>
-                  {h.streak > 0 && <span className="text-[9px] opacity-80">🔥{h.streak}d</span>}
+                  {h.streak > 0 && <span className="text-xs opacity-80">🔥{h.streak}d</span>}
                 </button>
                 <button
                   type="button"
@@ -612,7 +620,7 @@ export const GoalCard = React.memo(function GoalCard({
                     logHabitMutation.mutate(h.id);
                   }}
                   disabled={logHabitMutation.isPending}
-                  className="px-1.5 py-0.5 rounded bg-success-bg text-success-fg hover:bg-success-bg/80 border border-success-border transition-all font-mono font-bold text-[9px] cursor-pointer"
+                  className="px-1.5 py-0.5 rounded bg-success-bg text-success-fg hover:bg-success-bg/80 border border-success-border transition-all font-mono font-bold text-xs cursor-pointer"
                   title="Log habit complete for today"
                 >
                   <Check className="w-2.5 h-2.5 stroke-[2.5]" />
@@ -631,6 +639,7 @@ export const GoalCard = React.memo(function GoalCard({
               key={child.id}
               goal={child}
               depth={depth + 1}
+              searchQuery={searchQuery}
               isLastChild={index === goal.childGoals!.length - 1}
               onAddChild={onAddChild}
               onEdit={onEdit}

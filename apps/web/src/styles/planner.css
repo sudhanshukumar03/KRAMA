@@ -1,0 +1,103 @@
+/* Keep Planner's existing desktop composition; adapt to the space inside the app shell. */
+.planner-page { container-type: inline-size; }
+.planner-shell { padding: var(--workspace-gutter, 24px); gap: 20px; }
+.planner-header { border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; gap: 16px; }
+.planner-title { gap: 12px; }
+.planner-title h1 { font-size: 28px; font-weight: 650; line-height: 36px; letter-spacing: -.035em; }
+.planner-title > div { width: 40px; height: 40px; border-radius: 11px; background: var(--surface-1); border-color: var(--border-default); box-shadow: none; }
+.planner-modes { box-shadow: none; border-radius: 10px; }
+.planner-modes button { min-height: 44px; padding-inline: 14px; font-family: var(--font-sans); font-weight: 500; letter-spacing: normal; }
+.planner-navigation { gap: 10px; }
+.planner-navigation > button, .planner-navigation > div:not(.planner-date) { background: var(--surface-1); box-shadow: none; border-radius: 9px; }
+.planner-navigation > div:not(.planner-date) button { min-width: 44px; min-height: 44px; }
+.planner-date-label { font-family: var(--font-sans); font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+.planner-options > button { box-shadow: none; font-family: var(--font-sans); font-size: 12px; font-weight: 500; border-radius: 9px; }
+.planner-page .planner-capacity { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; padding: 0; border: 1px solid var(--border-default); border-radius: 12px; background: var(--surface-1); overflow: hidden; flex-shrink: 0; }
+.planner-capacity-cell { position: relative; min-width: 0; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.planner-capacity-cell + .planner-capacity-cell { border-left: 1px solid var(--border-default); }
+.planner-capacity-label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); line-height: 18px; }
+.planner-capacity-label > svg { flex-shrink: 0; }
+.planner-capacity-value { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; font-variant-numeric: tabular-nums; }
+.planner-capacity-value strong { font-size: 18px; line-height: 26px; font-weight: 600; letter-spacing: -.02em; }
+.planner-capacity-value > span, .planner-capacity-context { font-size: 12px; color: var(--text-secondary); }
+.planner-capacity-cell .krama-progress { width: 100%; height: 3px; margin-top: auto; }
+.planner-capacity-edit { position: absolute; top: 31px; right: 8px; color: var(--accent-fg); font-size: 12px; border-radius: 7px; }
+.planner-capacity-cell:first-child .planner-capacity-value { padding-right: 30px; }
+.planner-capacity-context { display: none; }
+.planner-header button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.planner-date { min-width: 0; }
+.planner-date-label { overflow-wrap: anywhere; }
+.planner-calendar-main { min-width: 0; }
+.planner-matrix-task { display: grid; grid-template-columns: 12px minmax(0, 1fr); align-items: start; gap: 4px 6px; }
+.planner-matrix-task > button:nth-child(2) { overflow-wrap: anywhere; }
+.planner-matrix-task-actions { grid-column: 2; display: flex; justify-content: flex-end; gap: 4px; }
+
+@container (max-width: 1050px) {
+  .planner-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .planner-header-primary { display: contents; }
+  .planner-title { grid-column: 1; grid-row: 1; }
+  .planner-options { grid-column: 2; grid-row: 1; justify-content: flex-end; }
+  .planner-modes { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+  .planner-navigation { grid-column: 1 / -1; grid-row: 3; }
+  .planner-date-label { font-size: 16px; }
+}
+
+@container (max-width: 900px) {
+  .planner-shell { height: auto; min-height: 100%; flex-shrink: 0; padding-bottom: 88px; }
+  .planner-content, .planner-week, .planner-month, .planner-day { flex: none; overflow: visible; }
+  .planner-week-grid { flex: none; height: clamp(440px, 70svh, 680px); }
+  .planner-calendar { flex: none; flex-direction: column; overflow: visible; }
+  .planner-calendar-main { flex: none; min-width: 0; }
+  .planner-month-grid { flex: none; min-height: 540px; grid-auto-rows: minmax(88px, 1fr); }
+  .planner-calendar-summary { width: 100%; overflow: visible; }
+  .planner-capacity { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* This element is the query container, so its scrolling uses the app's viewport breakpoint. */
+@media (max-width: 1200px) {
+  .planner-page { overflow-y: auto; }
+}
+@media (max-height: 650px) {
+  .planner-page { overflow-y: auto; }
+  .planner-shell { height: auto; min-height: 100%; flex-shrink: 0; }
+  .planner-week-grid { flex: none; height: 440px; }
+  .planner-month-grid { min-height: 440px; }
+  .planner-month, .planner-calendar, .planner-content, .planner-week { flex: none; overflow: visible; }
+}
+
+@container (max-width: 600px) {
+  .planner-header { padding: 12px; gap: 12px 8px; }
+  .planner-title h1 { font-size: 24px; }
+  .planner-title > div { width: 36px; height: 36px; }
+  .planner-options > button { min-width: 0; max-width: 100%; padding-inline: 8px; font-size: 10px; }
+  .planner-options > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .planner-options > label { min-height: 44px; font-size: 10px; padding-inline: 8px; }
+  .planner-options { max-width: 156px; }
+  .planner-modes { width: 100%; }
+  .planner-modes button { flex: 1; justify-content: center; padding-inline: 6px; min-height: 44px; }
+  .planner-navigation { gap: 8px; }
+  .planner-navigation > button { min-height: 44px; }
+  .planner-navigation > div:not(.planner-date) button { min-width: 44px; min-height: 44px; }
+  .planner-date { order: -1; width: 100%; margin: 0; flex-wrap: wrap; gap: 6px; }
+  .planner-date-label { font-size: 14px; }
+  .planner-capacity { display: flex; overflow-x: auto; padding-bottom: 4px; }
+  .planner-capacity > div { flex: 0 0 180px; }
+  .planner-month-grid > [role="button"] { padding: 4px; }
+  .planner-month-grid > [role="button"] > div:first-child { flex-wrap: wrap; gap: 2px; }
+}
+
+@container (max-width: 1050px) {
+  .planner-page .planner-capacity { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .planner-capacity-cell:nth-child(4) { border-left: 0; }
+  .planner-capacity-cell:nth-child(n+4) { border-top: 1px solid var(--border-default); }
+}
+@container (max-width: 600px) {
+  .planner-header { padding: 0; }
+  .planner-page .planner-capacity { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .planner-capacity-cell { padding: 14px; }
+  .planner-capacity-cell:nth-child(odd) { border-left: 0; }
+  .planner-capacity-cell:nth-child(even) { border-left: 1px solid var(--border-default); }
+  .planner-capacity-cell:nth-child(n+3) { border-top: 1px solid var(--border-default); }
+  .planner-capacity-edit { top: 29px; }
+  .planner-capacity-value strong { font-size: 17px; }
+}

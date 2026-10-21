@@ -1,10 +1,13 @@
+import { WorkspaceSearchField } from './ui/WorkspaceSearchField';
 import type { ProjectStatus, ProjectWithRelations } from '../types/schema';
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import { FolderKanban, Plus, Clock, Target, Search, Filter, CheckCircle2, Sparkles, ArrowRight, ShieldCheck, ChevronUp, ChevronDown } from 'lucide-react';
+import { FolderKanban, Plus, Clock, Filter, CheckCircle2, ArrowRight, ChevronUp, ChevronDown, RotateCcw } from 'lucide-react';
+import { GoalIcon } from './ui/GoalIcon';
 import { PageHeader } from './ui/PageHeader';
 import { LoadingState } from './ui/LoadingState';
+import { BaseButton } from './ui/BaseButton';
 import { ConfirmDeleteButton } from './ui/ConfirmDeleteButton';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -27,20 +30,20 @@ export function Projects() {
  try {
  await api.projects.delete(project.id);
  for (const queryKey of [['projects'], ['project', project.id], ['goals'], ['issues'], ['tasks'], ['planner']]) queryClient.invalidateQueries({ queryKey });
- toast.success(`Deleted initiative "${project.name}"`, {
+ toast.success(`Deleted project "${project.name}"`, {
  action: {
  label: 'Undo',
  onClick: async () => {
  try {
  await api.projects.restore(project.id);
  for (const queryKey of [['projects'], ['project', project.id], ['goals'], ['issues'], ['tasks'], ['planner']]) queryClient.invalidateQueries({ queryKey });
- toast.success(`Restored initiative "${project.name}"`);
- } catch { toast.error('Could not restore initiative'); }
+ toast.success(`Restored project "${project.name}"`);
+ } catch { toast.error('Could not restore project'); }
  }
  }
  });
  } catch {
- toast.error('Failed to delete initiative');
+ toast.error('Failed to delete project');
  }
  };
 
@@ -60,8 +63,8 @@ export function Projects() {
  queryClient.invalidateQueries({ queryKey: ['projects'] });
  queryClient.invalidateQueries({ queryKey: ['goals'] });
  setCreateModalOpen(false);
- toast.success(`Created strategic initiative "${newProj?.name || 'Project'}"`, {
- description: 'Click initiative card to access engineering mission control.'
+ toast.success(`Created strategic project "${newProj?.name || 'Project'}"`, {
+ description: 'Open a project to plan its tasks and milestones.'
  });
  if (newProj?.id) navigate(`/app/projects/${newProj.id}`);
  },
@@ -95,7 +98,7 @@ export function Projects() {
  },
  onError: (_err, _vars, ctx) => {
  if (ctx?.prev) queryClient.setQueryData(['projects'], ctx.prev);
- toast.error('Failed to reorder initiative');
+ toast.error('Failed to reorder project');
  },
  onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
  });
@@ -141,50 +144,45 @@ export function Projects() {
  });
  }, [projects, searchQuery, statusFilter]);
 
- if (pLoading || iLoading || docLoading || goalsLoading) return <LoadingState title="Loading Projects..." description="Loading projects, tasks and linked documents..." />;
+ if (pLoading) return <LoadingState title="Loading Projects..." description="Loading projects..." />;
 
- if (pError || iError || docError || goalsError) return <div className="p-6"><ErrorState title="Could not load projects" onRetry={() => { retryProjects(); retryIssues(); retryDocs(); retryGoals(); }} /></div>;
+ if (pError && projects.length === 0) return <div className="p-6"><ErrorState title="Could not load projects" onRetry={() => { retryProjects(); }} /></div>;
  const statuses = statusFilter === 'all' ? ['active', 'idea', 'paused', 'shipped', 'completed', 'archived'] : [statusFilter];
 
  return (
-    <div className="p-6 md:p-8 flex flex-col h-full bg-canvas overflow-y-auto min-w-0 animate-in fade-in duration-150 gap-5 pb-24 font-sans text-primary">
+    <div className="workspace-page workspace-projects p-6 md:p-8 flex flex-col h-full bg-canvas overflow-y-auto min-w-0 animate-in fade-in duration-150 gap-5 pb-24 font-sans text-primary">
       <PageHeader
         icon={FolderKanban}
-        title="Projects & Strategic Initiatives"
-        description="Engineering command center for multi-phase roadmaps, technical milestones, and high-impact deliverables."
+        title="Projects"
+        description="Keep the tasks and notes for each project together, with a clear view of what comes next."
         primaryAction={{
-          label: 'New Initiative',
+          label: 'New Project',
           icon: Plus,
           onClick: handleCreateProject,
         }}
         className="mb-0"
       />
 
+      {(pError || iError || docError || goalsError) && <ErrorState title="Some project details are unavailable" message="Your available projects remain usable. Retry to refresh missing tasks, documents or goal links." onRetry={() => { if (pError) retryProjects(); if (iError) retryIssues(); if (docError) retryDocs(); if (goalsError) retryGoals(); }} />}
       {/* STRATEGIC HEALTH FILTER & SEARCH BAR */}
-      <div className="bg-surface/80 border border-border/80 rounded-xl p-3 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-2xs backdrop-blur-sm">
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 stroke-[1.75]" />
-          <input
-            type="text"
-            aria-label="Search projects" placeholder="Search initiatives by title or technical scope..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 text-xs bg-surface-hover/80 border border-border/70 rounded-lg focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent focus:bg-surface transition-all placeholder:text-muted text-primary font-medium"
-          />
-        </div>
+      <div className="workspace-toolbar">
+        <WorkspaceSearchField id="projects-search-input" value={searchQuery} onChange={setSearchQuery} label="Search projects" placeholder="Search projects..." />
 
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          <span className="text-[10px] font-bold text-secondary flex items-center gap-1 mr-1 shrink-0 uppercase tracking-wider font-mono">
+        <div role="tablist" aria-label="Filter projects by status" className="workspace-project-status">
+          <span className="text-xs font-bold text-secondary flex items-center gap-1 mr-1 shrink-0 uppercase tracking-wider font-mono">
             <Filter className="w-3.5 h-3.5 stroke-[1.5]" /> Status:
           </span>
           {(['all', 'active', 'idea', 'paused', 'shipped', 'completed', 'archived'] as const).map((stat) => (
             <button
               key={stat}
+              type="button"
+              role="tab"
+              aria-selected={statusFilter === stat}
               onClick={() => setStatusFilter(stat)}
               className={cn(
-                "px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all shrink-0 cursor-pointer",
-                statusFilter === stat 
-                  ? "bg-primary text-text-inverse shadow-xs ring-1 ring-primary/20" 
+                "px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all shrink-0 cursor-pointer font-mono",
+                statusFilter === stat
+                  ? "bg-card text-primary font-bold border border-border shadow-2xs"
                   : "bg-surface-hover/60 text-secondary hover:text-primary border border-border/60 hover:bg-surface-hover"
               )}
             >
@@ -194,24 +192,75 @@ export function Projects() {
         </div>
       </div>
 
- {/* LUXURY LARGE CARDS LIST / GRID */}
- <div className="flex flex-col gap-8">
- {statuses.map(status => {
- const statusProjects = filteredProjects.filter(p => p.status === status);
+      {/* ZERO PROJECTS IN WORKSPACE */}
+      {projects.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-border bg-surface/50 p-12 text-center flex flex-col items-center justify-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-cat-projects-bg border border-cat-projects/20 text-cat-projects flex items-center justify-center shadow-xs">
+            <FolderKanban className="w-7 h-7 stroke-[1.5]" />
+          </div>
+          <div className="max-w-md space-y-1.5">
+            <h3 className="text-base font-bold text-primary">No projects yet</h3>
+            <p className="text-xs text-secondary leading-relaxed">
+              Bring related tasks, notes, and milestones together around one outcome.
+            </p>
+          </div>
+          <BaseButton
+            variant="primary"
+            size="sm"
+            onClick={handleCreateProject}
+            className="gap-2 text-xs font-semibold"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Create First Project
+          </BaseButton>
+        </div>
+      )}
+
+      {/* FILTERED EMPTY STATE */}
+      {projects.length > 0 && filteredProjects.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-border bg-surface/50 p-10 text-center flex flex-col items-center justify-center gap-3">
+          <FolderKanban className="w-8 h-8 text-muted stroke-[1.5]" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-primary">No Matching Projects Found</h3>
+            <p className="text-xs text-secondary">
+              {searchQuery
+                ? `No projects match "${searchQuery}" with status "${statusFilter}".`
+                : `No projects found with status "${statusFilter}".`}
+            </p>
+          </div>
+          <BaseButton
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setSearchQuery('');
+              setStatusFilter('all');
+            }}
+            className="gap-1.5 text-xs font-semibold mt-1"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Reset Filters
+          </BaseButton>
+        </div>
+      )}
+
+      {/* LUXURY LARGE CARDS LIST / GRID */}
+      <div className="workspace-project-groups flex flex-col gap-8">
+        {statuses.map(status => {
+          const statusProjects = filteredProjects.filter(p => p.status === status);
  if (statusProjects.length === 0 && statusFilter !== 'all') {
  return (
  <div key={status} className="border border-border border-dashed rounded-2xl bg-surface-hover/30 p-12 flex flex-col items-center justify-center text-center">
  <FolderKanban className="w-8 h-8 text-secondary mb-2 stroke-[1.5]" />
- <span className="text-caption font-mono font-bold text-primary uppercase">No {status} initiatives match current filter</span>
+ <span className="text-caption font-mono font-bold text-primary uppercase">No {status} projects match current filter</span>
  </div>
  );
  }
  if (statusProjects.length === 0) return null;
 
  return (
- <div key={status} className="flex flex-col gap-4">
+ <div key={status} className="workspace-project-section flex flex-col gap-4">
  {/* Category Status Ribbon */}
- <div className="flex items-center gap-2 text-secondary font-mono font-bold text-caption uppercase tracking-wider px-1">
+ <div className="workspace-project-section-heading flex items-center gap-2 text-secondary px-1">
  <span className={cn("w-2.5 h-2.5 rounded-full shadow-2xs",
  status === 'active' ? 'bg-accent animate-pulse' :
  status === 'idea' ? 'bg-warning-fg' :
@@ -219,12 +268,12 @@ export function Projects() {
  status === 'completed' ? 'bg-cat-tasks' :
  status === 'archived' ? 'bg-secondary/50' : 'bg-secondary'
  )} />
- <span>{status} INITIATIVES</span>
+ <h2>{status === 'idea' ? 'Project ideas' : `${status.charAt(0).toUpperCase()}${status.slice(1)} projects`}</h2>
  <span className="ml-auto bg-surface border border-border px-2.5 py-0.5 rounded-md font-mono text-caption font-bold text-primary shadow-2xs">
- {statusProjects.length} Tracked
+ {statusProjects.length} {statusProjects.length === 1 ? 'project' : 'projects'}
  </span>
  </div>
- 
+
  <div className="flex flex-col gap-4">
  {statusProjects.map((project, groupIdx) => {
  const projectIssues = project.tasks || issues.filter(i => i.projectId === project.id);
@@ -239,10 +288,10 @@ export function Projects() {
  const lastActiveLabel = hoursSinceUpdate < 24 ? `${hoursSinceUpdate}h ago` : `${Math.round(hoursSinceUpdate / 24)}d ago`;
 
  return (
-          <div 
-            key={project.id} 
+          <div
+            key={project.id}
             onClick={() => navigate(`/app/projects/${project.id}`)}
-            className="v4-card p-6 hover:shadow-md transition-all duration-300 hover:translate-y-[-2px] hover:border-accent cursor-pointer group/card flex flex-col justify-between gap-5 relative overflow-hidden"
+            className="workspace-project-card v4-card p-6 hover:shadow-md transition-all duration-300 hover:translate-y-[-2px] hover:border-accent cursor-pointer group/card flex flex-col justify-between gap-5 relative overflow-hidden"
           >
             {/* Left color glow bar on hover */}
             <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-accent opacity-100 transition-opacity duration-300" />
@@ -266,16 +315,16 @@ export function Projects() {
                           e.stopPropagation();
                           navigate('/app/goals');
                         }}
-                        className="bg-cat-projects-bg text-cat-projects border border-cat-projects/25 hover:bg-cat-projects-bg/80 px-2.5 py-0.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="bg-cat-projects-bg text-cat-projects border border-cat-projects/25 hover:bg-cat-projects-bg/80 px-2.5 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                         title={linkedGoal ? `Working toward goal: ${linkedGoal.title}` : 'Linked to Goal'}
                       >
-                        <Target className="w-3 h-3 stroke-[2]" />
-                        <span className="truncate max-w-[320px]">{linkedGoal ? `Goal: ${linkedGoal.title}` : 'OKR Linked'}</span>
+                        <GoalIcon className="w-3 h-3 stroke-[2]" />
+                        <span className="truncate max-w-[320px]">{linkedGoal ? `Goal: ${linkedGoal.title}` : 'Linked goal'}</span>
                       </button>
                     );
                   })()}
                 </div>
-                
+
                 {project.problemStatement && (
                   <p className="text-caption md:text-body text-secondary font-normal line-clamp-2 leading-relaxed max-w-4xl">
                     {project.problemStatement}
@@ -285,10 +334,10 @@ export function Projects() {
 
               {/* Right Quick Actions */}
               <div className="flex items-center gap-2 shrink-0 self-end md:self-start">
-                <div className="flex items-center opacity-0 group-hover/card:opacity-100 transition-opacity">
+                <div className="flex items-center opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 focus-within:opacity-100 transition-opacity">
                   <button
                     type="button"
-                    aria-label="Move initiative up"
+                    aria-label="Move project up"
                     disabled={groupIdx === 0 || reorderMutation.isPending}
                     onClick={(e) => handleMove(e, project, 'up')}
                     className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
@@ -297,7 +346,7 @@ export function Projects() {
                   </button>
                   <button
                     type="button"
-                    aria-label="Move initiative down"
+                    aria-label="Move project down"
                     disabled={groupIdx === statusProjects.length - 1 || reorderMutation.isPending}
                     onClick={(e) => handleMove(e, project, 'down')}
                     className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
@@ -318,62 +367,45 @@ export function Projects() {
                   }}
                   className="px-3.5 py-1.5 rounded-xl bg-surface-hover hover:bg-accent/15 text-secondary hover:text-accent font-semibold text-xs transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer border border-border/70"
                 >
-                  <span>Open Initiative</span>
+                  <span>Open Project</span>
                   <ArrowRight className="w-3.5 h-3.5 stroke-[2] group-hover/card:translate-x-0.5 transition-transform" />
                 </button>
               </div>
             </div>
 
             {/* Middle Row: Unified High-Precision Progress & Telemetry */}
-            <div className="bg-surface-hover/50 border border-border/70 rounded-xl p-3.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
+            <div className="workspace-project-facts bg-surface-hover/50 border border-border/70 rounded-xl p-3.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-secondary">Completion</span>
-                  <span className="text-sm font-bold text-primary font-mono tabular-nums">{progressPct}%</span>
+                  <span className="text-xs font-semibold text-secondary">Completion</span>
+                  <span className="text-sm font-bold text-primary font-mono tabular-nums">{iError || iLoading ? 'Unavailable' : `${progressPct}%`}</span>
                 </div>
                 <div className="w-36 bg-border/40 rounded-full h-2 overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-gradient-to-r from-cat-projects to-accent rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${progressPct}%` }}
+                    style={{ width: iError || iLoading ? '0%' : `${progressPct}%` }}
                   />
                 </div>
               </div>
 
               {/* Telemetry chips */}
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-cat-projects-bg border border-cat-projects/20 text-cat-projects font-semibold text-[11px]">
+                <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-cat-projects-bg border border-cat-projects/20 text-cat-projects font-semibold text-xs">
                   <FolderKanban className="w-3.5 h-3.5" />
-                  {totalDocs} {totalDocs === 1 ? 'Doc' : 'Docs'}
+                  {docError || docLoading ? 'Docs unavailable' : `${totalDocs} ${totalDocs === 1 ? 'Doc' : 'Docs'}`}
                 </span>
-                <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-success-bg border border-success-border text-success-fg font-semibold text-[11px] font-mono tabular-nums">
+                <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-success-bg border border-success-border text-success-fg font-semibold text-xs font-mono tabular-nums">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  {completedIssues}/{totalIssues} Issues
+                  {iError || iLoading ? 'Tasks unavailable' : `${completedIssues}/${totalIssues} Tasks`}
                 </span>
-                <span className="flex items-center gap-1 text-[11px] text-muted font-medium">
+                <span className="flex items-center gap-1 text-xs text-muted font-medium">
                   <Clock className="w-3.5 h-3.5" />
                   Active {lastActiveLabel}
                 </span>
               </div>
             </div>
 
-              {/* Invisible AI Risk Analysis Bar (Reveals on card hover) */}
-              <div className="opacity-0 group-hover/card:opacity-100 max-h-0 group-hover/card:max-h-16 transition-all duration-300 overflow-hidden pt-1">
-                <div className="text-badge font-mono bg-accent-subtle border border-accent/20 text-primary px-3 py-1.5 rounded-lg flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 font-bold text-accent-fg">
-                    <Sparkles className="w-3.5 h-3.5 stroke-[1.5] shrink-0" /> Progress guidance:
-                  </span>
-                  <span className="truncate flex-1 text-secondary">
-                    {progressPct === 100 
-                      ? "Initiative completed. Ready for quarterly archive and post-mortem review." 
-                      : progressPct > 60 
-                      ? "More than 60% of tracked tasks are complete. Review the remaining work against the target date."
-                      : "Early execution phase. Consider scheduling focus sessions for the remaining tasks."}
-                  </span>
-                  <span className="font-bold text-primary flex items-center gap-1 shrink-0">
-                    <ShieldCheck className="w-3.5 h-3.5 text-success-fg stroke-[1.5]" /> Tracked
-                  </span>
-                </div>
-              </div>
+
             </div>
           );
  })}
@@ -389,6 +421,7 @@ export function Projects() {
  onSubmit={(data) => createProjectMutation.mutate(data)}
  isSubmitting={createProjectMutation.isPending}
  goals={goals}
+ goalsUnavailable={goalsError || goalsLoading}
  />}
  </div>
  );

@@ -1,122 +1,22 @@
 import { Router } from 'express';
-import type { Request, Response } from 'express';
-import { prisma } from '../prisma';
+import { WorkspaceSearchQuerySchema } from '@krama/validation';
 import { requireAuth, requireWorkspaceRole } from '../middlewares/auth.middleware';
+import { handleControllerError } from '../utils/errors';
+import { searchWorkspace } from '../services/workspaceSearch.service';
 
 const router: Router = Router();
 router.use(requireAuth);
-// Search is read-only; any workspace member including VIEWER may use it.
 router.use(requireWorkspaceRole('VIEWER'));
-
-// GET /search?q=keyword
-router.get('/', async (req: Request, res: Response) => {
-  try {
-    const q = (req.query.q as string || '').trim();
-    const workspaceId = (req as any).workspaceId || (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || '';
-
-    if (!q) {
-      return res.json({ results: [] });
-    }
-    if (!workspaceId) {
-      return res.status(400).json({ message: 'workspaceId is required' });
-    }
-
-    const [tasks, documents, goals, projects] = await Promise.all([
-      prisma.task.findMany({
-        where: {
-          workspaceId,
-          deletedAt: null,
-          OR: [
-            { title: { contains: q, mode: 'insensitive' } },
-            { description: { contains: q, mode: 'insensitive' } },
-          ],
-        },
-        take: 10,
-        orderBy: { updatedAt: 'desc' },
-        select: { id: true, title: true, status: true, description: true, updatedAt: true },
-      }),
-      prisma.document.findMany({
-        where: {
-          space: { workspaceId, deletedAt: null },
-          deletedAt: null,
-          OR: [
-            { title: { contains: q, mode: 'insensitive' } },
-            { contentMarkdown: { contains: q, mode: 'insensitive' } },
-          ],
-        },
-        take: 10,
-        orderBy: { updatedAt: 'desc' },
-        select: { id: true, title: true, subtitle: true, documentType: true, contentMarkdown: true, updatedAt: true },
-      }),
-      prisma.goal.findMany({
-        where: {
-          workspaceId,
-          deletedAt: null,
-          title: { contains: q, mode: 'insensitive' },
-        },
-        take: 10,
-        orderBy: { updatedAt: 'desc' },
-        select: { id: true, title: true, progress: true, updatedAt: true },
-      }),
-      prisma.project.findMany({
-        where: {
-          workspaceId,
-          deletedAt: null,
-          OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { problemStatement: { contains: q, mode: 'insensitive' } },
-          ],
-        },
-        take: 10,
-        orderBy: { updatedAt: 'desc' },
-        select: { id: true, name: true, status: true, problemStatement: true, updatedAt: true },
-      }),
-    ]);
-
-    const results = [
-      ...tasks.map(t => ({
-        id: t.id,
-        title: t.title,
-        type: 'issue' as const,
-        badge: t.status,
-        url: `/app/board?task=${encodeURIComponent(t.id)}`,
-        snippet: t.description || 'Task Directive',
-        updatedAt: t.updatedAt,
-      })),
-      ...documents.map(d => ({
-        id: d.id,
-        title: d.title,
-        type: 'page' as const,
-        badge: d.documentType || 'DOC',
-        url: `/app/brain?doc=${d.id}`,
-        snippet: d.subtitle || (d.contentMarkdown ? d.contentMarkdown.slice(0, 120) : 'Brain Workspace Document'),
-        updatedAt: d.updatedAt,
-      })),
-      ...goals.map(g => ({
-        id: g.id,
-        title: g.title,
-        type: 'goal' as const,
-        badge: `${g.progress}%`,
-        url: `/app/goals?goal=${encodeURIComponent(g.id)}`,
-        snippet: `Strategic Goal • ${g.progress}% complete`,
-        updatedAt: g.updatedAt,
-      })),
-      ...projects.map(p => ({
-        id: p.id,
-        title: p.name,
-        type: 'project' as const,
-        badge: p.status,
-        url: `/app/projects/${p.id}`,
-        snippet: p.problemStatement || 'Engineering Project',
-        updatedAt: p.updatedAt,
-      })),
-    ].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-
-    return res.json({ results });
-  } catch (error) {
-    console.error('Search error:', error);
-    return res.status(500).json({ message: 'Search failed' });
-  }
+router.get('/recent', async (req, res) => {
+  if (!req.workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+  try { return res.json({ results: await searchWorkspace(req.workspaceId, '', 6) }); }
+  catch (error) { return handleControllerError(res, error, 'Recent items are unavailable'); }
 });
-
+router.get('/', async (req, res) => {
+  if (!req.workspaceId) return res.status(400).json({ message: 'workspaceId is required' });
+  try {
+    const { q } = WorkspaceSearchQuerySchema.parse(req.query);
+    return res.json({ results: q ? await searchWorkspace(req.workspaceId, q) : [] });
+  } catch (error) { return handleControllerError(res, error, 'Search is unavailable'); }
+});
 export default router;

@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { useLocalDay } from './useLocalDay';
 
 export function useDashboard() {
+  const day = useLocalDay();
   return useQuery({
-    queryKey: ['dashboard'],
+    queryKey: ['dashboard', day],
     queryFn: async () => {
       return api.dashboard.get();
     },

@@ -101,12 +101,12 @@ export async function getDocumentGraph(id: string, rootId?: string, maxDepth = 2
     // Workspace-scope the external entities too, so cross-workspace links in
     // legacy data don't pull foreign projects/tasks into the graph.
     const projects = projectIds.size > 0 ? await prisma.project.findMany({
-      where: { id: { in: Array.from(projectIds) }, workspaceId: id },
+      where: { id: { in: Array.from(projectIds) }, workspaceId: id, deletedAt: null },
       select: { id: true, name: true }
     }) : [];
 
     const tasks = taskIds.size > 0 ? await prisma.task.findMany({
-      where: { id: { in: Array.from(taskIds) }, workspaceId: id },
+      where: { id: { in: Array.from(taskIds) }, workspaceId: id, deletedAt: null },
       select: { id: true, title: true }
     }) : [];
 

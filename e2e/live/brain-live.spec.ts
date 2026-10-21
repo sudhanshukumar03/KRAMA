@@ -159,8 +159,15 @@ test('live background idle snapshot and Gemini embeddings', async () => {
   await job!.promote();
   await expect.poll(async () => prisma.documentVersion.count({ where: { documentId: root.id } }), { timeout: 15000 }).toBeGreaterThan(before);
   record('five-minute idle scheduling and real delayed snapshot processor');
-  await expect.poll(async () => prisma.knowledgeChunk.count({ where: { documentId: root.id } }), { timeout: 45000 }).toBeGreaterThan(0);
+  await expect.poll(async () => prisma.knowledgeChunk.count({ where: { documentId: root.id, content: { contains: 'SAPPHIRE42' } } }), { timeout: 45000 }).toBeGreaterThan(0);
   record('real Gemini embedding and knowledge-chunk persistence');
+  const { getEmbedding } = await import('../../apps/server/src/lib/embedding');
+  const { vectorSearch } = await import('../../apps/server/src/services/rag/retriever');
+  const embedding = await getEmbedding('What code identifies the synthetic verification launch?');
+  expect(embedding).toHaveLength(768);
+  const matches = await vectorSearch(workspaceId, embedding, 20);
+  expect(matches.some(row => row.documentId === root.id && row.content.includes('SAPPHIRE42') && Number.isFinite(row.similarity))).toBe(true);
+  record('real semantic retrieval using a fresh Gemini query embedding and pgvector');
 });
 
 for (const [mode, body] of [

@@ -11,7 +11,7 @@ interface LiveAccount {
   workspaceId: string;
   email: string;
   password: string;
-  call(method: string, path: string, data?: unknown, status?: number, workspace?: string): Promise<any>;
+  call(method: string, path: string, data?: unknown, status?: number, workspace?: string, timeout?: number): Promise<any>;
   signIn(page: Page): Promise<void>;
 }
 
@@ -27,9 +27,9 @@ export const test = base.extend<{ account: LiveAccount }, { backendResources: vo
     const auth = await signup.json();
     const userId = auth.user.id;
     let workspaceId = '';
-    const call = async (method: string, path: string, data?: unknown, status = 200, workspace = workspaceId) => {
+    const call = async (method: string, path: string, data?: unknown, status = 200, workspace = workspaceId, timeout?: number) => {
       const response = await request.fetch(new URL(`/api/v1/${path}`, target).href, {
-        method, data, headers: { Authorization: `Bearer ${auth.accessToken}`, 'x-workspace-id': workspace, 'x-timezone': 'Asia/Kolkata' },
+        method, data, timeout, headers: { Authorization: `Bearer ${auth.accessToken}`, 'x-workspace-id': workspace, 'x-timezone': 'Asia/Kolkata' },
       });
       expect(response.status(), `${method} ${path}`).toBe(status);
       return response.status() === 204 ? undefined : response.json();
@@ -41,7 +41,7 @@ export const test = base.extend<{ account: LiveAccount }, { backendResources: vo
         await page.getByLabel('Email', { exact: true }).fill(email);
         await page.getByLabel('Password', { exact: true }).fill(password);
         await page.getByRole('button', { name: 'Sign In', exact: true }).click();
-        await page.waitForURL(/\/app(?:\/|$)/);
+        await page.waitForURL(url => /^\/(app(?:\/|$)|focus(?:\/|$))/.test(url.pathname));
       } });
     } finally {
       const { prisma } = await import('../../apps/server/src/prisma');
@@ -54,7 +54,17 @@ export const test = base.extend<{ account: LiveAccount }, { backendResources: vo
       const documentIds = new Set(documents.map(document => document.id));
       for (const queue of [queues.notificationsQueue, queues.habitStreakQueue, queues.aiRetentionQueue, queues.embeddingQueue, queues.documentVersionQueue]) {
         for (const job of await queue.getJobs(['waiting', 'delayed', 'failed', 'completed'])) {
-          if (job.data?.userId === userId || workspaceIds.has(job.data?.workspaceId) || documentIds.has(job.data?.documentId)) await job.remove();
+          if (job.data?.userId === userId || workspaceIds.has(job.data?.workspaceId) || documentIds.has(job.data?.documentId)) {
+            for (let attempt = 0; ; attempt++) {
+              try { await job.remove(); break; }
+              catch (error) {
+                // A waiting job can become active between listing and removal.
+                if (!await queue.getJob(job.id!)) break;
+                if (attempt >= 39 || !String(error).includes('locked')) throw error;
+                await new Promise(resolve => setTimeout(resolve, 100));
+              }
+            }
+          }
         }
       }
       await prisma.timeBlock.deleteMany({ where: { userId } });

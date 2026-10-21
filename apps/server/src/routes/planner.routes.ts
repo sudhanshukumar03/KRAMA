@@ -6,7 +6,7 @@ import { handleControllerError } from '../utils/errors';
 
 const router: Router = Router();
 function context(req: Request): PlannerContext {
-  return { userId: req.user!.id, workspaceId: (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || '', id: req.params.id as string | undefined };
+  return { userId: req.user!.id, workspaceId: (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || '', id: req.params.id as string | undefined, timeZone: req.get('x-timezone') };
 }
 
 function respondError(res: Response, error: unknown, message: string) {

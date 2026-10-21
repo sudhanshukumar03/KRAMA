@@ -7,7 +7,9 @@ import { api } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import type { PlannerData, PlannerTask, TimeBlock, TimeBlockDraft } from "../types/planner";
 import type { TaskCreateInput, TaskUpdateInput } from "../types/schema";
-import { blockMinutesOfDay, formatBlockTime, parseLocalDate, errorMessage } from "../lib/utils";
+import { blockMinutesOfDay, formatBlockTime, parseLocalDate, taskCalendarDates, errorMessage } from "../lib/utils";
+import { scheduleTaskPatch, deferTaskPatch } from '../lib/plannerTaskActions';
+import { useTaskDeletion } from './useTaskDeletion';
 
 
 /**
@@ -88,24 +90,7 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
     }
   });
 
-  const deleteTaskMutation = useMutation({
-    mutationFn: (id: string) => api.tasks.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['issues'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
-      queryClient.invalidateQueries({ queryKey: ['planner'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['goal'] });
-      queryClient.invalidateQueries({ queryKey: ['goals'] });
-      queryClient.invalidateQueries({ queryKey: ['project'] });
-      toast.success('Task deleted');
-    },
-    onError: (err) => {
-      toast.error('Failed to delete task: ' + errorMessage(err, 'Unknown error'));
-    }
-  });
+  const deleteTaskMutation = useTaskDeletion();
 
   const taskList = useMemo(() => {
     return allIssues.length > 0 ? allIssues.map(task => ({ ...task, completed: task.status === "DONE" })) : data.tasks;
@@ -145,17 +130,17 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
 
     taskList.forEach((t) => {
       const isCompleted = t.status === 'DONE' || t.status === 'CANCELED';
-      const tDateStr = t.scheduledDate || t.dueDate;
+      if (t.status === 'BACKLOG') { backlogList.push(t); return; }
+      const dates = taskCalendarDates(t);
 
-      if (!tDateStr) {
+      if (dates.length === 0) {
         if (!isCompleted) backlogList.push(t);
         return;
       }
 
       try {
-        const parsed = (parseLocalDate(tDateStr) ?? new Date(NaN));
-        const isToday = isSameDay(parsed, day);
-        const isPast = parsed.getTime() < targetStart.getTime() && !isToday;
+        const isToday = dates.some(date => isSameDay(date, day));
+        const isPast = dates.some(date => date.getTime() < targetStart.getTime()) && !isToday;
 
         if (isToday) {
           todayList.push(t);
@@ -276,7 +261,7 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
   const handleScheduleForToday = (task: PlannerTask) => {
     updateTaskMutation.mutate({
       id: task.id,
-      data: { scheduledDate: targetDateIso, version: task.version }
+      data: scheduleTaskPatch(task, targetDateIso)
     }, {
       onSuccess: () => toast.success(`Scheduled "${task.title}" for ${isViewingToday ? 'today' : format(day, 'MMM d')}`)
     });
@@ -285,7 +270,7 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
   const handleUnschedule = (task: PlannerTask) => {
     updateTaskMutation.mutate({
       id: task.id,
-      data: { scheduledDate: null, version: task.version }
+      data: deferTaskPatch(task)
     }, {
       onSuccess: () => toast.success(`Moved "${task.title}" to backlog`)
     });
@@ -297,7 +282,7 @@ export function useTodayPlanner({ day, data, onAddTimeBlock }: { day: Date; data
       carriedOverTasks.map((t) =>
         updateTaskMutation.mutateAsync({
           id: t.id,
-          data: { scheduledDate: targetDateIso, version: t.version }
+          data: scheduleTaskPatch(t, targetDateIso)
         })
       )
     );

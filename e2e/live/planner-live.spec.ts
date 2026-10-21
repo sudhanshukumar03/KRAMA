@@ -28,6 +28,10 @@ test('live planner scheduling, recovery, routines, milestones and workspace isol
   const project = await json('POST', 'projects', { name: marker }, 201);
   const task = await json('POST', 'tasks', { title: 'Synthetic planner task', description: 'Preserve this task detail', projectId: project.id, scheduledDate: `${day}T12:00:00.000Z` }, 201);
   const habit = await json('POST', 'habits', { name: 'Synthetic planner routine', pinnedToPlanner: true, scheduledDays: [3] }, 201);
+  // This scenario tests valid historical backfill. Creation bounds are covered
+  // separately; make this disposable habit old enough for the fixed week.
+  const { prisma } = await import('../../apps/server/src/prisma');
+  await prisma.habit.update({ where: { id: habit.id }, data: { createdAt: new Date('2026-10-01T00:00:00Z') } });
   const input = { title: 'Synthetic work block', date: day, startTime: '09:00', endTime: '10:00', type: 'WORK', taskId: task.id, projectId: project.id };
   const block = await json('POST', 'planner/time-blocks', input, 201);
   expect(block.startTime).toBe(`${day}T09:00:00.000Z`);
@@ -82,7 +86,6 @@ test('live planner scheduling, recovery, routines, milestones and workspace isol
   await call('PATCH', `planner/milestones/${milestone.id}`, { completed: false }, 404, other.id);
   await call('DELETE', `planner/milestones/${milestone.id}`, undefined, 404, other.id);
   await call('GET', 'planner/week?start=2026-10-05&end=2026-10-11', undefined, 403, crypto.randomUUID());
-  const { prisma } = await import('../../apps/server/src/prisma');
   const membership = await prisma.workspaceMember.findUniqueOrThrow({ where: { userId_workspaceId: { userId, workspaceId } } });
   await prisma.workspaceMember.delete({ where: { id: membership.id } });
   try {
@@ -110,7 +113,7 @@ test('live planner scheduling, recovery, routines, milestones and workspace isol
   const taskDialog = page.getByRole('dialog');
   await expect(taskDialog.getByLabel('Description', { exact: true })).toHaveValue('Preserve this task detail');
   await expect(taskDialog.getByRole('combobox').filter({ has: page.locator(`option[value="${project.id}"]`) })).toHaveValue(project.id);
-  await taskDialog.getByLabel('Directive Title *', { exact: true }).fill('Browser updated task');
+  await taskDialog.getByLabel('Task Title *', { exact: true }).fill('Browser updated task');
   await taskDialog.getByRole('button', { name: 'Save Changes', exact: true }).click();
   await expect(taskDialog).toBeHidden();
   const preservedTask = await json('GET', `tasks/${task.id}`);
@@ -137,7 +140,8 @@ test('live Planner selection configures Focus, saves time, reschedules the next 
   await page.getByRole('button', { name: 'Sign In', exact: true }).click(); await page.waitForURL(/\/app(?:\/|$)/);
   await page.evaluate(id => localStorage.setItem('krama_active_workspace', id), workspaceId);
   await page.goto('/app/planner?mode=day&date=' + date);
-  await page.getByRole('button', { name: task.title, exact: true }).click();
+  const opened = page.context().waitForEvent('page');
+  await page.getByRole('button', { name: task.title, exact: true }).click(); page = await opened;
   const setup = page.getByRole('dialog', { name: 'Plan your focus time' });
   await expect(setup).toContainText('60 minutes reserved'); await setup.getByRole('button', { name: 'Use this plan' }).click();
   await expect(page).toHaveTitle(/60:00/);

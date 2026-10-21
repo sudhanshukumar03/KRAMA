@@ -1,3 +1,5 @@
+import { TaskAlternateView } from './kanban/TaskAlternateView';
+import { WorkspaceSearchField } from './ui/WorkspaceSearchField';
 import type { TaskUpdateInput } from '../types/schema';
 import type {
     CollisionDetection,
@@ -18,24 +20,20 @@ import {
     sortableKeyboardCoordinates
 } from '@dnd-kit/sortable';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
 import {
     Archive,
     Calendar,
     ChevronDown,
-    Clock,
     KanbanSquare,
     LayoutGrid, List,
     Plus,
-    Search,
-    X
-} from 'lucide-react';
+    } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { api } from '../api/client';
 import { useReducedMotion } from '../hooks/useReducedMotion';
-import { cn, parseLocalDate } from '../lib/utils';
+import { cn } from '../lib/utils';
 import type { IssueWithRelations, TaskPriority, TaskStatus } from '../types/schema';
 import { CANCELED_COLUMN, STATUS_COLUMNS, STATUS_IDS, taskDay } from './kanban/boardConfig';
 import { Column, PriorityBadge } from './kanban/BoardPrimitives';
@@ -128,6 +126,7 @@ export function KanbanBoard({
     mutationFn: ({ id, data }: { id: string; data: TaskUpdateInput }) =>
       api.tasks.update(id, data),
     onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['day-plan'] });
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['focus-schedule'] });
@@ -249,22 +248,24 @@ export function KanbanBoard({
   const reducedMotion = useReducedMotion();
 
   const filteredIssues = useMemo(() => {
-    return issues.filter(issue => {
-      if (issue.parentTaskId && issues.some(parent => parent.id === issue.parentTaskId)) return false;
+    const matching = issues.filter(issue => {
       // Keep canceled directives out of every view (board columns, list, calendar)
       // unless the archive toggle is on — matches the board's column visibility.
       if (issue.status === 'CANCELED' && !showCanceledArchive) return false;
       const q = searchQuery.toLowerCase().trim();
       const directiveCode = `kr-${issue.id.replace(/[^a-zA-Z0-9]/g, '').slice(-3).toLowerCase()}`;
-      const matchesSearch = q === '' || 
-        issue.title.toLowerCase().includes(q) || 
+      const matchesSearch = q === '' ||
+        issue.title.toLowerCase().includes(q) ||
         directiveCode.includes(q) ||
         (issue.description && issue.description.toLowerCase().includes(q));
       const matchesPriority = priorityFilter === 'all' || issue.priority === priorityFilter;
       const matchesProject = selectedProjectId === 'all' || (selectedProjectId === 'operations' ? !issue.projectId : issue.projectId === selectedProjectId);
 
       return matchesSearch && matchesPriority && matchesProject;
-    }).sort((a, b) => {
+    });
+    const matchingIds = new Set(matching.map(issue => issue.id));
+    const hasFilters = !!searchQuery.trim() || priorityFilter !== 'all' || selectedProjectId !== 'all';
+    return matching.filter(issue => hasFilters || !issue.parentTaskId || !matchingIds.has(issue.parentTaskId)).sort((a, b) => {
       if (sortBy === 'manual') return a.position - b.position || a.id.localeCompare(b.id);
       if (sortBy === 'title') return a.title.localeCompare(b.title);
       if (sortBy === 'date') {
@@ -343,8 +344,8 @@ export function KanbanBoard({
     let newPosition = activeIssueData.position;
 
     if (activeId !== overId) {
-      const statusIssues = issues
-        .filter(i => !i.parentTaskId && i.status === newStatus)
+      const statusIssues = filteredIssues
+        .filter(i => i.status === newStatus)
         .sort((a, b) => a.position - b.position);
 
       if (STATUS_IDS.includes(overId)) {
@@ -402,12 +403,12 @@ export function KanbanBoard({
     return map;
   }, [filteredIssues]);
 
-  if (isLoadingIssues) return <LoadingState variant="kanban" title="Loading Execution Board..." description="Organizing directives and dependencies..." />;
+  if (isLoadingIssues) return <LoadingState variant="kanban" title="Loading Tasks..." description="Loading your tasks and dependencies..." />;
   if (isError) {
     return (
       <div className="p-8">
         <ErrorState
-          title="Failed to load Execution Board"
+          title="Failed to load Tasks"
           message="Could not fetch directives from the server. Please verify your connection."
           onRetry={() => queryClient.invalidateQueries({ queryKey: ['issues'] })}
         />
@@ -416,17 +417,17 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="h-full min-h-0 flex flex-col min-w-0 w-full bg-canvas select-none overflow-hidden animate-in fade-in duration-150">
+    <div className="workspace-board h-full min-h-0 flex flex-col min-w-0 w-full bg-canvas select-none overflow-hidden animate-in fade-in duration-150">
       {/* Page Header */}
       {!hideHeader && (
         <PageHeader
           icon={KanbanSquare}
-          title="Execution Board"
-          description="Organize work, move tasks through each stage, and keep dependencies visible."
+          title="Tasks"
+          description="See what needs doing, what is underway and what is finished. Open a task to plan its next step."
           className="mx-6 mt-4 mb-2"
         >
           {/* View Switcher */}
-          <div className="flex items-center bg-surface-hover/80 p-0.5 rounded-lg border border-border/80 shadow-2xs">
+          <div role="group" aria-label="Execution board view mode" className="flex items-center bg-surface-hover/80 p-0.5 rounded-lg border border-border/80 shadow-2xs">
             {(['board', 'list', 'calendar'] as const).map((view) => {
               const icons = { board: LayoutGrid, list: List, calendar: Calendar };
               const labels = { board: 'Board', list: 'List', calendar: 'Calendar' };
@@ -434,7 +435,10 @@ export function KanbanBoard({
               return (
                 <button
                   key={view}
-                  aria-pressed={activeView === view} onClick={() => setActiveView(view)}
+                  type="button"
+                  aria-pressed={activeView === view}
+                  aria-label={`${labels[view]} View`}
+                  onClick={() => setActiveView(view)}
                   className={cn(
                     'min-h-11 px-2.5 py-1 rounded-md flex items-center gap-1.5 text-badge font-mono font-semibold transition-all cursor-pointer',
                     activeView === view
@@ -448,46 +452,30 @@ export function KanbanBoard({
             })}
           </div>
 
-          {/* New Directive */}
+          {/* New Task */}
           <button
-            onClick={() => handleCreateIssue('BACKLOG')}
+            onClick={event => { event.currentTarget.focus(); handleCreateIssue('BACKLOG'); }}
             className="krama-btn krama-btn-primary px-3.5 py-2 text-caption font-semibold flex items-center gap-1.5 shadow-sm"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
-            New Directive
+            New Task
           </button>
         </PageHeader>
       )}
 
       {/* 3. Filter Bar */}
-      <div className={cn("px-6 pb-3 shrink-0", hideHeader ? "pt-3" : "pt-1")}>
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-surface border border-border/60 rounded-xl px-3 py-2 shadow-2xs">
+      <div className={cn("workspace-board-filters px-6 pb-3 shrink-0", hideHeader ? "pt-3" : "pt-1")}>
+      <div className="workspace-toolbar">
         <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
           {/* Search Input */}
-          <div className="relative min-w-0 max-w-sm flex-1 basis-full sm:basis-auto">
-            <Search className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              aria-label="Search directives" placeholder="Search tasks, directives, or keywords..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-8 py-1.5 text-xs bg-surface border border-border/80 rounded-lg focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all placeholder:text-muted text-primary shadow-2xs"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-primary transition-colors cursor-pointer"
-                aria-label="Clear search" title="Clear search"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
-          </div>
+          <WorkspaceSearchField id="board-search" value={searchQuery} onChange={setSearchQuery} label="Search tasks" placeholder="Search tasks..." />
 
           {/* All Projects Dropdown */}
           {!lockedProjectId && (
             <div className="relative">
               <select
+                id="board-project-filter"
+                name="projectFilter"
                 aria-label="Filter by project" value={selectedProjectId}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
                 className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
@@ -506,6 +494,8 @@ export function KanbanBoard({
           {/* All Priorities Dropdown */}
           <div className="relative">
             <select
+              id="board-priority-filter"
+              name="priorityFilter"
               aria-label="Filter by priority" value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value as typeof priorityFilter)}
               className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
@@ -526,6 +516,8 @@ export function KanbanBoard({
           {/* Sort Priority */}
           <div className="relative">
             <select
+              id="board-sort-filter"
+              name="sortBy"
               aria-label="Sort directives" value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
@@ -601,7 +593,7 @@ export function KanbanBoard({
                 className="bg-accent hover:opacity-90 text-on-accent px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 shadow-sm hover:shadow cursor-pointer ml-1"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                New Directive
+                New Task
               </button>
           </>
           )}
@@ -612,8 +604,8 @@ export function KanbanBoard({
       {projectsError && <div className="mx-4"><ErrorState title="Could not load projects" onRetry={() => retryProjects()} /></div>}
       {showCanceledArchive && archiveLoading && <p role="status" className="px-4 text-secondary">Loading canceled tasks...</p>}
       {showCanceledArchive && archiveError && <div className="mx-4"><ErrorState title="Could not load canceled tasks" onRetry={() => retryArchive()} /></div>}
-      {!filteredIssues.length && <p role="status" className="px-4 pb-3 text-sm text-secondary">No directives match this view. Clear the filters or create a directive.</p>}
-      <p className="px-4 pb-2 text-xs text-secondary">Manual order supports dragging and Move up/down actions. Open a directive to change its status or dates.</p>
+      {!filteredIssues.length && <p role="status" className="px-4 pb-3 text-sm text-secondary">No tasks match this view. Clear a filter or create a task.</p>}
+      <p className="px-4 pb-2 max-w-[68ch] text-sm leading-relaxed text-secondary">Drag tasks to reorder them, or use Move up and Move down in the task menu. Open a task to change its status or dates.</p>
       {/* 4. Board Viewport - Fluid Notion-style responsive columns */}
       <div className="flex-1 min-h-0 min-w-0 w-full overflow-x-auto overflow-y-hidden px-4 md:px-6 pb-6 pt-1 select-none custom-scrollbar">
         {activeView === 'board' ? (
@@ -650,65 +642,9 @@ export function KanbanBoard({
             </DndContext>
           </div>
         ) : activeView === 'list' ? (
-          /* List View Alternative */
-          <div className="bg-surface rounded-2xl border border-border/80 overflow-y-auto max-h-full p-4 shadow-xs">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-border text-muted uppercase font-mono">
-                  <th className="pb-3 font-semibold">Directive</th>
-                  <th className="pb-3 font-semibold">Status</th>
-                  <th className="pb-3 font-semibold">Priority</th>
-                  <th className="pb-3 font-semibold">Project</th>
-                  <th className="pb-3 font-semibold">Due Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {filteredIssues.map((issue) => (
-                  <tr 
-                    key={issue.id} 
-                    onClick={() => handleEditIssue(issue)}
-                    className="hover:bg-surface-hover/60 cursor-pointer transition-colors"
-                  >
-                    <td className="py-3 font-semibold text-primary"><button type="button" onClick={() => handleEditIssue(issue)} className="min-h-11 text-left break-words">{issue.title}</button></td>
-                    <td className="py-3">
-                      <span className="font-mono text-[11px] font-bold text-secondary">
-                        {issue.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="py-3"><PriorityBadge priority={issue.priority} /></td>
-                    <td className="py-3 text-secondary">{issue.project?.name || 'General'}</td>
-                    <td className="py-3 text-muted">{issue.dueDate ? format(parseLocalDate(taskDay(issue.dueDate))!, 'MMM d') : '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TaskAlternateView issues={filteredIssues} mode="list" onOpen={handleEditIssue} />
         ) : (
-          /* Calendar View Alternative */
-          <div className="bg-surface rounded-2xl border border-border/80 overflow-y-auto max-h-full p-6 shadow-xs text-center">
-            <Calendar className="w-8 h-8 text-accent mx-auto mb-2 stroke-[1.5]" />
-            <h3 className="font-bold text-sm text-primary mb-1">Calendar Timeline</h3>
-            <p className="text-xs text-secondary max-w-sm mx-auto mb-4">
-              Dated directives in chronological order; undated work appears last.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-left">
-              {[...filteredIssues].sort((a, b) => (taskDay(a.dueDate || a.scheduledDate) || "9999").localeCompare(taskDay(b.dueDate || b.scheduledDate) || "9999")).map((issue) => (
-                <button type="button"
-                  key={issue.id} 
-                  onClick={() => handleEditIssue(issue)}
-                  className="p-3 rounded-xl border border-border bg-surface-hover/30 hover:bg-surface-hover transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-primary">{issue.title}</span>
-                    <PriorityBadge priority={issue.priority} />
-                  </div>
-                  <div className="text-[11px] text-muted flex items-center gap-1 font-mono">
-                    <Clock className="w-3 h-3" /> {issue.dueDate || issue.scheduledDate ? format(parseLocalDate(taskDay(issue.dueDate || issue.scheduledDate))!, 'MMM d, yyyy') : 'No target date'}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+          <TaskAlternateView issues={filteredIssues} mode="calendar" onOpen={handleEditIssue} />
         )}
       </div>
 

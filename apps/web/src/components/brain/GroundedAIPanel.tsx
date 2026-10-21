@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Sparkles, X, Info, RefreshCw, Send } from 'lucide-react';
+import { Bot, X, Info, RefreshCw, Send } from 'lucide-react';
 import { api } from '../../api/client';
 import { BaseButton } from '../ui/BaseButton';
 import { cn } from '../../lib/utils';
@@ -141,7 +141,7 @@ export function GroundedAIPanel({
       {/* Panel Header */}
       <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-accent-fg" />
+          <Bot className="w-4 h-4 text-accent-fg" />
           <span className="font-bold text-primary text-body">Grounded AI Assist</span>
         </div>
         <button aria-label="Close AI Assist" onClick={onClose} className="min-h-11 min-w-11 p-2 rounded-lg text-muted hover:text-primary hover:bg-surface-hover">
@@ -247,7 +247,7 @@ export function GroundedAIPanel({
           </div>
 
           <BaseButton disabled={isComposing || !composeInstruction.trim()} onClick={handleCompose} className="w-full py-2">
-            {isComposing ? 'Generating...' : 'Generate with AI'}
+            {isComposing ? 'Generating...' : <span className="flex items-center justify-center gap-1.5"><Bot className="w-4 h-4" /> Generate with AI</span>}
           </BaseButton>
 
           {composeOutput && (

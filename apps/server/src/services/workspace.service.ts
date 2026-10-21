@@ -1,6 +1,9 @@
 import { workspaceRepository } from '../repositories/workspace.repository';
 import { runInTransaction, prisma } from '../prisma';
 import { socketService } from './socket.service';
+import type { Prisma } from '@prisma/client';
+
+type WorkspaceInput = Pick<Prisma.WorkspaceCreateInput, 'name' | 'metadata'>;
 
 class WorkspaceService {
   async listWorkspaces(userId: string) {
@@ -24,7 +27,7 @@ class WorkspaceService {
     return workspace;
   }
 
-  async createWorkspace(data: any, userId: string) {
+  async createWorkspace(data: WorkspaceInput, userId: string) {
     return runInTransaction(async (tx) => {
       const workspace = await workspaceRepository.create({
         ...data,
@@ -36,7 +39,7 @@ class WorkspaceService {
     });
   }
 
-  async updateWorkspace(id: string, data: any) {
+  async updateWorkspace(id: string, data: Partial<WorkspaceInput>) {
     const existing = await workspaceRepository.findById(id);
     if (!existing || existing.deletedAt) {
       throw new Error('Workspace not found');
@@ -88,7 +91,7 @@ class WorkspaceService {
 
       // 3. Cascade to indirect children (Documents are space-scoped)
       const spaces = await tx.space.findMany({ where: { workspaceId: id }, select: { id: true } });
-      const spaceIds = spaces.map((s: any) => s.id);
+      const spaceIds = spaces.map(space => space.id);
 
       if (spaceIds.length > 0) {
         await tx.document.updateMany({

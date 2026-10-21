@@ -22,6 +22,7 @@ import { deleteProject, restoreProject } from '../controllers/project.controller
 import { completeFocusSession } from '../controllers/focusSession.controller';
 import { getWorkspaceDocuments, importDocumentSpec, updateDocumentMetadata } from '../controllers/document.controller';
 import { buildFocusSchedule } from '../services/focusTimer.service';
+
 import { workspaceService } from '../services/workspace.service';
 import { requireWorkspaceRole } from '../middlewares/rbac.middleware';
 import { plannerService } from '../services/planner.service';
@@ -180,12 +181,19 @@ test('Goal Undo restores associations and respects a deliberate unlink', async (
   assert.equal((await prisma.goal.findUniqueOrThrow({ where: { id: otherGoal.id } })).deletedAt, null);
   await goalService.restoreGoal(goal.id, fixture.workspace.id, fixture.user.id);
   assert.equal((await prisma.project.findUniqueOrThrow({ where: { id: project.id } })).goalId, child.id);
+  // A parent follows its active key results even when its leaf-mode metadata is
+  // auto. The restored grandchild is at 0%, so completed project work cannot
+  // override it. Removing the last key result restores the auto leaf metric.
+  assert.equal((await prisma.goal.findUniqueOrThrow({ where: { id: child.id } })).progress, 0);
+  assert.equal((await prisma.goal.findUniqueOrThrow({ where: { id: goal.id } })).progress, 0);
+  await goalService.deleteGoal(grandchild.id, fixture.workspace.id, fixture.user.id);
   assert.equal((await prisma.goal.findUniqueOrThrow({ where: { id: child.id } })).progress, 100);
   assert.equal((await prisma.habit.findUniqueOrThrow({ where: { id: habit.id } })).linkedGoalId, goal.id);
   await goalService.deleteGoal(goal.id, fixture.workspace.id, fixture.user.id);
   await habitService.updateHabit(habit.id, fixture.workspace.id, { linkedGoalId: null } as any, fixture.user.id);
   await goalService.restoreGoal(goal.id, fixture.workspace.id, fixture.user.id);
   assert.equal((await prisma.habit.findUniqueOrThrow({ where: { id: habit.id } })).linkedGoalId, null);
+  assert.ok((await prisma.goal.findUniqueOrThrow({ where: { id: grandchild.id } })).deletedAt);
 });
 
 test('real project deletion preserves milestones; Undo restores only matching deletion', async () => {
@@ -678,4 +686,21 @@ test('Focus extension handles a late finish and refuses crossing midnight', asyn
   assert.equal(result.block.endTime.toISOString(), '2026-11-06T10:45:00.000Z');
   const late = await plannerService.createTimeBlock(context, { title: 'Night focus', date, startTime: '23:00', endTime: '23:50', type: 'WORK' });
   await assert.rejects(plannerService.extendTimeBlock({ ...context, id: late.id }, { extensionId: crypto.randomUUID(), minutes: 15, expectedEndTime: late.endTime.toISOString() }), (error: any) => error.statusCode === 400);
+});
+
+test('AI insight allowance is atomic across concurrent Redis requests and refunds do not go negative', async () => {
+  const { redisService } = await import('../services/redis.service');
+  const key = `test:ai-insight-quota:${process.env.KRAMA_TEST_RUN_ID}:${crypto.randomUUID()}`;
+  try {
+    const reserved = await Promise.all(Array.from({ length: 12 }, () => redisService.reserveDailyAllowance(key, 3, 90)));
+    assert.equal(reserved.filter(Boolean).length, 3);
+    assert.equal(await redisService.client.get(key), '3');
+    const ttl = await redisService.client.ttl(key); assert.ok(ttl > 0 && ttl <= 90);
+    await Promise.all(Array.from({ length: 5 }, () => redisService.releaseDailyAllowance(key)));
+    assert.equal(await redisService.client.get(key), '0');
+    assert.equal((await Promise.all(Array.from({ length: 4 }, () => redisService.reserveDailyAllowance(key, 3, 90)))).filter(Boolean).length, 3);
+    await redisService.client.del(key);
+    await redisService.releaseDailyAllowance(key);
+    assert.equal(await redisService.client.get(key), null);
+  } finally { await redisService.client.del(key); }
 });

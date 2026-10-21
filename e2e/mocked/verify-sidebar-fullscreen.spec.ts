@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Sidebar Layout Fullscreen Verification', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ context }) => {
     // Keep mocked account tests independent of a locally running API/socket server.
-    await page.route("**/socket.io/**", route => route.abort());
-    await page.route("**/api/v1/**", route => route.abort());
-    await page.route('**/api/v1/auth/refresh', async (route) => {
+    await context.route("**/socket.io/**", route => route.abort());
+    await context.route("**/api/v1/**", route => route.abort());
+    await context.route('**/api/v1/auth/refresh', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -13,7 +13,7 @@ test.describe('Sidebar Layout Fullscreen Verification', () => {
       });
     });
 
-    await page.route('**/api/v1/auth/me', async (route) => {
+    await context.route('**/api/v1/auth/me', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -38,7 +38,7 @@ test.describe('Sidebar Layout Fullscreen Verification', () => {
       });
     });
 
-    await page.route('**/api/v1/focus-sessions/schedule', async (route) => {
+    await context.route('**/api/v1/focus-sessions/schedule', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -46,7 +46,7 @@ test.describe('Sidebar Layout Fullscreen Verification', () => {
       });
     });
 
-    await page.route('**/api/v1/focus-sessions/wallpaper*', async (route) => {
+    await context.route('**/api/v1/focus-sessions/wallpaper*', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -56,12 +56,12 @@ test.describe('Sidebar Layout Fullscreen Verification', () => {
   });
 
 
-  test('retired Analytics links redirect to Dashboard without requesting its API', async ({ page }) => {
+  test('retired Analytics links redirect to Dashboard without requesting its API', async ({ page, context }) => {
     const analyticsRequests: string[] = [];
     page.on('request', request => {
       if (request.url().includes('/api/v1/analytics')) analyticsRequests.push(request.url());
     });
-    await page.route('**/api/v1/**', async route => {
+    await context.route('**/api/v1/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.includes('/auth/')) return route.fallback();
       const data = path.endsWith('/dashboard') ? {
@@ -79,9 +79,12 @@ test.describe('Sidebar Layout Fullscreen Verification', () => {
     await expect(page.getByRole('link', { name: /Analytics/ })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Analytics', exact: true })).toHaveCount(0);
     expect(analyticsRequests).toEqual([]);
+    const popup = context.waitForEvent('page');
     await page.getByRole('button', { name: 'Start Focus', exact: true }).click();
-    await expect(page).toHaveURL(/\/focus$/);
-    await expect(page.getByRole('button', { name: 'Settings and options' })).toBeVisible();
+    const focusPage = await popup;
+    await expect(focusPage).toHaveURL(/\/focus$/);
+    await expect(focusPage.getByRole('button', { name: 'Settings and options' })).toBeVisible();
+    await expect(page).toHaveURL(/\/app\/?$/);
   });
 
 

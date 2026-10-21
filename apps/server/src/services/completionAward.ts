@@ -22,6 +22,7 @@ export async function awardTaskCompletion(db: PrismaClient, data: CompletionAwar
       const notification = await tx.notification.create({ data: {
         id, userId: data.userId, workspaceId: data.workspaceId,
         title: 'Task Completed', message: `You earned 10 points for completing: ${task?.title || 'a task'}!`,
+        actionUrl: task ? `/app/board?task=${encodeURIComponent(task.id)}` : null,
         metadata: { taskId: data.taskId, completionEvent: String(eventKey) },
       } });
       await tx.workspace.update({ where: { id: data.workspaceId }, data: { productivityScore: { increment: 10 } } });

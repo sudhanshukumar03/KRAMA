@@ -45,7 +45,8 @@ export function weeklyCompletionCount(habit: any): number {
     if (c.offSchedule) return false;
     const key = c.date ?? c.completedAt;
     if (!key) return false;
-    return weekStartStr(formatLocalDate(new Date(key))) === todayWeek;
+    const dayKey = c.date ? String(c.date).slice(0, 10) : formatLocalDate(new Date(key));
+    return weekStartStr(dayKey) === todayWeek;
   }).length;
 }
 
