@@ -1,8 +1,10 @@
 .krama-sidebar { width: 248px; background: var(--surface-1); box-shadow: none; border-right: 1px solid var(--border-default); }
 .dark .krama-sidebar { background: var(--bg-base); }
-.krama-sidebar-brand { min-height: 76px; flex-shrink: 0; padding-inline: 20px; background: transparent; }
-.krama-sidebar-brand > a { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; }
-.krama-sidebar-brand button { min-height: 44px; min-width: 44px; }
+.krama-sidebar-brand { min-height: 76px; flex-shrink: 0; padding-inline: 16px; background: transparent; }
+.krama-sidebar-brand > a { min-height: 44px; display: inline-flex; align-items: center; }
+.krama-sidebar-brand button { min-height: 36px; min-width: 36px; display: inline-flex; align-items: center; justify-content: center; }
+.krama-sidebar-brand .krama-sidebar-collapse { opacity: 0; transition: opacity 150ms ease, background-color 150ms ease; }
+.krama-sidebar-brand:hover .krama-sidebar-collapse, .krama-sidebar-collapse:focus-visible { opacity: 1; }
 .krama-sidebar-brand > a span { font-size: 16px; letter-spacing: .01em; font-weight: 700; }
 .krama-sidebar-search { padding: 0 16px 20px; }
 .krama-sidebar-search > button { min-height: 46px; padding-inline: 12px; border-radius: 10px; background: var(--bg-subtle); border: 1px solid var(--border-default); font-size: 13px; color: var(--text-secondary); transition: all 150ms ease; }

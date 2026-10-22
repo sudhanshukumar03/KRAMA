@@ -200,12 +200,12 @@ export function NotificationCenter({
   }, [isOpen]);
 
   return (
-    <div className={cn("relative inline-flex", className)}>
+    <div className={cn("relative inline-flex items-center", className)}>
       <button
         ref={buttonRef}
         onClick={handleToggle}
         className={cn(
-            "min-h-11 min-w-11 p-1.5 rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors outline-none cursor-pointer border border-transparent relative",
+          "min-h-9 min-w-9 p-1.5 rounded-lg text-muted hover:text-primary hover:bg-surface-hover transition-colors outline-none cursor-pointer border border-transparent relative inline-flex items-center justify-center",
           isOpen && "text-primary bg-surface-hover border-border"
         )}
         title="Notifications"

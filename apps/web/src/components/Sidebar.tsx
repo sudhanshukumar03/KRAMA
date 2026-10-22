@@ -322,22 +322,22 @@ export function Sidebar({
  const sidebarContent = (
  <div className="krama-sidebar w-[248px] border-r border-border bg-surface flex flex-col h-full flex-shrink-0 select-none shadow-level-1 z-10">
  {/* Header / Brand */}
- <div className="krama-sidebar-brand flex items-center justify-between px-4 bg-surface">
-      <Link to="/app/" className="hover:opacity-90 transition-opacity">
+ <div className="krama-sidebar-brand group/brand flex items-center justify-between px-4 bg-surface">
+      <Link to="/app/" className="hover:opacity-90 transition-opacity flex items-center">
         <KramaLogo size="md" withText textClassName="font-semibold tracking-tight text-primary text-body leading-none block" />
       </Link>
       <div className="flex items-center gap-1">
+        <NotificationCenter align="left" />
         {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}
-            className="hidden md:inline-flex p-1.5 rounded-md text-muted hover:text-primary hover:bg-surface-hover transition-colors outline-none cursor-pointer border border-transparent"
+            className="krama-sidebar-collapse hidden md:inline-flex items-center justify-center w-8 h-8 rounded-lg text-muted hover:text-primary hover:bg-surface-hover transition-all outline-none cursor-pointer border border-transparent"
             title="Collapse sidebar (Ctrl+\)"
             aria-label="Collapse sidebar"
           >
             <PanelLeftClose className="w-4 h-4" />
           </button>
         )}
-        <NotificationCenter align="left" />
       {mobileOpen && <button type="button" onClick={onMobileClose} aria-label="Close navigation" className="md:hidden min-h-11 min-w-11 flex items-center justify-center rounded-md text-secondary hover:text-primary hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"><X aria-hidden="true" className="w-4 h-4" /></button>}
       </div>
   </div>
