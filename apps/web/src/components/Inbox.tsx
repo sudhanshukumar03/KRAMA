@@ -169,7 +169,6 @@ export function Inbox() {
               <h2>Your Inbox is clear</h2>
               <p>Anything you save with Quick Capture will appear here.</p>
               <div className="inbox-suggestions">
-                <p>Try capturing:</p>
                 <div role="group" aria-label="Capture suggestions">
                   {captureSuggestions.map(({ mode, label, Icon }) => (
                     <button key={mode} type="button" aria-haspopup="dialog" onClick={event => openCapture(event.currentTarget, mode)}>
