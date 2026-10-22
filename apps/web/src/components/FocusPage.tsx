@@ -122,17 +122,13 @@ const AccountFocusPage: React.FC = () => {
           {mode === 'clock' ? 'Clock mode.' : pendingCompletion ? 'Session waiting to save.' : isActive ? 'Timer running.' : timeLeft === 0 ? 'Timer complete.' : sessionRef.current ? 'Timer paused.' : 'Timer ready.'}
         </p>
       </div>
-      {/* Background Wallpaper (Disabled for StandBy layout to enforce pure OLED black screen) */}
-      {layout !== 'standby' && (
-        <>
-          <div
-            className="absolute inset-0 transition-all duration-700 z-0 scale-100"
-            style={getWallpaperStyle()}
-          />
-          {/* Dark Vignette Overlay for Crisp Readability */}
-          <div className="absolute inset-0 bg-black/35 backdrop-brightness-[0.92] pointer-events-none z-0" />
-        </>
-      )}
+      {/* Background Wallpaper */}
+      <div
+        className="absolute inset-0 transition-all duration-700 z-0 scale-100"
+        style={getWallpaperStyle()}
+      />
+      {/* Dark Vignette Overlay for Crisp Readability */}
+      <div className="absolute inset-0 bg-black/35 backdrop-brightness-[0.92] pointer-events-none z-0" />
 
       {/* Render Active Layout with Standby as solid fallback */}
       {layout === 'centered' ? (

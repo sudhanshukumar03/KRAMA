@@ -7,6 +7,7 @@ export const BUNDLED_WALLPAPERS = [
   { id: 'volcanic', name: 'Volcanic', css: 'linear-gradient(135deg, #200122, #6f0000)' },
   { id: 'slate', name: 'Slate', css: 'linear-gradient(135deg, #141e30, #243b55)' },
   { id: 'sage', name: 'Sage', css: 'linear-gradient(135deg, #11251c, #1d3b2a, #2a4d3a)' },
+  { id: 'oled-black', name: 'OLED Pure Black', css: '#000000' },
 ] as const;
 export interface CuratedWallpaper {
   id: string;

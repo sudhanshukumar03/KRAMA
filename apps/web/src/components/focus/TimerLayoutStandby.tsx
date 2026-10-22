@@ -107,7 +107,7 @@ export const TimerLayoutStandby: React.FC<TimerLayoutProps> = ({
   const twoUnitsGap = 'h-[2.5px] sm:h-[3.5px] md:h-[5px] lg:h-[6.5px] xl:h-[8px]';
 
   return (
-    <div style={{ bottom: bottomInset }} className="fixed inset-0 w-full flex flex-col justify-between items-center p-6 md:p-10 select-none overflow-hidden z-10 bg-black">
+    <div style={{ bottom: bottomInset }} className="fixed inset-0 w-full flex flex-col justify-between items-center p-6 md:p-10 select-none overflow-hidden z-10">
       {/* Top Header Overlay: Visible in normal tab, hidden by default in fullscreen */}
       <div
         className={`w-full flex flex-wrap items-center justify-between gap-3 transition-all duration-300 z-30 ${
