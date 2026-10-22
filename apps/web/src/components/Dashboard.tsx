@@ -563,10 +563,10 @@ export function Dashboard() {
             <DashboardCard title="Quick Capture">
               <div className="grid grid-cols-2 gap-2.5">
                 {[
-                  { id: 'task', label: 'Task', Icon: CheckSquare, shortcut: 'C T' },
-                  { id: 'note', label: 'Note', Icon: FileText, shortcut: 'C N' },
-                  { id: 'idea', label: 'Idea', Icon: Lightbulb, shortcut: 'C I' },
-                  { id: 'link', label: 'Link', Icon: Link2, shortcut: 'C L' },
+                  { id: 'task', label: 'Task', Icon: CheckSquare },
+                  { id: 'note', label: 'Note', Icon: FileText },
+                  { id: 'idea', label: 'Idea', Icon: Lightbulb },
+                  { id: 'link', label: 'Link', Icon: Link2 },
                 ].map((item) => (
                   <button
                     type="button"
@@ -580,9 +580,6 @@ export function Dashboard() {
                     <span className="text-xs sm:text-sm font-semibold text-primary group-hover:text-accent-fg transition-colors">
                       {item.label}
                     </span>
-                    <kbd className="ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface border border-border/60 text-secondary group-hover:border-accent/40 group-hover:text-accent-fg transition-colors hidden sm:inline-block">
-                      {item.shortcut}
-                    </kbd>
                   </button>
                 ))}
               </div>
