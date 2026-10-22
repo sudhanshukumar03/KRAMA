@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowDownToLine, CalendarDays, CheckSquare, FileText, Lightbulb, Link2, ListTodo, Plus } from 'lucide-react';
+import { ArrowDownToLine, CalendarDays, CheckSquare, FileText, Lightbulb, Link2, ListTodo, Plus, Inbox as InboxIcon } from 'lucide-react';
 import { api } from '../api/client';
 import { useDashboard } from '../hooks/useDashboard';
 import { taskMetadata } from '../lib/personalTasks';
@@ -10,6 +10,7 @@ import { errorMessage } from '../lib/utils';
 import { QuickCaptureModal } from './ui/QuickCaptureModal';
 import { ErrorState } from './ui/ErrorState';
 import { InboxIllustration } from './ui/InboxIllustration';
+import { PageHeader } from './ui/PageHeader';
 import type { CaptureMode } from '../lib/captureDraft';
 import type { DocumentWithRelations, IssueWithRelations } from '../types/schema';
 import '../styles/inbox.css';
@@ -72,18 +73,21 @@ export function Inbox() {
   return (
     <div className="inbox-page">
       <div className="inbox-workspace">
-        <header className="inbox-header">
-          <div className="inbox-heading">
-            <div>
-              <h1>Inbox</h1>
-              <p>Save what is on your mind. Decide what to do with it when you are ready.</p>
-            </div>
-          </div>
-          <button className="inbox-capture" onClick={event => openCapture(event.currentTarget)}>
-            <Plus size={17} aria-hidden="true" />
-            <span>Capture something</span>
-          </button>
-        </header>
+        <PageHeader
+          icon={InboxIcon}
+          iconColorClass="text-accent-fg"
+          title="Inbox"
+          description="Save what is on your mind. Decide what to do with it when you are ready."
+          primaryAction={{
+            label: 'Capture something',
+            icon: Plus,
+            onClick: () => {
+              setCaptureMode('task');
+              setCapture(true);
+            },
+          }}
+          className="mb-8"
+        />
 
         <section aria-label="Inbox items" className={`inbox-surface${isEmpty ? ' inbox-surface-empty' : ''}`} aria-busy={isLoading || organize.isPending}>
           {!isEmpty && (
