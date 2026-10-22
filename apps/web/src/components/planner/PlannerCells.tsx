@@ -25,13 +25,17 @@ export const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, occ
       style={style}
       {...attributes}
       {...listeners}
-      className={`planner-matrix-task group cursor-grab active:cursor-grabbing p-1.5 -mx-1.5 rounded-md transition-colors hover:bg-surface-hover ${isDragging ? 'opacity-50 shadow-md ring-2 ring-accent z-50 bg-surface' : ''}`}
+      className={cn(
+        "planner-matrix-task group/task relative cursor-grab active:cursor-grabbing p-2 rounded-lg border border-border/80 hover:border-accent/50 bg-surface hover:bg-surface-hover/40 shadow-2xs hover:shadow-xs transition-all w-full flex items-start gap-1.5 select-none",
+        isDragging && "opacity-50 shadow-md ring-2 ring-accent z-50",
+        isDone && "bg-surface-hover/40 border-border/40 opacity-75"
+      )}
     >
       <button
         type="button"
         aria-label={`${isDone ? 'Reopen' : 'Complete'} task ${task.title}`}
         aria-pressed={isDone}
-        className="mt-[3px] shrink-0 transition-transform active:scale-[0.98]"
+        className="mt-0.5 shrink-0 transition-transform active:scale-[0.95] cursor-pointer"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();
@@ -39,47 +43,71 @@ export const MatrixTaskComponent = memo(function MatrixTaskComponent({ task, occ
         }}
       >
         {isDone ? (
-          <CheckCircle2 size={12} className="text-success" />
+          <CheckCircle2 size={13} className="text-success stroke-[2]" />
         ) : (
-          <Circle size={12} className="text-muted group-hover:text-accent/60 transition-colors" />
+          <Circle size={13} className="text-muted group-hover/task:text-accent transition-colors" />
         )}
       </button>
-      <button type="button" aria-label={task.title}
-        className="flex-1 min-w-0 text-left"
+
+      <button
+        type="button"
+        aria-label={task.title}
+        className="flex-1 min-w-0 text-left cursor-pointer"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();
           if (onClickTask) onClickTask(task);
         }}
       >
-        <span className={"text-badge font-medium leading-snug block " + (isDone ? "text-muted line-through" : "text-primary group-hover:text-primary")}>
+        <span className={cn(
+          "text-xs font-semibold leading-snug line-clamp-2 block transition-colors",
+          isDone ? "text-muted line-through" : "text-primary group-hover/task:text-accent-fg"
+        )}>
           {task.title}
         </span>
-        {occurrenceDate && <span className="text-badge text-secondary">{task.dueDate?.slice(0, 10) === occurrenceDate ? 'Due' : 'Scheduled'}</span>}
+        {occurrenceDate && (
+          <span className="text-[10px] font-medium text-secondary block mt-0.5">
+            {task.dueDate?.slice(0, 10) === occurrenceDate ? 'Due' : 'Scheduled'}
+          </span>
+        )}
       </button>
-      {(onEditTask || onDeleteTask) && <div className="planner-matrix-task-actions">
-      {onEditTask && <button type="button" aria-label={`Edit task ${task.title}`} title="Edit task" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onEditTask(task); }} className="min-h-8 min-w-8 flex items-center justify-center rounded hover:bg-surface-hover"><Edit3 size={12} /></button>}
-      {onDeleteTask && (
-        <button
-          type="button"
-          onPointerDown={(e) => {
-            e.stopPropagation();
-          }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onDeleteTask(task);
-          }}
-          className="min-h-8 min-w-8 flex items-center justify-center hover:bg-error-tint text-error rounded shrink-0"
-          title="Delete task"
-        >
-          <Trash2 size={10} />
-        </button>
+
+      {(onEditTask || onDeleteTask) && (
+        <div className="planner-matrix-task-actions flex items-center gap-0.5 shrink-0 opacity-0 group-hover/task:opacity-100 focus-within:opacity-100 transition-opacity ml-auto -mr-0.5">
+          {onEditTask && (
+            <button
+              type="button"
+              aria-label={`Edit task ${task.title}`}
+              title="Edit task"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                onEditTask(task);
+              }}
+              className="w-5 h-5 flex items-center justify-center rounded text-secondary hover:text-primary hover:bg-surface-hover transition-colors cursor-pointer"
+            >
+              <Edit3 size={11} />
+            </button>
+          )}
+          {onDeleteTask && (
+            <button
+              type="button"
+              aria-label={`Delete task ${task.title}`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onDeleteTask(task);
+              }}
+              className="w-5 h-5 flex items-center justify-center rounded text-secondary hover:text-danger-fg hover:bg-danger-bg transition-colors cursor-pointer shrink-0"
+              title="Delete task"
+            >
+              <Trash2 size={11} />
+            </button>
+          )}
+        </div>
       )}
-      </div>}
     </div>
   );
 });
@@ -94,7 +122,7 @@ export function DroppableTaskCell({ day, tasks, dateKeyFn, onClickTask, onEditTa
   return (
     <div
       ref={setNodeRef}
-      className={`relative group border-r border-border last:border-r-0 p-2 pb-6 flex flex-col gap-1 min-h-[48px] transition-colors ${isOver ? 'bg-accent/10' : ''}`}
+      className={`relative group border-r border-border last:border-r-0 p-1.5 flex flex-col gap-1 min-h-[48px] h-full transition-colors ${isOver ? 'bg-accent/10' : ''}`}
     >
       {tasks.map((task: PlannerTask) => (
         <MatrixTaskComponent key={task.id} task={task} occurrenceDate={dKey} onClickTask={onClickTask} onEditTask={onEditTask} onToggleTask={onToggleTask} onDeleteTask={onDeleteTask} />
@@ -104,9 +132,9 @@ export function DroppableTaskCell({ day, tasks, dateKeyFn, onClickTask, onEditTa
         <button
           onClick={() => onAddTask(day)}
           aria-label="New task"
-          className="absolute bottom-1 left-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center gap-1 py-1 rounded hover:bg-surface-hover text-muted hover:text-accent transition-all text-badge font-bold"
+          className="w-full mt-auto opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center gap-1.5 py-1 px-2 rounded-md hover:bg-surface-hover/80 text-secondary hover:text-primary transition-all text-[11px] font-medium cursor-pointer"
         >
-          <Plus size={10} strokeWidth={3} /> New Task
+          <Plus size={11} strokeWidth={2} /> <span>New Task</span>
         </button>
       )}
     </div>
@@ -212,7 +240,7 @@ export function TimeBlockCell({ day, blocks, tasks, onClickTimeBlock, onAddTimeB
     data: { type: 'BlockColumn', date: dKey }
   });
   return (
-    <div ref={setNodeRef} className={`relative group border-r border-border last:border-r-0 p-1.5 pb-6 flex flex-col gap-1.5 min-h-[48px] h-full transition-colors ${isOver ? 'bg-accent/10' : ''}`}>
+    <div ref={setNodeRef} className={`relative group border-r border-border last:border-r-0 p-1.5 flex flex-col gap-1.5 min-h-[48px] h-full transition-colors ${isOver ? 'bg-accent/10' : ''}`}>
       {blocks.map((block) => (
         <DroppableTimeBlock key={block.id} block={block} tasks={tasks} onClickTimeBlock={onClickTimeBlock} onDeleteTimeBlock={onDeleteTimeBlock} />
       ))}
@@ -221,9 +249,9 @@ export function TimeBlockCell({ day, blocks, tasks, onClickTimeBlock, onAddTimeB
         <button
           onClick={() => onAddTimeBlock(day)}
           aria-label="Add time block"
-          className="absolute bottom-1 left-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center gap-1 py-1 rounded hover:bg-surface-hover text-muted hover:text-accent transition-all text-badge font-bold"
+          className="w-full mt-auto opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center gap-1 py-1 rounded-md hover:bg-surface-hover text-muted hover:text-accent transition-all text-[11px] font-semibold cursor-pointer"
         >
-          <Plus size={10} strokeWidth={3} /> Add Block
+          <Plus size={11} strokeWidth={2.5} /> Add Block
         </button>
       )}
     </div>
@@ -234,7 +262,7 @@ export function TimeBlockCell({ day, blocks, tasks, onClickTimeBlock, onAddTimeB
 // day; toggling flips completed, clicking opens the edit modal.
 export function MilestoneCell({ day, milestones, goalDeadlines = [], onClickMilestone, onToggleMilestone, onAddMilestone, onClickGoalDeadline }: { day: Date, milestones: Milestone[], goalDeadlines?: GoalDeadline[], onClickMilestone?: (m: Milestone) => void, onToggleMilestone?: (m: Milestone) => void, onAddMilestone?: (d: Date) => void, onClickGoalDeadline?: (goal: GoalDeadline) => void }) {
   return (
-    <div className="relative group border-r border-border last:border-r-0 p-1.5 pb-6 flex flex-col gap-1 min-h-[40px]">
+    <div className="relative group border-r border-border last:border-r-0 p-1.5 flex flex-col gap-1 min-h-[40px] h-full">
       {milestones.map((m) => (
         <div
           key={m.id}
@@ -290,9 +318,9 @@ export function MilestoneCell({ day, milestones, goalDeadlines = [], onClickMile
         <button
           onClick={() => onAddMilestone(day)}
           aria-label="Add milestone"
-          className="absolute bottom-1 left-2 right-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center gap-1 py-1 rounded hover:bg-surface-hover text-muted hover:text-accent transition-all text-badge font-bold"
+          className="w-full mt-auto opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center gap-1 py-1 rounded-md hover:bg-surface-hover text-muted hover:text-accent transition-all text-[11px] font-semibold cursor-pointer"
         >
-          <Plus size={10} strokeWidth={3} /> Milestone
+          <Plus size={11} strokeWidth={2.5} /> Milestone
         </button>
       )}
     </div>

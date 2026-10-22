@@ -279,10 +279,11 @@
 
   /* Krama Standard Input & Form Controls */
   .krama-input {
-    background-color: var(--color-surface-hover);
+    background-color: var(--surface-1);
     color: var(--color-primary);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--border-default);
     border-radius: var(--radius-input);
+    box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.04);
     transition: border-color var(--motion-fast) var(--ease-out),
                 box-shadow var(--motion-fast) var(--ease-out);
   }
@@ -290,7 +291,7 @@
   .krama-input:focus {
     outline: none;
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 2px var(--color-ring);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 15%, transparent), 0 1px 2px 0 rgb(15 23 42 / 0.04);
   }
 
   .krama-input::placeholder {
@@ -335,21 +336,25 @@
     background-color: var(--color-accent);
     color: var(--color-text-on-accent);
     border: 1px solid transparent;
+    box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.12), 0 2px 4px -1px rgb(82 24 235 / 0.20);
   }
 
   .krama-btn-primary:hover {
     background-color: var(--color-accent-hover);
+    box-shadow: 0 2px 6px 0 rgb(15 23 42 / 0.16), 0 4px 10px -2px rgb(82 24 235 / 0.28);
   }
 
   .krama-btn-secondary {
-    background-color: var(--color-surface);
+    background-color: var(--surface-1);
     color: var(--color-primary);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--border-default);
+    box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.05);
   }
 
   .krama-btn-secondary:hover {
-    background-color: var(--color-surface-hover);
-    border-color: var(--color-border-strong);
+    background-color: var(--surface-2);
+    border-color: var(--border-strong);
+    box-shadow: 0 2px 4px 0 rgb(15 23 42 / 0.07);
   }
 
   .dark .krama-btn-secondary {

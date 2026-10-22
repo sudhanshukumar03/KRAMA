@@ -4,15 +4,18 @@
 .planner-header { border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; gap: 16px; }
 .planner-title { gap: 12px; }
 .planner-title h1 { font-size: 28px; font-weight: 650; line-height: 36px; letter-spacing: -.035em; }
-.planner-title > div { width: 40px; height: 40px; border-radius: 11px; background: var(--surface-1); border-color: var(--border-default); box-shadow: none; }
-.planner-modes { box-shadow: none; border-radius: 10px; }
+.planner-title > div { width: 40px; height: 40px; border-radius: 11px; background: var(--surface-1); border: 1px solid var(--border-default); box-shadow: 0 1px 2px rgb(15 23 42 / 0.05); }
+.planner-modes { box-shadow: 0 1px 2px rgb(15 23 42 / 0.04); border-radius: 10px; }
 .planner-modes button { min-height: 44px; padding-inline: 14px; font-family: var(--font-sans); font-weight: 500; letter-spacing: normal; }
 .planner-navigation { gap: 10px; }
-.planner-navigation > button, .planner-navigation > div:not(.planner-date) { background: var(--surface-1); box-shadow: none; border-radius: 9px; }
+.planner-navigation > button, .planner-navigation > div:not(.planner-date) { background: var(--surface-1); border: 1px solid var(--border-default); box-shadow: 0 1px 2px rgb(15 23 42 / 0.05); border-radius: 9px; }
+.dark .planner-navigation > button, .dark .planner-navigation > div:not(.planner-date) { box-shadow: none; }
 .planner-navigation > div:not(.planner-date) button { min-width: 44px; min-height: 44px; }
 .planner-date-label { font-family: var(--font-sans); font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
-.planner-options > button { box-shadow: none; font-family: var(--font-sans); font-size: 12px; font-weight: 500; border-radius: 9px; }
-.planner-page .planner-capacity { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; padding: 0; border: 1px solid var(--border-default); border-radius: 12px; background: var(--surface-1); overflow: hidden; flex-shrink: 0; }
+.planner-options > button { border: 1px solid var(--border-default); box-shadow: 0 1px 2px rgb(15 23 42 / 0.05); font-family: var(--font-sans); font-size: 12px; font-weight: 500; border-radius: 9px; }
+.dark .planner-options > button { box-shadow: none; }
+.planner-page .planner-capacity { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; padding: 0; border: 1px solid var(--border-default); border-radius: 12px; background: var(--surface-1); overflow: hidden; flex-shrink: 0; box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.04), 0 4px 16px -2px rgb(15 23 42 / 0.06); }
+.dark .planner-page .planner-capacity { box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4); }
 .planner-capacity-cell { position: relative; min-width: 0; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 .planner-capacity-cell + .planner-capacity-cell { border-left: 1px solid var(--border-default); }
 .planner-capacity-label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); line-height: 18px; }
@@ -28,9 +31,10 @@
 .planner-date { min-width: 0; }
 .planner-date-label { overflow-wrap: anywhere; }
 .planner-calendar-main { min-width: 0; }
-.planner-matrix-task { display: grid; grid-template-columns: 12px minmax(0, 1fr); align-items: start; gap: 4px 6px; }
-.planner-matrix-task > button:nth-child(2) { overflow-wrap: anywhere; }
-.planner-matrix-task-actions { grid-column: 2; display: flex; justify-content: flex-end; gap: 4px; }
+.planner-matrix-task { display: flex; flex-direction: row; align-items: flex-start; gap: 6px; width: 100%; scroll-margin-top: 72px; }
+.planner-matrix-task button { scroll-margin-top: 72px; }
+.planner-matrix-task button:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.planner-matrix-task-actions { display: flex; align-items: center; gap: 2px; }
 
 @container (max-width: 1050px) {
   .planner-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; }

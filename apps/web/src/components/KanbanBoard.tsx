@@ -437,147 +437,148 @@ export function KanbanBoard({
 
       {/* 3. Filter Bar */}
       <div className={cn("workspace-board-filters px-6 pb-3 shrink-0", hideHeader ? "pt-3" : "pt-1")}>
-      <div className="workspace-toolbar">
-        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
-          {/* Search Input */}
-          <WorkspaceSearchField id="board-search" value={searchQuery} onChange={setSearchQuery} label="Search tasks" placeholder="Search tasks..." />
+        <div className="workspace-toolbar">
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+            {/* Search Input */}
+            <WorkspaceSearchField id="board-search" value={searchQuery} onChange={setSearchQuery} label="Search tasks" placeholder="Search tasks..." />
 
-          {/* All Projects Dropdown */}
-          {!lockedProjectId && (
+            {/* All Projects Dropdown */}
+            {!lockedProjectId && (
+              <div className="relative">
+                <select
+                  id="board-project-filter"
+                  name="projectFilter"
+                  aria-label="Filter by project"
+                  value={selectedProjectId}
+                  onChange={(e) => setSelectedProjectId(e.target.value)}
+                  className="appearance-none pl-3 pr-8 py-2 text-xs font-semibold bg-surface border border-border/80 rounded-xl text-secondary hover:text-primary hover:border-border-strong focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
+                >
+                  <option value="all">All Projects</option>
+                  <option value="operations">⚡ General Operations</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>📁 {p.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-secondary absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            )}
+
+            {/* All Priorities Dropdown */}
             <div className="relative">
               <select
-                id="board-project-filter"
-                name="projectFilter"
-                aria-label="Filter by project" value={selectedProjectId}
-                onChange={(e) => setSelectedProjectId(e.target.value)}
-                className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
+                id="board-priority-filter"
+                name="priorityFilter"
+                aria-label="Filter by priority"
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value as typeof priorityFilter)}
+                className="appearance-none pl-3 pr-8 py-2 text-xs font-semibold bg-surface border border-border/80 rounded-xl text-secondary hover:text-primary hover:border-border-strong focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
               >
-                <option value="all">All Projects</option>
-                <option value="operations">⚡ General Operations</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>📁 {p.name}</option>
-                ))}
+                <option value="all">All Priorities</option>
+                <option value="URGENT">Urgent</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
               </select>
-              <ChevronDown className="w-3 h-3 text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-3.5 h-3.5 text-secondary absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
-          )}
-
-
-          {/* All Priorities Dropdown */}
-          <div className="relative">
-            <select
-              id="board-priority-filter"
-              name="priorityFilter"
-              aria-label="Filter by priority" value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value as typeof priorityFilter)}
-              className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
-            >
-              <option value="all">All Priorities</option>
-              <option value="URGENT">Urgent</option>
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
-            </select>
-            <ChevronDown className="w-3 h-3 text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-        </div>
-
-        {/* Right Sort Dropdown & View Switcher */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Sort Priority */}
-          <div className="relative">
-            <select
-              id="board-sort-filter"
-              name="sortBy"
-              aria-label="Sort directives" value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="appearance-none pl-3 pr-7 py-1.5 text-xs font-medium bg-surface border border-border/80 rounded-lg text-secondary hover:text-primary focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
-            >
-              <option value="manual">Manual order</option>
-              <option value="priority">Sort Priority</option>
-              <option value="date">Sort Due Date</option>
-              <option value="title">Sort Title</option>
-            </select>
-            <ChevronDown className="w-3 h-3 text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-
-          {/* Toggle Canceled Archive */}
-          <button
-            type="button"
-            onClick={() => setShowCanceledArchive(prev => !prev)}
-            className={cn(
-              "px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs",
-              showCanceledArchive
-                ? "bg-accent-subtle text-accent-fg border-accent/30 font-semibold"
-                : "bg-surface border border-border/80 text-secondary hover:text-primary"
-            )}
-            aria-pressed={showCanceledArchive} title="Toggle Canceled Directives Archive"
-          >
-            <Archive className="w-3.5 h-3.5" />
-            <span>Archive{canceledCount > 0 ? ` (${canceledCount})` : ''}</span>
-          </button>
-
-          {/* Embedded View Switcher and Action Button when header is hidden */}
-          {hideHeader && (
-            <>
-              <div className="flex items-center bg-surface-hover/80 p-0.5 rounded-lg border border-border/80 text-xs shadow-2xs ml-1">
-                <button
-                  onClick={() => setActiveView('board')}
-                  className={cn(
-                    "px-2 py-1 rounded-md flex items-center gap-1 font-medium transition-all cursor-pointer",
-                    activeView === 'board'
-                      ? "bg-surface text-primary shadow-2xs font-semibold"
-                      : "text-secondary hover:text-primary"
-                  )}
-                  title="Board View"
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setActiveView('list')}
-                  className={cn(
-                    "px-2 py-1 rounded-md flex items-center gap-1 font-medium transition-all cursor-pointer",
-                    activeView === 'list'
-                      ? "bg-surface text-primary shadow-2xs font-semibold"
-                      : "text-secondary hover:text-primary"
-                  )}
-                  title="List View"
-                >
-                  <List className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setActiveView('calendar')}
-                  className={cn(
-                    "px-2 py-1 rounded-md flex items-center gap-1 font-medium transition-all cursor-pointer",
-                    activeView === 'calendar'
-                      ? "bg-surface text-primary shadow-2xs font-semibold"
-                      : "text-secondary hover:text-primary"
-                  )}
-                  title="Calendar View"
-                >
-                  <Calendar className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <button
-                onClick={() => handleCreateIssue("BACKLOG")}
-                className="bg-accent hover:opacity-90 text-on-accent px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 shadow-sm hover:shadow cursor-pointer ml-1"
+          {/* Right Sort Dropdown & View Switcher */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Sort Priority */}
+            <div className="relative">
+              <select
+                id="board-sort-filter"
+                name="sortBy"
+                aria-label="Sort directives"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                className="appearance-none pl-3 pr-8 py-2 text-xs font-semibold bg-surface border border-border/80 rounded-xl text-secondary hover:text-primary hover:border-border-strong focus:outline-none focus:border-accent cursor-pointer shadow-2xs transition-colors"
               >
-                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                New Task
-              </button>
-          </>
-          )}
+                <option value="manual">Manual order</option>
+                <option value="priority">Sort Priority</option>
+                <option value="date">Sort Due Date</option>
+                <option value="title">Sort Title</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-secondary absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+
+            {/* Toggle Canceled Archive */}
+            <button
+              type="button"
+              onClick={() => setShowCanceledArchive(prev => !prev)}
+              className={cn(
+                "px-3 py-2 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs",
+                showCanceledArchive
+                  ? "bg-accent-subtle text-accent-fg border-accent/30"
+                  : "bg-surface border-border/80 text-secondary hover:text-primary hover:border-border-strong"
+              )}
+              aria-pressed={showCanceledArchive}
+              title="Toggle Canceled Directives Archive"
+            >
+              <Archive className="w-3.5 h-3.5" />
+              <span>Archive{canceledCount > 0 ? ` (${canceledCount})` : ''}</span>
+            </button>
+
+            {/* Embedded View Switcher and Action Button when header is hidden */}
+            {hideHeader && (
+              <>
+                <div className="flex items-center bg-surface-hover/80 p-0.5 rounded-lg border border-border/80 text-xs shadow-2xs ml-1">
+                  <button
+                    onClick={() => setActiveView('board')}
+                    className={cn(
+                      "px-2 py-1 rounded-md flex items-center gap-1 font-medium transition-all cursor-pointer",
+                      activeView === 'board'
+                        ? "bg-surface text-primary shadow-2xs font-semibold"
+                        : "text-secondary hover:text-primary"
+                    )}
+                    title="Board View"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setActiveView('list')}
+                    className={cn(
+                      "px-2 py-1 rounded-md flex items-center gap-1 font-medium transition-all cursor-pointer",
+                      activeView === 'list'
+                        ? "bg-surface text-primary shadow-2xs font-semibold"
+                        : "text-secondary hover:text-primary"
+                    )}
+                    title="List View"
+                  >
+                    <List className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setActiveView('calendar')}
+                    className={cn(
+                      "px-2 py-1 rounded-md flex items-center gap-1 font-medium transition-all cursor-pointer",
+                      activeView === 'calendar'
+                        ? "bg-surface text-primary shadow-2xs font-semibold"
+                        : "text-secondary hover:text-primary"
+                    )}
+                    title="Calendar View"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => handleCreateIssue("BACKLOG")}
+                  className="bg-accent hover:opacity-90 text-on-accent px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 shadow-sm hover:shadow cursor-pointer ml-1"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  New Task
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
       </div>
 
       {projectsError && <div className="mx-4"><ErrorState title="Could not load projects" onRetry={() => retryProjects()} /></div>}
       {showCanceledArchive && archiveLoading && <p role="status" className="px-4 text-secondary">Loading canceled tasks...</p>}
       {showCanceledArchive && archiveError && <div className="mx-4"><ErrorState title="Could not load canceled tasks" onRetry={() => retryArchive()} /></div>}
       {!filteredIssues.length && <p role="status" className="px-4 pb-3 text-sm text-secondary">No tasks match this view. Clear a filter or create a task.</p>}
-      <p className="px-4 pb-2 max-w-[68ch] text-sm leading-relaxed text-secondary">Drag tasks to reorder them, or use Move up and Move down in the task menu. Open a task to change its status or dates.</p>
       {/* 4. Board Viewport - Fluid Notion-style responsive columns */}
       <div className="flex-1 min-h-0 min-w-0 w-full overflow-x-auto overflow-y-hidden px-4 md:px-6 pb-6 pt-1 select-none custom-scrollbar">
         {activeView === 'board' ? (

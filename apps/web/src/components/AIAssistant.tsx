@@ -184,7 +184,7 @@ export function AIAssistant() {
  // focus out of the next field or dialog the user is already working in.
  useEffect(() => {
  if (!isOpen && openerRef.current) {
- const opener = openerRef.current.isConnected ? openerRef.current : [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Open AI Assistant"]')].find(element => element.getClientRects().length > 0);
+ const opener = openerRef.current.isConnected ? openerRef.current : Array.from(document.querySelectorAll<HTMLButtonElement>('[aria-label="Open AI Assistant"]')).find(element => element.getClientRects().length > 0);
  opener?.focus();
  }
  }, [isOpen]);

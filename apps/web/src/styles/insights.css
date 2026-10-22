@@ -145,24 +145,256 @@
 }
 
 .insights-card {
-  border-radius: 16px;
+  position: relative;
+  border-radius: 18px;
+  background-color: var(--surface-1);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.04), 0 4px 16px -2px rgb(15 23 42 / 0.06);
   transition: border-color var(--motion-fast) var(--ease-out),
               box-shadow var(--motion-fast) var(--ease-out),
               transform var(--motion-fast) var(--ease-out);
 }
 
+.insights-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 3px 6px 0 rgb(15 23 42 / 0.05), 0 10px 24px -4px rgb(15 23 42 / 0.08);
+}
+
+.dark .insights-card {
+  background-color: var(--surface-1);
+  border-color: var(--border-default);
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+.dark .insights-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 6px 20px -3px rgb(0 0 0 / 0.65), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Hero Focus Cockpit Card */
+.insights-hero-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.insights-hero-glow {
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 280px;
+  height: 280px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 18%, transparent) 0%, transparent 70%);
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.dark .insights-hero-glow {
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 24%, transparent) 0%, transparent 70%);
+  opacity: 0.65;
+}
+
+/* Quick Capture Tactile Cards */
 .insights-quick-pill {
-  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1),
-              background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-1);
+  box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 180ms ease,
+              border-color 180ms ease,
+              background-color 180ms ease;
+  cursor: pointer;
+  text-align: left;
 }
 
 .insights-quick-pill:hover {
-  transform: translateY(-1.5px);
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 14px -2px rgb(15 23 42 / 0.08);
 }
 
 .insights-quick-pill:active {
   transform: translateY(0) scale(0.98);
 }
+
+.dark .insights-quick-pill {
+  background: var(--surface-2);
+  border-color: var(--border-subtle);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+}
+
+.dark .insights-quick-pill:hover {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+  box-shadow: 0 6px 18px -2px rgb(0 0 0 / 0.55);
+}
+
+.insights-quick-pill-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.insights-quick-pill:hover .insights-quick-pill-icon {
+  transform: scale(1.08);
+}
+
+/* Category Specific Color Identifiers */
+.quick-pill-task .insights-quick-pill-icon {
+  background: var(--cat-tasks-bg);
+  color: var(--cat-tasks);
+  border: 1px solid color-mix(in srgb, var(--cat-tasks) 25%, transparent);
+}
+.quick-pill-note .insights-quick-pill-icon {
+  background: var(--success-bg);
+  color: var(--success-fg);
+  border: 1px solid color-mix(in srgb, var(--success-fg) 25%, transparent);
+}
+.quick-pill-idea .insights-quick-pill-icon {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  border: 1px solid color-mix(in srgb, var(--warning-fg) 25%, transparent);
+}
+.quick-pill-link .insights-quick-pill-icon {
+  background: var(--cat-timeblocks-bg);
+  color: var(--cat-timeblocks);
+  border: 1px solid color-mix(in srgb, var(--cat-timeblocks) 25%, transparent);
+}
+
+/* Priority Number Badges in Daily Planning */
+.priority-number-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--accent-subtle);
+  color: var(--accent-fg);
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* Custom Select Wrapper for Priority Dropdown */
+.priority-select-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.priority-select-control select {
+  appearance: none;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 40px 10px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: 11px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  cursor: pointer;
+}
+
+.dark .priority-select-control select {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+
+.priority-select-control select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 15%, transparent);
+}
+
+.priority-select-chevron {
+  position: absolute;
+  right: 14px;
+  pointer-events: none;
+  color: var(--text-secondary);
+  display: grid;
+  place-items: center;
+}
+
+/* Metric / Streak Pills */
+.streak-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--warning-fg) 10%, transparent);
+  color: var(--warning-fg);
+  border: 1px solid color-mix(in srgb, var(--warning-fg) 20%, transparent);
+}
+
+/* Interactive Row Items */
+.insights-item-row {
+  border-radius: 12px;
+  padding: 10px 12px;
+  transition: background-color 150ms ease;
+}
+
+.insights-item-row:hover {
+  background-color: var(--state-hover);
+}
+
+/* Executive Telemetry Grid & Cards */
+.telemetry-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  background-color: var(--surface-1);
+  border: 1px solid var(--border-default);
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.04);
+  transition: border-color var(--motion-fast) var(--ease-out),
+              box-shadow var(--motion-fast) var(--ease-out),
+              transform var(--motion-fast) var(--ease-out);
+}
+
+.telemetry-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 14px -2px rgb(15 23 42 / 0.08);
+  transform: translateY(-1px);
+}
+
+.dark .telemetry-card {
+  background-color: var(--surface-1);
+  border-color: var(--border-default);
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+.dark .telemetry-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 6px 18px -3px rgb(0 0 0 / 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Command Center Hero Enhancements */
+.hero-cockpit-accent {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, var(--surface-1)) 0%, var(--surface-1) 100%);
+}
+
+.dark .hero-cockpit-accent {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--surface-1)) 0%, var(--surface-1) 100%);
+}
+

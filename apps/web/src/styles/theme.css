@@ -1,38 +1,40 @@
 @layer theme {
   :root {
-    /* 1. Surfaces & Canvas (Light) */
-    --bg-base: oklch(0.98 0 0); /* #FAFAFA */
-    --bg-subtle: oklch(0.96 0 0); /* #F4F4F5 */
-    --surface-1: oklch(1 0 0); /* #FFFFFF */
-    --surface-2: oklch(1 0 0);
-    --surface-3: oklch(1 0 0);
-    --surface-overlay: oklch(1 0 0 / 0.8);
+    /* 1. Surfaces & Canvas (Light - Porcelain Luxury Hierarchy)
+       Grounded porcelain slate base, crisp elevated surface, zero bleached flat wash.
+    */
+    --bg-base: oklch(0.956 0.010 260); /* Grounded porcelain slate canvas with distinct depth */
+    --bg-subtle: oklch(0.938 0.012 260); /* Tinted subtle surface for controls & chips */
+    --surface-1: oklch(1 0 0); /* Pure Luminous White - pops off the porcelain canvas */
+    --surface-2: oklch(0.982 0.006 260); /* Tonal elevated surface */
+    --surface-3: oklch(0.992 0.004 260); /* Dialog / floating surface */
+    --surface-overlay: oklch(1 0 0 / 0.90);
 
     /* 2. Text (Light - Chromatic Iris Slate) */
-    --text-primary: oklch(0.20 0.02 262); /* Deep Midnight Slate */
-    --text-secondary: oklch(0.42 0.03 262); /* Rich Iris Slate */
-    --text-muted: oklch(0.52 0.025 262); /* Soft Slate */
+    --text-primary: oklch(0.15 0.025 260); /* Deep Midnight Slate */
+    --text-secondary: oklch(0.36 0.035 260); /* Rich Iris Slate */
+    --text-muted: oklch(0.44 0.025 260); /* Soft Slate - meets 4.5:1 contrast */
     --text-on-accent: oklch(1 0 0);
-    --text-inverse: oklch(0.98 0.01 262);
+    --text-inverse: oklch(0.98 0.01 260);
 
-    /* 3. Borders (Light) */
-    --border-subtle: oklch(0 0 0 / 0.04);
-    --border-default: oklch(0 0 0 / 0.08);
-    --border-strong: oklch(0 0 0 / 0.16);
-    --ring: oklch(0.62 0.17 262);
+    /* 3. Borders (Light - Crisp Specular Definition) */
+    --border-subtle: oklch(0.18 0.03 260 / 0.08);
+    --border-default: oklch(0.18 0.03 260 / 0.13);
+    --border-strong: oklch(0.18 0.03 260 / 0.22);
+    --ring: oklch(0.52 0.18 262);
 
     /* 4. Interactive & State (Light) */
-    --accent: oklch(0.55 0.17 262);
-    --accent-hover: oklch(0.50 0.17 262);
-    --accent-active: oklch(0.48 0.17 262);
-    --accent-subtle: oklch(0.62 0.17 262 / 0.1);
-    --accent-fg: oklch(0.52 0.17 262);
+    --accent: oklch(0.52 0.18 262);
+    --accent-hover: oklch(0.47 0.18 262);
+    --accent-active: oklch(0.44 0.18 262);
+    --accent-subtle: oklch(0.52 0.18 262 / 0.12);
+    --accent-fg: oklch(0.50 0.18 262);
 
-    --state-hover: oklch(0 0 0 / 0.04);
-    --state-active: oklch(0 0 0 / 0.08);
-    --state-selected: oklch(0 0 0 / 0.06);
-    --disabled-bg: oklch(0 0 0 / 0.05);
-    --disabled-fg: oklch(0.65 0.02 262);
+    --state-hover: oklch(0.18 0.03 260 / 0.05);
+    --state-active: oklch(0.18 0.03 260 / 0.09);
+    --state-selected: oklch(0.18 0.03 260 / 0.07);
+    --disabled-bg: oklch(0.18 0.03 260 / 0.05);
+    --disabled-fg: oklch(0.60 0.02 260);
 
     /* 5. Status (Light) */
     --success-fg: oklch(0.46 0.125 145);
