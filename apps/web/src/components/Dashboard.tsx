@@ -3,9 +3,10 @@ import { errorMessage, parseLocalDate } from '../lib/utils';
 import { openFocusTab } from '../lib/focusNavigation';
 import '../styles/insights.css';
 import { useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Home,
   Target,
   CheckSquare,
   Link2,
@@ -19,6 +20,10 @@ import {
   Clock,
   CheckCircle2,
   Folder,
+  Timer,
+  KanbanSquare,
+  BarChart2,
+  Briefcase,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { useDashboard } from '../hooks/useDashboard';
@@ -189,7 +194,7 @@ export function Dashboard() {
   return (
     <div className="workspace-dashboard insights-page h-full overflow-y-auto min-h-0 bg-canvas">
       <div className="workspace-dashboard-content mx-auto space-y-5">
-        <PageHeader icon={Target} title={`${greeting}, ${displayName}.`} description={`${dateFormatted} - Make room for what matters today.`}>
+        <PageHeader icon={Home} iconColorClass="text-accent-fg" title={`${greeting}, ${displayName}.`} description={`${dateFormatted} · Make room for what matters today.`}>
           <DashboardRefreshButton key={data.dateKey} isFetching={isFetching} onRefresh={() => refetch({ throwOnError: true })} />
         </PageHeader>
         {isError && <p role="alert" className="text-sm text-danger-fg">Could not refresh your dashboard. Showing the previous data. Use Refresh to try again.</p>}
@@ -197,35 +202,54 @@ export function Dashboard() {
         {/* Executive Telemetry Strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5" role="region" aria-label="Today at a glance">
           {/* Focus Time */}
-          <div className="telemetry-card">
+          <Link
+            to="/focus"
+            onClick={(e) => {
+              e.preventDefault();
+              openFocusTab();
+            }}
+            className="telemetry-card group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            title="Open Focus Timer"
+          >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Focus Today</span>
-              <div className="w-7 h-7 rounded-lg bg-accent-subtle text-accent-fg flex items-center justify-center">
-                <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="text-xs font-semibold text-secondary uppercase tracking-wider group-hover:text-primary transition-colors">
+                Focus Today
+              </span>
+              <div className="w-7 h-7 rounded-lg bg-accent-subtle text-accent-fg flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Timer className="w-3.5 h-3.5" aria-hidden="true" />
               </div>
             </div>
-            <div className="mt-2 flex items-baseline gap-1.5">
+            <div className="mt-2.5 flex items-baseline gap-1.5">
               <span className="text-2xl font-bold tracking-tight text-primary tabular-nums">
                 {Math.round(data.today?.focusMinutes || 0)}
               </span>
               <span className="text-xs text-secondary font-medium">min</span>
             </div>
-            <p className="mt-1 text-xs text-secondary truncate">
-              {(data.today?.focusSessions || []).length > 0
-                ? `${(data.today?.focusSessions || []).length} session${(data.today?.focusSessions || []).length > 1 ? 's' : ''} logged`
-                : 'Ready for deep work'}
-            </p>
-          </div>
+            <div className="mt-2.5 flex items-center gap-1.5 text-xs text-secondary truncate">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-fg shrink-0" aria-hidden="true" />
+              <span>
+                {(data.today?.focusSessions || []).length > 0
+                  ? `${(data.today?.focusSessions || []).length} session${(data.today?.focusSessions || []).length > 1 ? 's' : ''} logged`
+                  : 'Ready for deep work'}
+              </span>
+            </div>
+          </Link>
 
           {/* Tasks Velocity */}
-          <div className="telemetry-card">
+          <Link
+            to="/app/board"
+            className="telemetry-card group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            title="Open Tasks board"
+          >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Tasks Done</span>
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 flex items-center justify-center">
-                <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="text-xs font-semibold text-secondary uppercase tracking-wider group-hover:text-primary transition-colors">
+                Tasks Done
+              </span>
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <KanbanSquare className="w-3.5 h-3.5" aria-hidden="true" />
               </div>
             </div>
-            <div className="mt-2 flex items-baseline gap-1.5">
+            <div className="mt-2.5 flex items-baseline gap-1.5">
               <span className="text-2xl font-bold tracking-tight text-primary tabular-nums">
                 {completed}
               </span>
@@ -236,23 +260,29 @@ export function Dashboard() {
                 </span>
               )}
             </div>
-            <div className="mt-2 w-full bg-surface-hover rounded-full h-1.5 overflow-hidden">
+            <div className="mt-2.5 w-full bg-surface-hover rounded-full h-1.5 overflow-hidden">
               <div
                 className="bg-emerald-500 h-full rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${completedPercent}%` }}
               />
             </div>
-          </div>
+          </Link>
 
           {/* Daily Habits */}
-          <div className="telemetry-card">
+          <Link
+            to="/app/habits"
+            className="telemetry-card group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            title="Open Habits"
+          >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Habits</span>
-              <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 dark:text-amber-400 flex items-center justify-center">
-                <Flame className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="text-xs font-semibold text-secondary uppercase tracking-wider group-hover:text-primary transition-colors">
+                Habits
+              </span>
+              <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 dark:text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <BarChart2 className="w-3.5 h-3.5" aria-hidden="true" />
               </div>
             </div>
-            <div className="mt-2 flex items-baseline gap-1.5">
+            <div className="mt-2.5 flex items-baseline gap-1.5">
               <span className="text-2xl font-bold tracking-tight text-primary tabular-nums">
                 {completedHabitsCount}
               </span>
@@ -263,163 +293,177 @@ export function Dashboard() {
                 </span>
               )}
             </div>
-            <div className="mt-2 w-full bg-surface-hover rounded-full h-1.5 overflow-hidden">
+            <div className="mt-2.5 w-full bg-surface-hover rounded-full h-1.5 overflow-hidden">
               <div
                 className="bg-amber-500 h-full rounded-full transition-all duration-500 ease-out"
                 style={{ width: habits.length ? `${Math.round((completedHabitsCount / habits.length) * 100)}%` : '0%' }}
               />
             </div>
-          </div>
+          </Link>
 
           {/* Active Projects */}
-          <div className="telemetry-card">
+          <Link
+            to="/app/projects"
+            className="telemetry-card group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            title="Open Projects"
+          >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Projects</span>
-              <div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-500 dark:text-purple-400 flex items-center justify-center">
-                <Target className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="text-xs font-semibold text-secondary uppercase tracking-wider group-hover:text-primary transition-colors">
+                Projects
+              </span>
+              <div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-500 dark:text-purple-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Briefcase className="w-3.5 h-3.5" aria-hidden="true" />
               </div>
             </div>
-            <div className="mt-2 flex items-baseline gap-1.5">
+            <div className="mt-2.5 flex items-baseline gap-1.5">
               <span className="text-2xl font-bold tracking-tight text-primary tabular-nums">
                 {(data.projects || []).length}
               </span>
               <span className="text-xs text-secondary font-medium">active</span>
             </div>
-            <p className="mt-1 text-xs text-secondary truncate">
-              {(data.goals || []).length > 0
-                ? `${(data.goals || []).length} active goal${(data.goals || []).length > 1 ? 's' : ''}`
-                : 'Aligned with your workspace'}
-            </p>
-          </div>
+            <div className="mt-2.5 flex items-center gap-1.5 text-xs text-secondary truncate">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" aria-hidden="true" />
+              <span>
+                {(data.goals || []).length > 0
+                  ? `${(data.goals || []).length} active goal${(data.goals || []).length > 1 ? 's' : ''} aligned`
+                  : 'Aligned with your workspace'}
+              </span>
+            </div>
+          </Link>
         </div>
 
         {/* Two-Column Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
           {/* Left Column (Main Focus & Work) */}
           <div className="lg:col-span-7 xl:col-span-8 space-y-4 min-w-0">
-            {/* Today's Focus Card */}
-            <DashboardCard
-              title="Today's Focus"
-              action={link('Open Planner', '/app/planner')}
-              className="insights-hero-card hero-cockpit-accent"
-            >
-              <div className="insights-hero-glow" aria-hidden="true" />
-              {nextTask ? (
-                <div className="space-y-4 pt-1 relative z-10">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent-subtle text-accent-fg border border-accent/20 text-xs font-semibold">
-                      <Target className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>{priorityLabel(nextTask.priority)}</span>
-                    </span>
-                    {nextTaskProject && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-hover text-secondary border border-border/60 text-xs font-semibold">
-                        <Folder className="w-3.5 h-3.5 text-accent-fg" aria-hidden="true" />
-                        <span className="truncate max-w-[140px]">{nextTaskProject.name}</span>
+            {/* Unified Command Center: Today's Focus & Daily Commitments */}
+            <div className="cockpit-master">
+              <section className="cockpit-focus-segment">
+                <div className="insights-hero-glow" aria-hidden="true" />
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-4 relative z-10">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-accent animate-pulse" aria-hidden="true" />
+                    <h2 className="text-base sm:text-lg font-bold text-primary tracking-tight">Today's Focus</h2>
+                  </div>
+                  {link('Open Planner', '/app/planner')}
+                </div>
+                {nextTask ? (
+                  <div className="space-y-4 pt-1 relative z-10">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent-subtle text-accent-fg border border-accent/20 text-xs font-semibold">
+                        <Target className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>{priorityLabel(nextTask.priority)}</span>
                       </span>
-                    )}
-                    {overdue.has(nextTask.id) && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-danger-bg text-danger-fg border border-danger-border text-xs font-semibold">
-                        <Clock className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>Overdue</span>
+                      {nextTaskProject && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-hover text-secondary border border-border/60 text-xs font-semibold">
+                          <Folder className="w-3.5 h-3.5 text-accent-fg" aria-hidden="true" />
+                          <span className="truncate max-w-[140px]">{nextTaskProject.name}</span>
+                        </span>
+                      )}
+                      {overdue.has(nextTask.id) && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-danger-bg text-danger-fg border border-danger-border text-xs font-semibold">
+                          <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span>Overdue</span>
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight break-words">
+                      <button
+                        type="button"
+                        onClick={() => openTask(nextTask.id)}
+                        className="text-left hover:text-accent-fg transition-colors rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                        title="View task details"
+                      >
+                        {nextTask.title}
+                      </button>
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-3 pt-2">
+                      <button
+                        type="button"
+                        disabled={toggleTask.isPending}
+                        onClick={() => toggleTask.mutate(nextTask)}
+                        className="krama-btn krama-btn-secondary px-4 py-2.5 text-sm font-medium disabled:opacity-50"
+                      >
+                        {toggleTask.isPending && toggleTask.variables?.id === nextTask.id
+                          ? 'Saving...'
+                          : 'Complete focus task'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openFocusTab(new URLSearchParams({ task: nextTask.id, date: data.dateKey }))}
+                        title="Start Focus in a new tab"
+                        className="krama-btn krama-btn-primary workspace-primary-action ml-auto"
+                      >
+                        <Play className="w-4 h-4 stroke-[2]" aria-hidden="true" />
+                        <span>Start Focus</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4 pt-1 relative z-10">
+                    <h3 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
+                      {openTasks.length
+                        ? 'Your tasks are waiting'
+                        : completed && tasks.length
+                        ? 'Today’s work is complete.'
+                        : Object.keys(dayPlan.data?.decisions || {}).length
+                        ? 'Your day is reviewed.'
+                        : 'Plan your day'}
+                    </h3>
+                    <div className="space-y-1 text-sm sm:text-base text-secondary leading-relaxed">
+                      <p>{openTasks.length ? 'The remaining tasks are waiting for unfinished prerequisites.' : 'No unreviewed tasks scheduled or due today.'}</p>
+                      <p>{openTasks.length ? 'Open Tasks to review what needs to happen first.' : 'Capture a task, then give it a place in Planner.'}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={event => openTasks.length ? navigate('/app/board') : openCapture(event.currentTarget, 'task')}
+                        className="krama-btn krama-btn-primary workspace-primary-action"
+                      >
+                        {openTasks.length ? 'Review tasks' : 'Create Task'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openFocusTab()}
+                        title="Start Focus in a new tab"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 min-h-[40px] text-sm font-medium text-accent-fg hover:text-blue-700 active:scale-[0.98] transition-all"
+                      >
+                        <Play className="w-4 h-4 stroke-[2]" aria-hidden="true" />
+                        <span>Start Focus</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {(tasks.length > 0 || (data.today?.focusMinutes || 0) > 0) && (
+                  <div className="pt-4 border-t border-border/60 mt-6 space-y-2.5 relative z-10">
+                    <div className="flex items-center justify-between text-xs text-secondary font-medium">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-accent-fg" aria-hidden="true" />
+                        {tasks.length
+                          ? `${completed} of ${tasks.length} tasks completed`
+                          : 'Start a session when you’re ready.'}
                       </span>
+                      {(data.today?.focusMinutes || 0) > 0 && (
+                        <span className="tabular-nums font-semibold text-primary">{Math.round(data.today?.focusMinutes || 0)} min of your focus time today</span>
+                      )}
+                    </div>
+                    {tasks.length > 0 && (
+                      <progress
+                        aria-label="Today's task completion"
+                        value={completedPercent}
+                        max={100}
+                        className="krama-progress w-full h-2 rounded-full"
+                      />
                     )}
                   </div>
-                  <h3 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight break-words">
-                    <button
-                      type="button"
-                      onClick={() => openTask(nextTask.id)}
-                      className="text-left hover:text-accent-fg transition-colors rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-                      title="View task details"
-                    >
-                      {nextTask.title}
-                    </button>
-                  </h3>
-                  <div className="flex flex-wrap items-center gap-3 pt-2">
-                    <button
-                      type="button"
-                      disabled={toggleTask.isPending}
-                      onClick={() => toggleTask.mutate(nextTask)}
-                      className="krama-btn krama-btn-secondary px-4 py-2.5 text-sm font-medium disabled:opacity-50"
-                    >
-                      {toggleTask.isPending && toggleTask.variables?.id === nextTask.id
-                        ? 'Saving...'
-                        : 'Complete focus task'}
-                    </button>
+                )}
+              </section>
 
-                    <button
-                      type="button"
-                      onClick={() => openFocusTab(new URLSearchParams({ task: nextTask.id, date: data.dateKey }))}
-                      title="Start Focus in a new tab"
-                      className="krama-btn krama-btn-primary workspace-primary-action ml-auto"
-                    >
-                      <Play className="w-4 h-4 stroke-[2]" aria-hidden="true" />
-                      <span>Start Focus</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4 pt-1 relative z-10">
-                  <h3 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
-                    {openTasks.length
-                      ? 'Your tasks are waiting'
-                      : completed && tasks.length
-                      ? 'Today’s work is complete.'
-                      : Object.keys(dayPlan.data?.decisions || {}).length
-                      ? 'Your day is reviewed.'
-                      : 'Plan your day'}
-                  </h3>
-                  <div className="space-y-1 text-sm sm:text-base text-secondary leading-relaxed">
-                    <p>{openTasks.length ? 'The remaining tasks are waiting for unfinished prerequisites.' : 'No unreviewed tasks scheduled or due today.'}</p>
-                    <p>{openTasks.length ? 'Open Tasks to review what needs to happen first.' : 'Capture a task, then give it a place in Planner.'}</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={event => openTasks.length ? navigate('/app/board') : openCapture(event.currentTarget, 'task')}
-                      className="krama-btn krama-btn-primary workspace-primary-action"
-                    >
-                      {openTasks.length ? 'Review tasks' : 'Create Task'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openFocusTab()}
-                      title="Start Focus in a new tab"
-                      className="inline-flex items-center gap-2 px-3.5 py-2 min-h-[40px] text-sm font-medium text-accent-fg hover:text-blue-700 active:scale-[0.98] transition-all"
-                    >
-                      <Play className="w-4 h-4 stroke-[2]" aria-hidden="true" />
-                      <span>Start Focus</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {(tasks.length > 0 || (data.today?.focusMinutes || 0) > 0) && (
-                <div className="pt-4 border-t border-border/60 mt-6 space-y-2.5 relative z-10">
-                  <div className="flex items-center justify-between text-xs text-secondary font-medium">
-                    <span className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-accent-fg" aria-hidden="true" />
-                      {tasks.length
-                        ? `${completed} of ${tasks.length} tasks completed`
-                        : 'Start a session when you’re ready.'}
-                    </span>
-                    {(data.today?.focusMinutes || 0) > 0 && (
-                      <span className="tabular-nums font-semibold text-primary">{Math.round(data.today?.focusMinutes || 0)} min of your focus time today</span>
-                    )}
-                  </div>
-                  {tasks.length > 0 && (
-                    <progress
-                      aria-label="Today's task completion"
-                      value={completedPercent}
-                      max={100}
-                      className="krama-progress w-full h-2 rounded-full"
-                    />
-                  )}
-                </div>
-              )}
-            </DashboardCard>
-
-            <DailyPlanning key={data.dateKey} date={data.dateKey} tasks={allTasks.data || tasks} focusTaskId={nextTask?.id} />
-        {allTasks.isError && <p role="alert" className="text-sm text-danger-fg">Could not load all tasks. <button onClick={() => allTasks.refetch()} className="underline min-h-11">Retry loading tasks</button></p>}
+              <DailyPlanning key={data.dateKey} date={data.dateKey} tasks={allTasks.data || tasks} focusTaskId={nextTask?.id} />
+            </div>
+            {allTasks.isError && <p role="alert" className="text-sm text-danger-fg">Could not load all tasks. <button onClick={() => allTasks.refetch()} className="underline min-h-11">Retry loading tasks</button></p>}
 
             {/* Today's Work List (if tasks scheduled or overdue) */}
             {tasks.length > 0 && (
@@ -519,10 +563,10 @@ export function Dashboard() {
             <DashboardCard title="Quick Capture">
               <div className="grid grid-cols-2 gap-2.5">
                 {[
-                  { id: 'task', label: 'Task', Icon: CheckSquare },
-                  { id: 'note', label: 'Note', Icon: FileText },
-                  { id: 'idea', label: 'Idea', Icon: Lightbulb },
-                  { id: 'link', label: 'Link', Icon: Link2 },
+                  { id: 'task', label: 'Task', Icon: CheckSquare, shortcut: 'C T' },
+                  { id: 'note', label: 'Note', Icon: FileText, shortcut: 'C N' },
+                  { id: 'idea', label: 'Idea', Icon: Lightbulb, shortcut: 'C I' },
+                  { id: 'link', label: 'Link', Icon: Link2, shortcut: 'C L' },
                 ].map((item) => (
                   <button
                     type="button"
@@ -536,10 +580,24 @@ export function Dashboard() {
                     <span className="text-xs sm:text-sm font-semibold text-primary group-hover:text-accent-fg transition-colors">
                       {item.label}
                     </span>
+                    <kbd className="ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface border border-border/60 text-secondary group-hover:border-accent/40 group-hover:text-accent-fg transition-colors hidden sm:inline-block">
+                      {item.shortcut}
+                    </kbd>
                   </button>
                 ))}
               </div>
             </DashboardCard>
+
+            {/* Habits Today Card */}
+            {habits.length > 0 && (
+              <DashboardCard title="Habits Today" action={link('All habits', '/app/habits')}>
+                <div className="divide-y divide-border/60">
+                  {habits.map((habit) => (
+                    <HabitCheckoff key={habit.id} habit={habit} />
+                  ))}
+                </div>
+              </DashboardCard>
+            )}
 
             {/* Projects Card */}
             <DashboardCard title="Projects" action={link('All projects', '/app/projects')}>
@@ -578,15 +636,6 @@ export function Dashboard() {
                 )}
               </div>
             </DashboardCard>
-
-            {/* Habits Today Card */}
-            {habits.length > 0 && (
-              <DashboardCard title="Habits Today" action={link('All habits', '/app/habits')}>
-                {habits.map((habit) => (
-                  <HabitCheckoff key={habit.id} habit={habit} />
-                ))}
-              </DashboardCard>
-            )}
 
             {/* Goal Progress Card */}
             {data.goals && data.goals.length > 0 && (

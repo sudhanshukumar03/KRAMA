@@ -360,12 +360,19 @@
 
 /* Executive Telemetry Grid & Cards */
 .telemetry-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
   position: relative;
   overflow: hidden;
   border-radius: 14px;
   background-color: var(--surface-1);
   border: 1px solid var(--border-default);
   padding: 14px 16px;
+  min-height: 110px;
   box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.04);
   transition: border-color var(--motion-fast) var(--ease-out),
               box-shadow var(--motion-fast) var(--ease-out),
@@ -389,12 +396,51 @@
   box-shadow: 0 6px 18px -3px rgb(0 0 0 / 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
 }
 
-/* Command Center Hero Enhancements */
-.hero-cockpit-accent {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, var(--surface-1)) 0%, var(--surface-1) 100%);
+/* Linear / Raycast Unified Command Center */
+.cockpit-master {
+  position: relative;
+  border-radius: 18px;
+  background-color: var(--surface-1);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.04), 0 6px 20px -4px rgb(15 23 42 / 0.06);
+  overflow: hidden;
+  transition: border-color var(--motion-fast) var(--ease-out),
+              box-shadow var(--motion-fast) var(--ease-out);
 }
 
-.dark .hero-cockpit-accent {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--surface-1)) 0%, var(--surface-1) 100%);
+.cockpit-master:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 8px 0 rgb(15 23 42 / 0.05), 0 12px 28px -4px rgb(15 23 42 / 0.09);
+}
+
+.dark .cockpit-master {
+  background-color: var(--surface-1);
+  border-color: var(--border-default);
+  box-shadow: 0 2px 6px 0 rgb(0 0 0 / 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+.dark .cockpit-master:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 8px 24px -4px rgb(0 0 0 / 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
+}
+
+.cockpit-focus-segment {
+  position: relative;
+  padding: 22px 24px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 6%, var(--surface-1)) 0%, var(--surface-1) 100%);
+}
+
+.dark .cockpit-focus-segment {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 9%, var(--surface-1)) 0%, var(--surface-1) 100%);
+}
+
+.cockpit-planning-segment {
+  padding: 22px 24px;
+  background-color: var(--surface-1);
+  border-top: 1px solid var(--border-default);
+}
+
+.dark .cockpit-planning-segment {
+  border-top-color: rgba(255, 255, 255, 0.07);
 }
 

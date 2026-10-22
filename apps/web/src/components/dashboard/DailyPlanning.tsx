@@ -35,13 +35,18 @@ export function DailyPlanning({ date, tasks, focusTaskId }: { date: string; task
   return (
     <section
       aria-label="Daily planning"
-      className="dashboard-priorities krama-card rounded-2xl p-5 sm:p-6 space-y-4"
+      className="dashboard-priorities cockpit-planning-segment space-y-4"
       aria-busy={save.isPending}
       data-state={save.isPending ? 'pending' : save.isError ? 'error' : 'idle'}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-primary tracking-tight">Your top three today</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-primary tracking-tight">Your top three today</h2>
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-accent-subtle text-accent-fg border border-accent/20">
+              Daily Commitments
+            </span>
+          </div>
           <p className="text-sm text-secondary mt-1">Pick up to three tasks to focus on today. They stay in your plan when you finish them.</p>
         </div>
         <button
@@ -116,8 +121,15 @@ export function DailyPlanning({ date, tasks, focusTaskId }: { date: string; task
               })}
             </ul>
           ) : (
-            <div className="rounded-xl border border-dashed border-border/80 bg-surface-hover/20 px-4 py-3 text-sm text-secondary">
+            <div className="rounded-xl border border-dashed border-border/80 bg-surface-hover/20 px-4 py-3.5 text-sm text-secondary flex flex-wrap items-center justify-between gap-2">
               <p>No priorities chosen yet. Add a task below or capture one in Inbox.</p>
+              <button
+                type="button"
+                onClick={() => navigate('/app/inbox')}
+                className="text-xs font-semibold text-accent-fg hover:underline shrink-0"
+              >
+                Go to Inbox →
+              </button>
             </div>
           )}
           <div className="pt-2">
