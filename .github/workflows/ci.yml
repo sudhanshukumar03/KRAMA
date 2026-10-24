@@ -82,6 +82,8 @@ jobs:
       run: pnpm -r run lint
 
     - name: Generate Prisma Client
+      env:
+        DATABASE_URL: postgresql://localhost:5432/krama?schema=public
       run: pnpm --filter server exec prisma generate
 
     - name: Verify committed migrations on disposable CI storage
